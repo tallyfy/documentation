@@ -1,0 +1,114 @@
+---
+id: 7d13685569c64dcb56bc3db1bbf8930e
+snippet: The article explains how to initiate a process through Tallyfy's API by obtaining
+  an access token, preparing JSON with necessary process details, and making a POST
+  request with specific headers and parameters to the API endpoint.
+title: Launch a process using Tallyfy API
+weight: 2
+---
+
+## How to launch a process using Tallyfy API
+
+:::note[Find our API documentation]
+You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
+:::
+
+This article provides a step-by-step guide on how to start a process using the Tallyfy API. First, you need to obtain an access token. To achieve this. Head over to Settings > Integrations > REST API, and then click on **View your API access token**.
+
+Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
+
+Once you have your token, you can proceed to gather the necessary information.
+
+This includes:
+
+- The name of the process
+- The ID of the template
+- Any kick-off field IDs and their corresponding values, as well as the tags and tasks associated with the template.
+
+Next, you'll need to prepare your JSON by filling in the required fields such as the process name and the template ID. Make sure to include the tasks and any prerun fields, such as text fields, images, checklists, dropdowns, radio buttons, and dates.
+
+After preparing your JSON, you can make the API call. Use the `POST` request type and the URL `go.tallyfy.com/api/organizations/{your_org_id}/runs`. Don't forget to include the required headers: `'Accept: application/json'` and `'Authorization: Bearer {your_auth_token}'`.
+
+## Request example
+
+```
+{
+   "name": "name of Process",
+   "checklist_id": "<Blueprint Id>",
+   "summary": "Process summary",
+   "owner_id": 0,
+   "tasks":  {
+       "<Step ID or Step alias>": {
+       "position": "<Task position, start from 1>",
+       "deadline": "2016-01-01 00:00:00"
+       }
+    },
+    "prerun": [
+          {
+              "<prerun_id (if textfields)>": "Text Field Value"
+          },
+          {
+              "<prerun_id (if images)>": [
+                 {
+                     "id": "<Id>",
+                     "filename": "Image.png",
+                     "version": 1,
+                     "url": "tallyfy.com/example-image.png",
+                     "uploaded_from": "ko_field",
+                     "subject": {
+                          "id": "<Subject Id>",
+                          "type": "Checklist"
+                     }
+                 }
+              ]
+          },
+          {
+              "<prerun_id (if checklist)>": {
+                   "id": 1,
+                   "text": "abc.",
+                   "value": "null",
+                   "selected": true
+              }
+          },
+          {
+              "<prerun_id (if dropdown)>": {
+                   "id": 1,
+                   "text": "abc.",
+                   "value": "null"
+              }
+          },
+          {
+              "<prerun_id (if radio button)>": "Radio Button Value"
+          },
+          {
+              "<prerun_id (if date)>": "2019-12-12T17:18:55.000Z"
+          }
+    ],
+    "tags":  [
+         "<Tag Id>"
+    ]
+ }
+```
+
+Once the call is made, you will receive a response with a status code of 201. This response will include information about the created process, such as its ID, checklist ID, name, summary, status, progress, and more.
+
+## A special note about task assignments at launch
+
+* When you launch a new process and add assignees/owners to a task ("users" or "groups" or "guests"), those assignees in the request body will take priority and be assigned, and the assignees in the _Step_ will be ignored.
+* When the task owners are empty, and the _Step's_ owners (assignees/groups or guests) are filled - then the _Step_ owners will be assigned.
+* When the task and _Step_ owners are empty and `assign_run_starter=true` - then the user launching the process will be assigned to it by default.
+* When the task and _Step_ owners are empty and `assign_run_starter=false` - then the new task will be kept unassigned.
+
+If you need assistance with integrations or advanced features, feel free to contact Tallyfy Support for additional services.
+
+Now you're ready to start your process using the Tallyfy API! Happy automating!
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Triggers > Launch via API</b>" href="/products/pro/launching/triggers/via-api/" > Developers can utilize Tallyfy's open API to programmatically launch processes by sending specific request payloads and following the documented integration guidelines. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Integrate with Tallyfy using API</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Tallyfy's REST API integration requires an access token for authentication, supports specific date formatting conventions, and offers both ordinary member usage and client app integration options alongside webhook functionality. </LinkTitleCard>
+<LinkTitleCard header="<b>Launching > Launch a process from a web form</b>" href="/products/pro/launching/how-to-launch-a-tallyfy-process-from-a-webform/" > Tallyfy enables users to efficiently launch processes and automatically populate fields through a web form integration by sharing a unique URL with customizable query parameters for field values. </LinkTitleCard>
+<LinkTitleCard header="<b>Launching > Launch manually</b>" href="/products/pro/launching/how-can-i-launch-a-process-in-tallyfy/" > Launching a process in Tallyfy involves naming it, selecting assignees, setting deadlines, and monitoring progress through the Tracker view while managing hidden steps and making necessary adjustments to task assignments and timelines. </LinkTitleCard>
+</CardGrid>

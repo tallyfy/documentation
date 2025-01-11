@@ -1,0 +1,152 @@
+name: Tallyfy Answers Workflow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+      - .github/workflows/answers.yml
+      - .github/workflows/publish.yml
+      - scripts/**
+
+
+jobs:
+  generate-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate IDs script
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            python -m pip install --upgrade python-frontmatter
+            python scripts/generate-ids.py --dir=$PWD --files="$file_changes"
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+        shell: bash
+      - name: Commit and push new articles with IDs
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git pull
+            git add .
+            git commit -m "Push Articles With ID(s)" -a
+            git push
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+    outputs:
+      generate-ids-completed: ${{ steps.generate-ids.outcome }}
+
+  generate-snippets:
+    needs: generate-ids
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate snippets script
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git pull
+            python -m pip install --upgrade python-frontmatter requests
+            python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
+          else
+            echo "No new files added. Skipping snippet generation."
+          fi
+        shell: bash
+      - name: Commit and push articles with snippets
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git pull
+            git add .
+            git commit -m "Push Articles With snippet(s)" -a
+            git push
+          else
+            echo "No files changed. Skipping snippet generation."
+          fi
+    outputs:
+      generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
+
+  upload-to-tallyfy-answers:
+    needs: generate-snippets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Dump articles into JSON file
+        run: |
+          git pull
+          python -m pip install --upgrade python-frontmatter requests
+          python scripts/answers-connector.py --dir=$PWD/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+        shell: bash
+    outputs:
+      upload-to-tallyfy-answers-completed: ${{ steps.upload-to-tallyfy-answers.outcome }}
+
+  check-deleted-files:
+    needs: upload-to-tallyfy-answers
+    #    if: needs.upload-to-tallyfy-search.outputs.upload-to-tallyfy-search-completed == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Check deleted files
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            python -m pip install --upgrade python-frontmatter requests
+            python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }}
+          else
+            echo "No files were deleted. Skipping ..."
+          fi
+
+
+  generate-related-articles:
+    needs: upload-to-tallyfy-answers
+    #    if: needs.upload-to-tallyfy-search.outputs.upload-to-tallyfy-search-completed == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate related articles script
+        run: |
+          git pull
+          python -m pip install --upgrade python-frontmatter requests
+          python scripts/generate-related-articles.py --dir=$PWD/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+        shell: bash
+      - name: Commit and push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Push related articles" -a
+          git pull
+          git push
