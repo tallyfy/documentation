@@ -107,7 +107,7 @@ def main():
 	claude_client = ClaudeClient(args.token, system_prompt)
 
 	# Process files
-	skip_list = {"docs/404.mdx"}
+	skip_list = {"src/content/docs/404.mdx"}
 	files = [f.strip() for f in str(args.files).split('\n') if f.strip()]
 
 	success_count = 0
@@ -129,5 +129,5 @@ def main():
 
 	return 0 if success_count == total_files else 1
 
-if __name__ == "__main__":
-	exit(main())
+# if __name__ == "__main__":
+# 	exit(main())

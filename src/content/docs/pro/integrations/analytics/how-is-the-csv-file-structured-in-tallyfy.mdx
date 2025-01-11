@@ -1,0 +1,100 @@
+---
+id: a814587b5717a50b2325f67e69192279
+snippet: The CSV export of a single process contains 45 columns organized in sections
+  covering process basics, task details, completion information, form field data,
+  and comment/issue tracking, flattening hierarchical process data into a row format
+  suitable for analysis and reporting.
+title: CSV file structure
+weight: 3
+---
+
+## What is the structure of the CSV export of a single process?
+
+The process CSV file contains 45 columns. In this article, we are going to explain exactly what you are seeing in the CSV file - so please scan the columns from left to right, as you read (top to bottom) down this article.
+
+Given that CSV is not a "hierarchical" data format like JSON - which can have nested trees, we did some interesting gymnastics to "flatten" process data into a CSV-ready row format.
+
+Note that if you're a customer of Tallyfy Analytics - this core CSV file is exactly the same file used to generate .parquet files for consumption via Amazon Athena in your favorite BI tool. If you see any date fields below, and you're using Amazon Athena to build SQL within Tableau or PowerBI - you might need to use date transformation functions within your SQL - since Athena uses Presto.
+
+### The first 12 columns describe basics
+
+- **blueprint_id**: a unique identifier for the blueprint used to create the process.
+- **blueprint_name**: the name of the blueprint used to create the process.
+- **blueprint_version**: an increasing number that can be used to identify whether the blueprint was changed between processes launching. If the numbers differ, that means the underlying blueprint was changed between one process and another. This field is supplied as a string but it's an integer for analytic purposes.
+- **process_id**: a unique identifier for the individual process.
+- **process_name**: the name of the individual process.
+- **process_tag**: a list of any tags that are assigned to the process.
+- **process_owner**: the name of the owner of the process, as a human-readable string.
+- **process_owner_id**: unique user ID of the same process owner in process_owner. This field is supplied as a string but it's an integer for analytic purposes.
+- **total_tasks_in_process**: the total number of tasks in the process. This field is supplied as a string but it's an integer for analytic purposes.
+- **tasks_completed**: the number of tasks in the process that have been completed. This field is supplied as a string but it's an integer for analytic purposes.
+- **process_status**: status of the process: active, problem, or complete.
+- **process_last_modified**: date and time the process was last modified.
+
+These next set of columns describe specific tasks and other data within the process:
+
+- **type**: type of data being described in this row. kick_off_task, process_task, process_task_data (form field), or process_task_comment.
+- **has_form_fields**: Answers the question: “Does this task include form fields?” with Yes or No.
+- **kick_off_task_id**: a unique identifier for the kickoff task. The same identifier is used for the same kickoff task in all processes from the same blueprint.
+- **kick_off_task_name**: name of the kickoff task.
+- **process_task_id**: a unique identifier for the task. Unlike kick_off_task_id, this identifier is different for each process from the blueprint which contains this task.
+- **process_task_status**: whether the task is shown or hidden based on rules in the blueprint.
+- **process_task_name**: name of the task.
+- **process_task_alias**: the alias of the process task which can be very useful to compare processes like-for-like. For pivoting on the same task across multiple process instances (to compare them) - use this field, which does not change if it exists in the parent blueprint.
+- **process_task_data_id**: unique identifier for the process task data item (i.e. form field). This identifier is the same for this form field in multiple processes from the same blueprint.
+- **process_task_data_name**: The name of the task containing this form field.
+- **process_task_comment_id**: unique identifier for this comment.
+- **process_task_comment_name**: name of the task this comment is attached to.
+
+### Information about who completed a task and when
+
+- **user_assigned**: Name(s) of user(s) assigned to this task. If it's a group - the value would be "GROUP - Group Name"
+  assigned_user_id: ID of user(s) assigned to this task. For a group, this value would be "GROUP_VALUE" where "VALUE" is the unique ID of the group. This field is supplied as a string.
+- **guest_assigned**: email address of the assigned guest for the task (if a guest is assigned).
+- **total_users_assigned**: number of users assigned to this task. This field is supplied as a string but it's an integer for analytic purposes.
+- **total_guests_assigned**: number of guests assigned to this task.This field is supplied as a string but it's an integer for analytic purposes.
+- **total_assignees**: total number of people assigned to this task. This field is supplied as a string but it's an integer for analytic purposes.
+- **completed_by**: the ID number of the user who completed the task. This field is supplied as a string but it's an integer for analytic purposes.
+- **assigned_or_shown_on**: a date for when the task was shown - either when the process launches or when the tasks' status becomes "shown" due to a rule. Iftask is hidden, it's blank. This may help work out a more accurate time for how long a task took to complete.
+- **due_by**: deadline for the task to be completed.
+- **completed_on**: date and time the task was completed.
+
+### Information about form fields
+
+- **no_of_form_fields**: the number of form fields included in the task. This field is supplied as a string but it's an integer for analytic purposes.
+- **form_field_type**: the type of this form field. One of text, multiselect, textarea, radio, dropdown, date or file.
+- **question_in_form_field**: the question in this form field.
+- **answer_in_form_field**: answer or value entered for this specific form field.
+
+### Information about comments and issues
+
+- **issue_reported**: whether an issue was reported by this comment.
+- **no_of_issue_reported**: total number of issues reported on this task. This field is supplied as a string but it's an integer for analytic purposes.
+- **issue_resolved**: whether this issue was resolved.
+- **no_of_issue_resolved**: total number of resolved issues on this task. This field is supplied as a string but it's an integer for analytic purposes.
+- **total_comments**: number of comments on this task (excludes comments that report or resolve an issue). This field is supplied as a string but it's an integer for analytic purposes.
+- **comment**: text of the comment.
+- **last_modified**: date and time this data row was last modified.
+
+
+## Export CSV
+
+The CSV has columns and rows with all the process tasks and its details. You can view, sort and aggregate data for processes via each CSV, which always has the same schema for each process - described above.
+
+You can export a CSV by clicking on Settings on the top right corner of a process and scrolling to the bottom to click _Export CSV_
+
+![image](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-export-csv.png)
+
+## Example of an exported CSV
+
+![Process CSV](https://screenshots.tallyfy.com/file-JFjFk3MCzJ.png)
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Export process to CSV</b>" href="/products/pro/tracking-and-tasks/processes/how-can-i-export-tallyfy-processes-to-csv/" > Tallyfy users can export process data into CSV format by accessing the Settings option in an active process and clicking the Export CSV button at the bottom of the page. </LinkTitleCard>
+<LinkTitleCard header="<b>Middleware > Stream data to a spreadsheet</b>" href="/products/pro/integrations/middleware/how-can-i-export-form-fields-from-tallyfy-to-spreadsheet/" > Form field data from Tallyfy can be streamed directly to spreadsheets using middleware services like Zapier or Microsoft Power Automate for efficient data collection and storage. </LinkTitleCard>
+<LinkTitleCard header="<b>Analytics > How Tallyfy Analytics works</b>" href="/products/pro/integrations/analytics/how-does-tallyfy-analytics-process-my-data/" > Tallyfy Analytics processes data by streaming events in real-time, converting them to Parquet format, storing them in Amazon S3, and enabling access through Amazon Athena for SQL queries and BI tool integration. </LinkTitleCard>
+<LinkTitleCard header="<b>Features > Real time status</b>" href="/products/pro/tutorials/features/real-time-status/" > A comprehensive workflow automation platform that enables real-time process tracking, predictable operations, and automated task management while eliminating manual updates and inefficient communication methods. </LinkTitleCard>
+</CardGrid>

@@ -1,0 +1,61 @@
+---
+id: e97ba7885f82e4e5a7bfdbc4cdb159d7
+pcx_content_type: auth
+snippet: Authentication for Manufactory's websocket requires a POST request to /auth
+  with project credentials and actor profile details, generating a client UUID valid
+  for 12 hours.
+title: Authentication for the web socket collector
+weight: 1
+---
+
+Before you can start sending data to Manufactory via a web socket, you need to authenticate the client/end-user.
+
+You can authenticate users using the endpoint `POST /auth`.
+
+Required header:
+
+- `X-Manufactory-Auth` - Project key of the project to be populated.
+
+### Required keys
+
+- `org_id` (required) string - Manufactory org ID.
+- `project_id` (required) number - The project ID associated with this schema.
+- `actor_profile` (required) object - Pairs containing attribute name and the corresponding value while considering the correct attribute names and data types. Please refer to [Get Actors schema](/manufactory/actors/get_schema/).
+
+### Request example
+```json
+{
+  "org_id": "xyz",
+  "project_id": 12345,
+  "actor_profile":{
+    "city": "New York",
+    "country": "USA",
+    "username": "john.doe",
+    "email": "john.doe@email.com"
+
+  }
+}
+```
+
+### Response example
+
+```json
+{
+  "org_id": "xyz",
+  "project_id": 12345,
+  "actor_profile_id": 1,
+  "client_uuid": "dcd21714-894c-46bc-9d59-ae9f22753205"
+}
+```
+
+The generated client UUID is limited to this specific user profile, and it's valid for a 12 hours session. After 12 hours, you would need to re-authenticate the client.
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Websocket > Connect to our Web Socket Server</b>" href="/products/manufactory/collector/websocket/connect_to_ws/" > After establishing a websocket connection with Manufactory Collector, users need to authenticate by sending a message containing their org ID, project ID, actor profile ID, and client UUID to pair the connection with the client. </LinkTitleCard>
+<LinkTitleCard header="<b>Actors > Create actors schema</b>" href="/products/manufactory/actors/create_schema/" > The POST /actors/schema endpoint allows creation of actor schemas by specifying organization ID, project ID, attributes with data types, and a unique identifier field while requiring authentication via a Manufactory access token. </LinkTitleCard>
+<LinkTitleCard header="<b>Agent > Authentication for the agent collector</b>" href="/products/manufactory/collector/agent/auth/" > Authentication for Manufactory requires configuring a file with organization ID, project ID, and project key values, which must be placed in the same directory as the manufactory-agent file. </LinkTitleCard>
+<LinkTitleCard header="<b>Actors > Get actors schema</b>" href="/products/manufactory/actors/get_schema/" > The actors schema endpoint returns attribute details like city, country, email, and username for a specified organization and project when authenticated with a Manufactory access token. </LinkTitleCard>
+</CardGrid>

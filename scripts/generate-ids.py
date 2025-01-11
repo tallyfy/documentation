@@ -25,7 +25,7 @@ file_names = args.files
 dir_path = args.dir
 
 new_files = str(file_names).split('\n')
-skip_list = ["docs/404.mdx"]
+skip_list = ["src/content/docs/404.mdx"]
 for new_file in new_files:
 	if new_file.endswith('.mdx') and new_file not in skip_list:
 		f = dir_path + '/' + new_file

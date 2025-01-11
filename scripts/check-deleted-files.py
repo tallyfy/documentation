@@ -13,7 +13,7 @@ OWNER = 'muAdham'
 REPO = 'support-docs'
 GITHUB_API_BASE = f'https://api.github.com/repos/{OWNER}/{REPO}/'
 TALLYFY_ANSWERS_API_BASE = 'https://answers.tallyfy.com/collections/'
-
+ANSWERS_API_KEY = None
 def delete_object(uid, tallyfy_answers_api):
 	"""
     Delete an object from the Tallyfy Answers API by its UID.
@@ -55,8 +55,12 @@ def main():
 	parser.add_argument('--commit_sha', required=True, type=str, help='Commit SHA')
 	parser.add_argument('--collection_name', required=True, type=str, help='Tallyfy Answer collection name')
 	parser.add_argument('--github_token', required=True, type=str, help='GitHub Personal Access Token')
+	parser.add_argument('--answers_api_key', required=True, type=str, help='Tallyfy Answers API Key')
 
 	args = parser.parse_args()
+
+	global ANSWERS_API_KEY
+	ANSWERS_API_KEY = args.answers_api_key
 
 	# Variables
 	commit_sha = args.commit_sha
