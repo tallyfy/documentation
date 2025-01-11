@@ -129,5 +129,5 @@ def main():
 
 	return 0 if success_count == total_files else 1
 
-# if __name__ == "__main__":
-# 	exit(main())
+if __name__ == "__main__":
+	exit(main())
