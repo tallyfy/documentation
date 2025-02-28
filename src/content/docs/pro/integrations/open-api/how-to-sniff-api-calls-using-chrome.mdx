@@ -7,7 +7,7 @@ title: Sniff API calls using Chrome
 weight: 15
 ---
 
-## How to emulate client calls using Chrome's developer tools
+## Tallyfy is API-first so you can "sniff" the actual API calls and see them
 
 :::note[Find our API documentation]
 You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
@@ -17,7 +17,52 @@ Looking through our API documentation can be helpful, but sometimes you need mor
 
 Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
 
-## Common Issues
+## How to "sniff" API calls using Chrome Developer Tools
+
+Chrome Developer Tools can help you inspect network requests to see how Tallyfy’s web app calls its API. This section will walk you through capturing and analyzing calls to Tallyfy’s `/api/` endpoints using Chrome DevTools. You’ll learn how to filter for Tallyfy API traffic, view request details (headers, payloads, responses), and understand any Tallyfy-specific requirements (like authentication tokens and headers). Follow the steps below to get started.
+
+## Step-by-Step Instructions
+
+1. **Open Chrome DevTools** – Navigate to the Tallyfy web application (e.g. your Tallyfy client app) and sign in. Right-click anywhere on the page and choose **Inspect** (or press `F12`) to open Chrome’s Developer Tools. This will bring up the DevTools panel (usually docked to the side or bottom of your browser window).  
+2. **Go to the Network tab** – In the DevTools panel, click the **Network** tab. This tab lets you see all network requests the page is making (like API calls, image loads, etc.). Make sure recording is enabled (the round record button at top left of the Network tab should be red). If it’s not recording, click it to start.  
+3. **Reproduce the action** – With the Network tab open, perform an action in Tallyfy that triggers an API call. For example, navigate to a page or click a button in the Tallyfy app that you suspect calls the API (such as loading a list of processes or launching a new process). If you’re not sure which action to take, simply refresh the Tallyfy web page. Chrome will capture the network requests that occur during page load or your interaction. You should see entries populating in the Network tab’s request list.  
+4. **Filter for Tallyfy API calls** – To focus on just the API calls, you can use filters:
+   - Click the “XHR” filter at the top of the Network tab. This shows XMLHttpRequests/fetch calls, which is how most API calls appear in the browser. In Chrome DevTools, API requests made via JavaScript typically show up as **XHR** or **fetch** in the **Type** column, indicating an API call.
+   - Additionally, use the search filter box (usually labeled “Filter” or a magnifying glass icon) to narrow down requests. Type `/api/` into the filter box. This will filter the list to only show requests whose URL contains “/api/”, which is the path used by Tallyfy’s REST API endpoints. For example, Tallyfy API calls might look like `https://go.tallyfy.com/api/organizations/...` – typing “/api/” ensures you see those and not other resources.  
+   After filtering, the Network request list should display only Tallyfy API calls. If no entries show up, double-check that you performed an action that triggers an API call and that the filter text is correct (clear the filter to see if any requests were captured at all). You can also toggle “All” or “XHR” to ensure you’re viewing the correct request types.
+5. **Select an API call to inspect** – Click on one of the Tallyfy `/api/` requests in the filtered list. This will open a details pane with multiple tabs (such as **Headers**, **Payload** or **Request**, **Response**, **Preview**, **Cookies**, etc.). Now you can dig into the specifics of this API call.
+
+## Inspecting Request Details
+
+When you select a specific API call, Chrome DevTools shows detailed information about it:
+
+- **General & Headers**: Under the **Headers** tab, you’ll see the **General** section with info like the Request URL, HTTP method (GET, POST, etc.), and the response status code. Scroll down to **Request Headers** to see what headers were sent with the request, and **Response Headers** to see what the server replied with. Pay attention to any **Authorization** headers or Tallyfy-specific headers. For Tallyfy’s API, the requests will include an authentication token (often as an `Authorization: Bearer <token>` header) and must include a special header `X-Tallyfy-Client: APIClient` if you are calling the API outside the web app. Tallyfy’s servers require the `X-Tallyfy-Client: APIClient` header for API calls made directly to the API endpoint, otherwise the requests will be dropped. In the Headers section, you can verify if these headers are present in the call made by the web app.  
+
+- **Request Payload / Body**: If the call is a POST (or PUT/PATCH) that sends data, click the **Payload** (or **Request** > **Request Payload**) section. Here you can examine the JSON data that was sent to the API. Chrome might show a parsed view of the JSON (expandable object tree). To copy this data for use in your own requests, **switch to the raw view**. Look for a **“View Source”** or **“Raw”** toggle in the Payload section and click it – this will display the raw JSON string. Copying from the raw source ensures you get a correctly formatted JSON payload (the exact request body). *Tip:* When emulating this API call in a tool like Postman or cURL, paste this raw JSON as the request body. Make sure the content type is set to JSON (usually `application/json`). 
+
+- **Response & Preview**: Click the **Response** or **Preview** tab to see the data returned by the API. This is the server’s answer to the request – usually a JSON object for Tallyfy’s API. You can inspect the JSON structure here (DevTools may show a formatted preview). This helps you understand what data Tallyfy returned (e.g. a success message, the object you created or requested, or an error message). For instance, if the API call failed, you might see an error response with a message and an HTTP status like 401 (Unauthorized) or 404 (Not Found), which can hint at authentication or endpoint issues.
+
+## More tips - Authentication & Headers
+
+Tallyfy’s API has some specific requirements to be aware of when sniffing or replicating calls:
+
+- **Authentication**: You must be authenticated to successfully call Tallyfy’s API. In the web app, this is handled for you (your browser session or token is used). When you inspect a request in DevTools, look for an **Authorization** header – you’ll typically see a bearer token, which proves your identity to the API. If you plan to reproduce the API call in an external tool or script, you’ll need to use your own API token. You can obtain a personal API access token from the Tallyfy app by going to **Settings > Integrations > REST API** and clicking “View your API access token”. Use this token in an `Authorization: Bearer YOUR_TOKEN` header for your API calls. The token in the DevTools request might be a session token or a temporary token; it’s best to use your own token from the REST API settings for external calls.
+
+- **`X-Tallyfy-Client` header**: As mentioned earlier, any request made directly to Tallyfy’s REST API (not through the web interface) **must include** the header `X-Tallyfy-Client: APIClient`. This is a required identifier for Tallyfy’s backend to accept the request. When you’re just sniffing calls in DevTools, you will see this header in the request if the web app included it (or a similar header). If it’s missing, that’s because the Tallyfy web app might have special handling on their side – but when **you** emulate the call, be sure to add it. Forgetting this header is a common mistake that leads to your request being dropped with no effect. 
+
+- **Content type and format**: Ensure that when you replicate any API call, you send data in the correct format. The request headers in DevTools will show `Content-Type: application/json` (for JSON payloads). Make sure to send JSON, not plain text. For example, if you’re using an API client, select “raw” body with JSON format – **do not** send the JSON as “Text”, otherwise the server won’t parse it correctly.
+
+![](https://screenshots.tallyfy.com/file-jQ6U4G7gl3.png)
+
+## Troubleshooting Tips
+
+Even with the steps above, you might run into some common issues. Here are a few troubleshooting tips:
+
+- **No requests showing up**: If you don’t see any network calls in the DevTools Network tab, first ensure you have the DevTools open **before** the requests are made. DevTools only logs requests that happen while it’s open (unless you enable **Preserve log**). Try refreshing the page after opening the Network tab. Also, check that you haven’t applied an overly restrictive filter. If `/api/` filtering shows nothing, clear the filter or set it to “All” to see if any requests at all are captured. It’s possible the page content was cached; in that case, try disabling the cache (there’s a “Disable cache” checkbox in the Network tab) and refresh, or perform a hard reload (Ctrl+Shift+R).
+
+- **Incorrect filtering**: Double-check your filter settings. If you typed a filter string, make sure it exactly matches part of the API URL (for instance, using `api` versus `/api/` – the Chrome filter is case-sensitive and literal). Using the built-in **XHR** filter is a quick way to narrow down to API calls. If you still don’t see what you expect, remove the filter to ensure the request isn’t being hidden by it. You can also use the search feature (Ctrl+F in the Network tab) to find “tallyfy” or “api” in case the requests use a different domain or appear under a different category.
+
+- **Authentication errors**: If the API calls you captured are returning HTTP 401 Unauthorized or you see errors in the Response, it could be due to authentication. Make sure your Tallyfy session is active (you’re logged in) when sniffing the calls. If you are trying to replicate a call in another tool, an authentication error means your token or cookie is missing or invalid. Retrieve a valid API token from Tallyfy as described above and include it in the `Authorization` header. Also remember to include `X-Tallyfy-Client: APIClient` in your replicated requests – forgetting this will result in the request being dropped with no useful error. Always compare the request headers in your external tool with those shown in DevTools to ensure nothing important is missing.
 
 ## Using the raw source
 
@@ -29,12 +74,6 @@ Here's how to copy the request payload properly:
 2. Copy the raw/source body.
 
 ![](https://screenshots.tallyfy.com/file-Tf8g3FBse8.png)
-
-## Sending JSON, not text
-
-Make sure to send your payload in JSON format, not as plain text. Selecting the "Text" option is incorrect.
-
-![](https://screenshots.tallyfy.com/file-jQ6U4G7gl3.png)
 
 import { CardGrid, LinkTitleCard} from "~/components";
 
