@@ -69,7 +69,7 @@ content = []
 for file in en_files_list:
 	data = frontmatter.load(file)
 	url = file.split(EN_CONTENT_PATH)[1].split('.mdx')[0]
-	if "index" in url:
+	if url.endswith("index"):
 		url = url.replace("index", '')
 
 	hierarchy = generate_file_hierarchy(file, EN_CONTENT_PATH)
@@ -85,6 +85,7 @@ for file in en_files_list:
 with open('data.json', 'w') as f:
 	json.dump(content, f)
 
+exit()
 # Upload JSON file
 files = [
 	('data', ('data.json', open("data.json", 'rb'), 'application/json'))
