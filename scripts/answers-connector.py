@@ -85,7 +85,7 @@ for file in en_files_list:
 with open('data.json', 'w') as f:
 	json.dump(content, f)
 
-exit()
+
 # Upload JSON file
 files = [
 	('data', ('data.json', open("data.json", 'rb'), 'application/json'))
