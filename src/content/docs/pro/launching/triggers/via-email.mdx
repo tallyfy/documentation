@@ -8,68 +8,133 @@ snippet: Automated process initiation can be achieved by sending emails to speci
 title: Launch via inbound email
 ---
 
+## Prerequisites
+
+Before setting up email-triggered processes, ensure you have:
+- A Tallyfy account with template editing permissions
+- Process templates without required kickoff form fields
+- Understanding of your organization's email security policies
+- Access to the email address you'll use to send trigger emails
+
 ## Email-triggered process launches
 
-Tallyfy allows you to initiate processes automatically by sending emails to designated addresses. This feature enables streamlined process initiation without logging into the platform.
+Tallyfy allows you to initiate processes automatically by sending emails to designated addresses. This feature enables streamlined process initiation without logging into the platform, making it ideal for field teams, mobile users, and scenarios requiring quick process starts.
 
-:::note[Kickoff form limitation]
-Email-triggered launches will not work for templates with **Required** kickoff form fields. If you attempt to launch such templates via email, you'll receive a failure notification.
+:::warning[Kickoff form limitation]
+Email-triggered launches will not work for templates with **Required** kickoff form fields. If you attempt to launch such templates via email, you'll receive a failure notification. Use templates with optional kickoff fields only.
 :::
 
 ## Configuring email triggers
 
 To set up email-based process launching:
 
-1. Navigate to the edit view of your template
-2. Locate the **Triggers** section
-3. Select **Other options**
+1. Navigate to the **Templates** section
+2. Select the template you want to configure
+3. Click **Edit Template**
+4. Locate the **Triggers** section in the left sidebar
+5. Select **Other options**
 
 ![Other options selection](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-select-other-options-triggers.png)
 
-4. Choose the **Via inbound email** option
-5. The system displays the email address to use for launching this process
+6. Choose the **Via inbound email** option
+7. The system displays the email address specifically generated for launching this process
+8. Copy this email address for future use
+
+## How the email trigger works
+
+When the system receives an email to the designated address:
+
+1. It verifies the sender's email matches a member in your organization
+2. It creates a new process instance from the associated template
+3. It uses the email subject as the process name
+4. It populates any matching kickoff fields with email content
+5. It notifies task assignees about the new process
 
 ## Capturing email content
 
-You can automatically capture email content in kickoff fields:
+You can automatically capture email content in kickoff fields by creating fields with these specific names:
 
-* **Email body** - Store the email text in a dedicated field
-* **Attachments** - Save email attachments to a file field
+| Field Name | Content Captured | Field Type |
+|------------|------------------|------------|
+| email_body | The complete text of the email | Long Text Area |
+| email_attachments | All files attached to the email | File Upload |
 
-If these specially named kickoff fields don't exist in your template, you can create them by clicking the "CREATE IT NOW" link.
+If these specially named kickoff fields don't exist in your template, you can create them by clicking the "CREATE IT NOW" link when configuring the email trigger.
+
+![Create email capture fields](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-create-email-fields.png)
 
 ## Email address format
 
-The standard format for process launch email addresses is:
+The standard format for process launch email addresses follows this pattern:
 
 ```
 bot+[TemplateID]-launch@tallyfy.com
 ```
 
-The TemplateID is visible in the URL when editing your template.
+Where `[TemplateID]` is the unique identifier for your template. This ID is visible in the URL when editing your template (the long alphanumeric string).
 
-## Important considerations
+## Implementation examples
+
+### Simple status update process
+
+**Scenario**: Field technicians need to submit quick status updates after site visits.
+
+**Implementation**:
+1. Create a template called "Site Visit Update" with these kickoff fields:
+   - email_body (to capture the update details)
+   - email_attachments (to capture photos from the site)
+2. Enable email triggering for this template
+3. Share the trigger email with the field team
+4. When technicians complete a visit, they send an email with:
+   - Subject: "Site Visit - [Client Name] - [Date]"
+   - Body: Details of the work completed
+   - Attachments: Photos of the completed work
+
+### Customer complaint processing
+
+**Scenario**: Forward customer complaint emails to start a resolution process.
+
+**Implementation**:
+1. Create a "Customer Complaint" template with email capture fields
+2. Enable email triggering
+3. When customer service receives a complaint email, they forward it to the trigger address
+4. The complaint details are preserved in the process for the resolution team
+
+## Important security considerations
 
 When using email triggers, note these key requirements:
 
-1. The sender's email address must match a member in the organization (security measure)
-2. The email subject becomes the process name
-3. The template and organization IDs must be valid
+1. The sender's email address must match a registered member in your organization (security measure)
+2. The email subject becomes the process name, so use descriptive subjects
+3. The template and organization IDs must be valid in the email address
 4. Templates with required kickoff fields cannot be launched via email
+5. Email addresses are template-specific and cannot be used for other templates
 
 ## Task commenting via email
 
-You can also add comments to tasks by responding to task notification emails:
+You can also add comments to existing tasks by responding to task notification emails:
 
-1. Reply to a task notification email
-2. The email body content becomes your comment text
-3. The email subject is not used for the comment
+1. Receive a task notification email from Tallyfy
+2. Reply directly to that email
+3. The email body content becomes your comment text in the task activity feed
+4. Attachments are added to the comment
+5. The email subject is not used for the comment
 
 The email address format for task comments is:
 
 ```
-bot+TASKID-comment-task@tallyfy.com
+bot+[TaskID]-comment-task@tallyfy.com
 ```
+
+Where `[TaskID]` is the unique identifier for the specific task.
+
+## Best practices for email triggers
+
+- Create a reference document for your team with all email trigger addresses
+- Use clear, consistent email subject formats for better process organization
+- Train users to include all relevant information in the email body
+- Test the trigger with different email clients before full implementation
+- Consider security implications when sharing trigger email addresses
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

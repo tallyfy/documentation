@@ -8,29 +8,107 @@ snippet: Recurring workflows can be automated through middleware platforms API s
 title: Launch via a schedule
 ---
 
+## Prerequisites
+
+Before implementing scheduled process launches, ensure you have:
+- A Tallyfy account with appropriate permissions
+- Process templates ready for scheduled execution
+- Access to middleware platforms or API capabilities
+- Clear understanding of your recurring process needs
+
 ## Recurring process scheduling
 
-For repeating workflows that need to run on a consistent schedule (daily, weekly, monthly, etc.), implementing an automated launch mechanism improves process consistency and reduces manual intervention.
+For repeating workflows that need to run on a consistent schedule (daily, weekly, monthly, etc.), implementing an automated launch mechanism improves process consistency and reduces manual intervention. Scheduled launches ensure critical business processes run on time without requiring manual initiation.
 
 ## Current implementation options
 
-While native scheduling functionality is under development, recurring processes can be implemented using third-party middleware solutions:
+While native scheduling functionality is under development, recurring processes can be implemented through several methods:
 
-1. **Middleware platforms** - Use scheduling capabilities in tools like Zapier, Make.com, or Microsoft Power Automate
-2. **API scheduling** - Implement a custom scheduling solution using the Tallyfy API
-3. **Integrated workflows** - Connect to existing scheduling systems in your organization
+### 1. Middleware platforms
+
+Use scheduling capabilities in tools like Zapier, Make.com, or Microsoft Power Automate.
+
+**Implementation steps:**
+1. Create an account on your preferred middleware platform
+2. Connect the platform to your Tallyfy account
+3. Create a new automation with a schedule trigger
+4. Configure the schedule (time, day, frequency)
+5. Add a Tallyfy action to launch a specific process
+6. Set process name format and populate any required fields
+7. Test and activate the scheduled launch
+
+**Example: Daily equipment check at 8:00 AM**
+```
+Trigger: Schedule (Every day at 8:00 AM)
+Action: Launch Tallyfy process
+Template: Equipment Safety Check
+Process name: Equipment Check - {date}
+```
+
+### 2. API scheduling
+
+Implement a custom scheduling solution using the Tallyfy API and a server-side scheduler.
+
+**Implementation steps:**
+1. Create a server-side script that calls the Tallyfy API
+2. Configure the script to launch specific process templates
+3. Set up a scheduler (cron job, Windows Task Scheduler, etc.)
+4. Schedule the script to run at desired intervals
+5. Implement logging and error handling
+6. Test across multiple schedule iterations
+
+**Example: Node.js script with cron**
+```javascript
+const cron = require('node-cron');
+const axios = require('axios');
+
+// Schedule task to run at 9:00 AM every Monday
+cron.schedule('0 9 * * 1', async () => {
+  try {
+    await axios.post('https://api.tallyfy.com/api/v1/processes', {
+      template_id: 'your-template-id',
+      name: `Weekly Report - ${new Date().toLocaleDateString()}`
+    }, {
+      headers: {
+        'Authorization': 'Bearer YOUR_API_TOKEN',
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('Weekly report process launched successfully');
+  } catch (error) {
+    console.error('Failed to launch process:', error);
+  }
+});
+```
+
+### 3. Integrated workflows
+
+Connect to existing scheduling systems in your organization that can trigger Tallyfy processes.
+
+**Implementation steps:**
+1. Identify scheduling systems already in use (ERP, HRIS, etc.)
+2. Configure integration points between these systems and Tallyfy
+3. Set up triggers based on scheduled events in these systems
+4. Map data from source systems to Tallyfy process fields
+5. Test the integration under various timing scenarios
 
 ## Recommended approach
 
 The most straightforward current solution is to use middleware with scheduling triggers. For a detailed implementation example, see our [Monthly Process Launch with Zapier](/products/pro/integrations/middleware/zapier/how-to-automate-monthly-process-launch-with-zapier/) guide.
 
-## Common scheduling use cases
+## Common scheduling use cases with examples
 
-* Regular compliance audits
-* Monthly reporting processes
-* Weekly status update workflows
-* Daily operational checklists
-* Quarterly review processes
+| Process Type | Frequency | Example Implementation |
+|--------------|-----------|------------------------|
+| Compliance audits | Monthly | Schedule equipment inspection process on the 1st of each month |
+| Financial reporting | Weekly | Launch expense approval workflow every Friday at 4:00 PM |
+| Team updates | Daily | Trigger daily standup checklist each morning at 9:00 AM |
+| Maintenance checks | Quarterly | Schedule facility inspection process on the first day of each quarter |
+| Client reviews | Annually | Launch client satisfaction survey process on client anniversary dates |
+
+:::note[Process naming]
+For scheduled processes, use consistent naming conventions that include the date/time of execution for easy identification. Example: "Monthly Compliance Check - May 2023"
+:::
 
 import { CardGrid, LinkTitleCard} from "~/components";
 
