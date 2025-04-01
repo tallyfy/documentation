@@ -8,77 +8,124 @@ snippet: Tallyfy Analytics integrates with Power BI through Amazon Athena using 
 title: Connect PowerBI
 ---
 
-## How to analyze Tallyfy data using Power BI
+## Power BI Integration with Tallyfy Analytics
 
-Tallyfy Analytics seamlessly integrates with popular BI and analytics tools like Power BI, giving you the freedom to analyze your data and make data-driven decisions.
+Tallyfy Analytics integrates with Microsoft Power BI to enable comprehensive analysis and visualization of your workflow data. This guide explains how to establish a secure connection between Power BI and Tallyfy Analytics using Amazon Athena as the data source.
 
-## Connecting Power BI to Amazon Athena
+### Integration Benefits
 
-Amazon offers a couple of ways to connect to their internal resources:
+- **Advanced Visualization** - Create interactive dashboards and reports based on process data
+- **Data-Driven Decisions** - Analyze workflow performance with powerful business intelligence tools
+- **Custom Analysis** - Develop tailored metrics specific to your organization's needs
+- **Automated Reporting** - Schedule and distribute workflow insights to stakeholders
+- **Centralized Data** - Combine Tallyfy data with information from other business systems
 
-* IAM username and password
-* Token-based authentication i.e. an Access Key
+## Authentication Methods
 
-The first and most important point about integrating to PowerBI is that unlike Tableau and other BI tools - we've found that it's a lot easier to use token-based authentication for this purpose. If you try connecting with the IAM method to Amazon Athena from Power BI via ODBC - you get an error like this quite often:
+Amazon Athena (which hosts Tallyfy Analytics data) offers two authentication approaches:
 
-> The security token included in the request is invalid
+| Authentication Method | Description | Recommendation |
+|----------------------|-------------|----------------|
+| IAM Username/Password | Web console credentials | Not recommended for Power BI |
+| Access Key/Secret | Token-based authentication | Recommended for Power BI |
 
-Tallyfy will create and provision the token-based credentials you need as part of the provisioning process for Tallyfy Analytics.
+:::caution[Authentication Best Practice]
+For Power BI connections, token-based authentication is strongly recommended. Using IAM credentials often results in the error: "The security token included in the request is invalid"
+:::
 
-### Important note
+When Tallyfy provisions your Analytics subscription, you'll receive two distinct credential sets:
 
-When you provision Tallyfy Analytics you will receive two sets of credentials.
+- **AWS IAM Login** (username/password) - Use only for accessing the AWS web console
+- **Access Key and Secret Access Key** - Use specifically for connecting Power BI and other BI tools
 
-* The _AWS IAM login_ is only used to access the AWS console on the web
-* The _Access Key_ and _Secret Access Key_ is what you need to connect to the Athena database with BI tools
+## Connection Setup Process
 
-## Token-based connection to AWS Athena
+### Prerequisites
 
-You will be given the following from Tallyfy **as a substitute** for your IAM username and password:
+- Power BI Desktop installed on your computer
+- Tallyfy Analytics subscription activated
+- Amazon Athena ODBC driver installed
+- Authentication credentials provided by Tallyfy
 
-* Access key
-* Secret access key
+### Step 1: Install the Amazon Athena ODBC Driver
 
-In general - regular IAM user credentials (username + password) should be used only to access resources via AWS console - https://aws.amazon.com/
+1. Download the appropriate Amazon Athena ODBC driver from the [AWS documentation page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html)
+2. Run the installer and follow the on-screen instructions
+3. Complete the installation before proceeding to the next step
 
-For all other integrations (like this ODBC driver) the external service access keys should be used.
+### Step 2: Configure the ODBC Connection
 
-## Connection
+1. On Windows, open the ODBC Data Source Administrator (64-bit)
+2. Navigate to the **System DSN** tab
+3. Click **Add** to create a new data source
+4. Select the **Amazon Athena ODBC Driver** and click **Finish**
+5. Configure the connection with these settings:
 
-This section may not apply to you - but it's been left here as a general guide for those that might need it.
+| Setting | Value |
+|---------|-------|
+| Data Source Name | Tallyfy Analytics |
+| Description | Tallyfy workflow data |
+| AWS Region | us-west-2 |
+| S3 Output Location | As provided by Tallyfy |
+| Authentication Option | IAM Profile |
+| Access Key | Your Tallyfy-provided Access Key |
+| Secret Key | Your Tallyfy-provided Secret Access Key |
+| Workgroup | Your organization ID (as provided by Tallyfy) |
+| Catalog | AwsDataCatalog |
 
-To connect Power BI to your data in Amazon Athena via IAM, you'll need to follow a few simple steps. Don't worry, we'll guide you through the process.
+6. Click **Test** to verify the connection works
+7. Click **OK** to save the connection
 
-1. Install the Amazon Athena ODBC Driver
+### Step 3: Connect Power BI to Amazon Athena
 
-Start by downloading and installing the Amazon Athena ODBC Driver for your operating system. You can find the appropriate version on this [page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html).
+1. Launch Power BI Desktop
+2. Click **Get Data** in the ribbon menu
+3. Select **More...** to view all connectors
+4. Choose **ODBC** from the Database section and click **Connect**
+5. From the DSN dropdown, select the **Tallyfy Analytics** connection you created
+6. Click **OK** to establish the connection
+7. In the Navigator window:
+   - Expand the **AwsDataCatalog**
+   - Select your database (typically your organization name)
+   - Choose the tables you want to analyze
+8. Click **Load** to import the data into Power BI
 
-2. Configure the ODBC Driver
+![Power BI Athena Connection](https://screenshots.tallyfy.com/powerbi-athena-connection.png)
 
-Next, configure the ODBC driver according to your operating system.  Remember to include the authentication credentials provided by Tallyfy.
+## Working with Tallyfy Data
 
-2. Connect Power BI to Amazon Athena
+After connecting, you can work with several key data tables:
 
-Watch our video tutorial to learn how to connect Power BI to Amazon Athena using the ODBC connector.
+- **processes** - Overall process instances with metadata
+- **steps** - Individual task completions and durations
+- **form_fields** - Data collected through forms in your processes
+- **users** - Team member participation and performance
 
-- Open Power BI Desktop and click on "Get Data."
-- Select the "Other" category and choose ODBC, then click Connect.
-- Pick the Data Source Name you set up during the configuration process and click OK.
-- On the left panel, open the catalog and database, and select your desired table.
-- Preview the data to ensure it's what you need.
-- Finally, click Load to bring your Tallyfy data into Microsoft Power BI.
+### Important Configuration Notes
 
-## Important points
+- Always connect to the **us-west-2** region specifically
+- Ensure your workgroup matches your organization ID
+- The catalog name must be **AwsDataCatalog**
+- Use Direct Query mode for larger datasets
+- Consider using data refresh scheduling for regular updates
 
-* When you connect - please be sure to connect to region us-west-2
-* Make sure your workground is the same as your orgID
-* The "Catalog" is "AwsDataCatalog"
+## Video Tutorial
 
-## Video demo
-
-Check out this short video for a walkthrough:
+This step-by-step walkthrough demonstrates the complete connection process:
 
 <lite-vimeo videoid="359564159"></lite-vimeo>
+
+## Troubleshooting
+
+If you encounter connection issues:
+
+- Verify you're using the correct Access Key and Secret Access Key (not IAM credentials)
+- Confirm your ODBC driver is the 64-bit version compatible with your Power BI installation
+- Check that you've specified the correct AWS region (us-west-2)
+- Ensure your Tallyfy Analytics subscription is active
+- Try restarting Power BI Desktop after configuring the ODBC connection
+
+For persistent connection problems, contact Tallyfy Support with specific error messages.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

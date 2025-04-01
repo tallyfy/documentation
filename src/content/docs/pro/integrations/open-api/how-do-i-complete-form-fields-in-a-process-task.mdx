@@ -8,72 +8,226 @@ snippet: A comprehensive guide on completing form fields in tasks through API re
 title: Complete form fields in a task
 ---
 
-## How to complete form fields in a task using the API
+## Completing Form Fields via API
 
-:::note[Find our API documentation]
-You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
+This guide explains how to programmatically complete form fields in Tallyfy tasks using the REST API. You'll learn how to structure API requests for different field types and understand the available endpoints for task updates.
+
+:::note[API Documentation]
+Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
 :::
 
-Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
+### Prerequisites
 
-To complete form fields in a process task, follow these steps:
+Before starting, ensure you have:
 
-1. **Gather your information:** Make a GET request to `go.tallyfy.com/api/organizations/{org}/me/tasks` to obtain the necessary information for updating the task.
+- A valid API access token
+- Organization ID (`{org}`)
+- Run ID (`{run_id}`) and Task ID (`{task_id}`) for the target task
+- Field IDs for the form fields you want to complete
 
-2. **Decide how to proceed:** To fill out the form fields and mark the task as complete, send a POST request to `https://go.tallyfy.com/api/organizations/{org}/runs/{run_id}/completed-tasks`. If you only want to update the task without marking it as complete, send a PUT request to `https://go.tallyfy.com/api/organizations/{org}/runs/{run_id}/tasks/{task_id}`.
+### Required Headers
 
-3. **Submit your payload:** Whether you're marking the task as complete or just updating it, use the following payload structure - this example is for a short text field:
+All API requests must include these headers:
 
 ```
+Authorization: Bearer {your_access_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+:::caution[Important]
+The `X-Tallyfy-Client: APIClient` header is required for all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::
+
+## API Endpoints for Form Field Updates
+
+Tallyfy offers two approaches for updating form fields:
+
+| Endpoint | HTTP Method | Description |
+|----------|-------------|-------------|
+| `/organizations/{org}/runs/{run_id}/completed-tasks` | POST | Updates form fields and marks the task as complete |
+| `/organizations/{org}/runs/{run_id}/tasks/{task_id}` | PUT | Updates form fields without completing the task |
+
+### Process Flow
+
+1. **Retrieve Task Information** (Optional)
+   
+   Make a GET request to obtain current task data:
+   
+   ```
+   GET https://go.tallyfy.com/api/organizations/{org}/me/tasks
+   ```
+
+2. **Prepare Form Field Data**
+   
+   Structure your payload according to the field types you need to update
+
+3. **Submit Form Data**
+   
+   Send the request to either update fields only or update and complete the task
+
+## Payload Structure for Different Field Types
+
+The basic structure for all field updates is:
+
+```json
 {
   "taskdata": {
-    "${id_of_field_to_be_completed}": "${desired_value}"
+    "field_id_1": value_1,
+    "field_id_2": value_2,
+    ...
   }
 }
 ```
 
-## Other field types
+Where `field_id_x` is the unique identifier for each form field, and `value_x` varies based on the field type.
 
-This example shows you a POST request to this endpoint for other field types:
-
-`https://go.tallyfy.com/api/organizations/{org}/runs/{runID}/tasks/{taskID}`
-
-Examples for multiple field types below.
-
+### Text Fields (Short Text & Text Area)
 
 ```json
 {
-    "taskdata": {
-        "e4238158ad0949d4ad78c55125b28a99": "normal text field", // Text
-        "ad789434de1c4d5fade2193d237c5716": "Text Area content", // Textarea
-        "7a54e215a9904096851360917080599f": "yes", // Radio box
-        "8c0161f92eba4d3da7182fed348f3421": "2024-12-20T14:23:18.128Z", // Date
-        "0e4b280880cc4407a06478a2faa8052b": { // select dropdown
-            "id": 2,
-            "text": "Offiice 365",
-            "value": null
-        },
-        "fe316c2ac44a421cafbf128c9462b8e9": [ // Multiselect Checkboxes
-        {
-            "id": 1,
-            "text": "Slack",
-            "value": null,
-            "required": true,
-            "selected": true
-        },
-        {
-            "id": 4,
-            "text": "forms",
-            "value": null,
-            "selected": true
-        }]
-    }
+  "taskdata": {
+    "e4238158ad0949d4ad78c55125b28a99": "Sample text input",
+    "ad789434de1c4d5fade2193d237c5716": "Longer text area content with multiple sentences if needed"
+  }
 }
 ```
 
-Remember - if you're not sure how API calls work - just sniff the existing calls on the client UI to see what calls the client UI is making. Search for "sniff" on our product documentation to find the article that shows you how to do this.
+### Radio Button Selection
 
-If you need assistance with integrations and advanced features, contact Tallyfy Support for additional services.
+```json
+{
+  "taskdata": {
+    "7a54e215a9904096851360917080599f": "yes"
+  }
+}
+```
+
+### Date Fields
+
+```json
+{
+  "taskdata": {
+    "8c0161f92eba4d3da7182fed348f3421": "2024-12-20T14:23:18.128Z"
+  }
+}
+```
+
+### Dropdown Selection
+
+```json
+{
+  "taskdata": {
+    "0e4b280880cc4407a06478a2faa8052b": {
+      "id": 2,
+      "text": "Office 365",
+      "value": null
+    }
+  }
+}
+```
+
+### Multi-select Checkboxes
+
+```json
+{
+  "taskdata": {
+    "fe316c2ac44a421cafbf128c9462b8e9": [
+      {
+        "id": 1,
+        "text": "Slack",
+        "value": null,
+        "required": true,
+        "selected": true
+      },
+      {
+        "id": 4,
+        "text": "Forms",
+        "value": null,
+        "selected": true
+      }
+    ]
+  }
+}
+```
+
+## Complete Example
+
+This example shows a PUT request to update multiple field types without completing the task:
+
+```
+PUT https://go.tallyfy.com/api/organizations/{org}/runs/{runID}/tasks/{taskID}
+```
+
+```json
+{
+  "taskdata": {
+    "e4238158ad0949d4ad78c55125b28a99": "Marketing campaign proposal",
+    "ad789434de1c4d5fade2193d237c5716": "This campaign targets small business owners in the Midwest region.",
+    "7a54e215a9904096851360917080599f": "yes",
+    "8c0161f92eba4d3da7182fed348f3421": "2024-12-20T14:23:18.128Z",
+    "0e4b280880cc4407a06478a2faa8052b": {
+      "id": 2,
+      "text": "Office 365",
+      "value": null
+    },
+    "fe316c2ac44a421cafbf128c9462b8e9": [
+      {
+        "id": 1,
+        "text": "Slack",
+        "value": null,
+        "required": true,
+        "selected": true
+      },
+      {
+        "id": 4,
+        "text": "Forms",
+        "value": null,
+        "selected": true
+      }
+    ]
+  }
+}
+```
+
+## Task Completion with Form Fields
+
+To update form fields and complete the task in a single request:
+
+```
+POST https://go.tallyfy.com/api/organizations/{org}/runs/{run_id}/completed-tasks
+```
+
+```json
+{
+  "taskId": "{task_id}",
+  "taskdata": {
+    "field_id_1": "value_1",
+    "field_id_2": "value_2"
+  }
+}
+```
+
+## Finding Field IDs
+
+If you don't know the field IDs:
+
+1. Use the Chrome Developer Tools to inspect network requests while interacting with the form in the Tallyfy web interface
+2. Look for requests to `/tasks` or `/completed-tasks` endpoints
+3. Examine the request payloads to identify field IDs and their expected data formats
+
+For more information on inspecting API calls, see the article on [Sniffing API Calls Using Chrome](/products/pro/integrations/open-api/how-to-sniff-api-calls-using-chrome/).
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| 401 Unauthorized | Verify your access token is valid and not expired |
+| 403 Forbidden | Check that your API user has permissions for the task |
+| 400 Bad Request | Ensure your payload matches the expected format for the field type |
+| Field not updating | Verify the field ID is correct and the field is editable in the current task state |
+
+For complex integration requirements or assistance with specific use cases, contact Tallyfy Support.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

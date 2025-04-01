@@ -8,112 +8,158 @@ snippet: A comprehensive guide detailing the steps to set up and configure OneLo
 title: Integrate OneLogin
 ---
 
-:::caution[Warning]
+## OneLogin SAML/SSO Integration
 
-An important note - setting up SSO involves Tallyfy sending you some information and you sending Tallyfy some information. This is not something you can do alone - so get in touch via a support ticket if you wish to proceed with setup.
+This guide explains how to configure SAML-based Single Sign-On (SSO) between OneLogin and Tallyfy to enable seamless authentication and automated user provisioning.
 
+:::caution[Coordination Required]
+SSO setup requires exchanging configuration information between your organization and Tallyfy. This process cannot be completed independently. Please submit a support ticket to initiate the integration process.
 :::
 
-## How to integrate OneLogin SAML/SSO with Tallyfy
+### Prerequisites
 
-In order to integrate OneLogin SAML/SSO with your Tallyfy organization, you will need to:
+- OneLogin administrator account
+- Tallyfy Professional or Enterprise plan
+- SAML configuration values from Tallyfy Support
 
-1. Set up and configure a OneLogin app with SAML support.
-2. Use the OneLogin app's settings to configure SAML on Tallyfy.
-3. Enable SAML for your organization on Tallyfy to start SSO authentication and user provisioning.
+## Implementation Process Overview
 
-## Creating a OneLogin app for your Tallyfy organization:
+The integration involves three main phases:
+1. Creating and configuring a OneLogin SAML application connector
+2. Configuring SAML settings in both systems
+3. Enabling and testing the SSO integration
 
-- Open the **Administration** menu and go to **Applications > Applications** page.
-- Click **Add App**.
+### Phase 1: Create OneLogin SAML Application
 
-![image](https://screenshots.tallyfy.com/onelogin-1.png)
+#### Step 1: Access Application Management
 
-- Search for **SAML Test Connector** and select the **SAML Test Connector (Advanced)** app.
+1. Sign in to your OneLogin portal
+2. Open the **Administration** menu
+3. Navigate to **Applications > Applications**
+4. Click **Add App**
 
-- Edit the **Display Name** and click **Save**.
+![Add Application button](https://screenshots.tallyfy.com/onelogin-1.png)
 
-![image](https://screenshots.tallyfy.com/onelogin-2.png)
+#### Step 2: Select and Configure the Connector
 
-## Configuring SAML settings
+1. Search for "SAML Test Connector"
+2. Select **SAML Test Connector (Advanced)**
+3. Edit the **Display Name** to "Tallyfy"
+4. Click **Save**
 
-First we will need to get the default SAML values from our organization in Tallyfy:
+![SAML Connector configuration](https://screenshots.tallyfy.com/onelogin-2.png)
 
-- Select our Organization's profile from the Support page.
-- Scroll to Org Settings tab:
+### Phase 2: Configure SAML Settings
 
-![image](https://screenshots.tallyfy.com/onelogin-3.png)
+#### Step 1: Obtain Tallyfy SAML Values
 
-- Click on Add Configuration Details: Ignore the empty fields for now and scroll down to the existing default values.
+To properly configure OneLogin, you need Tallyfy's default SAML values:
 
-![image](https://screenshots.tallyfy.com/onelogin-4.png)
+1. Contact Tallyfy Support to access your organization's profile
+2. Navigate to the **Org Settings** tab
+3. Click **Add Configuration Details**
+4. Locate the default SAML values section
 
-1. Now, we will fill the SAML settings in OneLogin, using those values.
+![Tallyfy organization settings](https://screenshots.tallyfy.com/onelogin-3.png)
+![Tallyfy default SAML values](https://screenshots.tallyfy.com/onelogin-4.png)
 
-2. Go back to your OneLogin app connector page, Click on Configuration tab
+#### Step 2: Configure the OneLogin Connector
 
-- ACS (Consumer) URL: In this field, copy the value from SP ACS URL (Single Sign On URL) - number 1 in the screenshot above
-- Recipient: The same URL as SP ACS URL (Single Sign On URL).
-- Audience (EntityID): copy the value from SP Entity ID (Audience URI) - number 2 in the screenshot above
-- Set ACS (Consumer) URL Validator to:
+1. Navigate to the **Configuration** tab in your OneLogin application connector
+2. Enter the following values:
+   - **ACS (Consumer) URL**: Enter the value from Tallyfy's "SP ACS URL" field
+   - **Recipient**: Use the same URL as the ACS URL
+   - **Audience (EntityID)**: Enter the value from Tallyfy's "SP Entity ID" field
+   - **ACS (Consumer) URL Validator**: Enter the same URL as the ACS URL
+3. Click **Save**
 
-![image](https://screenshots.tallyfy.com/onelogin-5.png)
+![SAML Configuration in OneLogin](https://screenshots.tallyfy.com/onelogin-5.png)
 
-- Leave everything else the same and click on Save.
+#### Step 3: Configure User Attributes
 
-## Adding parameters needed by Tallyfy
+1. Navigate to the **Parameters** tab in your OneLogin application
+2. Add the following three parameters exactly as shown:
 
-- Select the Access tab from the app connector page.
-- You will need to add three parameters just like the screenshot below:
+| Parameter Name | Value | Flags |
+|---------------|-------|-------|
+| Email | Email | Include in SAML assertion |
+| FirstName | First Name | Include in SAML assertion |
+| LastName | Last Name | Include in SAML assertion |
 
-![image](https://screenshots.tallyfy.com/onelogin-6.png)
+![Parameters configuration](https://screenshots.tallyfy.com/onelogin-6.png)
 
-- Click on the + button on the top-right side of the table.
+To add each parameter:
 
-- Fill the form with the correct values for each field (like the previous screenshot Email, FirstName and LastName).
+1. Click the **+** button in the top-right corner of the parameters table
+2. Enter the parameter name (e.g., "Email") and map it to the corresponding user attribute
+3. Check the **Include in SAML assertion** box
+4. Click **Save**
 
-![image](https://screenshots.tallyfy.com/onelogin-7.png)
+![Parameter configuration example 1](https://screenshots.tallyfy.com/onelogin-7.png)
+![Parameter configuration example 2](https://screenshots.tallyfy.com/onelogin-8.png)
 
-![image](https://screenshots.tallyfy.com/onelogin-8.png)
+#### Step 4: Assign Users to the Application
 
-## Adding users to your app connector
+1. Navigate to the **Access** tab in your OneLogin application
+2. Configure user access by selecting appropriate roles or users
+3. In this example, the **Default** role grants access to the application
+4. Click **Save**
 
-- With your app connector open, select the Access tab.
-- Ensure that the settings give you access to the app connector. For example, enable a role that will give you access. In this case, let’s say that the selected _Default_ role grants access to relevant users:
+![User access configuration](https://screenshots.tallyfy.com/onelogin-9.png)
 
-![image](https://screenshots.tallyfy.com/onelogin-9.png)
+### Phase 3: Configure Tallyfy with OneLogin Information
 
-- Click **Save**
+#### Step 1: Obtain OneLogin SAML Information
 
-## Configuring SAML on Tallyfy
+1. Navigate to the **SSO** tab in your OneLogin application
 
-- Since you have an app Connector ready, first we will get the data needed to configure SAML on Tallyfy.
-- Click on the SSO tab in your app Connector page:
+![SSO tab in OneLogin](https://screenshots.tallyfy.com/onelogin-10.png)
 
-![image](https://screenshots.tallyfy.com/onelogin-10.png)
+2. Note the following information:
+   - SAML 2.0 Endpoint (HTTP)
+   - Issuer URL
+   - X.509 Certificate
 
-- We will use the values in the above page as SAML configs to integrate this app to our Tallyfy organization.
-- Go back to our Tallyfy Support page where the SAML configs modal is still open, then we fill the values respectively, as shown in the screenshot below. This step will be done by Tallyfy Support - so email us if you need on support (at) tallyfy (dot) com.
+#### Step 2: Provide Information to Tallyfy Support
 
-![image](https://screenshots.tallyfy.com/onelogin-11.png)
+1. Send the following information to Tallyfy Support:
+   - SAML 2.0 Endpoint (HTTP)
+   - Issuer URL
+   - X.509 Certificate
 
-- After successfully saving the configs, you will need to enable SAML in this organization.
+2. Tallyfy Support will configure these values in your organization's SAML settings
 
-- Click on the toggle button next to Add Configuration Details:
+![Tallyfy SAML configuration](https://screenshots.tallyfy.com/onelogin-11.png)
 
-![image](https://screenshots.tallyfy.com/onelogin-12.png)
+#### Step 3: Enable SAML Authentication
 
-## Provisioning new members to Tallyfy using SSO:
+After Tallyfy Support has configured your SAML settings:
 
-- Copy the **Tallyfy Login URL** from the SAML config modal in Tallyfy Support.
+1. Toggle the SAML activation switch to enable SSO for your organization
 
-![image](https://screenshots.tallyfy.com/onelogin-13.png)
+![Enable SAML toggle](https://screenshots.tallyfy.com/onelogin-12.png)
 
-- Share the URL with your users who have access to the OneLogin app Connector.
+### User Provisioning and Access
 
-- Existing users can log in using the link, while new users will be automatically added to your Tallyfy organization.
+After completing the integration:
 
-That's all - the login URL is all your users need to sign in and also get provisioned.
+1. Obtain the Tallyfy login URL from the SAML configuration modal (provided by Tallyfy Support)
+2. Share this URL with your users who have access to the OneLogin application
+
+![Tallyfy login URL](https://screenshots.tallyfy.com/onelogin-13.png)
+
+Users can now access Tallyfy through this URL:
+- Existing Tallyfy users will be automatically authenticated
+- New users will be provisioned in Tallyfy upon their first login
+
+### Troubleshooting
+
+If users encounter authentication issues:
+- Verify the user has been assigned to the OneLogin application
+- Check that parameter mappings are correctly configured (exact names)
+- Ensure the required attribute flags are enabled
+- Confirm users are accessing Tallyfy through the SSO URL
+- Contact Tallyfy Support for assistance with persistent issues
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

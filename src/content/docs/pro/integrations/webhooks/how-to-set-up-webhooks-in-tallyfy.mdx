@@ -9,78 +9,131 @@ snippet: Webhooks in Tallyfy enable automated data transmission and process inte
 title: Details about webhooks
 ---
 
-## How to set up webhooks
+## Webhook Configuration Guide
 
-A webhook is like throwing a "ball" to a specific link on the web. It allows you to send data and trigger actions at that link. In Tallyfy, you can use templates or step webhooks to automate processes and integrate with other apps.
+Webhooks are automated messages sent from Tallyfy to external systems when specific events occur. They transmit JSON data packets to predefined URLs, enabling real-time integration with other applications without manual intervention. This guide explains how to configure and implement webhooks in Tallyfy.
 
-## Template-Level Webhooks
+### Understanding Webhook Types
 
-Template-level webhooks are triggered when any task is completed in a process. They send over all the data related to the process. You can find template webhook settings in the "Advanced Settings" drawer of the template.
+Tallyfy offers two webhook configuration levels:
 
-![Template Webhooks](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-template-webhooks.png)
+#### Template-Level Webhooks
 
-### Template webhook URL
+Template-level webhooks trigger when **any step** within a process is completed. They transmit the complete process data, including all form fields and step statuses.
 
-This field is the URL you want the JSON data to be sent.
+**Use cases:**
+- Track overall process progress in external systems
+- Update dashboards when any step changes
+- Trigger comprehensive data exports
 
-### Template alias
+#### Step-Level Webhooks
 
-This is the unique way to refer to your specific template.
+Step-level webhooks trigger when a **specific step** is completed. They provide targeted integration for individual tasks within a process.
 
-## Step-Level Webhooks
+**Use cases:**
+- Send notifications at critical process milestones
+- Trigger follow-up actions in other systems
+- Export specific form field data collected at a particular step
 
-Step-level webhooks are triggered when a specific task is completed. They are useful for integration with middleware. Step webhook settings can be found in the "Advanced" tab.
+### Configuring Template-Level Webhooks
 
-![Step webhooks](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-step-webhook.png)
+1. Navigate to the template you want to configure
+2. Click **Edit** to enter template editing mode
+3. Open the **Advanced Settings** drawer
+4. Locate the Webhooks section
+5. Toggle webhook functionality on
+6. Enter the destination URL in the **Template webhook URL** field
+7. Note the **Template alias** for reference in your integration
 
-## Example - notify #general channel in Slack when an employee completes an onboarding process in Tallyfy.
+![Template Webhooks Configuration](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-template-webhooks.png)
 
-To set up this integration, you will need:
+### Configuring Step-Level Webhooks
 
-1. A Tallyfy account
-2. A Zapier account - but just swap this with any other middleware system like Make.com or Power Automate.
-3. A Slack account
+1. Navigate to the template containing your target step
+2. Click **Edit** to enter template editing mode
+3. Select the specific step that should trigger the webhook
+4. Open the **Advanced** tab
+5. Toggle webhook functionality on
+6. Enter the destination URL in the webhook URL field
+7. Save your changes
 
-## Setting up your middleware system
+![Step Webhooks Configuration](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-step-webhook.png)
 
-The example below uses Zapier - but similar methods exist in your preferred middleware platform.
+## Implementation Example: Slack Notifications
 
-1. Create a new zap and choose 'Webhooks by Zapier' as the App in Step 1
+This example demonstrates how to send automated notifications to a Slack channel when an employee completes an onboarding process in Tallyfy.
 
-2. Select 'Catch Hook' as the Trigger Event
+### Prerequisites
 
-![Webhooks by Zapier - Catch Hook](https://screenshots.tallyfy.com/file-keKVUbxSVx.png)
+- Tallyfy account with Professional or Enterprise plan
+- Zapier account (or alternative middleware like Make.com or Power Automate)
+- Slack workspace with administrative access
 
-3. Copy the custom Webhook URL provided by Zapier - this will be inserted in Tallyfy template
+### Step 1: Configure Zapier Webhook Receiver
 
-![Custom Webhook URL in Zapier](https://screenshots.tallyfy.com/file-fql8JmHkcV.png)
+1. Sign in to your Zapier account
+2. Create a new Zap
+3. Select **Webhooks by Zapier** as the trigger app
+4. Choose **Catch Hook** as the trigger event
 
-4. Choose Slack as the App for the triggered webhook
-5. Select 'Send Channel Message' as the action event
+![Webhook Trigger Selection](https://screenshots.tallyfy.com/file-keKVUbxSVx.png)
 
-![Slack - Send Channel Message](https://screenshots.tallyfy.com/file-VKfh08LN9D.png)
+5. Copy the custom webhook URL provided by Zapier (you'll need this for Tallyfy)
 
-6. Connect your Slack account
+![Copy Webhook URL](https://screenshots.tallyfy.com/file-fql8JmHkcV.png)
 
-7. Choose the channel where you want to post a message
-8. Customize the channel message using data from the webhook
+### Step 2: Configure Slack Message Action
 
-![Slack - Customize Channel Message](https://screenshots.tallyfy.com/file-fmk7snOjfe.png)
+1. Add an action step to your Zap
+2. Select **Slack** as the action app
+3. Choose **Send Channel Message** as the action event
 
-**Setting Up The Tallyfy Template**
+![Slack Action Selection](https://screenshots.tallyfy.com/file-VKfh08LN9D.png)
 
-1. Go to the 'Edit' mode of your template. Select the step that should trigger the automated message in Slack.
-2. Open the 'Advanced' tab
-3. Turn on the webhook toggle
-4. Paste the Webhook URL from Zapier into the **Template webhook URL** field. Save changes
+4. Connect your Slack account if not already connected
+5. Configure the message:
+   - Select the destination channel (e.g., #general)
+   - Create a message template using webhook data
+   - Include relevant details like process name, step name, and assignee
 
-Now, when a task in Tallyfy is completed according to the setup, you will see a sample channel message in Slack.
+![Message Configuration](https://screenshots.tallyfy.com/file-fmk7snOjfe.png)
 
-![Sample Slack Channel Message](https://screenshots.tallyfy.com/file-T9dKncA7bl.png)
+### Step 3: Configure Tallyfy Webhook
 
-To ensure the security of webhooks from Tallyfy, you can check the `X-Tallyfy-OrgID` header, which contains your organization's ID.
+1. Navigate to your onboarding template in Tallyfy
+2. Enter **Edit** mode
+3. For template-level notifications:
+   - Open the **Advanced Settings** drawer
+   - Toggle webhooks on
+   - Paste the Zapier webhook URL into the **Template webhook URL** field
+4. For step-specific notifications:
+   - Select the final onboarding step
+   - Open the **Advanced** tab
+   - Toggle webhooks on
+   - Paste the Zapier webhook URL
+5. Save your changes
 
-![Header X-Tallyfy-OrgID](https://screenshots.tallyfy.com/file-g5qdMzYyEK.png)
+### Step 4: Test the Integration
+
+1. Run your onboarding process
+2. Complete the relevant step
+3. Verify that the notification appears in your Slack channel
+
+![Sample Slack Notification](https://screenshots.tallyfy.com/file-T9dKncA7bl.png)
+
+## Security Considerations
+
+For webhook security, Tallyfy includes the `X-Tallyfy-OrgID` header in all webhook requests. You can use this header to verify that incoming webhooks are legitimate by checking against your organization's ID.
+
+![Security Header](https://screenshots.tallyfy.com/file-g5qdMzYyEK.png)
+
+### Best Practices
+
+- Use HTTPS URLs for webhook destinations
+- Implement webhook authentication in your receiving system
+- Test webhooks thoroughly before relying on them in production
+- Monitor webhook delivery using your middleware platform's logging tools
+- Consider implementing retry logic for failed webhook deliveries
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

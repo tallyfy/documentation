@@ -8,83 +8,112 @@ snippet: Files can be attached to task fields through the Tallyfy API either by 
 title: Attach files using the API
 ---
 
-## How to attach files to a task field using the API
+## Attaching Files to Task Fields via API
 
-:::note[Find our API documentation]
-You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
+This guide explains how to programmatically attach files to Tallyfy task fields using the API. The process supports both uploading new files and linking to externally hosted files.
+
+:::note[API Documentation]
+For complete API reference, visit the [Tallyfy API documentation](https://go.tallyfy.com/api/)
 :::
 
-Welcome to Tallyfy! If you're wondering how to attach files to a task field, you're in the right place. There are two ways you can do it - locally or externally.
+### Prerequisites
 
-Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
+- Your Tallyfy API authentication token
+- Organization ID, Run ID, and Task ID
+- The field ID for the attachment field
+- API client (Postman, cURL, or other HTTP client)
 
-## Local File Attachment
+### Required HTTP Headers
 
-To attach a local file, follow these simple steps:
+All API requests must include these headers:
 
-1. Use an API client like Postman to upload the file to our file system/storage. Make a POST request to this URL: `https://api.tallyfy.com/organizations/your-organization-id/file`, using "form-data" as the request type.
+- `Authorization: Bearer your_token_here`
+- `X-Tallyfy-Client: APIClient` (critical - requests without this header will be rejected)
+- `Content-Type: application/json` (for PUT requests with JSON body)
 
-2. Provide the following key-value pairs in the request body:
+### Method 1: Upload and Attach Local Files
 
-   - "name": Upload your file here.
-   - "uploaded_from": Add your Organization ID.
-   - "subject_type": Add the text "Run" here.
-   - "step_id": Add the Step ID.
-   - "checklist_id": Add the Checklist ID.
-   - "subject_id": Add the Run ID.
+This method involves a two-step process: first uploading the file to Tallyfy storage, then attaching it to the task field.
 
-   Make sure to set the request header "Accept" to "application/json, text/plain, _/_" and include your auth bearer token.
+#### Step 1: Upload the file
 
-3. You'll receive a response with the file data (Let's call it fileData).
+Make a POST request to:
+```
+https://api.tallyfy.com/organizations/{your-organization-id}/file
+```
 
-4. Attach the file data to the task field. Make a PUT request to this URL: `https://api.tallyfy.com/organizations/your-organization-id/runs/run-id-here/tasks/task-id-here`.
+Use form-data (`multipart/form-data`) with the following fields:
 
-5. Use the following request payload:
+| Field | Value |
+|-------|-------|
+| name | Your file (binary data) |
+| uploaded_from | Your Organization ID |
+| subject_type | Run |
+| step_id | Step ID |
+| checklist_id | Checklist ID |
+| subject_id | Run ID |
 
-   ```
-   {
-     "taskdata": {
-       "capture_id_here_(field_id)": [
-         fileData.data
-       ]
-     }
-   }
-   ```
+#### Step 2: Attach the uploaded file to the task field
 
-   Again, don't forget to include your auth bearer token in the request headers.
+After receiving the file data response, make a PUT request to:
+```
+https://api.tallyfy.com/organizations/{your-organization-id}/runs/{run-id}/tasks/{task-id}
+```
 
-By following these steps, you'll be able to attach a file to a task field easily.
+With this JSON payload:
+```json
+{
+  "taskdata": {
+    "{field_id}": [
+      {fileData.data}
+    ]
+  }
+}
+```
 
-## External File Attachment
+Replace `{field_id}` with your actual field ID and `{fileData.data}` with the file data object received from the upload response.
 
-If you want to attach an external file, the process is even simpler:
+### Method 2: Link to External Files
 
-1. Attach the file data to the task field. Make a PUT request to the same URL mentioned above.
+For files already hosted elsewhere, you can directly reference them in a single API call.
 
-2. Use the following request payload:
+Make a PUT request to:
+```
+https://api.tallyfy.com/organizations/{your-organization-id}/runs/{run-id}/tasks/{task-id}
+```
 
-   ```
-   {
-     "taskdata": {
-       "capture_id_here_(field_id)": [
-         {
-           "filename": "file_name_here",
-           "source": "url",
-           "subject": {
-             "id": "run_id_here",
-             "type": "Run"
-           },
-           "uploaded_from": "org_id_here",
-           "url": "external_file_URL_here"
-         }
-       ]
-     }
-   }
-   ```
+With this JSON payload:
+```json
+{
+  "taskdata": {
+    "{field_id}": [
+      {
+        "filename": "example_document.pdf",
+        "source": "url",
+        "subject": {
+          "id": "{run_id}",
+          "type": "Run"
+        },
+        "uploaded_from": "{organization_id}",
+        "url": "https://example.com/path/to/your/file.pdf"
+      }
+    ]
+  }
+}
+```
 
-   Don't forget to include your auth bearer token in the request headers.
+Replace all placeholder values with your actual data.
 
-That's it! By following these steps, you'll be able to attach files to task fields effortlessly. If you have any questions, feel free to reach out to us. We're here to help!
+### Response Handling
+
+A successful response will return HTTP status code 200 and include the updated task data. Verify that the attachment field now contains the file reference.
+
+### Troubleshooting
+
+- **401 Unauthorized**: Check your authentication token
+- **403 Forbidden**: Verify you've included the `X-Tallyfy-Client` header
+- **404 Not Found**: Confirm the organization ID, run ID, and task ID are correct
+- **400 Bad Request**: Review your JSON payload structure for errors
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

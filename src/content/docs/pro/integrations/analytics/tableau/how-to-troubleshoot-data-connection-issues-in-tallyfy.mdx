@@ -8,73 +8,103 @@ snippet: Token-based authentication using Access Key and Secret Access Key is re
 title: Troubleshoot issues
 ---
 
-## Having issues with your data connection on Tableau?
+## Troubleshooting Tableau Data Connection Issues
 
-Amazon offers a couple of ways to connect to their internal resources:
+When working with Tallyfy Analytics and Tableau, you may occasionally encounter connection issues. This guide provides solutions for common problems and explains best practices for maintaining reliable connections.
 
-* IAM username and password
-* Token-based authentication i.e. an Access Key
+### Authentication Best Practices
 
-The first and most important point about integrating to PowerBI is that unlike Tableau and other BI tools - we've found that it's a lot easier to use token-based authentication for this purpose. If you try connecting with the IAM method to Amazon Athena from Power BI via ODBC - you get an error like this quite often:
+Amazon Athena (which hosts Tallyfy Analytics data) offers two authentication methods:
 
-> The security token included in the request is invalid
+| Authentication Method | Recommended For | Common Issues |
+|----------------------|-----------------|---------------|
+| IAM Username/Password | AWS Console access only | Frequent "security token invalid" errors with BI tools |
+| Access Key/Secret Key | All BI tool connections | More reliable, fewer token expiration issues |
 
-Tallyfy will create and provision the token-based credentials you need as part of the provisioning process for Tallyfy Analytics.
+:::caution[Important]
+Always use the Access Key and Secret Access Key provided by Tallyfy for Tableau connections. IAM credentials (username/password) should only be used for accessing the AWS web console.
+:::
 
-## Token-based connection to AWS Athena
+When Tallyfy provisions your Analytics account, you will receive two distinct credential sets:
+- **AWS IAM Login** - Use only for AWS console access at https://aws.amazon.com/
+- **Access Key and Secret Access Key** - Use for connecting Tableau to Athena
 
-You will be given the following from Tallyfy **as a substitute** for your IAM username and password:
+### Common Connection Issues and Solutions
 
-* Access key
-* Secret access key
+#### Issue 1: Authentication Errors
 
-In general - regular IAM user credentials (username + password) should be used only to access resources via AWS console - https://aws.amazon.com/
+If you receive errors like "The security token included in the request is invalid":
 
-For all other integrations (just like this ODBC driver) the external service access keys (Access Key and Secret Access Key) should be used.
+1. Verify you're using the Access Key/Secret Key (not IAM credentials)
+2. Check that your credentials haven't expired
+3. Ensure you're using the correct region setting
 
-If you're experiencing data connection issues in Tallyfy, follow these steps:
+#### Issue 2: Missing or Broken Data Source
 
-1. Open your Tableau Workbook with the data and graphs.
+Follow these steps when your Tableau workbook loses connection to the data source:
 
-![Tableau Workbook with data and graphs](https://screenshots.tallyfy.com/tableau-troubleshooting-1.png)
+1. Open your Tableau workbook with the disconnected data source
 
-2. Change the data connection to blank files. This step may not be necessary unless you want to hide file names.
+![Tableau workbook with data connection issues](https://screenshots.tallyfy.com/tableau-troubleshooting-1.png)
 
-![Changing data connection to blank files](https://screenshots.tallyfy.com/tableau-troubleshooting-2.jpg)
+2. When prompted about the missing data source, select **Show Details** to view the specific error
 
-3. Save the file and exit Tableau.
+![Error details button](https://screenshots.tallyfy.com/tableau-troubleshooting-5.jpg)
 
-![Saving the file and exiting Tableau](https://screenshots.tallyfy.com/tableau-troubleshooting-3.jpg)
+3. Click **Yes** when asked if you want to connect to your data
 
-4. Move the file to a different directory, simulating the transfer of the file to someone else.
+![Reconnect to data prompt](https://screenshots.tallyfy.com/tableau-troubleshooting-6.jpg)
 
-5. Open the file from the new directory. You may encounter an error message if the attached data sources are not in the new directory or filepath.
+4. Select **Edit Connection** to update your connection settings
 
-![Error message when data sources are not found](https://screenshots.tallyfy.com/tableau-troubleshooting-4.jpg)
+![Edit connection option](https://screenshots.tallyfy.com/tableau-troubleshooting-7.jpg)
 
-6. Select "Show Details" to understand the error.
+5. Enter your Access Key, Secret Access Key, and other connection details
+6. If the connection is successful, your dashboard will refresh with the current data
 
-![Error details description](https://screenshots.tallyfy.com/tableau-troubleshooting-5.jpg)
+![Dashboard with restored data connection](https://screenshots.tallyfy.com/tableau-troubleshooting-9.jpg)
 
-7. Choose "Yes" to connect to your data.
+#### Issue 3: Connection Cannot Be Edited
 
-![Connecting to data](https://screenshots.tallyfy.com/tableau-troubleshooting-6.jpg)
+If the **Edit Connection** option doesn't resolve your issue:
 
-8. Select "Edit Connection" if needed.
+1. Remove the existing connection completely
+2. Create a new connection to Amazon Athena
+3. Re-enter all connection parameters using your Access Key and Secret Access Key
+4. Reconnect to your data tables
 
-![Selecting Edit Connection](https://screenshots.tallyfy.com/tableau-troubleshooting-7.jpg)
+![Creating a new connection](https://screenshots.tallyfy.com/tableau-troubleshooting-8.jpg)
 
-9. If "Edit Connection" doesn't work, you may need to remove the connection and add a new one. Unfortunately, there's no clear explanation why this occurs.
+### Data Type Issues
 
-![Removing and adding a new connection](https://screenshots.tallyfy.com/tableau-troubleshooting-8.jpg)
+After reconnecting, you may need to correct data type settings, particularly for date fields:
 
-10. Once the connection is established, you'll see the same information in the dashboard with the new data.
+1. In the **Data Source** tab, locate fields like "due_by" and "completed_on"
+2. Right-click each field and select **Change Data Type** > **Date & Time**
+3. Verify that date comparisons and calculations now work correctly
 
-![Dashboard with updated data](https://screenshots.tallyfy.com/tableau-troubleshooting-9.jpg)
+![Adjusting date field data types](https://screenshots.tallyfy.com/tableau-troubleshooting-10.jpg)
 
-11. Don't forget to adjust the data type of the fields "due_by" and "completed_on" if necessary.
+### Sharing Workbooks Safely
 
-![Adjusting data type](https://screenshots.tallyfy.com/tableau-troubleshooting-10.jpg)
+When sharing Tableau workbooks with others:
+
+1. Use Tableau's **Extract** feature to create a local copy of the data
+2. Alternatively, use **Published Data Sources** in Tableau Server/Online
+3. For direct connections, ensure recipients have their own Tallyfy Analytics credentials
+4. Never embed your credentials in shared workbooks
+
+### Preventative Measures
+
+To minimize connection issues:
+
+- Keep Tableau Desktop and drivers up to date
+- Use Tableau's **Test Connection** feature regularly
+- Document your connection settings in a secure location
+- Create data extracts as backups for critical dashboards
+- Schedule regular extract refreshes if using Tableau Server/Online
+
+If you continue experiencing connection issues after following these steps, contact Tallyfy Support with specific error messages and screenshots for further assistance.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

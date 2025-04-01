@@ -8,50 +8,82 @@ snippet: The Tallyfy API integration guide outlines how to access and utilize th
 title: Integrate with Tallyfy using API
 ---
 
-## Everything you need to know to integrate Tallyfy's API
+## Tallyfy API Integration Guide
 
-Welcome to Tallyfy! If you want to integrate our amazing features into your workflow, we've got you covered. Our open REST API allows you to explore and integrate with Tallyfy seamlessly. Exciting, right?
+Tallyfy provides a comprehensive REST API that enables developers to integrate workflow functionality into external applications and systems. This guide covers the essential steps and requirements for successful API integration.
 
-Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
-
-## Getting Started
-
-:::note[Find our API documentation]
-You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
+:::note[API Documentation]
+Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
 :::
 
+### Required Headers
 
-To get started, you'll need your **access_token**. If you're on the PRO plan, this is your ticket to using our APIs. Don't worry, we'll show you how to get it.
+All direct API calls to Tallyfy endpoints must include the following header:
 
-### Ordinary API Usage as a Specific Member
+```
+X-Tallyfy-Client: APIClient
+```
 
-1. If you're already a Tallyfy member, simply log in and go to Settings > Integrations > REST API. Voila! You'll find your **access_token** there.
+**Important**: Requests without this header will be automatically rejected.
 
-2. For a detailed, step-by-step guide, check out this video:
+### Authentication Methods
+
+Tallyfy supports two authentication approaches depending on your integration scenario:
+
+#### 1. User-Based Authentication
+
+For integrations acting on behalf of a specific Tallyfy user:
+
+1. Navigate to **Settings > Integrations > REST API** in your Tallyfy account
+2. Copy your personal **access_token**
+3. Include this token in the Authorization header of your API requests
+
+This video demonstrates how to obtain your access token:
 
 <lite-vimeo videoid="326494868"></lite-vimeo>
 
-### Client apps or dedicated integrations
+#### 2. Application-Based Authentication
 
-If you're building a dedicated integration or a client app, we've got you covered too. Just contact our amazing Tallyfy Support team with the required details, and they'll provide you with the **Client ID** and **Client Secret** you need.
+For third-party applications or dedicated integrations requiring client credentials:
 
-## Refreshing your access token
+1. Contact Tallyfy Support with details about your integration requirements
+2. Receive your application's **Client ID** and **Client Secret**
+3. Implement the OAuth 2.0 flow to obtain and refresh access tokens
 
-Need a newer **access_token**? No problem! Just use the **refresh_token** you received earlier and follow these simple steps:
+### Token Refresh Procedure
 
-![image](https://screenshots.tallyfy.com/file-tucOMxuFnH.png)
+Access tokens expire periodically and must be refreshed for continued API access:
 
-For visual instructions, check out this video:
+1. Store both the **access_token** and **refresh_token** when first obtained
+2. When the access token expires, use the refresh token to obtain a new one
+3. Send a POST request to the token endpoint with your refresh token
+
+![Token refresh request example](https://screenshots.tallyfy.com/file-tucOMxuFnH.png)
+
+This video demonstrates the token refresh process:
 
 <lite-vimeo videoid="326495493"></lite-vimeo>
 
-## Date formatting in our API
+### Date Format Standards
 
-We want to make sure your date and timestamp formatting is spot on in our API. When making requests, use this format: "YYYY-DD-MM HH:MM:SS". On the other hand, our API responds with this format: "YYYY-MM-DDThh:mm:ss.000Z".
+When working with dates in the Tallyfy API:
 
-## Webhooks and More
+| Direction | Format | Example |
+|-----------|--------|---------|
+| Request (to API) | YYYY-DD-MM HH:MM:SS | 2023-15-05 14:30:00 |
+| Response (from API) | YYYY-MM-DDThh:mm:ss.000Z | 2023-05-15T14:30:00.000Z |
 
-Did you know that you can emit step-level or process-level webhooks from Tallyfy without using the API?. You can learn how to set up webhooks [here.](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/)
+Ensure your code properly handles these date format conventions to avoid errors.
+
+### Webhook Integration
+
+For event-driven integrations, Tallyfy provides webhook capabilities that don't require direct API calls:
+
+- Configure webhooks at the process or step level
+- Receive real-time notifications when specific events occur
+- Process the webhook payload to trigger actions in your systems
+
+For details on webhook configuration, see the [webhooks setup guide](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

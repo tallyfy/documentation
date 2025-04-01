@@ -8,101 +8,234 @@ snippet: Starting a process through Tallyfy API requires obtaining an access tok
 title: Launch a process using Tallyfy API
 ---
 
-## How to launch a process using Tallyfy API
+## Launching Processes via API
 
-:::note[Find our API documentation]
-You can find our full API documentation following [this link](https://go.tallyfy.com/api/)
+This guide explains how to programmatically initiate processes in Tallyfy using the REST API. You'll learn how to authenticate, prepare the necessary data, and structure your API request to launch processes with custom fields and assignments.
+
+:::note[API Documentation]
+Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
 :::
 
-This article provides a step-by-step guide on how to start a process using the Tallyfy API. First, you need to obtain an access token. To achieve this. Head over to Settings > Integrations > REST API, and then click on **View your API access token**.
+### Prerequisites
 
-Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
+Before you can launch processes via API, you'll need:
 
-Once you have your token, you can proceed to gather the necessary information.
+- API access token with appropriate permissions
+- Organization ID
+- Template ID for the process you want to launch
+- Field IDs for any form fields you want to populate on launch
 
-This includes:
+## Authentication Setup
 
-- The name of the process
-- The ID of the template
-- Any kick-off field IDs and their corresponding values, as well as the tags and tasks associated with the template.
+### Obtaining an API Token
 
-Next, you'll need to prepare your JSON by filling in the required fields such as the process name and the template ID. Make sure to include the tasks and any prerun fields, such as text fields, images, checklists, dropdowns, radio buttons, and dates.
+1. Log in to your Tallyfy account
+2. Navigate to **Settings** > **Integrations** > **REST API**
+3. Click **View your API access token**
+4. Copy and securely store your token
 
-After preparing your JSON, you can make the API call. Use the `POST` request type and the URL `go.tallyfy.com/api/organizations/{your_org_id}/runs`. Don't forget to include the required headers: `'Accept: application/json'` and `'Authorization: Bearer {your_auth_token}'`.
+:::caution[Security Note]
+Your API token provides access to your Tallyfy account. Store it securely and never share it in client-side code or public repositories.
+:::
 
-## Request example
+### Required Headers
+
+All API requests must include these headers:
 
 ```
+Accept: application/json
+Authorization: Bearer {your_auth_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+:::caution[Important]
+The `X-Tallyfy-Client: APIClient` header is required for all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::
+
+## API Request Structure
+
+### Endpoint
+
+To launch a process, send a POST request to:
+
+```
+POST https://go.tallyfy.com/api/organizations/{your_org_id}/runs
+```
+
+### Request Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | String | Yes | Name of the process instance |
+| checklist_id | String | Yes | Template ID to launch |
+| summary | String | No | Process description |
+| owner_id | Number | No | User ID of the process owner |
+| tasks | Object | No | Task assignments and deadlines |
+| prerun | Array | No | Initial values for kickoff form fields |
+| tags | Array | No | Tag IDs to apply to the process |
+
+## Example Request
+
+```json
 {
-   "name": "name of Process",
-   "checklist_id": "<Blueprint Id>",
-   "summary": "Process summary",
-   "owner_id": 0,
-   "tasks":  {
-       "<Step ID or Step alias>": {
-       "position": "<Task position, start from 1>",
-       "deadline": "2016-01-01 00:00:00"
+   "name": "Q2 Customer Onboarding - ACME Corp",
+   "checklist_id": "5f8a721b3e4c8f09d2a85f2e",
+   "summary": "Standard onboarding process for new enterprise client",
+   "owner_id": 12345,
+   "tasks": {
+       "customer_welcome_call": {
+           "position": "1",
+           "deadline": "2024-05-15T16:00:00.000Z",
+           "users": [8765]
+       },
+       "technical_setup": {
+           "position": "2",
+           "deadline": "2024-05-20T16:00:00.000Z"
        }
-    },
-    "prerun": [
-          {
-              "<prerun_id (if textfields)>": "Text Field Value"
-          },
-          {
-              "<prerun_id (if images)>": [
-                 {
-                     "id": "<Id>",
-                     "filename": "Image.png",
-                     "version": 1,
-                     "url": "tallyfy.com/example-image.png",
-                     "uploaded_from": "ko_field",
-                     "subject": {
-                          "id": "<Subject Id>",
-                          "type": "Checklist"
-                     }
-                 }
-              ]
-          },
-          {
-              "<prerun_id (if checklist)>": {
-                   "id": 1,
-                   "text": "abc.",
-                   "value": "null",
-                   "selected": true
-              }
-          },
-          {
-              "<prerun_id (if dropdown)>": {
-                   "id": 1,
-                   "text": "abc.",
-                   "value": "null"
-              }
-          },
-          {
-              "<prerun_id (if radio button)>": "Radio Button Value"
-          },
-          {
-              "<prerun_id (if date)>": "2019-12-12T17:18:55.000Z"
-          }
-    ],
-    "tags":  [
-         "<Tag Id>"
-    ]
- }
+   },
+   "prerun": [
+       {
+           "client_name_field": "ACME Corporation"
+       },
+       {
+           "contact_email_field": "john.smith@acme.com"
+       },
+       {
+           "subscription_tier": {
+               "id": 2,
+               "text": "Enterprise",
+               "value": null
+           }
+       },
+       {
+           "onboarding_date": "2024-05-10T09:00:00.000Z"
+       }
+   ],
+   "tags": [
+       "4f3b621a9e5a7e12d8c6b3a1"
+   ]
+}
 ```
 
-Once the call is made, you will receive a response with a status code of 201. This response will include information about the created process, such as its ID, checklist ID, name, summary, status, progress, and more.
+### Populating Form Fields on Launch
 
-## A special note about task assignments at launch
+The `prerun` array accepts different formats depending on the field type:
 
-* When you launch a new process and add assignees/owners to a task ("users" or "groups" or "guests"), those assignees in the request body will take priority and be assigned, and the assignees in the _Step_ will be ignored.
-* When the task owners are empty, and the _Step's_ owners (assignees/groups or guests) are filled - then the _Step_ owners will be assigned.
-* When the task and _Step_ owners are empty and `assign_run_starter=true` - then the user launching the process will be assigned to it by default.
-* When the task and _Step_ owners are empty and `assign_run_starter=false` - then the new task will be kept unassigned.
+#### Text Fields
+```json
+{ "field_id": "Text value" }
+```
 
-If you need assistance with integrations or advanced features, feel free to contact Tallyfy Support for additional services.
+#### Date Fields
+```json
+{ "field_id": "2024-05-15T16:00:00.000Z" }
+```
 
-Now you're ready to start your process using the Tallyfy API! Happy automating!
+#### Radio Buttons
+```json
+{ "field_id": "selected_value" }
+```
+
+#### Dropdown Menus
+```json
+{
+    "field_id": {
+        "id": 2,
+        "text": "Display Text",
+        "value": null
+    }
+}
+```
+
+#### Checklists
+```json
+{
+    "field_id": {
+        "id": 1,
+        "text": "Option Text",
+        "value": null,
+        "selected": true
+    }
+}
+```
+
+#### Images/Files
+```json
+{
+    "field_id": [
+        {
+            "id": "file123",
+            "filename": "document.pdf",
+            "version": 1,
+            "url": "https://example.com/document.pdf",
+            "uploaded_from": "ko_field",
+            "subject": {
+                "id": "template_id",
+                "type": "Checklist"
+            }
+        }
+    ]
+}
+```
+
+## Task Assignment Behavior
+
+Tallyfy follows specific rules when determining task assignments during process launch:
+
+| Request Contains | Template Contains | Result |
+|------------------|-------------------|--------|
+| Task assignees | Step assignees | Request assignees take priority |
+| No task assignees | Step assignees | Step assignees are used |
+| No assignees, `assign_run_starter=true` | No assignees | Process launcher is assigned |
+| No assignees, `assign_run_starter=false` | No assignees | Task remains unassigned |
+
+To specify assignees in your request:
+
+```json
+"tasks": {
+    "step_id": {
+        "users": [123, 456],     // User IDs
+        "groups": [789],         // Group IDs
+        "guests": ["guest@example.com"]  // Guest email addresses
+    }
+}
+```
+
+## Successful Response
+
+A successful process launch returns a 201 Created status code with a response body containing details about the new process:
+
+```json
+{
+    "id": "61a5c8d9f3e42a01b7d52c8e",
+    "checklist_id": "5f8a721b3e4c8f09d2a85f2e",
+    "name": "Q2 Customer Onboarding - ACME Corp",
+    "summary": "Standard onboarding process for new enterprise client",
+    "status": "active",
+    "progress": 0,
+    "created_at": "2024-05-10T08:30:15.000Z",
+    "launched_by": {
+        "id": 12345,
+        "name": "Jane Doe"
+    }
+    // Additional process details...
+}
+```
+
+## Error Handling
+
+Common error responses include:
+
+| Status Code | Description | Solution |
+|-------------|-------------|----------|
+| 400 | Invalid request format | Check request body structure |
+| 401 | Invalid or missing token | Verify your Authorization header |
+| 403 | Insufficient permissions | Ensure your token has process launch permissions |
+| 404 | Template not found | Verify the checklist_id |
+| 422 | Validation error | Check for required fields or format issues |
+
+For complex integration requirements or assistance with specific use cases, contact Tallyfy Support.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

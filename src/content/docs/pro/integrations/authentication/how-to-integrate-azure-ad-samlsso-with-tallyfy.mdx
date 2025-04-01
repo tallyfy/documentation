@@ -8,126 +8,164 @@ snippet: Setting up Azure AD SAML/SSO integration with Tallyfy requires configur
 title: Integrate Azure AD
 ---
 
-:::caution[Warning]
+## Azure Active Directory SSO Integration
 
-An important note - setting up SSO involves Tallyfy sending you some information and you sending Tallyfy some information. This is not something you can do alone - so get in touch via a support ticket if you wish to proceed with setup.
+This guide explains the process of configuring SAML-based Single Sign-On (SSO) between Microsoft Azure Active Directory and Tallyfy. This integration enables seamless authentication and automated user provisioning.
 
+:::caution[Coordination Required]
+SSO setup requires exchanging configuration information between your organization and Tallyfy. This process cannot be completed independently. Please submit a support ticket to initiate the integration process.
 :::
 
-## Azure AD SAML/SSO integration
+### Prerequisites
 
-In order to integrate Azure AD SAML/SSO with your Tallyfy organization, you will need to:
+- Azure subscription with Azure Active Directory access
+- Administrator privileges in Azure AD
+- Tallyfy Professional or Enterprise plan
+- SAML configuration values from Tallyfy Support
 
-- Set up and configure an Azure AD app with SAML support.
-- Use the Azure AD app's settings to configure SAML on Tallyfy - which is done by Tallyfy's support team
-- Enable SAML for your organization on Tallyfy, to start SSO authorization and user provisioning.
+## Implementation Process Overview
 
-## Set up your custom Azure AD SAML application for Tallyfy
+The integration involves three main phases:
+1. Creating and configuring an Azure AD enterprise application
+2. Configuring SAML settings in both systems
+3. Enabling and testing the SSO integration
 
-### Prepare the new Application
+### Phase 1: Create Azure AD Enterprise Application
 
-- Sign in using an account with Administrator privileges.
-- Go to the Azure Active Directory service.
-- Select Enterprise Applications under Manage navigation menu item.
-- Click +New application.
-- Click Create your own application.
+#### Step 1: Access Enterprise Applications
 
-![image](https://screenshots.tallyfy.com/azuresso-1.png)
+1. Sign in to the [Azure Portal](https://portal.azure.com/) with administrator credentials
+2. Navigate to **Azure Active Directory** service
+3. Select **Enterprise Applications** under the Manage section
+4. Click **+New application**
+5. Select **Create your own application**
 
-- Add a name for your app, and select Integrate any other application you don't find in the gallery (Non-gallery) option.
+![Create new application](https://screenshots.tallyfy.com/azuresso-1.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-2.png)
+#### Step 2: Define Application Properties
 
-We are separately in the process of being listed by default in the gallery.
+1. Enter "Tallyfy" as the application name
+2. Select **Integrate any other application you don't find in the gallery (Non-gallery)**
+3. Click **Create**
 
-- Click Create.
-- You can add/assign users to this application:
+![Define application properties](https://screenshots.tallyfy.com/azuresso-2.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-3.png)
+#### Step 3: Assign Users (Optional)
 
-### Configure SAML settings
+You can assign users to the application now or after completing the configuration:
 
-- On the sidebar, below Manage click Single sign-on then select SAML:
+![User assignment screen](https://screenshots.tallyfy.com/azuresso-3.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-4.png)
+### Phase 2: Configure SAML Settings
 
-- Click Edit in the Basic SAML Configuration section.
+#### Step 1: Access SAML Configuration
 
-![image](https://screenshots.tallyfy.com/azuresso-5.png)
+1. In the application's sidebar under **Manage**, select **Single sign-on**
+2. Choose **SAML** as the sign-on method
 
-- In the Basic SAML Configuration window, we will need to fill the fields Reply URL (ACS URL), Entity ID for your custom app. These values are all provided by Tallyfy:
+![Select SAML authentication](https://screenshots.tallyfy.com/azuresso-4.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-6.png)
+#### Step 2: Configure Basic SAML Settings
 
-We will need to get the default SAML values from our organization in Tallyfy:
+1. Click **Edit** in the Basic SAML Configuration section
 
-- Select your Organization's profile from the Support page.
-- Scroll to Org Settings tab:
+![Edit basic SAML configuration](https://screenshots.tallyfy.com/azuresso-5.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-7.png)
+2. You will need to obtain Tallyfy's SAML values:
+   - Navigate to your organization's profile in Tallyfy
+   - Go to **Org Settings** tab
+   - Click **Add Configuration Details**
+   - Scroll down to view the default SAML values
 
-- Click on Add Configuration Details: Ignore the empty fields for now and scroll down to the existing default values.
+![Tallyfy SAML values](https://screenshots.tallyfy.com/azuresso-7.png)
+![Tallyfy default SAML values](https://screenshots.tallyfy.com/azuresso-8.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-8.png)
+3. Enter the following values in Azure AD:
+   - **Reply URL (Assertion Consumer Service URL)**: Enter the value from Tallyfy's "SP ACS URL" field
+   - **Identifier (Entity ID)**: Enter the value from Tallyfy's "SP Entity ID" field
+4. Click **Save**
 
-Now, we will fill the SAML settings in Azure AD, using those values:
+![Enter SAML values in Azure](https://screenshots.tallyfy.com/azuresso-6.png)
 
-- Reply URL (Assertion Consumer Service URL): In this field, copy the value from SP ACS URL (Single Sign On URL). (number 1 in the screenshot above)
-- Identifier (Entity ID): copy the value from SP Entity ID (Audience URI). (number 2 in the screenshot above)
-- Click Save.
+#### Step 3: Configure User Attributes
 
-### Add necessary attribute names for Tallyfy
+This step is critical for proper user identification and provisioning. Configure each attribute as follows:
 
-- On the User Attributes & Claims section, click Edit on each field to change the names of the attributes
+1. **Name Identifier (User ID)**
+   - Click on the **Unique User Identifier (Name ID)** row
+   - Select **Persistent** for Name identifier format
+   - Select **user.mail** for Source attribute
+   - Click **Save**
 
-_This part is important, so each attribute should be filled correctly respecting the empty fields and upper/lower cases_
+![Configure Name ID](https://screenshots.tallyfy.com/azuresso-9.png)
 
-- First, we will update the user identifier, Click on the Unique User Identifier (Name ID) row:
-- Then select Persistent for Name identifier format, and user.mail for Source attribute, then click Save:
+2. **First Name Attribute**
+   - Click on the attribute row (e.g., user.givenname)
+   - Change **Name** to: `FirstName` (exact capitalization required)
+   - Remove any value in the **Namespace** field
+   - Set **Source attribute** to: `user.givenname`
+   - Click **Save**
 
-![image](https://screenshots.tallyfy.com/azuresso-9.png)
+![Configure First Name attribute](https://screenshots.tallyfy.com/azuresso-10.png)
 
-Move to the next attribute/row, for example click on user.givenname to edit it:
+3. **Configure Email and Last Name**
+   - Repeat the same process for Email and LastName attributes
+   - Ensure exact attribute names and empty namespace fields
 
-- Change Name to FirstName.
-- Namespace should be empty, so remove its default value.
-- The Source attribute should be **user.givenname**.
+The final attribute configuration should look like this:
 
-![image](https://screenshots.tallyfy.com/azuresso-10.png)
+![Final attribute configuration](https://screenshots.tallyfy.com/azuresso-11.png)
 
-- Do the same for the other attributes/rows Email and LastName. The resulting page after saving them should look like the screenshot below:
+### Phase 3: Complete Integration with Tallyfy
 
-![image](https://screenshots.tallyfy.com/azuresso-11.png)
+#### Step 1: Obtain Azure AD SAML Information
 
-## Configure SAML on Tallyfy
+From the Azure AD application configuration:
 
-Since you have an application ready - we will get the SAML data needed to configure SAML on Tallyfy.
+1. Go to the **Set up** section
+2. Collect the following information:
+   - Login URL
+   - Azure AD Identifier
+   - Download the Certificate (Base64) from the SAML Signing Certificate section
 
-- On the 4- Set up Your app name section, get the setup information needed by Tallyfy:
-- Copy the Login URL and Azure AD Identifier and download the Certificate (Base64) from the 3- SAML Signing Certificate section:
+![Azure AD SAML information](https://screenshots.tallyfy.com/azuresso-12.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-12.png)
+#### Step 2: Configure Tallyfy with Azure AD Information
 
-We will use the values in the above page as SAML configs to integrate this app to our Tallyfy organization.
+1. Provide the collected Azure AD SAML information to Tallyfy Support
+2. Tallyfy Support will enter this information in your organization's SAML configuration
 
-- Go back to our Tallyfy Support page where the SAML configs modal is still open (this is done by Tallyfy staff) - then we fill the values respectively, as shown in the screenshot below:
+![Tallyfy SAML configuration](https://screenshots.tallyfy.com/azuresso-13.png)
 
-![image](https://screenshots.tallyfy.com/azuresso-13.png)
+#### Step 3: Enable SAML Authentication
 
-- After successfully saving the configs, you will need to enable SAML in this organization.
-- Click on the toggle button next to Add Configuration Details:
+After Tallyfy Support configures your SAML settings:
 
-![image](https://screenshots.tallyfy.com/azuresso-14.png)
+1. Toggle the SAML activation switch to enable SSO for your organization
 
-Congratulations, now Single Sign-on and User Provisioning using Azure AD should be working successfully for your organization members!
+![Enable SAML in Tallyfy](https://screenshots.tallyfy.com/azuresso-14.png)
 
-## Provision new members to Tallyfy using SSO
+### User Provisioning and Access
 
-Go back to the Tallyfy Support page and open the SAML configs modal, copy the Tallyfy login URL and share it with your users who have access to the Azure AD SAML app. Note - Tallyfy Staff will provide this to you (the client).
+Once the integration is complete:
 
-![image](https://screenshots.tallyfy.com/azuresso-15.png)
+1. Obtain the Tallyfy login URL from the SAML configuration modal (provided by Tallyfy Support)
+2. Share this URL with your users who have access to the Azure AD application
 
-Members or never-seen-before members can use this link to access Tallyfy. Existing users will just login, while new users will be added to your Tallyfy organization.
+![Tallyfy login URL](https://screenshots.tallyfy.com/azuresso-15.png)
+
+Users can now access Tallyfy through this URL:
+- Existing Tallyfy users will be automatically authenticated
+- New users will be provisioned in Tallyfy upon their first login
+
+### Troubleshooting
+
+If users encounter authentication issues:
+- Verify the user has been assigned to the Azure AD application
+- Check that attribute mappings are correctly configured (exact names and capitalization)
+- Confirm the SAML certificate hasn't expired
+- Ensure users are accessing Tallyfy through the SSO URL
+- Contact Tallyfy Support for assistance with persistent issues
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

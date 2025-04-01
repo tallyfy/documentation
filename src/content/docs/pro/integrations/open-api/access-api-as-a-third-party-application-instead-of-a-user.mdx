@@ -8,56 +8,178 @@ snippet: Organizations can enable their applications to interact with Tallyfy th
 title: API usage as a third-party application instead of a user
 ---
 
-## On-Behalf-Of API Access
+## Third-Party Application Integration with Tallyfy API
 
-This feature helps any organization integrate Tallyfy into its own application or web app. By allowing them to provision their users internally into Tallyfy - they can also make requests to Tallyfy _on behalf of_ their users, without the need for their users to interact with Tallyfy directly.
+This guide explains how to integrate your application with Tallyfy using the client credentials flow, allowing your application to make API requests on behalf of your users without requiring them to directly interact with Tallyfy.
 
-## First steps - contact us 
+### Use Cases for On-Behalf-Of Access
 
-The first and most important step to enable this functionality is to contact us and request a _Client Credentials_ grant key and secret.
+This integration pattern is ideal for organizations that want to:
 
-This feature is available to paid/upgraded organizations, but not to free trials.
+- Embed Tallyfy functionality within their own software
+- Provide seamless workflow capabilities to their users
+- Automate process management for clients or employees
+- Maintain a consistent user experience in their application
+- Handle user provisioning programmatically
 
-Once we've done the provisining on our end - we will get back to you with details.
+## Implementation Overview
 
-## Generate the application access token and make special requests
+### Prerequisites
 
-Important - if you make API calls directly to the Tallyfy API endpoint, you must supply an additional header in your requests `X-Tallyfy-Client: APIClient` otherwise your requests will be dropped.
+- Paid Tallyfy Professional or Enterprise subscription
+- Client credentials (client ID and secret) from Tallyfy
+- Basic understanding of OAuth 2.0 client credentials flow
+- Development environment for testing API integration
 
-#### 1. Use this endpoint request to get an application access token:
+:::caution[Enterprise Feature]
+The client credentials grant type is only available to paid organizations and is not accessible during free trials. Contact Tallyfy Support to request access to this feature.
+:::
 
-**POST: `https://account.tallyfy.com/oauth/token`** 
+### Step 1: Request Client Credentials
 
+1. Contact Tallyfy Support to request client credentials for your organization
+2. Provide details about your integration use case and requirements
+3. Tallyfy will provision a client ID and secret specific to your organization
+4. Store these credentials securely in your application environment
+
+### Step 2: Obtain Application Access Token
+
+To authenticate your application with Tallyfy, you must first obtain an application-level access token:
+
+```
+POST https://account.tallyfy.com/oauth/token
+```
+
+**Request Body:**
 ```json
-
 {
-    "client_id": 1111,
-    "client_secret": "hTWzy5rpY...",
+    "client_id": 12345,
+    "client_secret": "hTWzy5rpYXcBn8K4J9PqEs2V...",
     "grant_type": "client_credentials",
     "scope": "*"
 }
 ```
 
-#### 2. Provision or add a new user to your organization
-
-**POST: `https://go.tallyfy.com/api/applications/{orgID}/users`**
-
+**Response:**
 ```json
 {
-    "first_name": "Red",
-    "last_name": "Blue",
-    "email": "red.blue@myorganization.com",
-    "role": "standard", // "admin", "light"
-    "timezone": "CST" // not required
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-#### 3. Generate an access token for a user from your organization
+:::note[Token Expiration]
+Application access tokens typically expire after one hour. Your application should implement token refresh logic or request new tokens as needed.
+:::
 
-- **POST: `https://go.tallyfy.com/api/applications/{orgID}/users/{email}/token`**
+### Step 3: Provision Users Programmatically
 
-* The user email must belong to your organization.
-* A successful response will contain the **access token** of that user, which your application can use to do requests **on behalf of** that user.
+With your application access token, you can create and manage users in your Tallyfy organization:
+
+```
+POST https://go.tallyfy.com/api/applications/{orgID}/users
+```
+
+**Headers:**
+```
+Authorization: Bearer {your_app_access_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+**Request Body:**
+```json
+{
+    "first_name": "John",
+    "last_name": "Smith",
+    "email": "john.smith@yourcompany.com",
+    "role": "standard",
+    "timezone": "America/Chicago"
+}
+```
+
+**Available Roles:**
+- `admin` - Full organization administration access
+- `standard` - Regular user with process creation capabilities
+- `light` - Limited user who can only complete assigned tasks
+
+**Response:**
+```json
+{
+    "id": 12345,
+    "email": "john.smith@yourcompany.com",
+    "first_name": "John",
+    "last_name": "Smith",
+    "role": "standard",
+    "created_at": "2023-05-15T14:22:10.000Z"
+}
+```
+
+### Step 4: Generate User-Specific Access Tokens
+
+To perform actions on behalf of a specific user, you need to obtain a user-specific token:
+
+```
+POST https://go.tallyfy.com/api/applications/{orgID}/users/{email}/token
+```
+
+**Headers:**
+```
+Authorization: Bearer {your_app_access_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+**Response:**
+```json
+{
+    "token_type": "Bearer",
+    "expires_in": 3600,
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+### Step 5: Make API Requests on Behalf of Users
+
+Use the user-specific token to make API requests as if they were made by the user:
+
+```
+GET https://go.tallyfy.com/api/organizations/{orgID}/me/tasks
+```
+
+**Headers:**
+```
+Authorization: Bearer {user_specific_access_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+:::caution[Required Header]
+Always include the `X-Tallyfy-Client: APIClient` header in all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::
+
+## Security Considerations
+
+When implementing on-behalf-of API access:
+
+- Store client credentials in secure, encrypted storage
+- Implement proper access controls to user tokens
+- Rotate secrets periodically according to your security policies
+- Validate that user emails belong to your organization before requesting tokens
+- Use HTTPS for all API communication
+- Implement token expiration handling and refresh logic
+
+## Troubleshooting
+
+| Error | Description | Solution |
+|-------|-------------|----------|
+| 401 Unauthorized | Invalid client credentials | Verify client ID and secret |
+| 403 Forbidden | Insufficient permissions | Ensure the client has appropriate scopes |
+| 404 Not Found | User not found | Verify the user email and organization ID |
+| 429 Too Many Requests | Rate limit exceeded | Implement request throttling and retries |
+
+For assistance with this integration, contact Tallyfy Support with specific details about your use case and any error messages encountered.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 
