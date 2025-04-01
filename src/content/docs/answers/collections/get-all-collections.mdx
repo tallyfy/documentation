@@ -7,11 +7,101 @@ snippet: Users can access a summary of all collections sorted by creation date w
 title: Get all collections
 ---
 
-## Get all collections
+## Listing all collections
 
-Returns a summary of all your collections. The collections are returned sorted by creation date, with the most recent collections appearing first.
+This endpoint retrieves a summary of all collections in your Tallyfy Answers account. Collections are sorted by creation date in descending order (newest first), making it easy to find recently created collections.
 
-NOTE: By default, ALL collections are returned, but you can use the offset and limit parameters to paginate on the collection listing.
+### API endpoint
+
+```
+GET /v1/collections
+```
+
+### Query parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | No | 20 | Maximum number of collections to return (1-100) |
+| `offset` | integer | No | 0 | Number of collections to skip (for pagination) |
+
+### Response
+
+A successful request returns a `200 OK` status code and a JSON response containing:
+
+```json
+{
+  "collections": [
+    {
+      "name": "products",
+      "description": "Collection of product information",
+      "object_count": 142,
+      "created_at": "2023-08-15T14:32:21Z"
+    },
+    {
+      "name": "customers",
+      "description": "Customer account information",
+      "object_count": 1253,
+      "created_at": "2023-07-28T09:15:33Z"
+    }
+  ],
+  "meta": {
+    "total_collections": 5,
+    "limit": 20,
+    "offset": 0
+  }
+}
+```
+
+### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `collections` | array | List of collection summary objects |
+| `meta.total_collections` | integer | Total number of collections in your account |
+| `meta.limit` | integer | Limit value used in the request |
+| `meta.offset` | integer | Offset value used in the request |
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid query parameters |
+
+### Example request
+
+```bash
+# Get first page of collections (default 20 per page)
+curl -X GET https://api.tallyfy.com/v1/collections \
+  -H "X-Answers-API-Key: your_api_key"
+
+# Get second page with 10 collections per page
+curl -X GET "https://api.tallyfy.com/v1/collections?limit=10&offset=10" \
+  -H "X-Answers-API-Key: your_api_key"
+```
+
+### Pagination
+
+To paginate through large numbers of collections:
+
+1. Make an initial request with desired `limit`
+2. Check the `meta.total_collections` value to determine total pages
+3. Increase the `offset` parameter by the `limit` value for each subsequent page
+4. Continue until you've processed all collections
+
+Example pagination calculation:
+- If you have 45 total collections with a limit of 10:
+  - Page 1: offset=0, limit=10 (collections 1-10)
+  - Page 2: offset=10, limit=10 (collections 11-20)
+  - Page 3: offset=20, limit=10 (collections 21-30)
+  - Page 4: offset=30, limit=10 (collections 31-40)
+  - Page 5: offset=40, limit=10 (collections 41-45)
+
+### Usage scenarios
+
+- Displaying a list of collections in a management interface
+- Generating reports on collection usage
+- Performing operations across all collections
+- Finding collections by name when browsing
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

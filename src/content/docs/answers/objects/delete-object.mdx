@@ -7,9 +7,67 @@ snippet: Objects can be permanently removed from collections using their unique 
 title: Delete an object
 ---
 
-## Delete a single object
+## Deleting objects from collections
 
-Delete an individual object from a collection by using its id.
+This endpoint allows you to permanently remove a specific object from a collection using its unique identifier. Once deleted, an object cannot be recovered.
+
+### API endpoint
+
+```
+DELETE /v1/collections/{collection_name}/objects/{object_id}
+```
+
+### Request parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection_name` | path | Yes | Name of the collection containing the object |
+| `object_id` | path | Yes | Unique identifier of the object to delete |
+
+### Response
+
+A successful deletion returns a `200 OK` status code with a confirmation response:
+
+```json
+{
+  "id": "product-123",
+  "status": "deleted"
+}
+```
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 404 | Object or collection not found |
+| 400 | Invalid object ID format |
+| 403 | Permission denied (if applicable) |
+
+### Example request
+
+```bash
+curl -X DELETE https://api.tallyfy.com/v1/collections/products/objects/product-123 \
+  -H "X-Answers-API-Key: your_api_key"
+```
+
+### Important considerations
+
+:::warning[Permanent Action]
+Object deletion is permanent and cannot be undone. There is no "trash" or "recycle bin" for deleted objects.
+:::
+
+- Verify that you have the correct object ID before deletion
+- Consider archiving objects in your application logic instead of deleting them if you might need them later
+- Deleting an object will remove it from search results immediately
+- If you need to delete multiple objects, you may need to make separate API calls for each one
+- Consider implementing confirmation workflows in your application before calling this endpoint
+
+### Alternative approaches
+
+Instead of actually deleting objects, consider these alternatives:
+- Add a "status" field to mark objects as inactive
+- Move objects to an "archive" collection
+- Implement soft deletion by adding a "deleted_at" timestamp field
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

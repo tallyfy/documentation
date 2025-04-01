@@ -7,14 +7,99 @@ snippet: The import API enables efficient batch indexing of multiple objects usi
 title: Index multiple objects
 ---
 
-## Index multiple objects
+## Batch importing multiple objects
 
-You can index multiple objects in a batch using the import API.
+This endpoint allows you to efficiently index multiple objects in a single API call. It significantly outperforms making multiple individual object creation requests, especially for large datasets or initial data loading.
 
-When indexing multiple objects, this endpoint is much more performant, than calling the single object create endpoint multiple times in quick succession.
+### API endpoint
 
-The object to import need to be formatted as a newline delimited JSON string, aka JSONLines
-(opens new window) format. This is essentially one JSON object per line, without commas between documents. For example, here are a set of 3 documents represented in JSONL format.
+```
+POST /v1/collections/{collection_name}/objects/import
+```
+
+### Request parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection_name` | path | Yes | Name of the collection to import objects into |
+
+### Request body format: JSONLines
+
+The request body must use the [JSONLines format](https://jsonlines.org/) (also known as newline-delimited JSON). This format consists of multiple JSON objects, with each object on a separate line and no commas between objects.
+
+Example JSONLines format for three objects:
+
+```
+{"id": "product-123", "name": "Wireless Headphones", "price": 79.99}
+{"id": "product-456", "name": "Bluetooth Speaker", "price": 129.99}
+{"id": "product-789", "name": "Smart Watch", "price": 199.99}
+```
+
+### Content-Type header
+
+Set the `Content-Type` header to either:
+- `application/x-ndjson` (preferred)
+- `text/plain`
+
+### Response
+
+A successful request returns a `200 OK` status code and a summary of the import operation:
+
+```json
+{
+  "success": true,
+  "count": 3,
+  "errors": []
+}
+```
+
+If some objects fail to import while others succeed, you'll receive a `207 Multi-Status` response:
+
+```json
+{
+  "success": true,
+  "count": 2,
+  "errors": [
+    {
+      "line": 2,
+      "error": "Invalid object format at line 2",
+      "object": "{malformed json}"
+    }
+  ]
+}
+```
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid JSONLines format or request body |
+| 404 | Collection not found |
+| 413 | Request body too large |
+
+### Example request using curl
+
+```bash
+curl -X POST https://api.tallyfy.com/v1/collections/products/objects/import \
+  -H "X-Answers-API-Key: your_api_key" \
+  -H "Content-Type: application/x-ndjson" \
+  -d $'{"id": "product-123", "name": "Wireless Headphones", "price": 79.99}\n{"id": "product-456", "name": "Bluetooth Speaker", "price": 129.99}'
+```
+
+### Best practices for batch imports
+
+- **Size limitations**: Keep individual requests under 5MB
+- **Chunking**: For large datasets, break imports into smaller batches of 100-1000 objects
+- **ID handling**: You can mix objects with and without custom IDs in the same import
+- **Error handling**: Process the errors array in the response to identify and fix failed objects
+- **Parallel imports**: For very large datasets, you can make multiple parallel import requests to different collections
+
+### When to use batch import
+
+- Initial data population
+- Regular data synchronization from external systems
+- Bulk updates to multiple objects
+- Periodic content refreshes
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

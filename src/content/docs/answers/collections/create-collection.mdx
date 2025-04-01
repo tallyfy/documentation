@@ -8,35 +8,98 @@ snippet: Collections must be created with a name before adding objects to Answer
 title: Create a collection
 ---
 
-## Create a collection
+## Creating collections
 
-Before we can add objects to Answers, we need to first create a `Collection` - we give it a name, then Answers will automatically detect your properties and data types based on the objects you index.
+Before adding objects to Tallyfy Answers, you must first create a collection. Each collection requires a unique name, and the system will automatically detect the data types of your objects as you index them.
 
+### API endpoint
 
-## Available data types
+```
+POST /v1/collections
+```
+
+### Request body
+
+The request body should contain a JSON object with the following properties:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Unique name for the collection (can include letters, numbers, hyphens, and underscores) |
+| `description` | string | No | Optional description explaining the collection's purpose |
+
+Example request body:
+
+```json
+{
+  "name": "products",
+  "description": "Collection of product information including names, descriptions, and pricing"
+}
+```
+
+### Response
+
+A successful request returns a `201 Created` status code and a JSON response containing:
+
+```json
+{
+  "name": "products",
+  "description": "Collection of product information including names, descriptions, and pricing",
+  "created_at": "2023-08-15T14:32:21Z"
+}
+```
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid request format or collection name |
+| 409 | Collection name already exists |
+
+### Example request
+
+```bash
+curl -X POST https://api.tallyfy.com/v1/collections \
+  -H "X-Answers-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "products",
+    "description": "Collection of product information"
+  }'
+```
+
+### Supported data types
+
+Tallyfy Answers automatically detects the following data types when you index objects:
 
 <table>
-	<thead>
-	<tr>
-		<th width="25%"></th>
-		<th width="30%"></th>
-	</tr>
-	</thead>
-	<tbody>
-	<tr>
-		<td><b>Data Type</b></td>
-		<td>Example</td>
-	</tr>
-	<tr>
-		<td>string</td>
-		<td>string</td>
-	</tr>
-	<tr>
-		<td>list of strings</td>
-		<td>["string one", "string two"]</td>
-	</tr>
-	</tbody>
+  <thead>
+    <tr>
+      <th width="30%">Data Type</th>
+      <th width="30%">Example</th>
+      <th width="40%">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>string</td>
+      <td>"Wireless Headphones"</td>
+      <td>Text values that can be searched and filtered</td>
+    </tr>
+    <tr>
+      <td>list of strings</td>
+      <td>["electronics", "audio"]</td>
+      <td>Arrays of text values for multi-value fields</td>
+    </tr>
+  </tbody>
 </table>
+
+### Collection naming best practices
+
+- Use lowercase letters, numbers, hyphens, and underscores
+- Choose descriptive names that reflect the content (e.g., "products", "users", "articles")
+- Avoid spaces and special characters
+- Keep names concise but meaningful
+- Use consistent naming conventions across collections
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

@@ -7,10 +7,114 @@ snippet: Objects can be found based on their similarity to a specific object ID 
 title: Find similar objects
 ---
 
-## Find similar objects
+## Finding similar objects through recommendations
 
+The recommendation endpoint allows you to discover objects similar to a specified reference object. This similarity search uses vector embeddings to find objects with related characteristics, which is useful for recommendation systems, content discovery, and finding related items.
 
-If you have a particular object `id` and want to find objects that are "similar" to this object, you can do that using recommend feature.
+### How similarity search works
+
+Tallyfy Answers uses semantic similarity to find related objects:
+
+1. Each object's text content is converted into vector embeddings (numerical representations)
+2. When searching for similar objects, the system compares vector distances
+3. Objects with closer vector distances are considered more similar
+4. Results are ranked by similarity score from most to least similar
+
+### API endpoint
+
+```
+GET /v1/collections/{collection_name}/objects/{object_id}/similar
+```
+
+### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection_name` | string | Yes | Name of the collection to search in |
+| `object_id` | string | Yes | ID of the reference object to find similar objects to |
+
+### Query parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | No | 10 | Maximum number of similar objects to return (1-100) |
+| `min_score` | float | No | 0.0 | Minimum similarity score threshold (0.0-1.0) |
+| `filter` | string | No | null | Filter expression to narrow down results |
+
+### Response
+
+A successful request returns a `200 OK` status code and a JSON response containing:
+
+```json
+{
+  "results": [
+    {
+      "id": "product-456",
+      "score": 0.89,
+      "document": {
+        "name": "Bluetooth Speaker",
+        "description": "Portable waterproof speaker with 20-hour battery life",
+        "price": 129.99,
+        "categories": ["electronics", "audio"]
+      }
+    },
+    {
+      "id": "product-789",
+      "score": 0.72,
+      "document": {
+        "name": "Wireless Earbuds",
+        "description": "Premium noise-canceling earbuds with charging case",
+        "price": 99.99,
+        "categories": ["electronics", "audio"]
+      }
+    }
+  ],
+  "meta": {
+    "limit": 10,
+    "found": 2
+  }
+}
+```
+
+### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `results` | array | List of similar objects with similarity scores |
+| `results[].id` | string | Unique identifier of the similar object |
+| `results[].score` | float | Similarity score (0.0-1.0) where higher is more similar |
+| `results[].document` | object | Full content of the similar object |
+| `meta.limit` | integer | Maximum number of results requested |
+| `meta.found` | integer | Total number of similar objects found |
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 404 | Collection or reference object not found |
+| 400 | Invalid parameters or filter syntax |
+
+### Example request
+
+```bash
+# Find objects similar to product-123 with at least 0.7 similarity
+curl -X GET "https://api.tallyfy.com/v1/collections/products/objects/product-123/similar?limit=5&min_score=0.7" \
+  -H "X-Answers-API-Key: your_api_key"
+```
+
+### Common use cases
+
+- **Product recommendations**: "Customers who viewed this also viewed..."
+- **Content discovery**: Finding related articles or documentation
+- **Similarity matching**: Identifying near-duplicate content
+- **Alternative suggestions**: Offering similar options when an item is unavailable
+
+### Best practices
+
+- Start with a lower `min_score` threshold and adjust based on result quality
+- Use the `filter` parameter to combine similarity with business rules
+- For better recommendations, ensure your objects contain rich, descriptive text
+- Include diverse object attributes to improve similarity matching
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

@@ -7,15 +7,83 @@ snippet: The endpoint allows indexing individual objects into collections while 
 title: Index a single object
 ---
 
-## Index a single object
+## Indexing individual objects
 
+This endpoint allows you to add a single object to a specific collection in Tallyfy Answers. Use this method when you need to index objects in response to real-time events or user actions in your application.
 
-If you need to index an object in response to some user action in your application, you can use the single object create endpoint.
+### When to use this endpoint
 
-If you need to index multiple objects at a time, we highly recommend using the import objects endpoint, which is optimized for bulk imports. For eg: If you have 100 objects, indexing them using the import endpoint at once will be much more performant than indexing objects one a time.
+This endpoint is ideal for:
+- Adding individual records as they're created
+- Updating existing objects with new information
+- Testing your integration with Tallyfy Answers
+- Low-volume indexing operations
 
-Let's see how we can add a new object to a collection.
+For high-volume operations, the [import objects endpoint](/products/answers/objects/index-muliple-objects/) offers significantly better performance.
 
+### API endpoint
+
+```
+POST /v1/collections/{collection_name}/objects
+```
+
+### Request parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection_name` | path | Yes | Name of the collection where the object will be indexed |
+
+### Request body
+
+The request body should contain a JSON object with the data you want to index. For example:
+
+```json
+{
+  "id": "product-123",
+  "name": "Wireless Headphones",
+  "description": "Premium noise-canceling headphones with 20-hour battery life",
+  "price": 79.99,
+  "categories": ["electronics", "audio", "wireless"]
+}
+```
+
+### Response
+
+A successful request returns a `201 Created` status code and a JSON response containing:
+
+```json
+{
+  "id": "product-123",
+  "status": "success"
+}
+```
+
+### Error scenarios
+
+| Status | Description |
+|--------|-------------|
+| 400 | Malformed request or invalid object format |
+| 404 | Collection not found |
+| 409 | Object ID conflict (when using custom IDs) |
+| 413 | Object size too large |
+
+### Example request
+
+```bash
+curl -X POST https://api.tallyfy.com/v1/collections/products/objects \
+  -H "X-Answers-API-Key: your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "product-123",
+    "name": "Wireless Headphones",
+    "price": 79.99,
+    "categories": ["electronics", "audio"]
+  }'
+```
+
+### Performance considerations
+
+For indexing multiple objects, consider using the bulk import endpoint instead of making multiple individual requests. The bulk endpoint is optimized for higher throughput and will significantly reduce API request overhead.
 
 import PageTree from '@/components/PageTree.astro';
 
