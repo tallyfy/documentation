@@ -1,0 +1,223 @@
+---
+id: e92a3c78f19b42dea78c55125b28a11f
+sidebar:
+  order: 13
+snippet: The Tallyfy API enables filtering for unassigned tasks and managing task assignment including the ability to create tasks with no assignees through specific request parameters and field configurations.
+title: Filter and assign tasks via API
+---
+
+## Task Assignment and Filtering via API
+
+This guide explains how to work with task assignments through the Tallyfy API, including how to filter for unassigned tasks and create tasks without assignees.
+
+:::note[API Documentation]
+Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
+:::
+
+### Prerequisites
+
+Before starting, ensure you have:
+
+- A valid API access token
+- Organization ID for your requests
+- Required headers configured properly
+
+### Required Headers
+
+All API requests must include these headers:
+
+```
+Authorization: Bearer {your_access_token}
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+:::caution[Important]
+The `X-Tallyfy-Client: APIClient` header is required for all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::
+
+## Filtering for Unassigned Tasks
+
+Tallyfy now supports filtering for tasks that have no assignees. To retrieve only unassigned tasks, add the `unassigned=1` query parameter to any tasks endpoint:
+
+```
+GET https://go.tallyfy.com/api/organizations/{org_id}/me/tasks?unassigned=1
+```
+
+This filter works with all task-related endpoints and can be combined with other filters to further refine your results.
+
+## Task Assignment Options in Templates
+
+When creating or updating steps in templates, you have three assignment options:
+
+1. **Process starter**: Assign the task to whoever launches the process
+2. **Someone specific**: Assign to specific members, groups, or guests
+3. **Nobody right now**: Create the task with no assignees
+
+### API Fields for Assignment Control
+
+The following fields control task assignment behavior:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `assign_run_starter` | Boolean | When `true`, assigns task to process launcher |
+| `owners.users` | Array | IDs of users assigned to the task |
+| `owners.groups` | Array | IDs of groups assigned to the task |
+| `owners.guests` | Array | Email addresses of guests assigned to the task |
+
+### Example: Creating a Step with No Assignees
+
+To create a step that will have no assignees when launched:
+
+```json
+{
+  "name": "Review document",
+  "description": "Please review the attached document",
+  "assign_run_starter": false,
+  "owners": {
+    "users": [],
+    "groups": [],
+    "guests": []
+  }
+  // other step properties...
+}
+```
+
+The key combination is:
+- `assign_run_starter` set to `false`
+- Empty arrays for all owner types
+
+### Example: Creating a Step Assigned to Process Starter
+
+To create a step assigned to whoever launches the process:
+
+```json
+{
+  "name": "Initial review",
+  "description": "Initial document review by process starter",
+  "assign_run_starter": true,
+  "owners": {
+    "users": [],
+    "groups": [],
+    "guests": []
+  }
+  // other step properties...
+}
+```
+
+### Example: Creating a Step with Specific Assignees
+
+To create a step assigned to specific members:
+
+```json
+{
+  "name": "Legal review",
+  "description": "Legal department review",
+  "assign_run_starter": false,
+  "owners": {
+    "users": [123, 456],
+    "groups": [789],
+    "guests": ["legal@example.com"]
+  }
+  // other step properties...
+}
+```
+
+## Updating Task Assignments
+
+To update task assignments for an existing task:
+
+```
+PUT https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}
+```
+
+With a payload like:
+
+```json
+{
+  "owners": {
+    "users": [123, 456],
+    "groups": [],
+    "guests": []
+  }
+}
+```
+
+### Removing All Assignees from a Task
+
+To remove all assignees from an existing task (making it unassigned):
+
+```json
+{
+  "owners": {
+    "users": [],
+    "groups": [],
+    "guests": []
+  }
+}
+```
+
+## Task Assignment Behavior During Process Launch
+
+When launching a process with the API, you can override the template's default assignments:
+
+```
+POST https://go.tallyfy.com/api/organizations/{org_id}/runs
+```
+
+With a payload that includes task-specific assignments:
+
+```json
+{
+  "name": "New client onboarding",
+  "checklist_id": "5f8a721b3e4c8f09d2a85f2e",
+  "tasks": {
+    "step_id_1": {
+      "users": [123, 456],
+      "groups": [789],
+      "guests": ["client@example.com"]
+    },
+    "step_id_2": {
+      "users": [],
+      "groups": [],
+      "guests": []
+    }
+  }
+  // other process properties...
+}
+```
+
+In this example, `step_id_1` will have specific assignees, while `step_id_2` will have no assignees.
+
+## Task Assignment Rules
+
+Tallyfy follows these rules when determining task assignments during process launch:
+
+| API Request Contains | Template Contains | Result |
+|------------------|-------------------|--------|
+| Task assignees | Step assignees | API request assignees take priority |
+| No task assignees | Step assignees | Step assignees are used |
+| No assignees, `assign_run_starter=true` | No assignees | Process launcher is assigned |
+| No assignees, `assign_run_starter=false` | No assignees | Task remains unassigned |
+
+## Error Handling
+
+Common errors when working with task assignments:
+
+| Status Code | Description | Solution |
+|-------------|-------------|----------|
+| 400 Bad Request | Invalid assignment format | Check that owners arrays contain valid IDs/emails |
+| 404 Not Found | Invalid task/step ID | Verify the task/step ID exists |
+| 403 Forbidden | Insufficient permissions | Ensure your token has appropriate permissions |
+
+For complex integration requirements or assistance with specific use cases, contact Tallyfy Support.
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Open Api > Launch a process using Tallyfy API</b>" href="/products/pro/integrations/open-api/how-to-start-a-process-using-tallyfy-api/" > The REST API enables programmatic process initiation in Tallyfy by sending authenticated POST requests with custom fields task assignments and form data while following specific rules for task delegation and error handling. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Complete form fields in a task</b>" href="/products/pro/integrations/open-api/how-do-i-complete-form-fields-in-a-process-task/" > The REST API enables programmatic completion of Tallyfy task form fields through structured requests with field-specific payload formats and authentication headers for both updating fields and marking tasks as complete. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Integrate with Tallyfy using API</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > A comprehensive REST API system that enables workflow integration through user-based or application-based authentication methods while adhering to specific header requirements date formats and webhook capabilities for real-time notifications. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Sniff API calls using Chrome</b>" href="/products/pro/integrations/open-api/how-to-sniff-api-calls-using-chrome/" > Chrome DevTools enables monitoring of Tallyfy API interactions through network inspection allowing developers to analyze request headers payloads responses and authentication details for implementing effective integrations. </LinkTitleCard>
+</CardGrid> 
