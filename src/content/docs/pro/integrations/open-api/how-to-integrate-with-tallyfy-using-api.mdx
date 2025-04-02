@@ -50,6 +50,66 @@ For third-party applications or dedicated integrations requiring client credenti
 2. Receive your application's **Client ID** and **Client Secret**
 3. Implement the OAuth 2.0 flow to obtain and refresh access tokens
 
+### Obtaining Access Tokens with Password Grant
+
+If you're receiving a 401 "Unauthenticated" error despite having valid client credentials, you may need to use the password grant authentication flow:
+
+:::note[Grant Type Selection]
+The **client_credentials** grant type will not provide access tokens that work for user-specific endpoints. For accessing standard API endpoints that require user context, you must use the **password** grant type as shown below.
+:::
+
+1. Make a POST request to the OAuth token endpoint:
+```
+POST https://api.tallyfy.com/oauth/token
+```
+
+2. Include these headers:
+```
+Accept: application/json
+Content-Type: application/json
+```
+
+3. Send this JSON payload:
+```json
+{
+  "grant_type": "password",
+  "client_id": "YOUR_CLIENT_ID",
+  "client_secret": "YOUR_CLIENT_SECRET",
+  "username": "YOUR_USER_EMAIL",
+  "password": "YOUR_USER_PASSWORD"
+}
+```
+
+4. You'll receive a response with an access token:
+```json
+{
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "access_token": "eyJhbGci..."
+}
+```
+
+5. Use this token in subsequent API requests in the Authorization header:
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+:::caution[Security Note]
+The password grant type requires transmitting user credentials. Use this method only in secure environments where you control both the client application and user accounts.
+:::
+
+### Understanding Grant Types
+
+| Grant Type | Purpose | Access Context | Suitable For |
+|------------|---------|----------------|--------------|
+| **client_credentials** | Application-to-application authentication | Application context only | Backend services, system integrations |
+| **password** | User-based access via application | Full user context | APIs requiring user permissions, accessing user data |
+
+**Important distinction**: 
+- Tokens obtained with `client_credentials` grant type can only access endpoints that don't require user context
+- Most Tallyfy API endpoints require user context, so the `password` grant is necessary for accessing these endpoints
+- If you're getting 401 "Unauthenticated" errors when using an access token from `client_credentials`, switch to the `password` grant type
+
 ### Token Refresh Procedure
 
 Access tokens expire periodically and must be refreshed for continued API access:
@@ -63,6 +123,31 @@ Access tokens expire periodically and must be refreshed for continued API access
 This video demonstrates the token refresh process:
 
 <lite-vimeo videoid="326495493"></lite-vimeo>
+
+### Troubleshooting Authentication Issues
+
+If you encounter authentication problems when using the Tallyfy API, check these common issues:
+
+#### 401 Unauthenticated Errors
+
+1. **Invalid Token Format**: Ensure your Authorization header uses the exact format:
+   ```
+   Authorization: Bearer YOUR_ACCESS_TOKEN
+   ```
+   *Note: There should be exactly one space between "Bearer" and your token.*
+
+2. **Token Expiration**: Tokens typically expire after 1 hour. Implement token refresh logic or request a new token.
+
+3. **Invalid Credentials**: Verify your client ID, client secret, username, and password are correct.
+
+4. **Missing Required Headers**: Ensure all API requests include the `X-Tallyfy-Client: APIClient` header.
+
+5. **Incorrect Token Request**: When requesting a token, verify:
+   - You're using the correct endpoint (`https://api.tallyfy.com/oauth/token`)
+   - The `grant_type` parameter matches your authentication flow
+   - All required parameters for your grant type are included
+
+If problems persist, check the response body for specific error messages or contact Tallyfy Support with details about your API implementation and the full error response.
 
 ### Date Format Standards
 
