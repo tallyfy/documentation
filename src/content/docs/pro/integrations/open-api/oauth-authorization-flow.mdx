@@ -1,0 +1,118 @@
+---
+id: ee8c4f5a3d1e292a7b6fc4ed8bca295
+sidebar:
+  order: 10
+snippet: Tallyfy's OAuth authorization flow enables third-party applications to obtain access tokens through user authentication, supporting secure API integration without directly handling user credentials.
+title: OAuth Authorization Flow for Third-Party Applications
+---
+
+## OAuth Authorization Flow for Third-Party Applications
+
+This guide explains how to implement a standard OAuth authorization flow for third-party applications integrating with Tallyfy. This approach allows your users to authenticate directly with Tallyfy without sharing their credentials with your application.
+
+### Prerequisites
+
+- Paid Tallyfy Professional or Enterprise subscription
+- Client ID and Client Secret from Tallyfy
+- A registered redirect URI for your application
+- Basic understanding of OAuth 2.0 authorization flows
+
+:::caution[Enterprise Feature]
+The OAuth authorization flow is only available to paid organizations. Contact Tallyfy Support to request a Client ID and Client Secret for your application.
+:::
+
+### Standard OAuth Flow Implementation
+
+#### Step 1: Redirect Users to Tallyfy Authorization Page
+
+Direct your users to Tallyfy's authorization endpoint:
+
+```
+https://account.tallyfy.com/oauth/authorize?client_id=YOUR_CLIENT_ID&response_type=token&redirect_uri=YOUR_REDIRECT_URL
+```
+
+Replace:
+- `YOUR_CLIENT_ID` with your application's client ID
+- `YOUR_REDIRECT_URL` with your application's registered redirect URI
+
+Users will see Tallyfy's login page where they can authenticate using their Tallyfy credentials.
+
+#### Step 2: Handle the Redirect with Access Token
+
+After successful authentication, Tallyfy will redirect the user back to your specified redirect URI with the access token in the URL fragment:
+
+```
+YOUR_REDIRECT_URL?access_token=ACCESS_TOKEN&token_type=Bearer&expires_in=EXPIRES_IN_SECONDS
+```
+
+Your application should:
+1. Extract the `access_token` from the URL
+2. Store it securely
+3. Use it for subsequent API requests
+
+#### Step 3: Make API Requests with the Access Token
+
+Use the access token in the Authorization header for all API requests:
+
+```
+Authorization: Bearer ACCESS_TOKEN
+Content-Type: application/json
+X-Tallyfy-Client: APIClient
+```
+
+:::note[Required Headers]
+Always include the `X-Tallyfy-Client: APIClient` header in all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::
+
+### Example Implementation
+
+#### Example Authorization URL
+
+```
+https://account.tallyfy.com/oauth/authorize?client_id=9999&response_type=token&redirect_uri=https://yourapp.com/auth/callback
+```
+
+#### Example Redirect with Access Token
+
+```
+https://yourapp.com/auth/callback?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&token_type=Bearer&expires_in=840
+```
+
+#### Handling Multi-Organization Users
+
+A user in Tallyfy can belong to multiple organizations. After authentication, the access token is associated with the organization the user is currently logged into. If your application needs to work with multiple organizations for a user:
+
+1. Store the organization context along with the access token
+2. Consider implementing organization selection in your application
+3. For users in multiple organizations, you may need to handle organization-specific authentication flows
+
+### Security Best Practices
+
+- Always use HTTPS for all OAuth-related communication
+- Implement PKCE (Proof Key for Code Exchange) for added security
+- Store access tokens securely, preferably encrypted
+- Implement token expiration handling
+- Never expose your Client Secret in client-side code
+- Validate all redirect URIs against expected patterns
+- Implement state parameter to prevent CSRF attacks
+
+### Troubleshooting
+
+| Issue | Possible Cause | Solution |
+|-------|----------------|----------|
+| Authorization fails | Invalid client ID | Verify your client ID |
+| Redirect fails | Mismatched redirect URI | Ensure the redirect URI matches exactly with the registered one |
+| Token doesn't work | Token expired | Check expiration time and request a new token |
+| Organization context issues | User belongs to multiple organizations | Clarify organization context during authentication |
+
+For any issues with the OAuth implementation, contact Tallyfy Support with detailed information about the error and your implementation.
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Open Api > API usage as a third-party application instead of a user</b>" href="/products/pro/integrations/open-api/access-api-as-a-third-party-application-instead-of-a-user/" > The guide outlines the integration process between third-party applications and Tallyfy API using client credentials flow to enable programmatic user provisioning and API request handling through application-level and user-specific access tokens. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Integrate with Tallyfy using API</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > A comprehensive REST API system that enables workflow integration through user-based or application-based authentication methods while adhering to specific header requirements date formats and webhook capabilities for real-time notifications. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > The Tallyfy REST API enables programmatic access to platform functionality through user-based or application authentication with features for process management task operations user administration template management data access and file operations. </LinkTitleCard>
+<LinkTitleCard header="<b>Personal Settings > Switch Between Organizations</b>" href="/products/pro/settings/personal-settings/how-can-i-switch-between-organizations-in-tallyfy/" > Users can effortlessly switch between different organizations in Tallyfy by clicking their profile picture and selecting the desired organization from the Organization Switcher menu. </LinkTitleCard>
+</CardGrid> 
