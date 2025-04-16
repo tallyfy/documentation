@@ -1,0 +1,276 @@
+---
+id: api-templates-list
+sidebar:
+  order: 1
+title: List templates
+snippet: Retrieve a list of process templates (blueprints) within your organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/checklists`
+
+This endpoint retrieves a list of process templates (known as "Checklists" or "Blueprints" in the API) available within the specified organization.
+
+## Request
+
+Replace `{org_id}` with your actual Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+Refer to the `GET /organizations/{org}/checklists` endpoint in the Swagger specification or API reference for optional query parameters like `with`, `type`, `q` (search), `page`, `per_page`, etc., to filter or paginate results.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/checklists`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully retrieved templates:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error listing templates:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/checklists'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+# Optional: Add query parameters for filtering/pagination
+params = {
+    # 'q': 'Onboarding', # Example: Search for templates with 'Onboarding' in the title
+    # 'per_page': 5
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status() # Check for HTTP errors
+
+    templates_data = response.json()
+    print('Successfully retrieved templates:')
+    print(json.dumps(templates_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+    if response is not None:
+        print(f"Response Status: {response.status_code}")
+        try:
+            print(f"Response Body: {response.json()}")
+        except json.JSONDecodeError:
+            print(f"Response Body: {response.text}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.time.Duration;
+
+public class ListTemplates {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        // Optional: Add query parameters
+        // String queryParams = "?q=Onboarding&per_page=5"; 
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/checklists"; // + queryParams;
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully retrieved templates:");
+                System.out.println(response.body());
+                // TODO: Parse the JSON response using a library like Jackson or Gson
+            } else {
+                System.err.println("Failed to list templates. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+    "net/url"
+	"os"
+	"time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
+
+	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/checklists", orgId)
+    
+    // Optional: Add query parameters
+    queryParams := url.Values{}
+    // queryParams.Add("q", "Onboarding")
+    // queryParams.Add("per_page", "5")
+    apiUrl := baseURL
+    if len(queryParams) > 0 {
+        apiUrl = baseURL + "?" + queryParams.Encode()
+    }
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making GET request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Request failed with status code %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully retrieved templates:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON using encoding/json into appropriate Go structs
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element in the `data` array represents a template with its details.
+
+```json
+{
+  "data": [
+    {
+      "id": "c15bf2be31c3a7fbded5d13fce7aaab9",
+      "title": "Customer Onboarding Process",
+      "summary": "Standard process for onboarding new customers.",
+      "starred": false,
+      // ... other template properties ...
+      "created_at": "2023-01-10T10:00:00.000Z",
+      "last_updated": "2023-05-15T14:30:00.000Z"
+    },
+    {
+      "id": "a987654321abcdefa987654321abcdef",
+      "title": "Employee Offboarding Checklist",
+      "summary": "Steps to take when an employee leaves.",
+      // ... other template properties ...
+    }
+    // ... more templates ...
+  ],
+  "meta": {
+    "pagination": {
+       "total": 25,
+       "count": 10,
+       "per_page": 10,
+       "current_page": 1,
+       "total_pages": 3,
+       "links": {
+           "next": "https://api.tallyfy.com/organizations/{org_id}/checklists?page=2"
+       }
+    }
+  }
+}
+```
+
+If pagination is used, the `meta` object provides details about the total number of templates, current page, etc., and links to navigate through pages.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Templates > Create template</b>" href="./create-template/"> Learn how to create a new template via the API. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Get template</b>" href="./get-template/"> See how to fetch details for a single template. </LinkTitleCard>
+</CardGrid> 

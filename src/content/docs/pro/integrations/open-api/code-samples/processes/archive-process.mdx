@@ -1,0 +1,222 @@
+---
+id: api-processes-archive
+sidebar:
+  order: 5
+title: Archive process
+snippet: Archive a completed or inactive process run.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/runs/{run_id}`
+
+This endpoint archives a specific process instance (run). Archiving typically hides the process from default views but retains its data and allows it to be restored later.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to archive.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID_TO_ARCHIVE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) { // Expect 200 OK
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    console.log(`Successfully archived process ${runId}. Status: ${response.status}`);
+    return response.json(); // Archive usually returns the updated process
+})
+.then(data => {
+    console.log('Archived process details:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error archiving process ${runId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID_TO_ARCHIVE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    response.raise_for_status() # Expect 200 OK
+
+    print(f'Successfully archived process {run_id}. Status: {response.status_code}')
+    try:
+        archived_process = response.json()
+        print('Archived process details:')
+        print(json.dumps(archived_process, indent=4))
+    except json.JSONDecodeError:
+        print("(No JSON body returned on archive)")
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class ArchiveProcess {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID_TO_ARCHIVE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { 
+                System.out.println("Successfully archived process " + runId + ". Status: " + response.statusCode());
+                 if (response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 }
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := "PROCESS_RUN_ID_TO_ARCHIVE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK {
+        fmt.Printf("Successfully archived process %s. Status: %d\n", runId, resp.StatusCode)
+        if len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code. The response body usually contains the details of the archived process run, now including an `archived_at` timestamp and likely a `status` of `archived`.
+
+```json
+{
+  "data": {
+    "id": "PROCESS_RUN_ID_TO_ARCHIVE",
+    "name": "Old Completed Project",
+    "status": "archived", // Status reflects archive
+    // ... other process properties ...
+    "archived_at": "2024-05-22T10:00:00Z" // Timestamp indicates archival
+  }
+}
+```
+
+If the process run ID is not found or you lack permission, a `404` or `403` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Activate process</b>" href="./activate-process/"> Restore this archived process. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Delete process</b>" href="./delete-process/"> Permanently delete this process. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="./get-process/"> Get details before archiving. </LinkTitleCard>
+</CardGrid> 

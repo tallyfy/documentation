@@ -1,0 +1,240 @@
+---
+id: api-guests-delete
+sidebar:
+  order: 5
+title: Delete guest
+snippet: Remove a guest user record from your organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/guests/{guest_email}`
+
+This endpoint removes a guest user record from the organization, identified by their email address. This action likely prevents the guest from accessing any further tasks or information within this organization.
+
+:::note[Alternative Endpoint]
+The Swagger specification also lists `DELETE /organizations/{org}/guests/{guestID}/delete`. This suggests you might also be able to delete a guest using their unique ID (`guest_code`) instead of their email. Check the specific endpoint behavior if needed.
+:::
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{guest_email}` with the URL-encoded email address of the guest to remove.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const guestEmail = "guest.to.delete@example.com";
+const encodedEmail = encodeURIComponent(guestEmail);
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests/${encodedEmail}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    // Expect 201 or potentially 200/204 for successful deletion
+    if (response.status === 201 || response.status === 200 || response.status === 204) { 
+        console.log(`Successfully deleted guest ${guestEmail}. Status: ${response.status}`);
+        // Body might be empty or contain the deleted guest record
+         if (response.status !== 204) {
+             return response.json(); // Attempt to parse if not 204
+         }
+         return null;
+    } else {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.then(data => {
+    if (data) { 
+      console.log('Deleted guest details (if returned):');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error deleting guest ${guestEmail}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+from urllib.parse import quote
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+guest_email = "guest.to.delete@example.com"
+encoded_email = quote(guest_email)
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests/{encoded_email}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    
+    # Check for successful status codes
+    if response.status_code in [200, 201, 204]:
+        print(f'Successfully deleted guest {guest_email}. Status: {response.status_code}')
+        if response.status_code != 204 and response.content:
+            try:
+                deleted_guest = response.json()
+                print('Deleted guest details (if returned):')
+                print(json.dumps(deleted_guest, indent=4))
+            except json.JSONDecodeError:
+                print(f"(Received status {response.status_code} but body is not valid JSON: {response.text})")
+        elif response.status_code == 204:
+             print("(Received status 204 No Content)")
+    else:
+        response.raise_for_status() # Raise for other errors
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
+public class DeleteGuest {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String guestEmail = "guest.to.delete@example.com";
+        String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            // Send request expecting potential body for 200/201, empty for 204
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200 || response.statusCode() == 201 || response.statusCode() == 204) { 
+                System.out.println("Successfully deleted guest " + guestEmail + ". Status: " + response.statusCode());
+                 if (response.statusCode() != 204 && response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 }
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Response: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    guestEmail := "guest.to.delete@example.com"
+    encodedEmail := url.PathEscape(guestEmail)
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusNoContent {
+        fmt.Printf("Successfully deleted guest %s. Status: %d\n", guestEmail, resp.StatusCode)
+        if resp.StatusCode != http.StatusNoContent && len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful deletion might return `201 Created`, `200 OK`, or `204 No Content`. 
+- If `201` or `200`, the body might contain the details of the deleted guest record.
+- If `204`, there is no response body.
+
+If the guest email is not found, a `404 Not Found` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Guests > Get guest</b>" href="./get-guest/"> Retrieve details for a guest before deleting. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > List guests</b>" href="./list-guests/"> View the updated list of guests. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Enable/Disable guest</b>" href="./enable-disable-guest/"> Disable a guest instead of deleting them. </LinkTitleCard>
+</CardGrid> 

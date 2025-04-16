@@ -1,0 +1,257 @@
+---
+id: api-processes-get
+sidebar:
+  order: 3
+title: Get process
+snippet: Retrieve details for a specific process run by its ID.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/runs/{run_id}`
+
+This endpoint retrieves the full details for a single process instance (run) identified by its unique ID.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{run_id}` with the specific ID of the process run you want to retrieve.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+-   `with` (string): A comma-separated list to include related data (e.g., `checklist`, `tasks`, `tags`, `assets`, `next_task`, `tasks.step`, `tasks.threads`, `form_fields`, `ko_form_fields`).
+-   `form_fields_values` (boolean, e.g., `true`): Include the values submitted to form fields.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID_TO_GET';
+
+const queryParams = '?with=checklist,tasks,tags'; // Example
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}${queryParams}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully retrieved process ${runId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error getting process ${runId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID_TO_GET'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    'with': 'checklist,tasks,tags,form_fields',
+    'form_fields_values': 'true'
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    process_data = response.json()
+    print(f'Successfully retrieved process {run_id}:')
+    print(json.dumps(process_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class GetProcess {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID_TO_GET";
+        String baseUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId);
+
+        Map<String, String> queryParamsMap = Map.of("with", "checklist,tasks"); // Example
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+            
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully retrieved process " + runId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := "PROCESS_RUN_ID_TO_GET"
+    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId)
+
+    queryParams := url.Values{}
+    queryParams.Add("with", "checklist,tasks,tags") // Example
+    
+    apiUrl := baseUrl + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully retrieved process %s:\n", runId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` field with the process run's details.
+
+```json
+{
+  "data": {
+    "id": "PROCESS_RUN_ID_TO_GET",
+    "increment_id": 5015,
+    "checklist_id": "template_id_abc",
+    "checklist_title": "Client Onboarding V3",
+    "name": "Onboarding - Globex Corp",
+    "summary": "New client onboarding process run.",
+    "status": "active",
+    "progress": { ... },
+    "started_by": 1002,
+    "owner_id": 1002,
+    "created_at": "2024-05-20T11:00:00Z",
+    "last_updated": "2024-05-21T09:30:00Z",
+    "prerun": { // Kick-off form field values if filled
+        "kickoff_field_id_1": "Globex Corporation",
+        "kickoff_field_id_2": "2024-06-01T00:00:00Z"
+    },
+    // Included if requested with 'with=checklist'
+    "checklist": { ... template details ... },
+    // Included if requested with 'with=tasks'
+    "tasks": [ { ... task details ... } ],
+    // Included if requested with 'with=tags'
+    "tags": [ { ... tag details ... } ]
+    // ... other run properties ...
+  }
+}
+```
+
+If the run ID is not found or you lack permission, a `404 Not Found` or `403 Forbidden` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > List processes</b>" href="./list-processes/"> Get a list of all process runs. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Launch process</b>" href="./launch-process/"> Start a new process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Update process</b>" href="./update-process/"> Modify this process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > List process tasks</b>" href="../tasks/list-process-tasks/"> Get the tasks specifically for this run. </LinkTitleCard>
+</CardGrid> 

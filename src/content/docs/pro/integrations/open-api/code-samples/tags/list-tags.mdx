@@ -1,0 +1,253 @@
+---
+id: api-tags-list
+sidebar:
+  order: 1
+title: List tags
+snippet: Retrieve a list of tags defined within your organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/tags`
+
+This endpoint retrieves a list of tags available within the specified organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+Refer to Swagger for filtering options, which might include:
+
+-   `q` (string): Search by tag title.
+-   `with` (string): Include related data (e.g., `statistics`).
+-   Pagination parameters (`page`, `per_page`).
+-   Sorting parameters (`sort`).
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+
+const queryParams = ''; // e.g., '?q=Urgent&with=statistics'
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tags${queryParams}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully listed tags:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error listing tags:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tags'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    # 'q': 'Project',
+    'with': 'statistics' # Example
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    tags_data = response.json()
+    print('Successfully listed tags:')
+    print(json.dumps(tags_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class ListTags {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tags";
+
+        Map<String, String> queryParamsMap = Map.of("with", "statistics"); // Example
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully listed tags:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tags", orgId)
+
+    queryParams := url.Values{}
+    queryParams.Add("with", "statistics") // Example
+    
+    apiUrl := baseURL + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully listed tags:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element represents a tag.
+
+```json
+{
+  "data": [
+    {
+      "id": "tag_id_abc", // Unique tag ID
+      "title": "Urgent",
+      "color": "#e74c3c", // Hex color code
+      "template": 5, // Count of templates using this tag
+      "active_process": 12, // Count of active processes using this tag
+      "auto_generated": false,
+      "created_at": "2023-02-10T10:00:00Z",
+      "deleted_at": null,
+      // Included if requested with 'with=statistics'
+      "statistics": {
+          // ... detailed usage counts ...
+      }
+    },
+    {
+       "id": "tag_id_def",
+       "title": "Finance",
+       "color": "#2ecc71",
+       // ... other tag details ...
+    }
+  ],
+  "meta": {
+      // Pagination details if applicable
+  }
+}
+```
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tags > Create tag</b>" href="./create-tag/"> Create a new tag. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > Get tag</b>" href="./get-tag/"> Get details for a specific tag. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,288 @@
+---
+id: api-files-download
+sidebar:
+  order: 2
+title: Download file
+snippet: Download the content of a previously uploaded file (asset).
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/file/{file_id}/dl`
+
+This endpoint downloads the actual content of a file (asset) that was previously uploaded (e.g., via a task form field or kick-off field).
+
+Note the `/dl` suffix, which distinguishes this from potentially getting file metadata.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{file_id}` with the Asset ID of the file you want to download (this ID is obtained when uploading the file or potentially from getting task/process data).
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `X-Tallyfy-Client: APIClient`
+-   *(Accept header might be omitted or set based on expected file type, but the API primarily controls the response `Content-Type`)*
+
+## Code Samples
+
+These samples demonstrate how to fetch the file content and save it locally. Error handling should check the response status and `Content-Type` header.
+
+<Tabs>
+<TabItem label="JavaScript (fetch + Blob)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const fileId = 'ASSET_ID_TO_DOWNLOAD';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/file/${fileId}/dl`;
+const localFilename = 'downloaded_file'; // Desired local filename
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Try to read error as text, might not be JSON
+        return response.text().then(text => { 
+            throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+        });
+    }
+    // Get filename from Content-Disposition header if available
+    const disposition = response.headers.get('content-disposition');
+    let filename = localFilename;
+    if (disposition && disposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[3]) { 
+          filename = matches[3].replace(/[^\w\.\-]/g, '_'); // Basic sanitization
+        }
+    }
+    console.log(`Attempting to download as: ${filename}`);
+    return response.blob().then(blob => ({ blob, filename }));
+})
+.then(({ blob, filename }) => {
+    // Create a link element to trigger the download in the browser
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    console.log('File download initiated.');
+})
+.catch(error => {
+    console.error('Error downloading file:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import os
+import re # For parsing Content-Disposition
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+file_id = 'ASSET_ID_TO_DOWNLOAD'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/file/{file_id}/dl'
+output_directory = '.' # Directory to save the file
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    # Use stream=True to handle potentially large files
+    with requests.get(api_url, headers=headers, stream=True) as response:
+        response.raise_for_status()
+
+        # Try to get filename from header
+        filename = f"downloaded_{file_id}" # Default filename
+        content_disposition = response.headers.get('content-disposition')
+        if content_disposition:
+            fname_match = re.search(r'filename=['\"]?([^'\"\n;]+)['\"]?', content_disposition)
+            if fname_match:
+                filename = fname_match.group(1)
+
+        output_path = os.path.join(output_directory, filename)
+        
+        print(f"Downloading file to: {output_path}")
+        # Write the content chunk by chunk
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print("File downloaded successfully.")
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+    if response is not None:
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Text: {response.text}")
+except Exception as e:
+     print(f"An error occurred: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.io.IOException;
+import java.util.Optional;
+
+public class DownloadFile {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String fileId = "ASSET_ID_TO_DOWNLOAD";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/file/%s/dl", orgId, fileId);
+        Path outputPath = Paths.get("./downloaded_file_" + fileId); // Default output path
+
+        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build(); // Allow redirects
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            // Request the body directly as a file
+            HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(outputPath));
+
+            if (response.statusCode() == 200) {
+                 // Try to get a better filename from header
+                 Optional<String> disposition = response.headers().firstValue("content-disposition");
+                 String finalFilename = outputPath.getFileName().toString();
+                 if (disposition.isPresent()) {
+                     String headerValue = disposition.get();
+                     // Basic parsing, might need refinement
+                     int index = headerValue.indexOf("filename=");
+                     if (index >= 0) {
+                         finalFilename = headerValue.substring(index + 9).replace("\"", ""); 
+                     }
+                 }
+                 Path finalOutputPath = outputPath.resolveSibling(finalFilename);
+                 java.nio.file.Files.move(outputPath, finalOutputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                
+                 System.out.println("Successfully downloaded file to: " + finalOutputPath); 
+            } else {
+                // If status is not 200, the body might contain an error message (not the file)
+                // We requested it as a file, so outputPath might be created but empty/invalid.
+                // Try reading the error from the potentially created file (or handle differently)
+                System.err.println("Failed to download file. Status: " + response.statusCode());
+                try { 
+                    String errorBody = java.nio.file.Files.readString(outputPath);
+                    System.err.println("Error Response Body: " + errorBody);
+                } catch (IOException readError) {
+                     System.err.println("Could not read error response body from temp file.");
+                }
+                java.nio.file.Files.deleteIfExists(outputPath); // Clean up temp file on error
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+             try {
+                 java.nio.file.Files.deleteIfExists(outputPath); // Clean up temp file on error
+             } catch (IOException cleanupError) { /* Ignore cleanup error */ }
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"regexp"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    fileId := "ASSET_ID_TO_DOWNLOAD"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/file/%s/dl", orgId, fileId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    if err != nil { /* handle error */ }
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    if err != nil { /* handle error */ }
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+        bodyBytes, _ := io.ReadAll(resp.Body)
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(bodyBytes))
+		return
+	}
+
+    // Determine filename
+    filename := "downloaded_" + fileId
+    disposition := resp.Header.Get("Content-Disposition")
+    if disposition != "" {
+        re := regexp.MustCompile(`filename=["']?([^"']+)["']?`)
+        matches := re.FindStringSubmatch(disposition)
+        if len(matches) > 1 {
+            filename = matches[1]
+        }
+    }
+
+    fmt.Printf("Downloading file as: %s\n", filename)
+
+    // Create the output file
+    outFile, err := os.Create(filename)
+    if err != nil { /* handle error */ }
+    defer outFile.Close()
+
+    // Copy the response body to the file
+    _, err = io.Copy(outFile, resp.Body)
+    if err != nil { /* handle error */ }
+
+    fmt.Println("File downloaded successfully.")
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code. The response body **is the raw file content**, not JSON.
+
+-   The `Content-Type` header indicates the MIME type of the file (e.g., `image/png`, `application/pdf`).
+-   The `Content-Disposition` header often suggests a filename (e.g., `attachment; filename="report.pdf"`). Your code should parse this header to save the file with its original name if desired.
+
+If the file ID is invalid or access is denied, an appropriate error status code (`404`, `403`) will be returned, likely with an error message in the body (which might be JSON or plain text).
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Files > Upload & Attach File</b>" href="./upload-attach-file/"> Learn how to upload files first. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Get File Metadata</b>" href="./get-file-metadata/"> Get information about a file without downloading it. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Delete File</b>" href="./delete-file/"> Remove an uploaded file. </LinkTitleCard>
+</CardGrid> 

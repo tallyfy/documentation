@@ -1,0 +1,281 @@
+---
+id: api-groups-update
+sidebar:
+  order: 4
+title: Update group
+snippet: Modify the name, description, or membership of an existing group.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/groups/{group_id}`
+
+This endpoint updates the details (name, description) and/or the membership (members, guests) of an existing group.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{group_id}` with the ID of the group to update.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the group properties you wish to modify. You only need to include the fields you want to change.
+
+Refer to the `#definitions/createGroupInput` schema (often similar to update) in Swagger. Key fields:
+
+-   `name` (string): New name for the group.
+-   `description` (string): New description.
+-   `members` (array of integers): **Replaces** the current list of member IDs in the group.
+-   `guests` (array of strings): **Replaces** the current list of guest emails in the group.
+
+**Example Body (Updating name and members):**
+
+```json
+{
+  "name": "Project Alpha Core Team",
+  "members": [1001, 1008, 1010] // User 1005 removed, 1008/1010 added
+}
+```
+
+:::caution[Membership Updates Replace]
+Providing the `members` or `guests` arrays *replaces* the entire existing list for that type within the group. To add or remove individuals incrementally, you typically need to first get the current group details, modify the list in your code, and then send the complete new list in the PUT request.
+:::
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const groupId = 'GROUP_ID_TO_UPDATE'; 
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/groups/${groupId}`;
+
+const updateData = {
+  description: "Updated team description.",
+  // Example: Set specific members (replaces existing)
+  members: [1001, 1003, 1005],
+  guests: [] // Remove all guests from this group
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updateData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated group ${groupId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating group ${groupId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+group_id = 'GROUP_ID_TO_UPDATE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/groups/{group_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+# First, get current members if you want to add/remove incrementally (optional)
+# current_group_response = requests.get(api_url, headers=headers)
+# current_members = current_group_response.json()['data']['members']
+# current_guests = current_group_response.json()['data']['guests']
+# new_members = list(set(current_members + [1009])) # Add user 1009
+# new_guests = [g for g in current_guests if g != 'old@example.com'] # Remove guest
+
+update_payload = {
+    'name': 'Finance Approvers (Updated)',
+    'members': [1004, 1006, 1007], # Replace existing members
+    'guests': [] # Ensure no guests are in the group
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_group = response.json()
+    print(f'Successfully updated group {group_id}:')
+    print(json.dumps(updated_group, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateGroup {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String groupId = "GROUP_ID_TO_UPDATE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/groups/%s", orgId, groupId);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> updateData = new HashMap<>();
+        // updateData.put("name", "Java Updated Group Name");
+        // updateData.put("members", List.of(1001, 1002));
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+
+        String jsonPayload = "{\"description\": \"Updated description via Java\", \"members\": [1001]}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated group " + groupId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                 // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    groupId := "GROUP_ID_TO_UPDATE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/groups/%s", orgId, groupId)
+
+	updateData := map[string]interface{}{
+		"name": "Go Updated Group",
+        "members": []int{1010, 1012}, // Replaces existing members
+        "guests": []string{}, // Empties guests list
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated group %s:\n", groupId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full details of the group *after* the update.
+
+```json
+{
+  "data": {
+    "id": "GROUP_ID_TO_UPDATE",
+    "name": "Project Alpha Core Team", // Updated name
+    "description": "Updated team description.", // Updated description
+    "members": [1001, 1008, 1010], // Updated members list
+    "guests": [], // Updated guests list
+    // ... other group properties ...
+    "updated_at": "2024-05-21T19:00:00Z" // Reflects update time
+  }
+}
+```
+
+If the group ID is not found, you lack permission, or the request body is invalid, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Groups > Get group</b>" href="./get-group/"> Fetch the current details of this group. </LinkTitleCard>
+<LinkTitleCard header="<b>Groups > Delete group</b>" href="./delete-group/"> Remove this group. </LinkTitleCard>
+<LinkTitleCard header="<b>Groups > List groups</b>" href="./list-groups/"> See all available groups. </LinkTitleCard>
+</CardGrid> 

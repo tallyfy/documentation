@@ -1,0 +1,255 @@
+---
+id: api-members-update-role
+sidebar:
+  order: 5
+title: Update member role
+snippet: Change the role (e.g., admin, standard, light) of a member within the organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/users/{user_id}/role`
+
+This endpoint updates the role of a specific member within the organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID of the member whose role you want to change.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object specifying the new role.
+
+-   `role` (string, required): The new role name (e.g., `admin`, `standard`, `light`). Check organization settings or documentation for exact available role names.
+
+**Example Body:**
+
+```json
+{
+  "role": "light"
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const userId = 12345; // ID of the member whose role to update
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/users/${userId}/role`;
+
+const roleData = {
+  role: "admin" // Promote to Admin
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(roleData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated role for member ${userId}:`);
+    console.log(JSON.stringify(data, null, 2)); // Response likely shows the updated user profile
+})
+.catch(error => {
+    console.error(`Error updating role for member ${userId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+user_id = 12345 # ID of the member
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/users/{user_id}/role'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+role_payload = {
+    'role': 'light' # Demote to Light user
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=role_payload)
+    response.raise_for_status()
+
+    updated_member = response.json()
+    print(f'Successfully updated role for member {user_id}:')
+    print(json.dumps(updated_member, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateMemberRole {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        int userId = 12345;
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/users/%d/role", orgId, userId);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, String> roleData = Map.of("role", "admin");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(roleData);
+
+        String jsonPayload = "{\"role\": \"standard\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated role for member " + userId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strconv"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    userId := 12345
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/users/%s/role", orgId, strconv.Itoa(userId))
+
+	roleData := map[string]interface{}{
+		"role": "admin",
+	}
+
+	jsonData, err := json.Marshal(roleData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated role for member %d:\n", userId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the member's full profile, reflecting the updated `user_role`.
+
+```json
+{
+  "data": {
+    "id": 12345,
+    "email": "specific.user@example.com",
+    "first_name": "Specific",
+    "last_name": "User",
+    "user_role": "light", // Role is updated
+    // ... other user properties ...
+    "last_updated": "2024-05-21T14:00:00Z" // Timestamp reflects the update
+  }
+}
+```
+
+If the user ID or role name is invalid, or you lack permission, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Members > Get member</b>" href="./get-member/"> Fetch the current details for this member. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Update member</b>" href="./update-member/"> Modify other profile details for this member. </LinkTitleCard>
+</CardGrid> 

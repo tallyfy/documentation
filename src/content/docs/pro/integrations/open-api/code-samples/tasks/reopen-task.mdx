@@ -1,0 +1,256 @@
+---
+id: api-tasks-reopen
+sidebar:
+  order: 7
+title: Reopen task
+snippet: Reopen a previously completed task using the API.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+This endpoint reopens a completed task, setting its status back usually to `active` or `incomplete`. The exact endpoint depends on the task type:
+
+-   **Process Task:** `DELETE /organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}`
+-   **One-off Task:** `DELETE /organizations/{org_id}/completed-tasks/{task_id}`
+
+Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with the appropriate IDs.
+
+:::note
+Notice the `DELETE` method is used on the `completed-tasks` endpoint, effectively deleting the "completion" record.
+:::
+
+## Request
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+(Examples use the endpoint for process tasks. Adapt the URL for one-off tasks.)
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID'; // Set to null or use different endpoint for one-off
+const taskId = 'TASK_ID_TO_REOPEN';
+
+const apiUrl = runId
+    ? `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/completed-tasks/${taskId}`
+    : `https://api.tallyfy.com/organizations/${orgId}/completed-tasks/${taskId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE', // Use DELETE method
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) { // Check for 200 OK
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    console.log(`Successfully reopened task ${taskId}. Status: ${response.status}`);
+    // Reopen might return the updated task state
+    return response.json(); 
+})
+.then(data => {
+    if(data) {
+      console.log('Reopened task details:');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error reopening task ${taskId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID' # Set to None for one-off task
+task_id = 'TASK_ID_TO_REOPEN'
+
+if run_id:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}'
+else:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/completed-tasks/{task_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    response.raise_for_status()
+
+    print(f'Successfully reopened task {task_id}. Status: {response.status_code}')
+    try:
+        reopened_task = response.json()
+        print('Reopened task details:')
+        print(json.dumps(reopened_task, indent=4))
+    except json.JSONDecodeError:
+        print("(No JSON body returned on reopen)")
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class ReopenTask {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = System.getenv().get("TALLYFY_RUN_ID"); // Might be null
+        String taskId = "TASK_ID_TO_REOPEN";
+
+        String apiUrl;
+         if (runId != null && !runId.isEmpty()) {
+            apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId);
+        } else {
+             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/completed-tasks/%s", orgId, taskId);
+        }
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { 
+                System.out.println("Successfully reopened task " + taskId + ". Status: " + response.statusCode());
+                 if (response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 }
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := os.Getenv("TALLYFY_RUN_ID") // Might be ""
+    taskId := "TASK_ID_TO_REOPEN"
+
+    var apiUrl string
+    if runId != "" {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId)
+    } else {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/completed-tasks/%s", orgId, taskId)
+    }
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully reopened task %s. Status: %d\n", taskId, resp.StatusCode)
+    if len(body) > 0 {
+        fmt.Println("Response Body:")
+        fmt.Println(string(body))
+        // TODO: Unmarshal JSON
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code. The response body typically contains the details of the task, now back in an active (or incomplete) state.
+
+```json
+{
+  "data": {
+    "id": "TASK_ID_TO_REOPEN",
+    "title": "Review Proposal",
+    "status": "active", // Status is no longer 'completed'
+    "completed_at": null, // Completion timestamp is removed
+    "completer_id": null,
+    // ... other task properties ...
+  }
+}
+```
+
+If the task was not previously completed or the ID is invalid, an error status will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Complete task</b>" href="./complete-task/"> Mark a task as complete. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Fetch the current details of this task. </LinkTitleCard>
+</CardGrid> 

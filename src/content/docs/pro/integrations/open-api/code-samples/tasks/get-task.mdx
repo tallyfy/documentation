@@ -1,0 +1,266 @@
+---
+id: api-tasks-get
+sidebar:
+  order: 3
+title: Get task
+snippet: Retrieve details for a specific task by its ID.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/tasks/{task_id}`
+
+This endpoint retrieves the full details for a single task (either a one-off task or a task within a process run) identified by its unique ID.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{task_id}` with the specific ID of the task you want to retrieve.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+-   `with` (string): Include related data. For tasks, common options might include `run`, `step`, `threads`, `assets`, `form_fields`, `tags`, `summary`. Example: `with=run,step,form_fields`.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const taskId = 'TASK_ID_TO_GET'; // ID of the task
+
+const queryParams = '?with=run,step,form_fields'; // Example: get related info
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tasks/${taskId}${queryParams}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully retrieved task ${taskId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error getting task ${taskId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+task_id = 'TASK_ID_TO_GET'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks/{task_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    'with': 'run,step,form_fields,tags' # Example: Include related data
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    task_data = response.json()
+    print(f'Successfully retrieved task {task_id}:')
+    print(json.dumps(task_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class GetTask {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String taskId = "TASK_ID_TO_GET";
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tasks/" + taskId;
+
+        Map<String, String> queryParamsMap = Map.of(
+             "with", "run,step" // Example
+        );
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully retrieved task " + taskId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                 // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    taskId := "TASK_ID_TO_GET"
+	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId)
+
+    queryParams := url.Values{}
+    queryParams.Add("with", "run,step,form_fields") // Example
+
+    apiUrl := baseURL + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully retrieved task %s:\n", taskId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` field. The value of `data` is an object representing the requested task with its full details.
+
+```json
+{
+  "data": {
+    "id": "TASK_ID_TO_GET",
+    "increment_id": 1205,
+    "title": "Review Proposal",
+    "summary": "Review the proposal document attached.",
+    "run_id": "run_id_xyz",
+    "step_id": "step_id_123",
+    "status": "active",
+    "task_type": "member", // or "guest"
+    "owners": { ... },
+    "deadline": "2024-05-25T17:00:00Z",
+    "created_at": "2024-05-20T10:00:00Z",
+    "last_updated": "2024-05-21T11:00:00Z",
+    "position": 1,
+    // ... other task properties ...
+    // Included if requested with 'with=form_fields':
+    "form_fields": [
+      {
+        "id": "capture_id_abc",
+        "label": "Approval Status",
+        "field_type": "dropdown",
+        "value": { "id": 1, "text": "Approved", "value": null }, // Value depends on field type
+        "required": true
+        // ... other form field details ...
+      }
+    ],
+    // Included if requested with 'with=run':
+    "run": { ... process run details ... },
+    // Included if requested with 'with=step':
+    "step": { ... template step details ... }
+  }
+}
+```
+
+If the task ID is not found or you don't have permission, you will likely receive a `404 Not Found` or `403 Forbidden` error.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > List organization tasks</b>" href="./list-org-tasks/"> Get a list of tasks across the organization. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > List process tasks</b>" href="./list-process-tasks/"> Get tasks for a specific process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="./update-task/"> Modify the details of this task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Complete task</b>" href="./complete-task/"> Mark this task as complete. </LinkTitleCard>
+</CardGrid> 

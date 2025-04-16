@@ -1,0 +1,287 @@
+---
+id: api-guests-create
+sidebar:
+  order: 2
+title: Create guest
+snippet: Create a new guest user record in your organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`POST /organizations/{org_id}/guests`
+
+This endpoint creates a new guest user record within the specified organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the details of the guest to be created.
+
+Refer to the `#definitions/createGuestInput` schema in Swagger for all available properties. Key fields include:
+
+-   `email` (string, required): The guest's email address (must be unique within the org's guests).
+-   `first_name` (string, optional)
+-   `last_name` (string, optional)
+-   `phone_1` (string, optional)
+-   `company_name` (string, optional)
+-   `timezone` (string, optional): E.g., `Europe/Paris`.
+-   `associated_members` (array of integers, optional): User IDs of members associated with this guest.
+
+**Minimal Example Body:**
+
+```json
+{
+  "email": "new.guest@contractor.com"
+}
+```
+
+**More Comprehensive Example Body:**
+
+```json
+{
+  "email": "client.contact@acme.com",
+  "first_name": "Client",
+  "last_name": "Contact",
+  "company_name": "ACME Corp",
+  "phone_1": "+1-212-555-0123",
+  "associated_members": [1001, 1005]
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests`;
+
+const guestData = {
+  email: "external.partner@partnerco.com",
+  first_name: "External",
+  last_name: "Partner",
+  company_name: "Partner Co"
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(guestData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling (check for 422 if email exists)
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully created guest:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error creating guest:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+guest_payload = {
+    'email': 'supplier.contact@supply.net',
+    'first_name': 'Supplier',
+    'company_name': 'Supply Network Inc.'
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=guest_payload)
+    response.raise_for_status()
+
+    created_guest = response.json()
+    print('Successfully created guest:')
+    print(json.dumps(created_guest, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class CreateGuest {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/guests";
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> guestData = new HashMap<>();
+        // guestData.put("email", "contractor@domain.org");
+        // guestData.put("first_name", "Contractor");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(guestData);
+
+        String jsonPayload = "{\"email\": \"contractor@domain.org\", \"first_name\": \"Contractor A\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                System.out.println("Successfully created guest:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests", orgId)
+
+	guestData := map[string]interface{}{
+		"email":        "client.rep@clientco.com",
+        "first_name":   "Client",
+        "last_name":    "Rep",
+        "company_name": "Client Co Ltd",
+	}
+
+	jsonData, err := json.Marshal(guestData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        // Error handling (check for 422)
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully created guest:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created guest.
+
+```json
+{
+  "data": {
+    "id": "new_guest_code_789", // Unique ID for this guest
+    "email": "external.partner@partnerco.com",
+    "last_accessed_at": null,
+    "details": {
+      "first_name": "External",
+      "last_name": "Partner",
+      "status": "active",
+      "company_name": "Partner Co",
+      // ... other details provided or defaulted ...
+      "created_at": "2024-05-21T16:00:00Z", // Note: Swagger might show this at top level
+      "updated_at": "2024-05-21T16:00:00Z"  // Note: Swagger might show this at top level
+    }
+  }
+}
+```
+
+If a guest with the provided email already exists, you will likely receive a `422 Unprocessable Entity` error.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Guests > List guests</b>" href="./list-guests/"> See all guests in the organization. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Get guest</b>" href="./get-guest/"> Get details for this specific guest. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Update guest</b>" href="./update-guest/"> Modify this guest's details. </LinkTitleCard>
+</CardGrid> 

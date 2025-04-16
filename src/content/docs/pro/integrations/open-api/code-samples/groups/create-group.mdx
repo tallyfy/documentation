@@ -1,0 +1,277 @@
+---
+id: api-groups-create
+sidebar:
+  order: 2
+title: Create group
+snippet: Create a new group and optionally add members and guests.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`POST /organizations/{org_id}/groups`
+
+This endpoint creates a new group within the specified organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object defining the new group.
+
+Refer to the `#definitions/createGroupInput` schema in Swagger. Key fields:
+
+-   `name` (string, required): The name of the group.
+-   `description` (string, optional): A description for the group.
+-   `members` (array of integers, optional): An array of User IDs for members to add to the group.
+-   `guests` (array of strings, optional): An array of email addresses for guests to add to the group.
+
+**Minimal Example Body:**
+
+```json
+{
+  "name": "Project Alpha Team"
+}
+```
+
+**Example Body with Members/Guests:**
+
+```json
+{
+  "name": "Onboarding Specialists",
+  "description": "Team responsible for new client onboarding.",
+  "members": [1001, 1005, 1008],
+  "guests": ["client.liaison@partner.com"]
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/groups`;
+
+const groupData = {
+  name: "Marketing Campaign Crew",
+  description: "Cross-functional team for the Q3 campaign.",
+  members: [1002, 1003],
+  guests: ["freelancer@design.co"]
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(groupData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully created group:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error creating group:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/groups'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+group_payload = {
+    'name': 'Finance Approvers',
+    'members': [1004, 1006] 
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=group_payload)
+    response.raise_for_status()
+
+    created_group = response.json()
+    print('Successfully created group:')
+    print(json.dumps(created_group, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class CreateGroup {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/groups";
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> groupData = new HashMap<>();
+        // groupData.put("name", "Java Created Group");
+        // groupData.put("members", List.of(1001));
+        // String jsonPayload = new ObjectMapper().writeValueAsString(groupData);
+
+        String jsonPayload = "{\"name\": \"Support Escalation Team\", \"members\": [1002, 1003]}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                System.out.println("Successfully created group:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/groups", orgId)
+
+	groupData := map[string]interface{}{
+		"name": "Go Development Team",
+        "members": []int{1010, 1011},
+        "guests": []string{"go.contractor@example.dev"},
+	}
+
+	jsonData, err := json.Marshal(groupData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully created group:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created group, including its assigned `id`.
+
+```json
+{
+  "data": {
+    "id": "new_group_id_789",
+    "name": "Onboarding Specialists",
+    "description": "Team responsible for new client onboarding.",
+    "logo": null,
+    "members": [1001, 1005, 1008],
+    "guests": ["client.liaison@partner.com"],
+    "created_at": "2024-05-21T18:00:00Z",
+    "updated_at": "2024-05-21T18:00:00Z",
+    "deleted_at": null
+  }
+}
+```
+
+Make note of the returned `id` to manage this group later (get, update, delete).
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Groups > List groups</b>" href="./list-groups/"> Retrieve a list of all groups. </LinkTitleCard>
+<LinkTitleCard header="<b>Groups > Get group</b>" href="./get-group/"> Get details for this specific group. </LinkTitleCard>
+<LinkTitleCard header="<b>Groups > Update group</b>" href="./update-group/"> Modify this group. </LinkTitleCard>
+</CardGrid> 

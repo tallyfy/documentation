@@ -1,0 +1,225 @@
+---
+id: api-tags-archive
+sidebar:
+  order: 5
+title: Archive tag
+snippet: Archive (soft delete) a tag, hiding it from general use.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/tags/{tag_id}`
+
+This endpoint archives (soft deletes) an existing tag. Archived tags are generally hidden but not permanently removed.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{tag_id}` with the ID of the tag to archive.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const tagId = 'TAG_ID_TO_ARCHIVE'; 
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tags/${tagId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    // Expect 200 OK on successful archive
+    if (response.ok) {
+        console.log(`Successfully archived tag ${tagId}. Status: ${response.status}`);
+        return response.json(); // Archive usually returns the updated object
+    } else {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.then(data => {
+    if (data) { 
+      console.log('Archived tag details:');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error archiving tag ${tagId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+tag_id = 'TAG_ID_TO_ARCHIVE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tags/{tag_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    response.raise_for_status() # Expect 200 OK
+
+    print(f'Successfully archived tag {tag_id}. Status: {response.status_code}')
+    try:
+        archived_tag = response.json()
+        print('Archived tag details:')
+        print(json.dumps(archived_tag, indent=4))
+    except json.JSONDecodeError:
+        print("(No JSON body returned on archive)")
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class ArchiveTag {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String tagId = "TAG_ID_TO_ARCHIVE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { 
+                System.out.println("Successfully archived tag " + tagId + ". Status: " + response.statusCode());
+                 if (response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 }
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    tagId := "TAG_ID_TO_ARCHIVE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK {
+        fmt.Printf("Successfully archived tag %s. Status: %d\n", tagId, resp.StatusCode)
+        if len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful archive request typically returns a `200 OK` status code. The response body usually contains the details of the archived tag, now including a `deleted_at` timestamp.
+
+```json
+{
+  "data": {
+    "id": "TAG_ID_TO_ARCHIVE",
+    "title": "Old Tag Name",
+    "color": "#cccccc",
+    // ... other tag properties ...
+    "deleted_at": "2024-05-21T21:00:00Z" // Timestamp indicates archival
+  }
+}
+```
+
+If the tag ID is not found, an error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tags > List tags</b>" href="./list-tags/"> List all tags, potentially filtering out archived ones. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > Get tag</b>" href="./get-tag/"> Get details for a tag before archiving. </LinkTitleCard>
+</CardGrid> 

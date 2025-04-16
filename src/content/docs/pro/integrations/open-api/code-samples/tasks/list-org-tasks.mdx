@@ -1,0 +1,289 @@
+---
+id: api-tasks-list-org
+sidebar:
+  order: 1
+title: List organization tasks
+snippet: Get a list of all tasks across an organization, with filtering.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/tasks`
+
+This endpoint retrieves a list of all tasks across all processes and one-off tasks within the specified organization. It offers extensive filtering capabilities.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+Refer to the `GET /organizations/{org}/tasks` definition in Swagger for the full list. Key parameters include:
+
+-   `q` (string): Search by process name or task name.
+-   `status` (string): Filter by task status (e.g., `complete`, `hasproblem`, `overdue`, `due_soon`, `active`, `incomplete`, `inprogress`, `not-started`).
+-   `owners` (string): Comma-separated list of User IDs to filter tasks assigned to *any* of these users.
+-   `guests` (string): Comma-separated list of Guest emails.
+-   `roles` (string): Comma-separated list of Role IDs.
+-   `groups` (string): Comma-separated list of Group IDs.
+-   `tag` (string): Filter by Tag name or ID.
+-   `folder` (string): Filter tasks within a specific folder ID.
+-   `created` (string): Filter by creation date (e.g., `YYYY-MM-DD` or `YYYY-MM-DD:YYYY-MM-DD` range).
+-   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline range (`YYYY-MM-DD`).
+-   `unassigned` (boolean, e.g., `unassigned=true`): **Retrieve only tasks with no assignees.**
+-   `archived` (boolean, e.g., `archived=true`): Include tasks from archived processes.
+-   `with` (string): Include related data (e.g., `run`, `run.checklist`, `step`, `threads`, `assets`, `form_fields`, `tags`).
+-   `page`, `per_page` (integer): For pagination.
+-   `sort` (string): Sort results (e.g., `deadline`, `newest`, `problems`, `-deadline`).
+-   `without_pagination` (boolean, e.g., `without_pagination=true`): Retrieve all results without pagination (use with caution on large datasets).
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+
+const params = new URLSearchParams({
+    status: 'active', // Get active tasks
+    // unassigned: 'true', // Get only unassigned tasks
+    // owners: '1001,1002',
+    per_page: '20'
+});
+const queryStr = params.toString();
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tasks${queryStr ? '?' + queryStr : ''}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully listed organization tasks:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error listing organization tasks:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    'status': 'overdue', # Get overdue tasks
+    # 'unassigned': True,
+    'per_page': 15,
+    'sort': '-deadline' # Sort by deadline descending
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    tasks_data = response.json()
+    print('Successfully listed organization tasks:')
+    print(json.dumps(tasks_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class ListOrgTasks {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tasks";
+
+        Map<String, String> queryParamsMap = Map.of(
+            "status", "active",
+            "per_page", "10",
+            "unassigned", "true" // Get unassigned active tasks
+            // "sort", "deadline"
+        );
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newBuilder().build(); // Default settings
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully listed organization tasks:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN") // Get from env
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks", orgId)
+
+    queryParams := url.Values{}
+    queryParams.Add("status", "active")
+    queryParams.Add("per_page", "5")
+    queryParams.Add("unassigned", "true") // Example: Get unassigned tasks
+    // queryParams.Add("sort", "-deadline")
+
+    apiUrl := baseURL + "?" + queryParams.Encode()
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling for request creation...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling for request execution...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling for reading body...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully listed organization tasks:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array of tasks and a `meta` object for pagination.
+
+```json
+{
+  "data": [
+    {
+      "id": "task_id_abc",
+      "increment_id": 1205,
+      "title": "Review Proposal",
+      "summary": "Review the proposal document attached.",
+      "run_id": "run_id_xyz", // ID of the process this task belongs to (null for one-off tasks)
+      "step_id": "step_id_123", // ID of the template step (null for one-off tasks)
+      "status": "active",
+      "owners": { // Assignees
+        "users": [
+          { "id": 1001, "full_name": "Alice", "profile_pic": "..." }
+         ],
+        "guests": [],
+        "groups": []
+      },
+      "deadline": "2024-05-25T17:00:00Z",
+      "created_at": "2024-05-20T10:00:00Z",
+      // ... other task properties (form fields if requested with 'with=form_fields') ...
+    },
+    // ... more tasks ...
+  ],
+  "meta": {
+    // Pagination details similar to List Processes/Templates
+    "pagination": { ... }
+  }
+}
+```
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > List process tasks</b>" href="./list-process-tasks/"> Get tasks for a specific process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Retrieve details for a single task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="./update-task/"> Learn how to update task assignees. </LinkTitleCard>
+</CardGrid> 

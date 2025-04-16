@@ -1,0 +1,311 @@
+---
+id: api-tasks-create
+sidebar:
+  order: 4
+title: Create one-off task
+snippet: Create a standalone task not linked to a specific process run.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`POST /organizations/{org_id}/tasks`
+
+This endpoint creates a new standalone ("one-off") task that is not part of a process run initiated from a template.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object defining the new task.
+
+Refer to the `#definitions/createStandaloneTaskInput` schema in Swagger for all available properties. Key fields include:
+
+-   `name` (string, required): The title of the task.
+-   `description` (string): A description or instructions for the task.
+-   `owners` (object): Assignees for the task (structure: `{ "users": [...], "guests": [...], "groups": [...] }`).
+-   `deadline` (string): Due date/time in ISO 8601 format.
+-   `started_at` (string): Start date/time in ISO 8601 format.
+-   `task_type` (string): Usually `member` or `guest`.
+-   `separate_task_for_each_assignee` (boolean): If true, creates individual tasks for each person in `owners`.
+-   `max_assignable` (integer): Maximum number of assignees.
+-   `prevent_guest_comment` (boolean).
+-   `tags` (array of strings): Tag IDs to apply.
+
+**Minimal Example Body:**
+
+```json
+{
+  "name": "Follow up with ACME Corp"
+}
+```
+
+**More Comprehensive Example Body:**
+
+```json
+{
+  "name": "Prepare Q3 Report",
+  "description": "Gather data and prepare the quarterly report slides.",
+  "owners": {
+    "users": [1001, 1002],
+    "groups": [],
+    "guests": []
+  },
+  "deadline": "2024-07-15T17:00:00Z",
+  "tags": ["reporting", "finance"]
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tasks`;
+
+const taskData = {
+  name: "JS One-Off Task: Review Budget",
+  description: "Review the draft budget spreadsheet.",
+  owners: {
+    users: [12345] // Assign to user 12345
+  },
+  deadline: "2024-06-10T12:00:00Z"
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(taskData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully created one-off task:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error creating one-off task:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+task_payload = {
+    'name': 'Python One-Off Task: Plan Meeting',
+    'description': 'Schedule and plan the project kickoff meeting.',
+    'owners': {
+        'users': [1001],
+        'guests': [],
+        'groups': []
+     }
+    # 'deadline': 'YYYY-MM-DDTHH:mm:ssZ'
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=task_payload)
+    response.raise_for_status()
+
+    created_task = response.json()
+    print('Successfully created one-off task:')
+    print(json.dumps(created_task, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class CreateOneOffTask {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tasks";
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> taskData = new HashMap<>();
+        // taskData.put("name", "Java One-Off Task: Research");
+        // Map<String, List<Object>> owners = new HashMap<>();
+        // owners.put("users", List.of(1002));
+        // taskData.put("owners", owners);
+        // String jsonPayload = new ObjectMapper().writeValueAsString(taskData);
+
+        // Simple example payload
+        String jsonPayload = "{\"name\": \"Java One-Off: Simple Task\"}";
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                System.out.println("Successfully created one-off task:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                 // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks", orgId)
+
+	taskData := map[string]interface{}{
+		"name": "Go One-Off Task: Send Update",
+        "owners": map[string][]interface{}{
+            "users": {1005},
+        },
+        "deadline": "2024-06-30T10:00:00Z",
+	}
+
+	jsonData, err := json.Marshal(taskData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully created one-off task:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created one-off task, including its assigned `id`.
+
+```json
+{
+  "data": {
+    "id": "new_one_off_task_id_789",
+    "increment_id": 1250,
+    "title": "Python One-Off Task: Plan Meeting",
+    "description": "Schedule and plan the project kickoff meeting.",
+    "run_id": null, // Null for one-off tasks
+    "step_id": null, // Null for one-off tasks
+    "status": "active", // Initial status
+    "owners": {
+      "users": [
+        { "id": 1001, "full_name": "Bob", "profile_pic": "..." }
+       ],
+      "guests": [],
+      "groups": []
+     },
+    "deadline": null, // Or the specified deadline
+    "created_at": "2024-05-20T18:00:00.000Z",
+    "last_updated": "2024-05-20T18:00:00.000Z"
+    // ... other task properties ...
+  }
+}
+```
+
+Make note of the returned `id` to manage this task later (get, update, complete, delete).
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Retrieve details for this task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="./update-task/"> Modify this task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Complete task</b>" href="./complete-task/"> Mark this task as complete. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Archive task</b>" href="./archive-task/"> Archive this task. </LinkTitleCard>
+</CardGrid> 

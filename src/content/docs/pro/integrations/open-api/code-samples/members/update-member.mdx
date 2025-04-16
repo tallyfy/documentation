@@ -1,0 +1,281 @@
+---
+id: api-members-update
+sidebar:
+  order: 4
+title: Update member
+snippet: Modify profile details for an existing member in the organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/users/{user_id}`
+
+This endpoint updates the profile information for an existing member (user) within the organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID of the member to update.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the member profile fields you wish to modify.
+
+Refer to the `#definitions/accountsInput` schema in Swagger for available fields. Common updatable fields include:
+
+-   `first_name` (string)
+-   `last_name` (string)
+-   `phone` (string)
+-   `job_title` (string)
+-   `job_description` (string)
+-   `team` (string)
+-   `timezone` (string, e.g., `Europe/London`)
+-   `country_id` (integer): ID representing the user's country.
+-   `date_format` (string, e.g., `mm/dd/yyyy`, `dd/mm/yyyy`).
+
+**Example Body:**
+
+```json
+{
+  "first_name": "Alicia",
+  "job_title": "Senior Support Agent",
+  "timezone": "America/New_York"
+}
+```
+
+:::note
+Updating a member's email or password typically requires separate, dedicated endpoints (e.g., `/update-email`, `/update-password`) due to security implications, and may require the user's current password.
+:::
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const userId = 12345; // ID of the member to update
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/users/${userId}`;
+
+const updateData = {
+  last_name: "Smith-Jones",
+  phone: "+1-555-123-4567",
+  job_title: "Project Lead"
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updateData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated member ${userId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating member ${userId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+user_id = 12345 # ID of the member to update
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/users/{user_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+update_payload = {
+    'job_title': 'Senior Developer',
+    'team': 'Engineering'
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_member = response.json()
+    print(f'Successfully updated member {user_id}:')
+    print(json.dumps(updated_member, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateMember {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        int userId = 12345;
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/users/%d", orgId, userId);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> updateData = new HashMap<>();
+        // updateData.put("job_title", "Team Lead");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+        
+        String jsonPayload = "{\"job_title\": \"Team Lead\", \"phone\": \"+442071234567\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated member " + userId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strconv"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    userId := 12345
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/users/%s", orgId, strconv.Itoa(userId))
+
+	updateData := map[string]interface{}{
+		"first_name": "Robert",
+        "last_name": "Paulson",
+        "team": "Operations",
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated member %d:\n", userId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full profile of the member *after* the update.
+
+```json
+{
+  "data": {
+    "id": 12345,
+    "email": "specific.user@example.com",
+    "first_name": "Alicia", // Updated value
+    "last_name": "Smith-Jones", // Updated value
+    "full_name": "Alicia Smith-Jones",
+    "job_title": "Project Lead", // Updated value
+    "phone": "+1-555-123-4567", // Updated value
+    "timezone": "America/New_York", // Updated value
+    // ... other user properties reflecting the current state ...
+    "last_updated": "2024-05-21T12:00:00Z" // Timestamp reflects the update
+  }
+}
+```
+
+If the user ID is not found, you lack permission, or the request body is invalid, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Members > Get member</b>" href="./get-member/"> Fetch the current details for this member. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Update member role</b>" href="./update-member-role/"> Change this member's role. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Remove member</b>" href="./remove-member/"> Remove this member from the organization. </LinkTitleCard>
+</CardGrid> 

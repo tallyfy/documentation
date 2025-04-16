@@ -1,0 +1,413 @@
+---
+id: api-processes-launch
+sidebar:
+  order: 1
+title: Launch process
+snippet: Start a new process instance (run) from a template using the API.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`POST /organizations/{org_id}/runs`
+
+This endpoint launches a new process instance (run) based on a specified template (checklist/blueprint).
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the details for the new process run.
+
+**Required Fields:**
+
+-   `checklist_id` (string): The ID of the template (blueprint) to launch from.
+-   `name` (string): The name for this specific process instance.
+
+**Optional Fields (Refer to `#definitions/createRunInput` in Swagger):**
+
+-   `summary` (string): Description for this process instance.
+-   `owner_id` (integer): User ID of the process owner.
+-   `is_public` (boolean): Make the process accessible via a public link.
+-   `parent_id` (string): Link this process as a sub-process of another run.
+-   `prerun` (array): An array of objects to pre-fill kick-off form fields. The structure depends on the field type (see examples below).
+-   `tasks` (object): Define overrides for task properties like assignees and deadlines for specific steps within this run. Keys are Step IDs from the template.
+-   `tags` (array of strings): Tag IDs to apply to this process instance.
+-   `users` (array of integers): User IDs assigned to the process.
+-   `groups` (array of strings): Group IDs assigned to the process.
+-   `roles` (array of objects): Role assignments (structure defined in Swagger).
+-   `folders` (array of strings): Folder IDs where this process should appear.
+
+### Populating Kick-off Fields (`prerun`)
+
+The `prerun` array takes objects where the key is the **Kick-off Field ID (Prerun ID)** and the value depends on the field type:
+
+-   **Text/Textarea:** `{ "field_id_abc": "Your text value" }`
+-   **Date:** `{ "field_id_def": "2024-05-21T10:30:00.000Z" }` (ISO 8601 format)
+-   **Radio Button:** `{ "field_id_ghi": "Selected Radio Option Value" }`
+-   **Dropdown:** `{ "field_id_jkl": { "id": 2, "text": "Selected Option Text", "value": null } }` (Provide the option object as defined in the template)
+-   **Checklist (Multi-select):** `{ "field_id_mno": [{ "id": 1, "text": "Option 1 Text", "value": null, "selected": true }, { "id": 3, "text": "Option 3 Text", "value": null, "selected": true }] }` (Array of selected option objects)
+-   **File/Image:** `{ "field_id_pqr": [{ "id": "asset_id_123", "filename": "report.pdf", "version": 1, "url": "...", "uploaded_from": "ko_field", "subject": { "id": "template_id", "type": "Checklist" } }] }` (Requires pre-uploading the file and using the returned asset object)
+
+### Overriding Task Properties (`tasks`)
+
+The `tasks` object allows specifying assignees and deadlines per step for this specific run. The key is the **Step ID** from the template.
+
+```json
+"tasks": {
+    "step_id_from_template_1": {
+        "position": 1, // Usually not needed unless reordering on launch
+        "deadline": "2024-06-01T17:00:00Z",
+        "users": [1001, 1002], // Assign specific users
+        "groups": [],
+        "guests": ["client@example.com"]
+    },
+    "step_id_from_template_2": {
+        "users": [], // Explicitly unassign users/groups/guests
+        "groups": [],
+        "guests": [],
+        "assign_run_starter": false // Ensure launcher isn't assigned either
+    }
+    // Add other step overrides as needed
+}
+```
+
+:::note[Task Assignment Precedence]
+1.  Assignees defined in the `tasks` object of the launch request override template step assignees.
+2.  If not specified in the request, assignees defined on the template step are used.
+3.  If no assignees are defined anywhere, the task assignment depends on the step's `assign_run_starter` setting (defaults to `true` if not set, meaning the launcher gets assigned). Set it to `false` and provide empty assignee arrays (`users`, `groups`, `guests`) to ensure a task starts unassigned.
+:::
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs`;
+
+const launchPayload = {
+  checklist_id: "TEMPLATE_ID_TO_LAUNCH",
+  name: "Process Launched via JS Fetch",
+  summary: "This instance was started programmatically.",
+  // Example prerun data (replace with actual Prerun Field IDs)
+  prerun: [
+    { "kickoff_field_id_1": "Customer XYZ" },
+    { "kickoff_field_id_2": "2024-06-15T12:00:00Z" }
+  ],
+  // Example task override (replace with actual Step IDs)
+  tasks: {
+    "step_id_abc": {
+      "deadline": "2024-06-20T17:00:00Z",
+      "users": [12345] // Assign to user 12345
+    }
+  }
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(launchPayload)
+})
+.then(response => {
+    if (!response.ok) {
+        return response.json().then(errData => {
+            throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errData)}`);
+        }).catch(() => {
+             throw new Error(`HTTP error! status: ${response.status}`);
+        });
+    }
+    // Check for 200 OK or 201 Created
+    console.log(`Process launch requested. Status: ${response.status}`);
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully launched process:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error launching process:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+launch_payload = {
+    'checklist_id': 'TEMPLATE_ID_TO_LAUNCH',
+    'name': 'Process Launched via Python',
+    'summary': 'Instance started with requests library.',
+    # Example prerun data (replace with actual Prerun Field IDs)
+    'prerun': [
+        { 'prerun_id_cust_name': 'ACME Corp' },
+        { 'prerun_id_details': 'High priority request.' }
+    ],
+    # Example task override (replace with actual Step IDs)
+    'tasks': {
+        'step_id_welcome': {
+            'users': [1001] # Assign only user 1001
+        },
+        'step_id_config': {
+             'users': [], # Ensure this task is unassigned
+             'groups': [],
+             'guests': [],
+             'assign_run_starter': False
+        }
+    }
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=launch_payload)
+    response.raise_for_status() # Check for HTTP errors (4xx or 5xx)
+
+    launched_process = response.json()
+    print('Successfully launched process:')
+    print(json.dumps(launched_process, indent=4))
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+    if response is not None:
+        print(f"Response Status: {response.status_code}")
+        try:
+            print(f"Response Body: {response.json()}")
+        except json.JSONDecodeError:
+            print(f"Response Body: {response.text}")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.time.Duration;
+// Assumes a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.List;
+// import java.util.HashMap;
+// import java.util.ArrayList;
+
+public class LaunchProcess {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/runs";
+
+        // Build the payload using Maps/Lists and a JSON library for better structure
+        // Map<String, Object> launchData = new HashMap<>();
+        // launchData.put("checklist_id", "TEMPLATE_ID_TO_LAUNCH");
+        // launchData.put("name", "Process Launched via Java");
+        // List<Map<String, Object>> prerunList = new ArrayList<>();
+        // Map<String, Object> prerunField1 = new HashMap<>();
+        // prerunField1.put("prerun_field_id_1", "Some Value");
+        // prerunList.add(prerunField1);
+        // launchData.put("prerun", prerunList);
+        // Map<String, Object> tasksMap = new HashMap<>();
+        // Map<String, Object> taskOverride = new HashMap<>();
+        // taskOverride.put("users", List.of(1001));
+        // tasksMap.put("step_id_abc", taskOverride);
+        // launchData.put("tasks", tasksMap);
+        
+        // String jsonPayload = "";
+        // ObjectMapper objectMapper = new ObjectMapper();
+        // try {
+        //     jsonPayload = objectMapper.writeValueAsString(launchData);
+        // } catch (JsonProcessingException e) {
+        //     System.err.println("Error creating JSON payload: " + e.getMessage());
+        //     return;
+        // }
+
+        // Using simple string for example only
+        String jsonPayload = "{\"checklist_id\": \"TEMPLATE_ID_TO_LAUNCH\", \"name\": \"Process Launched via Java Simple\"}";
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200 || response.statusCode() == 201) { // Check for 200 or 201 Created
+                System.out.println("Successfully launched process:");
+                System.out.println(response.body());
+                // TODO: Parse JSON response
+            } else {
+                System.err.println("Failed to launch process. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
+	apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs", orgId)
+
+	launchData := map[string]interface{}{
+		"checklist_id": "TEMPLATE_ID_TO_LAUNCH",
+		"name":         "Process Launched via Go",
+		"summary":      "Instance started with net/http.",
+        // Add prerun and tasks maps here if needed
+        // "prerun": []map[string]interface{}{
+        //     {"prerun_field_id_1": "Go Value"},
+        // },
+        // "tasks": map[string]interface{}{
+        //     "step_id_abc": map[string]interface{}{
+        //         "users": []int{1001},
+        //     },
+        // },
+	}
+
+	jsonData, err := json.Marshal(launchData)
+	if err != nil {
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Printf("Error creating POST request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making POST request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
+
+	// Check for successful status codes (e.g., 200 OK or 201 Created)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		fmt.Printf("Failed to launch process. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully launched process:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal response JSON into Go structs if needed
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful launch request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created process run, including its unique `id`.
+
+```json
+{
+  "data": {
+    "id": "newly_launched_run_id_xyz789",
+    "increment_id": 5012,
+    "checklist_id": "TEMPLATE_ID_TO_LAUNCH",
+    "checklist_title": "Customer Onboarding",
+    "name": "Process Launched via Python",
+    "summary": "Instance started with requests library.",
+    "status": "active", // Initial status
+    "progress": {
+        "complete": 0,
+        "total": 15,
+        "percent": 0
+     },
+    "started_by": 1001,
+    "created_at": "2024-05-20T14:00:00.000Z",
+    "last_updated": "2024-05-20T14:00:00.000Z",
+    // ... other run properties ...
+  }
+}
+```
+
+Make note of the returned run `id` to manage this process instance later (e.g., get details, update, list its tasks).
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Templates > Get template</b>" href="../templates/get-template/"> Get the template details needed to launch a process. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="./get-process/"> Retrieve details about this newly launched process. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > List process tasks</b>" href="../tasks/list-process-tasks/"> See the tasks created within this process run. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,319 @@
+---
+id: api-processes-list
+sidebar:
+  order: 2
+title: List processes
+snippet: Retrieve a list of process instances (runs) within your organization, with filtering options.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/runs`
+
+This endpoint retrieves a list of process instances (runs) within the specified organization. It supports various filters through query parameters.
+
+## Request
+
+Replace `{org_id}` with your actual Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+This endpoint offers several parameters to filter the results. Refer to the `GET /organizations/{org}/runs` definition in Swagger for the full list. Common parameters include:
+
+-   `q` (string): Search term for process name.
+-   `status` (string): Filter by status (e.g., `active`, `problem`, `delayed`, `complete`, `archived`).
+-   `owners` (string): Comma-separated list of User IDs to filter by process owner.
+-   `checklist_id` (string): Filter processes launched from a specific template ID.
+-   `folder` (string): Filter processes within a specific folder ID.
+-   `tag` (string): Filter processes by a specific Tag ID.
+-   `starred` (boolean): Filter by starred status.
+-   `type` (string): Filter by type (e.g., `procedure`, `form`).
+-   `groups` (string): Comma-separated list of Group IDs involved in tasks within the process.
+-   `task_status` (string): Filter processes based on the status of tasks within them (e.g., `in-progress`, `completed`).
+-   `with` (string): Comma-separated list to include related data (e.g., `checklist`, `tasks`, `tags`, `assets`).
+-   `page` (integer): For pagination, the page number to retrieve (default: 1).
+-   `per_page` (integer): For pagination, the number of results per page (default: 10).
+-   `sort` (string): Field to sort by (e.g., `name`, `created_at`, `-created_at` for descending).
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+
+// Construct query parameters
+const params = new URLSearchParams({
+    status: 'active', // Example: Get active processes
+    // q: 'Onboarding',
+    // checklist_id: 'template_id_example'
+    per_page: '5'
+});
+const queryStr = params.toString();
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs${queryStr ? '?' + queryStr : ''}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully listed processes:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error listing processes:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+# Define query parameters
+params = {
+    'status': 'active', # Example: Only active processes
+    'per_page': 10,
+    # 'q': 'ACME Corp',
+    # 'checklist_id': 'template_id_abc'
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    processes_data = response.json()
+    print('Successfully listed processes:')
+    print(json.dumps(processes_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+    if response is not None:
+        # ... (error printing as in previous examples)
+        pass
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class ListProcesses {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/runs";
+
+        // Define query parameters
+        Map<String, String> queryParamsMap = Map.of(
+            "status", "active",
+            "per_page", "5"
+            // "q", "Search Term"
+        );
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully listed processes:");
+                System.out.println(response.body());
+                // TODO: Parse JSON response
+            } else {
+                System.err.println("Failed to list processes. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
+	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs", orgId)
+
+    // Define query parameters
+    queryParams := url.Values{}
+    queryParams.Add("status", "active")
+    queryParams.Add("per_page", "10")
+    // queryParams.Add("q", "Search Term")
+
+    apiUrl := baseURL + "?" + queryParams.Encode()
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making GET request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Failed to list processes. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully listed processes:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element in the array represents a process run matching the filter criteria.
+
+```json
+{
+  "data": [
+    {
+      "id": "run_id_abc",
+      "increment_id": 5012,
+      "checklist_id": "template_id_123",
+      "checklist_title": "Customer Onboarding",
+      "name": "Onboarding - ACME Corp",
+      "summary": "Process instance for ACME.",
+      "status": "active",
+      "progress": {
+        "complete": 5,
+        "total": 10,
+        "percent": 50
+      },
+      "started_by": 1001,
+      "created_at": "2024-05-18T10:00:00.000Z",
+      "last_updated": "2024-05-20T15:30:00.000Z",
+      "due_date": "2024-06-18T10:00:00.000Z",
+      "owner_id": 1001,
+      // ... other run properties ...
+    },
+    {
+      "id": "run_id_def",
+      // ... details for another process run ...
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "total": 55,
+      "count": 10,
+      "per_page": 10,
+      "current_page": 1,
+      "total_pages": 6,
+      "links": {
+        "next": "https://api.tallyfy.com/organizations/{org_id}/runs?status=active&per_page=10&page=2"
+      }
+    }
+  }
+}
+```
+
+The `meta.pagination` object provides details for navigating through multiple pages of results if applicable.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Launch process</b>" href="./launch-process/"> Start a new process instance. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="./get-process/"> Retrieve details for a specific process. </LinkTitleCard>
+</CardGrid> 

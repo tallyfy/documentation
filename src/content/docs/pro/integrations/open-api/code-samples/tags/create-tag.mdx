@@ -1,0 +1,259 @@
+---
+id: api-tags-create
+sidebar:
+  order: 2
+title: Create tag
+snippet: Create a new tag within your organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`POST /organizations/{org_id}/tags`
+
+This endpoint creates a new tag within the specified organization.
+
+## Request
+
+Replace `{org_id}` with your Organization ID.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object defining the new tag.
+
+Refer to the `#definitions/createTagInput` schema in Swagger. Key fields:
+
+-   `title` (string, required): The name of the tag.
+-   `color` (string, optional): A hex color code (e.g., `#3498db`) for the tag.
+
+**Example Body:**
+
+```json
+{
+  "title": "High Priority",
+  "color": "#e74c3c"
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tags`;
+
+const tagData = {
+  title: "JS Created Tag",
+  color: "#9b59b6" // Purple
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(tagData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully created tag:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error('Error creating tag:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tags'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+tag_payload = {
+    'title': 'Python Tag',
+    'color': '#f1c40f' # Yellow
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=tag_payload)
+    response.raise_for_status()
+
+    created_tag = response.json()
+    print('Successfully created tag:')
+    print(json.dumps(created_tag, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class CreateTag {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tags";
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, String> tagData = Map.of("title", "Java Tag", "color", "#3498db");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(tagData);
+
+        String jsonPayload = "{\"title\": \"Java Tag\", \"color\": \"#3498db\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                System.out.println("Successfully created tag:");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tags", orgId)
+
+	tagData := map[string]interface{}{
+		"title": "Go Tag",
+        "color": "#e67e22", // Orange
+	}
+
+	jsonData, err := json.Marshal(tagData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Println("Successfully created tag:")
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created tag, including its assigned `id`.
+
+```json
+{
+  "data": {
+    "id": "new_tag_id_xyz",
+    "title": "Python Tag",
+    "color": "#f1c40f",
+    "template": 0, 
+    "active_process": 0,
+    "auto_generated": false,
+    "created_at": "2024-05-21T20:00:00Z",
+    "deleted_at": null
+  }
+}
+```
+
+Make note of the returned `id` to manage this tag later.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tags > List tags</b>" href="./list-tags/"> Retrieve a list of all tags. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > Get tag</b>" href="./get-tag/"> Get details for this specific tag. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > Update tag</b>" href="./update-tag/"> Modify this tag. </LinkTitleCard>
+</CardGrid> 

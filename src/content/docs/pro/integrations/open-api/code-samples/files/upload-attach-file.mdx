@@ -1,0 +1,472 @@
+---
+id: api-files-upload-attach
+sidebar:
+  order: 1
+title: Upload & attach file
+snippet: Upload a local file and attach it to a task or kick-off form field.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Attaching files (like images or documents) to form fields via the API usually involves two main steps for files stored locally on your system:
+
+1.  **Upload the file:** Send the file content to Tallyfy's file endpoint to get an asset reference.
+2.  **Update the task/process:** Use the asset reference obtained in step 1 to update the corresponding task or process, linking the file to the specific form field.
+
+Alternatively, for files already hosted publicly online, you might be able to link them directly in a single step (see Method 2 in the older article content, though this might be less common and subject to change - prioritize the upload method).
+
+## Method 1: Upload Local File (Recommended)
+
+### Step 1: Upload the File
+
+**Endpoint:** `POST /organizations/{org_id}/file`
+
+**Request Type:** `multipart/form-data`
+
+This request uploads the raw file data. It requires specific form data fields to correctly categorize the upload.
+
+**Headers:**
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   *(Content-Type header will be set automatically by your HTTP client for multipart/form-data)*
+
+**Form Data Fields (Required):**
+
+| Field | Description | Example Value |
+|---|---|---|
+| `name` | The actual file binary data. | *(Select file in your client)* |
+| `uploaded_from` | Context of upload. For **Tasks**, use the **Form Field ID (Capture ID)**. For **Kick-off**, use `ko_field`. | `capture_id_abc123` or `ko_field` |
+| `subject_type` | Type of object the file relates to. | `Run` (for Tasks) or `Checklist` (for Kick-off) |
+| `subject_id` | ID of the object type. | `{run_id}` (for Tasks) or `{checklist_id}` (for Kick-off) |
+| `source` | How the file is provided. | `local` |
+| `step_id` | **Required only for Tasks.** The ID of the **Step** within the template that the task belongs to. | `step_id_xyz789` |
+| `checklist_id` | **Required only for Tasks.** The ID of the template (Checklist) that the process run was launched from. | `template_id_efg456` |
+
+:::tip[Finding IDs]
+-   Form Field IDs (`uploaded_from` for tasks), Step IDs, Run IDs, Checklist IDs can often be found by using the `GET` endpoints for Tasks, Processes (Runs), or Templates with the `with` parameter (e.g., `with=step,form_fields`).
+:::
+
+**Code Samples (Step 1: Upload)**
+
+(Note: Handling `multipart/form-data` varies significantly between languages and libraries. These are conceptual examples.)
+
+<Tabs>
+<TabItem label="JavaScript (fetch + FormData)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/file`;
+
+// --- For Task Field ---
+const formFieldId = 'CAPTURE_ID_OF_FILE_FIELD'; 
+const runId = 'PROCESS_RUN_ID';
+const stepId = 'STEP_ID_CONTAINING_FIELD'; 
+const checklistId = 'TEMPLATE_ID_OF_RUN'; 
+// --- OR For Kick-off Field ---
+// const prerunFieldId = 'PRERUN_FIELD_ID'; // Use ko_field generally for uploaded_from
+// const checklistIdForKO = 'TEMPLATE_ID_WITH_KICKOFF';
+
+// Assume 'fileInput' is an HTML <input type="file"> element
+const fileInput = document.getElementById('yourFileInputId');
+const file = fileInput.files[0];
+
+if (!file) {
+  console.error("No file selected!");
+  // return or handle error
+}
+
+const formData = new FormData();
+formData.append('name', file, file.name);
+formData.append('source', 'local');
+
+// --- Populate based on target (Task or Kick-off) ---
+// Example for Task Field:
+formData.append('uploaded_from', formFieldId);
+formData.append('subject_type', 'Run');
+formData.append('subject_id', runId);
+formData.append('step_id', stepId);
+formData.append('checklist_id', checklistId);
+
+// Example for Kick-off Field:
+// formData.append('uploaded_from', 'ko_field'); 
+// formData.append('subject_type', 'Checklist');
+// formData.append('subject_id', checklistIdForKO);
+// --- End Target Specific ---
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+// Content-Type is set automatically by fetch for FormData
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: formData 
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log('Successfully uploaded file. Asset data:');
+    console.log(JSON.stringify(data, null, 2));
+    // NOW PROCEED TO STEP 2 using data.data[0] (or similar based on actual response)
+})
+.catch(error => {
+    console.error('Error uploading file:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/file'
+
+# --- For Task Field ---
+form_field_id = 'CAPTURE_ID_OF_FILE_FIELD'
+run_id = 'PROCESS_RUN_ID'
+step_id = 'STEP_ID_CONTAINING_FIELD'
+checklist_id = 'TEMPLATE_ID_OF_RUN'
+# --- OR For Kick-off Field ---
+# checklist_id_for_ko = 'TEMPLATE_ID_WITH_KICKOFF'
+
+file_path = '/path/to/your/local/document.pdf'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+    # Content-Type is set by requests for files
+}
+
+# --- Populate based on target ---
+# Example for Task Field:
+form_data = {
+    'uploaded_from': (None, form_field_id),
+    'subject_type': (None, 'Run'),
+    'subject_id': (None, run_id),
+    'step_id': (None, step_id),
+    'checklist_id': (None, checklist_id),
+    'source': (None, 'local')
+}
+
+# Example for Kick-off Field:
+# form_data = {
+#     'uploaded_from': (None, 'ko_field'),
+#     'subject_type': (None, 'Checklist'),
+#     'subject_id': (None, checklist_id_for_ko),
+#     'source': (None, 'local')
+# }
+# --- End Target Specific ---
+
+try:
+    with open(file_path, 'rb') as f:
+        files = {
+            'name': (os.path.basename(file_path), f, 'application/octet-stream') 
+        }
+        response = requests.post(api_url, headers=headers, data=form_data, files=files)
+        
+    response.raise_for_status()
+    asset_data = response.json()
+    print('Successfully uploaded file. Asset data:')
+    print(json.dumps(asset_data, indent=4))
+    # NOW PROCEED TO STEP 2 using asset_data['data'][0]
+
+except FileNotFoundError:
+    print(f"Error: File not found at {file_path}")
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+// Handling multipart/form-data in Java's HttpClient is complex.
+// It typically requires building the body manually following the multipart spec
+// or using a third-party library like Apache HttpClient 5.x.
+// This example is conceptual and likely needs a library.
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+// import org.apache.http.client.methods.HttpPost;
+// import org.apache.http.entity.mime.MultipartEntityBuilder;
+// import org.apache.http.impl.client.HttpClients;
+
+public class UploadFile {
+    public static void main(String[] args) {
+        String accessToken = "...";
+        String orgId = "...";
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/file";
+        Path filePath = Paths.get("/path/to/your/file.txt");
+        
+        // Task details
+        String formFieldId = "CAPTURE_ID_..."; 
+        String runId = "RUN_ID_...";
+        String stepId = "STEP_ID_..."; 
+        String checklistId = "TEMPLATE_ID_..."; 
+
+        // Conceptual using Apache HttpClient 5
+        /*
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpPost post = new HttpPost(apiUrl);
+            post.setHeader("Authorization", "Bearer " + accessToken);
+            post.setHeader("Accept", "application/json");
+            post.setHeader("X-Tallyfy-Client", "APIClient");
+
+            MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+            builder.addBinaryBody("name", filePath.toFile());
+            builder.addTextBody("source", "local");
+            builder.addTextBody("uploaded_from", formFieldId); // For Task
+            builder.addTextBody("subject_type", "Run");        // For Task
+            builder.addTextBody("subject_id", runId);       // For Task
+            builder.addTextBody("step_id", stepId);          // For Task
+            builder.addTextBody("checklist_id", checklistId); // For Task
+
+            post.setEntity(builder.build());
+            
+            try (CloseableHttpResponse response = client.execute(post)) {
+                String responseBody = EntityUtils.toString(response.getEntity());
+                if (response.getCode() == 200) {
+                    System.out.println("Upload successful:");
+                    System.out.println(responseBody); // Parse JSON
+                    // PROCEED TO STEP 2
+                } else {
+                    System.err.println("Upload failed: " + response.getCode());
+                    System.err.println(responseBody);
+                }
+            }
+        } catch (IOException e) {
+             System.err.println("Request failed: " + e.getMessage());
+        }
+        */
+        System.out.println("Java HttpClient multipart upload requires manual implementation or library like Apache HttpClient.");
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path/filepath"
+	"io/ioutil"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/file", orgId)
+    filePath := "/path/to/your/image.png"
+
+    // Task details
+    formFieldId := "CAPTURE_ID_..."
+    runId := "RUN_ID_..."
+    stepId := "STEP_ID_..."
+    checklistId := "TEMPLATE_ID_..."
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Printf("Error opening file: %v\n", err)
+		return
+	}
+	defer file.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add file part
+	part, err := writer.CreateFormFile("name", filepath.Base(filePath))
+	if err != nil {
+		fmt.Printf("Error creating form file: %v\n", err)
+		return
+	}
+	_, err = io.Copy(part, file)
+	if err != nil {
+		fmt.Printf("Error copying file data: %v\n", err)
+		return
+	}
+
+	// Add other form fields (Task example)
+    _ = writer.WriteField("uploaded_from", formFieldId)
+    _ = writer.WriteField("subject_type", "Run")
+    _ = writer.WriteField("subject_id", runId)
+    _ = writer.WriteField("step_id", stepId)
+    _ = writer.WriteField("checklist_id", checklistId)
+    _ = writer.WriteField("source", "local")
+    
+	err = writer.Close() // Close writer to finalize body
+	if err != nil {
+		fmt.Printf("Error closing multipart writer: %v\n", err)
+		return
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", apiUrl, body)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+    req.Header.Set("Content-Type", writer.FormDataContentType()) // Important!
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(respBody))
+		return
+	}
+
+	fmt.Println("Successfully uploaded file:")
+	fmt.Println(string(respBody))
+    // TODO: Unmarshal JSON and proceed to Step 2
+}
+```
+</TabItem>
+</Tabs>
+
+**Response (Step 1: Upload)**
+
+A successful upload returns `200 OK` and a JSON response containing an array usually with one element: the asset object representing the uploaded file. You need this object for Step 2.
+
+```json
+{
+  "data": [
+    {
+      "id": "asset_id_abc123xyz", // The Asset ID
+      "filename": "document.pdf",
+      "version": 1,
+      "step_id": "step_id_xyz789", // If uploaded for a task
+      "uploaded_from": "capture_id_abc123", // Form Field ID or ko_field
+      "subject": {
+        "id": "run_id_or_checklist_id",
+        "type": "Run" // or "Checklist"
+      },
+      "url": "/internal/url/not/usually/needed/directly",
+      "uploaded_at": "2024-05-21T10:00:00Z"
+      // Potentially other fields
+    }
+  ]
+}
+```
+
+**Extract the entire object** within the `data` array (e.g., `response.data[0]` in JavaScript) for the next step.
+
+### Step 2: Attach Uploaded File to Field
+
+Now, use the asset object obtained from Step 1 to update the specific task or process run, linking the file to the form field.
+
+**Endpoint:**
+
+-   **Process Task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
+-   **Kick-off Form:** `PUT /organizations/{org_id}/checklists/{checklist_id}` (Modify the `prerun` field in the template update payload)
+
+**Request Type:** `application/json`
+
+**Headers:**
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+**Body (JSON - for Task Field):**
+
+Update the task using its endpoint. The body should include a `taskdata` object targeting the file field ID.
+
+```json
+{
+  "taskdata": {
+    "CAPTURE_ID_OF_FILE_FIELD": [
+       // Paste the entire asset object from Step 1 response here
+       {
+          "id": "asset_id_abc123xyz", 
+          "filename": "document.pdf",
+          "version": 1,
+          "step_id": "step_id_xyz789", 
+          "uploaded_from": "capture_id_abc123",
+          "subject": {
+            "id": "run_id_or_checklist_id",
+            "type": "Run"
+          },
+          "url": "...",
+          "uploaded_at": "..."
+          // Include all fields returned in Step 1 data[0]
+       }
+    ]
+  }
+  // You can include other task updates here too (e.g., summary, deadline)
+}
+```
+
+**Body (JSON - for Kick-off Field):**
+
+Update the template using its endpoint. The body needs to include the `prerun` array, modifying the entry for your file field.
+
+```json
+{
+  "prerun": [
+    // ... other prerun fields ...
+    {
+      "id": "PRERUN_FIELD_ID_FOR_FILE", // ID of the kick-off field
+      // Other prerun field properties like label, required, etc. 
+      // MIGHT need to be included - check GET /template response
+      "value": [ // The value is an array containing the asset object
+          // Paste the entire asset object from Step 1 response here
+          {
+             "id": "asset_id_abc123xyz", 
+             "filename": "document.pdf",
+             // ... all other fields from Step 1 data[0] ...
+          }
+      ]
+    }
+    // ... other prerun fields ...
+  ]
+  // Include other template updates if needed (e.g., title)
+}
+```
+
+**Response (Step 2: Attach)**
+
+A successful `PUT` request returns `200 OK` and the updated Task or Checklist object, reflecting the file attachment in the `taskdata` or `prerun.value` respectively.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="../tasks/update-task/"> Learn more about updating other task details. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Update template</b>" href="../templates/update-template/"> Learn more about updating other template details. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Download File</b>" href="./download-file/"> Retrieve an uploaded file. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Delete File</b>" href="./delete-file/"> Remove an uploaded file. </LinkTitleCard>
+</CardGrid> 

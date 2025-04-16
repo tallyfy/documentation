@@ -1,0 +1,289 @@
+---
+id: api-tasks-list-process
+sidebar:
+  order: 2
+title: List process tasks
+snippet: Get all tasks belonging to a specific process run.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/runs/{run_id}/tasks`
+
+This endpoint retrieves a list of all tasks specifically associated with a single process instance (run).
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the specific process run whose tasks you want to list.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+Similar filtering parameters as listing organization tasks are available, but scoped to this process run. Refer to Swagger.
+
+-   `status` (string): Filter by task status within this run (e.g., `complete`, `active`, `incomplete`, `inprogress`, `not-started`, `hasproblem`, `overdue`, `due_soon`). Note: `auto-skipped` may also appear for tasks hidden by rules.
+-   `owners` (string): Comma-separated User IDs.
+-   `guests` (string): Comma-separated Guest emails.
+-   `groups` (string): Comma-separated Group IDs.
+-   `unassigned` (boolean): Filter for unassigned tasks in this run.
+-   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline.
+-   `with` (string): Include related data (e.g., `step`, `threads`, `assets`, `form_fields`, `summary`).
+-   `page`, `per_page` (integer): Pagination.
+-   `sort` (string): Sort by `position`, `deadline` (or `-position`, `-deadline`).
+-   `without_pagination` (boolean).
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID'; // ID of the specific process run
+
+const params = new URLSearchParams({
+    // status: 'incomplete',
+    // with: 'step,form_fields'
+    per_page: '50' // Get more tasks per page for this run
+});
+const queryStr = params.toString();
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/tasks${queryStr ? '?' + queryStr : ''}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully listed tasks for process ${runId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error listing tasks for process ${runId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID' # ID of the specific process run
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/tasks'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    # 'status': 'active',
+    'with': 'step,form_fields', # Include step and form field details
+    'sort': 'position' # Order tasks by their position in the process
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    tasks_data = response.json()
+    print(f'Successfully listed tasks for process {run_id}:')
+    print(json.dumps(tasks_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class ListProcessTasks {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID"; // ID of the specific process run
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/runs/" + runId + "/tasks";
+
+        Map<String, String> queryParamsMap = Map.of(
+            // "status", "incomplete",
+             "with", "step"
+            // "sort", "-deadline"
+        );
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully listed tasks for process " + runId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := "PROCESS_RUN_ID" // ID of the specific process run
+	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/tasks", orgId, runId)
+
+    queryParams := url.Values{}
+    // queryParams.Add("status", "active")
+    queryParams.Add("with", "step")
+    queryParams.Add("sort", "position")
+
+    apiUrl := baseURL + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully listed tasks for process %s:\n", runId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array of tasks specific to that process run, and a `meta` object for pagination.
+
+```json
+{
+  "data": [
+    {
+      "id": "task_id_1",
+      "increment_id": 1210,
+      "title": "Welcome Call",
+      "run_id": "PROCESS_RUN_ID",
+      "step_id": "step_id_welcome",
+      "status": "active",
+      "position": 1,
+      "owners": { ... },
+      "deadline": "2024-05-28T17:00:00Z",
+      // ... other task properties ...
+      // Included if requested via 'with=step':
+      "step": {
+          "id": "step_id_welcome",
+          "title": "Schedule Welcome Call",
+          "alias": "welcome_call",
+          // ... other step details ...
+      }
+    },
+    {
+      "id": "task_id_2",
+      "increment_id": 1211,
+      "title": "Setup Account",
+      "run_id": "PROCESS_RUN_ID",
+      "step_id": "step_id_setup",
+      "status": "not-started",
+      "position": 2,
+      // ...
+    }
+    // ... more tasks from this process run ...
+  ],
+  "meta": {
+    "pagination": { ... } 
+  }
+}
+```
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > List organization tasks</b>" href="./list-org-tasks/"> Get tasks across all processes. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="../processes/get-process/"> Get details of the parent process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Retrieve details for a specific task listed here. </LinkTitleCard>
+</CardGrid> 

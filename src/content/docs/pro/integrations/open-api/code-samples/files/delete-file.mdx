@@ -1,0 +1,224 @@
+---
+id: api-files-delete
+sidebar:
+  order: 4
+title: Delete file
+snippet: Remove an uploaded file (asset) from its associated form field.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/file/{asset_id}`
+
+This endpoint deletes an uploaded file (asset), removing it from the task or kick-off form field it was attached to.
+
+:::note[Alternative Endpoint]
+The Swagger specification also lists `DELETE /organizations/{org}/assets/{assetID}` which seems functionally identical. Use whichever works or is recommended by Tallyfy Support.
+:::
+
+:::caution[Action Scope]
+This action deletes the specific asset record and its association with the form field. It does not necessarily delete the underlying file from storage immediately, but makes it inaccessible through Tallyfy.
+:::
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{asset_id}` with the Asset ID of the file to delete.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const assetId = 'ASSET_ID_TO_DELETE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/file/${assetId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    // Expect 200 OK on success
+    if (response.ok) {
+        console.log(`Successfully deleted file/asset ${assetId}. Status: ${response.status}`);
+        // Check if body exists (might return success message)
+         return response.text().then(text => text ? JSON.parse(text) : null);
+    } else {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.then(data => {
+    if (data) { 
+      console.log('Delete response details (if returned):');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error deleting file/asset ${assetId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+asset_id = 'ASSET_ID_TO_DELETE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/file/{asset_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    response.raise_for_status() # Expect 200 OK
+
+    print(f'Successfully deleted file/asset {asset_id}. Status: {response.status_code}')
+    if response.content:
+        try:
+            delete_response = response.json()
+            print('Delete response details (if returned):')
+            print(json.dumps(delete_response, indent=4))
+        except json.JSONDecodeError:
+            print(f"(Response body: {response.text})")
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class DeleteFile {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String assetId = "ASSET_ID_TO_DELETE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/file/%s", orgId, assetId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { 
+                System.out.println("Successfully deleted file/asset " + assetId + ". Status: " + response.statusCode());
+                 if (response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON if applicable
+                 }
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Response: " + response.body()); // Print error body
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    assetId := "ASSET_ID_TO_DELETE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/file/%s", orgId, assetId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK {
+        fmt.Printf("Successfully deleted file/asset %s. Status: %d\n", assetId, resp.StatusCode)
+        if len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON if applicable
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request typically returns a `200 OK` status code. The response body might be empty or contain a simple success message.
+
+If the asset ID is not found or you lack permission, a `404` or `403` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Files > Get file metadata</b>" href="./get-file-metadata/"> Get metadata before deleting. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Upload & Attach File</b>" href="./upload-attach-file/"> Upload a new file. </LinkTitleCard>
+</CardGrid> 

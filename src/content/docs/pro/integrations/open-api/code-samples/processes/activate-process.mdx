@@ -1,0 +1,217 @@
+---
+id: api-processes-activate
+sidebar:
+  order: 6
+title: Activate process
+snippet: Restore (unarchive) a previously archived process run.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/runs/{run_id}/activate`
+
+This endpoint restores (unarchives) a previously archived process instance (run), making it active again.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to activate.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this PUT request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID_TO_ACTIVATE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/activate`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'PUT', // Use PUT method
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) { // Expect 200 OK
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    console.log(`Successfully activated process ${runId}. Status: ${response.status}`);
+    return response.json(); // Activation returns the updated process
+})
+.then(data => {
+    console.log('Activated process details:');
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error activating process ${runId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID_TO_ACTIVATE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/activate'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.put(api_url, headers=headers)
+    response.raise_for_status() # Expect 200 OK
+
+    print(f'Successfully activated process {run_id}. Status: {response.status_code}')
+    activated_process = response.json()
+    print('Activated process details:')
+    print(json.dumps(activated_process, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class ActivateProcess {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID_TO_ACTIVATE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/activate", orgId, runId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .PUT(HttpRequest.BodyPublishers.noBody()) // Use PUT with no body
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { 
+                System.out.println("Successfully activated process " + runId + ". Status: " + response.statusCode());
+                 System.out.println("Response Body:");
+                 System.out.println(response.body());
+                 // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := "PROCESS_RUN_ID_TO_ACTIVATE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/activate", orgId, runId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, nil) // PUT request, no body
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK {
+        fmt.Printf("Successfully activated process %s. Status: %d\n", runId, resp.StatusCode)
+        fmt.Println("Response Body:")
+        fmt.Println(string(body))
+        // TODO: Unmarshal JSON
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code. The response body contains the details of the reactivated process run, with the `archived_at` timestamp removed and the `status` updated (likely to its pre-archive state, e.g., `active` or `complete`).
+
+```json
+{
+  "data": {
+    "id": "PROCESS_RUN_ID_TO_ACTIVATE",
+    "name": "Restored Project Run",
+    "status": "active", // Or 'complete', etc.
+    "archived_at": null, // Timestamp is removed
+    // ... other process properties ...
+    "last_updated": "2024-05-22T11:00:00Z" // Reflects activation time
+  }
+}
+```
+
+If the process run ID is not found, was not archived, or you lack permission, an error status code (`404`, `400`, `403`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Archive process</b>" href="./archive-process/"> Archive a process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="./get-process/"> Get details for this process run. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,209 @@
+---
+id: api-auth-personal-token
+sidebar:
+  order: 1
+title: Get & Use a Personal Access Token
+snippet: Learn how to obtain and use your personal access token for authenticating API requests.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Overview
+
+The primary and simplest way to authenticate with the Tallyfy API is using your personal `access_token`. This token acts on your behalf, granting the API requests the same permissions you have within the Tallyfy application.
+
+## Getting Your Personal Access Token
+
+1.  Log in to your Tallyfy account at [https://go.tallyfy.com/](https://go.tallyfy.com/).
+2.  Navigate to **Settings** (usually via your profile picture or menu).
+3.  Go to the **Integrations** section.
+4.  Select **REST API**.
+5.  Your personal `access_token` will be displayed here. Copy it securely.
+
+:::caution[Keep Your Token Secure]
+Treat your personal access token like a password. Do not share it publicly or commit it to version control. Anyone with your token can access your Tallyfy data.
+:::
+
+:::note[API Access Plans]
+Direct API access using personal tokens is typically available on paid Tallyfy plans. If you are on a trial or free plan, you might need to contact Tallyfy Support to request API access.
+:::
+
+## Using Your Token in API Requests
+
+Once you have your token, you need to include it in the `Authorization` header of every API request you make. The format is `Bearer {your_access_token}`.
+
+You also need to include two other standard headers:
+
+-   `Accept: application/json` (Tells the API you expect a JSON response)
+-   `X-Tallyfy-Client: APIClient` (Identifies the request is coming from a custom API client)
+
+Here's how to add these headers in different languages:
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/me/tasks`; // Example endpoint
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(data);
+})
+.catch(error => {
+    console.error('Error fetching data:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+
+access_token = 'YOUR_PERSONAL_ACCESS_TOKEN'
+org_id = 'YOUR_ORGANIZATION_ID'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/me/tasks' # Example endpoint
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.get(api_url, headers=headers)
+    response.raise_for_status() # Raises an HTTPError for bad responses (4XX or 5XX)
+
+    # Process the JSON data
+    tasks = response.json()
+    print(json.dumps(tasks, indent=4))
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class TallyfyApiClient {
+
+    public static void main(String[] args) {
+        String accessToken = "YOUR_PERSONAL_ACCESS_TOKEN";
+        String orgId = "YOUR_ORGANIZATION_ID";
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/me/tasks"; // Example endpoint
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET() // Default method is GET
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Response Body:");
+                System.out.println(response.body());
+                // Consider using a JSON library (like Jackson or Gson) to parse the body
+            } else {
+                System.err.println("Request failed with status code: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt(); // Restore interrupted status
+        }
+    }
+}
+
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
+)
+
+func main() {
+	accessToken := "YOUR_PERSONAL_ACCESS_TOKEN"
+	orgId := "YOUR_ORGANIZATION_ID"
+	apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/me/tasks", orgId) // Example endpoint
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Request failed with status code: %d\n", resp.StatusCode)
+		fmt.Printf("Response Body: %s\n", string(body))
+		return
+	}
+
+	fmt.Println("Response Body:")
+	fmt.Println(string(body)) 
+    // Consider using encoding/json to unmarshal the body into a struct
+}
+```
+</TabItem>
+</Tabs>
+
+Remember to replace `YOUR_PERSONAL_ACCESS_TOKEN` and `YOUR_ORGANIZATION_ID` with your actual values.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Authentication > Use the Client Credentials Flow</b>" href="./client-credentials-flow/"> Learn how third-party applications can authenticate. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,223 @@
+---
+id: api-groups-delete
+sidebar:
+  order: 5
+title: Delete group
+snippet: Remove a group from the organization.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/groups/{group_id}`
+
+This endpoint deletes an existing group from the organization. This typically does not delete the members or guests themselves, only the group association.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{group_id}` with the ID of the group to delete.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const groupId = 'GROUP_ID_TO_DELETE'; 
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/groups/${groupId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    // Expect 200 OK or 204 No Content
+    if (response.status === 200 || response.status === 204) {
+        console.log(`Successfully deleted group ${groupId}. Status: ${response.status}`);
+        if (response.status === 200) {
+             return response.json(); // Might return deleted group details
+        }
+        return null;
+    } else {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.then(data => {
+    if (data) { 
+      console.log('Deleted group details (if returned):');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error deleting group ${groupId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+group_id = 'GROUP_ID_TO_DELETE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/groups/{group_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+
+    if response.status_code in [200, 204]:
+        print(f'Successfully deleted group {group_id}. Status: {response.status_code}')
+        if response.status_code == 200 and response.content:
+            try:
+                deleted_group = response.json()
+                print('Deleted group details (if returned):')
+                print(json.dumps(deleted_group, indent=4))
+            except json.JSONDecodeError:
+                 print(f"(Received status 200 but body not valid JSON: {response.text})")
+        elif response.status_code == 204:
+             print("(Received status 204 No Content)")
+    else:
+        response.raise_for_status()
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class DeleteGroup {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String groupId = "GROUP_ID_TO_DELETE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/groups/%s", orgId, groupId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200 || response.statusCode() == 204) {
+                System.out.println("Successfully deleted group " + groupId + ". Status: " + response.statusCode());
+                 if (response.statusCode() == 200 && response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 }
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    groupId := "GROUP_ID_TO_DELETE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/groups/%s", orgId, groupId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
+        fmt.Printf("Successfully deleted group %s. Status: %d\n", groupId, resp.StatusCode)
+        if resp.StatusCode == http.StatusOK && len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request typically returns a `200 OK` or `204 No Content` status code.
+- If `200 OK`, the body might contain details of the deleted group.
+- If `204 No Content`, the deletion was successful, and there is no response body.
+
+If the group ID is not found, a `404 Not Found` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Groups > List groups</b>" href="./list-groups/"> View the updated list of groups. </LinkTitleCard>
+<LinkTitleCard header="<b>Groups > Get group</b>" href="./get-group/"> Get details for a group before deleting. </LinkTitleCard>
+</CardGrid> 

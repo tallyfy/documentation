@@ -1,0 +1,222 @@
+---
+id: api-files-get-metadata
+sidebar:
+  order: 3
+title: Get file metadata
+snippet: Retrieve metadata about a specific uploaded file (asset).
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/assets/{asset_id}`
+
+This endpoint retrieves metadata (like filename, upload date, related object) for a specific uploaded file (referred to as an "Asset" in the API).
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{asset_id}` with the Asset ID of the file whose metadata you want.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters
+
+No common query parameters are typically needed for this endpoint.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const assetId = 'ASSET_ID_TO_GET_METADATA';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/assets/${assetId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully retrieved metadata for asset ${assetId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error getting asset metadata ${assetId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+asset_id = 'ASSET_ID_TO_GET_METADATA'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/assets/{asset_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.get(api_url, headers=headers)
+    response.raise_for_status()
+
+    metadata = response.json()
+    print(f'Successfully retrieved metadata for asset {asset_id}:')
+    print(json.dumps(metadata, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class GetFileMetadata {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String assetId = "ASSET_ID_TO_GET_METADATA";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/assets/%s", orgId, assetId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully retrieved metadata for asset " + assetId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    assetId := "ASSET_ID_TO_GET_METADATA"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/assets/%s", orgId, assetId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully retrieved metadata for asset %s:\n", assetId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` array (usually with one element) holding the asset metadata.
+
+```json
+{
+  "data": [
+    {
+      "id": "ASSET_ID_TO_GET_METADATA",
+      "filename": "report_q1.pdf",
+      "version": 1,
+      "step_id": "step_id_xyz789", // If related to a task step
+      "uploaded_from": "capture_id_abc123", // Form field ID or 'ko_field'
+      "uploaded_to_s3": true,
+      "subject": {
+        "id": "run_id_or_checklist_id",
+        "type": "Run" // Or "Checklist"
+      },
+      "uploaded_at": "2024-04-15T11:00:00Z"
+      // Other potential metadata fields like size, uploader ID, etc.
+    }
+  ]
+}
+```
+
+If the asset ID is not found or you lack permission, a `404` or `403` error will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Files > Upload & Attach File</b>" href="./upload-attach-file/"> How to get the Asset ID when uploading. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Download File</b>" href="./download-file/"> Download the content of this file. </LinkTitleCard>
+<LinkTitleCard header="<b>Files > Delete File</b>" href="./delete-file/"> Remove this file. </LinkTitleCard>
+</CardGrid> 

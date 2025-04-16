@@ -1,0 +1,320 @@
+---
+id: api-tasks-complete
+sidebar:
+  order: 6
+title: Complete task
+snippet: Mark a task as complete using the API.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+This endpoint marks a task as complete. The exact endpoint and payload structure differ slightly depending on whether it's a task within a process run or a one-off task:
+
+-   **Process Task:** `POST /organizations/{org_id}/runs/{run_id}/completed-tasks`
+-   **One-off Task:** `POST /organizations/{org_id}/completed-tasks`
+
+Replace `{org_id}`, `{run_id}` (if applicable) with the appropriate IDs.
+
+## Request
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object specifying the task to complete.
+
+**Common Fields:**
+
+-   `task_id` (string, **required**): The ID of the task to mark as complete.
+-   `is_approved` (boolean, optional): Relevant for approval tasks, set to `true` to approve, `false` to reject.
+-   `taskdata` (object, optional): You can optionally provide final form field values within a `taskdata` object simultaneously with completing the task (same structure as in [Update Task](./update-task/)).
+
+**Example Body (Simple Completion):**
+
+```json
+{
+  "task_id": "TASK_ID_TO_COMPLETE"
+}
+```
+
+**Example Body (Completion with Final Field Update):**
+
+```json
+{
+  "task_id": "TASK_ID_TO_COMPLETE",
+  "taskdata": {
+    "final_notes_field_id": "All checks passed."
+  }
+}
+```
+
+**Example Body (Approval Task - Approve):**
+
+```json
+{
+  "task_id": "APPROVAL_TASK_ID",
+  "is_approved": true
+}
+```
+
+## Code Samples
+
+(Examples use the endpoint for process tasks. Adapt the URL and potentially the payload structure slightly for one-off tasks if needed, based on Swagger definitions `#definitions/CompletedProcessTask` vs the one for one-off tasks).
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID'; // Omit or use different endpoint for one-off
+const taskId = 'TASK_ID_TO_COMPLETE';
+
+// Adjust endpoint based on task type
+const apiUrl = runId
+    ? `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/completed-tasks` 
+    : `https://api.tallyfy.com/organizations/${orgId}/completed-tasks`;
+
+const completePayload = {
+  task_id: taskId,
+  // Example: Completing an approval task
+  // is_approved: true,
+  // Example: Adding a final note while completing
+  // taskdata: {
+  //   "notes_field_id": "Task completed via API."
+  // }
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(completePayload)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json(); // Completion usually returns the updated task state
+})
+.then(data => {
+    console.log(`Successfully completed task ${taskId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error completing task ${taskId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID' # Set to None for one-off task
+task_id = 'TASK_ID_TO_COMPLETE'
+
+if run_id:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/completed-tasks'
+else:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/completed-tasks'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+complete_payload = {
+    'task_id': task_id,
+    # Example: Update a field simultaneously
+    # 'taskdata': {
+    #     'status_field_id': 'Complete'
+    # }
+}
+
+try:
+    response = requests.post(api_url, headers=headers, json=complete_payload)
+    response.raise_for_status()
+
+    completed_task_data = response.json()
+    print(f'Successfully completed task {task_id}:')
+    print(json.dumps(completed_task_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class CompleteTask {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = System.getenv().get("TALLYFY_RUN_ID"); // Get from env, might be null
+        String taskId = "TASK_ID_TO_COMPLETE";
+
+        String apiUrl;
+        if (runId != null && !runId.isEmpty()) {
+            apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks", orgId, runId);
+        } else {
+             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/completed-tasks", orgId);
+        }
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> payload = new HashMap<>();
+        // payload.put("task_id", taskId);
+        // String jsonPayload = new ObjectMapper().writeValueAsString(payload);
+
+        // Simple example payload
+        String jsonPayload = String.format("{\"task_id\": \"%s\"}", taskId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                System.out.println("Successfully completed task " + taskId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := os.Getenv("TALLYFY_RUN_ID") // Get from env, might be ""
+    taskId := "TASK_ID_TO_COMPLETE"
+
+    var apiUrl string
+    if runId != "" {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks", orgId, runId)
+    } else {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/completed-tasks", orgId)
+    }
+
+	payloadData := map[string]interface{}{
+		"task_id": taskId,
+        // "is_approved": true, 
+	}
+
+	jsonData, err := json.Marshal(payloadData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully completed task %s:\n", taskId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the details of the task, now marked as complete.
+
+```json
+{
+  "data": {
+    "id": "TASK_ID_TO_COMPLETE",
+    "title": "Review Proposal",
+    "status": "completed", // Status is now complete
+    "completed_at": "2024-05-20T17:00:00.000Z", // Completion timestamp
+    "completer_id": 1001, // User who completed the task (via API token)
+    // ... other task properties, potentially including updated taskdata ...
+    // For process tasks, may include 'tasks_changed_by_rules' if completion triggered rules
+    "tasks_changed_by_rules": {}
+  }
+}
+```
+
+If the task cannot be completed (e.g., already complete, permissions issue, invalid ID), an appropriate error status code will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="./update-task/"> Update task details without completing it. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Reopen task</b>" href="./reopen-task/"> Reopen this task if it was completed accidentally. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Fetch the current details of this task. </LinkTitleCard>
+</CardGrid> 

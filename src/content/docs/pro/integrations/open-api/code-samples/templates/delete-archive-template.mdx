@@ -1,0 +1,404 @@
+---
+id: api-templates-delete-archive
+sidebar:
+  order: 5
+title: Archive or delete template
+snippet: Archive (soft delete) or permanently delete a process template (blueprint).
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+There are two ways to remove a template via the API:
+
+1.  **Archive (Soft Delete):** Hides the template from the library but retains its data. Processes already launched from it continue to run. Archived templates can be restored.
+2.  **Delete (Permanent):** Permanently removes the template and its associated data. This action cannot be undone.
+
+## 1. Archive Template
+
+### Endpoint
+
+`DELETE /organizations/{org_id}/checklists/{checklist_id}`
+
+This endpoint archives the specified template.
+
+### Request
+
+Replace `{org_id}` with your Organization ID and `{checklist_id}` with the ID of the template to archive.
+
+**Headers**
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+**Body**
+
+No request body is needed for this DELETE request.
+
+### Code Samples (Archiving)
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const checklistId = 'TEMPLATE_ID_TO_ARCHIVE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/checklists/${checklistId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE', // Use DELETE method
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) { // Check for 200 OK
+        // Try to get error details
+        return response.json().then(errData => {
+            throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errData)}`);
+        }).catch(() => {
+             throw new Error(`HTTP error! status: ${response.status}`);
+        });
+    }
+    // For successful DELETE, often there's no JSON body, but check status
+    console.log(`Successfully archived template ${checklistId}. Status: ${response.status}`);
+    // Optionally return response.json() if the API sends back the archived object
+    return response.json(); 
+})
+.then(data => {
+    if (data) { 
+      console.log('Archived template details:');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error('Error archiving template:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+checklist_id = 'TEMPLATE_ID_TO_ARCHIVE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/checklists/{checklist_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers) # Use requests.delete
+    response.raise_for_status()
+
+    print(f'Successfully archived template {checklist_id}. Status: {response.status_code}')
+    # Some APIs return the archived object, try to print if available
+    try:
+        archived_template = response.json()
+        print('Archived template details:')
+        print(json.dumps(archived_template, indent=4))
+    except json.JSONDecodeError:
+        print("(No JSON body returned on archive)")
+
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+    if response is not None:
+        print(f"Response Status: {response.status_code}")
+        try:
+            print(f"Response Body: {response.json()}")
+        except json.JSONDecodeError:
+            print(f"Response Body: {response.text}")
+
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.time.Duration;
+
+public class ArchiveTemplate {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String checklistId = "TEMPLATE_ID_TO_ARCHIVE";
+        String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/checklists/" + checklistId;
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE() // Use DELETE method
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) { // Check for 200 OK
+                System.out.println("Successfully archived template " + checklistId + ". Status: " + response.statusCode());
+                // Check if there is a response body
+                if (response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                } else {
+                     System.out.println("(No body returned on archive)");
+                }
+            } else {
+                System.err.println("Failed to archive template. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
+	checklistId := "TEMPLATE_ID_TO_ARCHIVE"
+	apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/checklists/%s", orgId, checklistId)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil) // Use http.MethodDelete
+	if err != nil {
+		fmt.Printf("Error creating DELETE request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making DELETE request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK { // Expect 200 OK
+		fmt.Printf("Failed to archive template %s. Status: %d\nBody: %s\n", checklistId, resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully archived template %s. Status: %d\n", checklistId, resp.StatusCode)
+    if len(body) > 0 {
+        fmt.Println("Response Body:")
+        fmt.Println(string(body))
+    } else {
+        fmt.Println("(No body returned on archive)")
+    }
+}
+```
+</TabItem>
+</Tabs>
+
+### Response (Archiving)
+
+A successful archive request typically returns a `200 OK` status code. The response body *may* contain the details of the archived template, now including an `archived_at` timestamp.
+
+```json
+{
+  "data": {
+    "id": "TEMPLATE_ID_TO_ARCHIVE",
+    "title": "Template To Be Archived",
+    // ... other properties ...
+    "archived_at": "2024-05-20T13:00:00.000Z" // Timestamp indicates archival
+  }
+}
+```
+
+## 2. Permanently Delete Template
+
+:::danger[Irreversible Action]
+Permanently deleting a template cannot be undone. All associated template data will be lost. Consider archiving unless you are absolutely sure.
+:::
+
+### Endpoint
+
+`DELETE /organizations/{org_id}/checklists/{checklist_id}/delete`
+
+Note the extra `/delete` path segment compared to the archive endpoint.
+
+### Request
+
+Replace `{org_id}` and `{checklist_id}` as appropriate.
+
+**Headers**
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+**Body**
+
+No request body is needed.
+
+### Code Samples (Permanent Deletion)
+
+The code samples are very similar to archiving, just change the `apiUrl` to include the `/delete` suffix.
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+// ... (setup accessToken, orgId, checklistId as before) ...
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/checklists/${checklistId}/delete`; // <-- Added /delete
+
+// ... (fetch call using DELETE method as in archive example) ...
+
+// Check for 200 OK or 204 No Content for successful deletion
+fetch(apiUrl, { /* ... */ })
+.then(response => {
+    if (response.status === 200 || response.status === 204) {
+        console.log(`Successfully deleted template ${checklistId}. Status: ${response.status}`);
+    } else {
+        // Error handling
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.catch(error => {
+    console.error('Error deleting template:', error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+# ... (setup access_token, org_id, checklist_id as before) ...
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/checklists/{checklist_id}/delete' # <-- Added /delete
+
+# ... (requests.delete call as in archive example) ...
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    # Check for 200 or 204
+    if response.status_code == 200 or response.status_code == 204:
+        print(f'Successfully deleted template {checklist_id}. Status: {response.status_code}')
+        if response.content:
+             print(f"Response Body: {response.text}") # May return success message
+    else:
+        response.raise_for_status() # Raise exception for other errors
+except requests.exceptions.RequestException as e:
+    # ... (error handling as before) ...
+    pass
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+// ... (setup accessToken, orgId, checklistId as before) ...
+String apiUrl = "https://api.tallyfy.com/organizations/" + orgId + "/checklists/" + checklistId + "/delete"; // <-- Added /delete
+
+// ... (HttpClient setup and request build with .DELETE() as in archive example) ...
+
+try {
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() == 200 || response.statusCode() == 204) { // Check for 200 or 204
+        System.out.println("Successfully deleted template " + checklistId + ". Status: " + response.statusCode());
+         if (response.body() != null && !response.body().isEmpty()) {
+              System.out.println("Response Body: " + response.body());
+         }
+    } else {
+        // Error handling
+        System.err.println("Failed to delete template. Status: " + response.statusCode());
+        System.err.println("Response: " + response.body());
+    }
+} catch (IOException | InterruptedException e) {
+    // Error handling
+    System.err.println("Request failed: " + e.getMessage());
+    Thread.currentThread().interrupt();
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+// ... (setup accessToken, orgId, checklistId as before) ...
+apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/checklists/%s/delete", orgId, checklistId) // <-- Added /delete
+
+// ... (client setup and request creation with http.MethodDelete as in archive example) ...
+
+resp, err := client.Do(req)
+// ... (error handling for request execution) ...
+defer resp.Body.Close()
+
+body, err := ioutil.ReadAll(resp.Body)
+// ... (error handling for reading body) ...
+
+if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent { // Check for 200 or 204
+    fmt.Printf("Successfully deleted template %s. Status: %d\n", checklistId, resp.StatusCode)
+    if len(body) > 0 {
+        fmt.Printf("Response Body: %s\n", string(body))
+    }
+} else {
+    fmt.Printf("Failed to delete template %s. Status: %d\nBody: %s\n", checklistId, resp.StatusCode, string(body))
+}
+```
+</TabItem>
+</Tabs>
+
+### Response (Permanent Deletion)
+
+A successful permanent deletion typically returns a `200 OK` or `204 No Content` status code. The response body, if present for a `200 OK`, might contain a success message.
+
+```json
+// Example response for 200 OK
+{
+  "data": {
+    "message": "Template deleted successfully"
+  }
+}
+// Or just a 204 No Content status with no body.
+```
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Templates > Restore template</b>" href="./restore-template/"> Learn how to restore an archived template. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Update template</b>" href="./update-template/"> Modify a template instead of deleting it. </LinkTitleCard>
+</CardGrid> 

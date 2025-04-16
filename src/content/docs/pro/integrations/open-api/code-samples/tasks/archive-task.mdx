@@ -1,0 +1,245 @@
+---
+id: api-tasks-archive
+sidebar:
+  order: 8
+title: Archive task
+snippet: Archive a one-off task using the API.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`DELETE /organizations/{org_id}/tasks/{task_id}`
+
+This endpoint archives a standalone ("one-off") task. Archived tasks are hidden from default views but can potentially be restored or deleted permanently later.
+
+:::note
+This endpoint is typically used for **one-off tasks**. To archive tasks within a process run, you usually archive the entire process run using `DELETE /organizations/{org_id}/runs/{run_id}`.
+:::
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{task_id}` with the ID of the one-off task to archive.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Body
+
+No request body is needed for this DELETE request.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const taskId = 'ONE_OFF_TASK_ID_TO_ARCHIVE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tasks/${taskId}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
+.then(response => {
+    // Check for 204 No Content or potentially 200 OK
+    if (response.status === 204 || response.status === 200) { 
+        console.log(`Successfully archived one-off task ${taskId}. Status: ${response.status}`);
+        // Response might be empty (204) or contain the archived task (200)
+        if (response.status === 200) {
+             return response.json(); 
+        }
+        return null;
+    } else {
+        // Error handling...
+         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+})
+.then(data => {
+    if (data) { 
+      console.log('Archived task details:');
+      console.log(JSON.stringify(data, null, 2));
+    }
+})
+.catch(error => {
+    console.error(`Error archiving one-off task ${taskId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+task_id = 'ONE_OFF_TASK_ID_TO_ARCHIVE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks/{task_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+try:
+    response = requests.delete(api_url, headers=headers)
+    # Check for 204 or 200
+    if response.status_code == 204 or response.status_code == 200:
+        print(f'Successfully archived one-off task {task_id}. Status: {response.status_code}')
+        # Try to print response body if it exists (for 200)
+        if response.status_code == 200 and response.content:
+            try:
+                archived_task = response.json()
+                print('Archived task details:')
+                print(json.dumps(archived_task, indent=4))
+            except json.JSONDecodeError:
+                 print(f"(Received status 200 but body is not valid JSON: {response.text})")
+        elif response.status_code == 204:
+             print("(Received status 204 No Content)")
+    else:
+        response.raise_for_status() # Raise for other errors
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+
+public class ArchiveOneOffTask {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String taskId = "ONE_OFF_TASK_ID_TO_ARCHIVE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 204 || response.statusCode() == 200) {
+                System.out.println("Successfully archived one-off task " + taskId + ". Status: " + response.statusCode());
+                 if (response.statusCode() == 200 && response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Parse JSON
+                 } else if (response.statusCode() == 204) {
+                      System.out.println("(Received status 204 No Content)");
+                 }
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    taskId := "ONE_OFF_TASK_ID_TO_ARCHIVE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+        fmt.Printf("Successfully archived one-off task %s. Status: %d\n", taskId, resp.StatusCode)
+        if resp.StatusCode == http.StatusOK && len(body) > 0 {
+             fmt.Println("Response Body:")
+             fmt.Println(string(body))
+             // TODO: Unmarshal JSON
+        } else if resp.StatusCode == http.StatusNoContent {
+            fmt.Println("(Received status 204 No Content)")
+        }
+	} else {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+	}
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request typically returns a `204 No Content` status code, indicating the task was archived successfully without returning any body content. Occasionally, it might return `200 OK` with the archived task details in the body.
+
+If a `200 OK` response is returned with a body:
+```json
+{
+  "data": {
+    "id": "ONE_OFF_TASK_ID_TO_ARCHIVE",
+    "title": "Archived One-Off Task",
+    "status": "archived", // Or similar status indicating it's archived
+    "archived_at": "2024-05-20T19:00:00.000Z", // Archive timestamp
+    // ... other task properties ...
+  }
+}
+```
+
+If the task ID doesn't exist or is not a one-off task eligible for direct archival, an error will occur.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Delete task</b>" href="./delete-task/"> Permanently delete this task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Create one-off task</b>" href="./create-task/"> Create a new standalone task. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Archive process</b>" href="../processes/archive-process/"> Archive an entire process run. </LinkTitleCard>
+</CardGrid> 

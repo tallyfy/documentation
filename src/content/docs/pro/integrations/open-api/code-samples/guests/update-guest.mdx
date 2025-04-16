@@ -1,0 +1,281 @@
+---
+id: api-guests-update
+sidebar:
+  order: 4
+title: Update guest
+snippet: Modify details for an existing guest user.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/guests/{guest_email}`
+
+This endpoint updates the details for an existing guest user, identified by their email address.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{guest_email}` with the URL-encoded email address of the guest to update.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the guest detail fields you wish to modify.
+
+Refer to the `#definitions/createGuestInput` schema in Swagger (often the same as creation) for available fields like:
+
+-   `first_name` (string)
+-   `last_name` (string)
+-   `phone_1` / `phone_2` (string)
+-   `company_name` (string)
+-   `timezone` (string)
+-   `associated_members` (array of integers) - Note: Check if this replaces or appends.
+
+**Example Body:**
+
+```json
+{
+  "first_name": "UpdatedFirstName",
+  "company_name": "New Company Name Ltd.",
+  "phone_1": "+441234567890"
+}
+```
+
+:::note
+Changing a guest's email address is typically not possible via this endpoint; you would usually need to delete the old guest record and create a new one.
+:::
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const guestEmail = "guest.to.update@example.com";
+const encodedEmail = encodeURIComponent(guestEmail);
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests/${encodedEmail}`;
+
+const updateData = {
+  first_name: "Guesty",
+  last_name: "McGuestface",
+  company_name: "Updated Guest Corp"
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updateData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated guest ${guestEmail}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating guest ${guestEmail}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+from urllib.parse import quote
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+guest_email = "guest.to.update@example.com"
+encoded_email = quote(guest_email)
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests/{encoded_email}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+update_payload = {
+    'first_name': 'UpdatedFName',
+    'last_name': 'UpdatedLName'
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_guest = response.json()
+    print(f'Successfully updated guest {guest_email}:')
+    print(json.dumps(updated_guest, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+// Assumes JSON library
+
+public class UpdateGuest {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String guestEmail = "guest.to.update@example.com";
+        String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> updateData = Map.of("company_name", "New Guest Company");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+        
+        String jsonPayload = "{\"company_name\": \"Updated Company LLC\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated guest " + guestEmail + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    guestEmail := "guest.to.update@example.com"
+    encodedEmail := url.PathEscape(guestEmail)
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail)
+
+	updateData := map[string]interface{}{
+		"first_name": "UpdatedGoFirstName",
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated guest %s:\n", guestEmail)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full details of the guest *after* the update.
+
+```json
+{
+  "data": {
+    "id": "guest_code_abc123",
+    "email": "guest.to.update@example.com",
+    "details": {
+      "first_name": "Guesty", // Updated value
+      "last_name": "McGuestface", // Updated value
+      "company_name": "Updated Guest Corp", // Updated value
+      // ... other details ...
+      "updated_at": "2024-05-21T17:00:00Z" // Reflects update time
+    }
+  }
+}
+```
+
+If the guest email is not found or the payload is invalid, an appropriate error status code (`404`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Guests > Get guest</b>" href="./get-guest/"> Fetch the current details for this guest. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Delete guest</b>" href="./delete-guest/"> Remove this guest from the organization. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Enable/Disable guest</b>" href="./enable-disable-guest/"> Change the active status of this guest. </LinkTitleCard>
+</CardGrid> 

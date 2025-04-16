@@ -1,0 +1,357 @@
+---
+id: api-tasks-update
+sidebar:
+  order: 5
+title: Update task
+snippet: Modify details of an existing task, including assignees, deadline, and form field values.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+This endpoint updates an existing task. The exact endpoint depends on whether it's a task within a process run or a one-off task:
+
+-   **Process Task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
+-   **One-off Task:** `PUT /organizations/{org_id}/tasks/{task_id}`
+
+Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with the appropriate IDs.
+
+## Request
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the task properties you wish to modify. You only need to include the fields you want to change.
+
+Refer to the `#definitions/updateTaskInput` (for process tasks) or `#definitions/updateStandaloneTaskInput` (for one-off tasks) schemas in Swagger for available fields. Common updatable fields include:
+
+-   `title` (string): New task title.
+-   `summary` / `description` (string): New task description.
+-   `deadline` (string): New deadline in ISO 8601 format (e.g., `YYYY-MM-DDTHH:mm:ssZ`).
+-   `started_at` (string): Set or change the start date/time.
+-   `owners` (object): Update assignees. Structure: `{ "users": [user_id1, ...], "guests": ["guest@email.com", ...], "groups": [group_id1, ...] }`. **This replaces existing assignees.**
+-   `taskdata` (object): Update form field values (see details below).
+-   `status` (string): Change the task status (use with caution, prefer dedicated complete/reopen endpoints where possible).
+-   `webhook` (string): Update the task-specific webhook URL (one-off tasks).
+-   `prevent_guest_comment` (boolean): Enable/disable guest comments.
+
+### Updating Form Fields (`taskdata`)
+
+To update form field values, include a `taskdata` object in the request body. The keys within `taskdata` are the **Form Field IDs (Capture IDs)**, and the values depend on the field type:
+
+-   **Text/Textarea:** `{ "taskdata": { "field_id_abc": "New text value" } }`
+-   **Date:** `{ "taskdata": { "field_id_def": "2024-12-31T23:59:59Z" } }`
+-   **Radio Button:** `{ "taskdata": { "field_id_ghi": "Selected Value Text" } }`
+-   **Dropdown:** `{ "taskdata": { "field_id_jkl": { "id": 3, "text": "Chosen Option Text", "value": null } } }` (Provide the selected option object)
+-   **Multi-select Checkboxes:** `{ "taskdata": { "field_id_mno": [ { "id": 1, ..., "selected": true }, { "id": 2, ..., "selected": false }, { "id": 3, ..., "selected": true } ] } }` (Provide the full array of options with their selected status)
+-   **File/Image:** See [Attach files using the API](./TODO-Link-Files-Attach) sample. Requires pre-uploading.
+-   **Table:** Updating table fields via API might require specific formatting; consult Swagger or Tallyfy support if needed.
+
+:::tip[Finding Field IDs]
+If you don't know the Form Field IDs (Capture IDs), you can:
+1.  Retrieve the task details using the [Get Task](./get-task/) endpoint with `with=form_fields`.
+2.  Inspect the network requests in your browser's developer tools when interacting with the task form in the Tallyfy UI.
+:::
+
+### Updating Assignees (`owners`)
+
+```json
+{
+  "owners": {
+    "users": [1001, 1002], // Assign users 1001 and 1002
+    "groups": [], // Remove all group assignments
+    "guests": ["new.client@example.com"] // Assign this guest
+  }
+}
+```
+
+:::caution[Assignee Updates Replace]
+Providing the `owners` object *replaces* all existing assignees with the ones specified in the `users`, `groups`, and `guests` arrays within the object. To remove all assignees, provide empty arrays for all three.
+:::
+
+## Code Samples
+
+(Examples use the endpoint for process tasks. Adapt the URL for one-off tasks.)
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID'; // Or null/omit for one-off task
+const taskId = 'TASK_ID_TO_UPDATE';
+
+// Choose the correct URL based on task type
+const apiUrl = runId 
+    ? `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/tasks/${taskId}`
+    : `https://api.tallyfy.com/organizations/${orgId}/tasks/${taskId}`; 
+
+const updatePayload = {
+  // Example: Update deadline and a text form field
+  deadline: "2024-07-01T09:00:00Z", 
+  taskdata: {
+    "text_field_id_example": "Updated value from JS"
+  },
+  // Example: Change assignees
+  owners: {
+      users: [1005], // Assign only user 1005
+      groups: [],
+      guests: []
+  }
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updatePayload)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated task ${taskId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating task ${taskId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID' # Set to None for one-off task
+task_id = 'TASK_ID_TO_UPDATE'
+
+if run_id:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/tasks/{task_id}'
+else:
+    api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks/{task_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+update_payload = {
+    'summary': 'Task summary updated via Python.',
+    # Example: Update a dropdown form field
+    'taskdata': {
+        'dropdown_field_id_example': {
+            'id': 3, # Option ID
+            'text': 'Selected Option C', 
+            'value': None
+         }
+    }
+    # Add other fields like 'owners' or 'deadline' as needed
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_task = response.json()
+    print(f'Successfully updated task {task_id}:')
+    print(json.dumps(updated_task, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateTask {
+
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID"; // Set to null for one-off task
+        String taskId = "TASK_ID_TO_UPDATE";
+        
+        String apiUrl;
+        if (runId != null && !runId.isEmpty()) {
+             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId);
+        } else {
+             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId);
+        }
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> updateData = new HashMap<>();
+        // updateData.put("deadline", "2024-07-10T12:00:00Z");
+        // Map<String, Object> taskData = new HashMap<>();
+        // taskData.put("some_field_id", "new value");
+        // updateData.put("taskdata", taskData);
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+        
+        // Simple example payload
+        String jsonPayload = "{\"summary\": \"Updated via Java HttpClient\", \"taskdata\": {\"field_abc\":\"Java value\"}}";
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated task " + taskId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := os.Getenv("TALLYFY_RUN_ID") // Set to "" for one-off task
+    taskId := "TASK_ID_TO_UPDATE"
+    
+    var apiUrl string
+    if runId != "" {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId)
+    } else {
+        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId)
+    }
+
+	updateData := map[string]interface{}{
+		"title":   "Go Updated Task Title",
+        "taskdata": map[string]interface{}{
+            "radio_button_field_id": "Option B",
+        },
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated task %s:\n", taskId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full details of the task *after* the update.
+
+```json
+{
+  "data": {
+    "id": "TASK_ID_TO_UPDATE",
+    "title": "Go Updated Task Title", // Updated title
+    "summary": "Task summary updated via Python.", // Updated summary
+    "status": "active",
+    "owners": { // Reflects updated assignees
+        "users": [{ "id": 1005, ... }],
+        "groups": [],
+        "guests": []
+     },
+    "deadline": "2024-07-01T09:00:00Z", // Updated deadline
+    "last_updated": "2024-05-20T16:00:00Z", // Reflects update time
+    // ... other task properties ...
+    "taskdata": { // Reflects updated form field values
+        "text_field_id_example": "Updated value from JS",
+        "dropdown_field_id_example": { "id": 3, ... },
+        "radio_button_field_id": "Option B"
+     }
+  }
+}
+```
+
+If the task ID is not found, you lack permission, or the request body is invalid (e.g., incorrect field ID, wrong data type for a field), you will receive an appropriate error status code (`404`, `403`, `400`, `422`).
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Get task</b>" href="./get-task/"> Fetch the current details of this task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Complete task</b>" href="./complete-task/"> Mark this task as complete. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Reopen task</b>" href="./reopen-task/"> Reopen this task if it was completed. </LinkTitleCard>
+</CardGrid> 

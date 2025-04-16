@@ -1,0 +1,278 @@
+---
+id: api-processes-update
+sidebar:
+  order: 4
+title: Update process
+snippet: Modify properties of an existing process run, such as name or summary.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/runs/{run_id}`
+
+This endpoint allows you to update certain properties of an existing process instance (run).
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to update.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the process properties you wish to modify. You only need to include the fields you want to change.
+
+Refer to the `#definitions/createRunInput` schema (often similar for updates) in Swagger. Common updatable fields include:
+
+-   `name` (string): New name for the process instance.
+-   `summary` (string): New summary/description.
+-   `owner_id` (integer): Change the process owner.
+-   `tags` (array of strings): **Replaces** the current list of tag IDs associated with the process.
+-   `folders` (array of strings): **Replaces** the current list of folder IDs.
+-   `prerun` (array): Update kick-off form field values (structure depends on field type, see [Launch Process](./launch-process/)).
+
+:::note[Updating Tasks within a Process]
+To update individual tasks (assignees, deadlines, form fields) within a running process, use the [Update Task](../tasks/update-task/) endpoint (`PUT /organizations/{org}/runs/{run_id}/tasks/{task_id}`) instead.
+:::
+
+:::caution[Replacing Arrays (Tags/Folders)]
+Providing `tags` or `folders` arrays typically *replaces* the existing lists. Get the current process details first if you need to add/remove incrementally.
+:::
+
+**Example Body:**
+
+```json
+{
+  "name": "Onboarding - Globex Corp (Updated)",
+  "summary": "Updated summary notes for this run.",
+  "tags": ["tag_id_urgent", "tag_id_onboarding"] 
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID_TO_UPDATE';
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}`;
+
+const updateData = {
+  name: "JS Updated Process Name",
+  summary: "Adding more details here."
+  // Add other fields like 'tags' or 'owner_id' if needed
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updateData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated process ${runId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating process ${runId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID_TO_UPDATE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+update_payload = {
+    'name': 'Python Updated Process Name',
+    # Replace tags - get current tags first if adding/removing
+    'tags': ['tag_id_new', 'tag_id_existing'] 
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_process = response.json()
+    print(f'Successfully updated process {run_id}:')
+    print(json.dumps(updated_process, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateProcess {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String runId = "PROCESS_RUN_ID_TO_UPDATE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, Object> updateData = new HashMap<>();
+        // updateData.put("name", "Java Updated Run Name");
+        // updateData.put("tags", List.of("tag1", "tag2"));
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+
+        String jsonPayload = "{\"summary\": \"Java updated summary notes.\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated process " + runId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                 // Error handling...
+                 System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    runId := "PROCESS_RUN_ID_TO_UPDATE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s", orgId, runId)
+
+	updateData := map[string]interface{}{
+		"name": "Go Updated Process",
+        "owner_id": 1005,
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated process %s:\n", runId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full details of the process run *after* the update.
+
+```json
+{
+  "data": {
+    "id": "PROCESS_RUN_ID_TO_UPDATE",
+    "name": "Onboarding - Globex Corp (Updated)", // Updated name
+    "summary": "Updated summary notes for this run.", // Updated summary
+    "tags": ["tag_id_urgent", "tag_id_onboarding"], // Updated tags
+    // ... other process properties reflecting the current state ...
+    "last_updated": "2024-05-21T22:00:00Z" // Timestamp reflects the update
+  }
+}
+```
+
+If the run ID is not found, you lack permission, or the request body is invalid, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Get process</b>" href="./get-process/"> Fetch the current details of this process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Archive process</b>" href="./archive-process/"> Archive this process run. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="../tasks/update-task/"> Update individual tasks within this process. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,251 @@
+---
+id: api-guests-get
+sidebar:
+  order: 3
+title: Get guest
+snippet: Retrieve details for a specific guest user by their email address.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/guests/{guest_email}`
+
+This endpoint retrieves the details for a specific guest user within the organization, identified by their email address.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{guest_email}` with the URL-encoded email address of the guest you want to retrieve (e.g., `user%40example.com`).
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+-   `with` (string): Include additional related data, e.g., `stats`.
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const guestEmail = "guest.to.get@example.com";
+const encodedEmail = encodeURIComponent(guestEmail);
+
+const queryParams = '?with=stats'; // Example
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests/${encodedEmail}${queryParams}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully retrieved guest ${guestEmail}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error getting guest ${guestEmail}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+from urllib.parse import quote
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+guest_email = "guest.to.get@example.com"
+encoded_email = quote(guest_email)
+
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests/{encoded_email}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    'with': 'stats' # Example
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    guest_data = response.json()
+    print(f'Successfully retrieved guest {guest_email}:')
+    print(json.dumps(guest_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class GetGuest {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String guestEmail = "guest.to.get@example.com";
+        String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
+        
+        String baseUrl = String.format("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail);
+
+        Map<String, String> queryParamsMap = Map.of("with", "stats"); // Example
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+            
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200 || response.statusCode() == 201) { // API might return 201
+                System.out.println("Successfully retrieved guest " + guestEmail + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            // Error handling...
+            System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    guestEmail := "guest.to.get@example.com"
+    encodedEmail := url.PathEscape(guestEmail) // Use PathEscape for path segments
+    
+    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail)
+
+    queryParams := url.Values{}
+    queryParams.Add("with", "stats") // Example
+    
+    apiUrl := baseUrl + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated { // API might return 201
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully retrieved guest %s:\n", guestEmail)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing a `data` field with the guest's details.
+
+```json
+{
+  "data": {
+    "id": "guest_code_abc123", 
+    "email": "guest.to.get@example.com",
+    "last_accessed_at": "2024-05-15T10:00:00Z",
+    "details": {
+      "first_name": "Specific",
+      "last_name": "Guest",
+      "status": "active", 
+      "company_name": "Guest Company",
+      // ... other guest details ...
+    },
+    // Included if requested with 'with=stats'
+    "stats": { ... }
+  }
+}
+```
+
+If the guest email is not found or you lack permission, you will likely receive a `404 Not Found` or `403 Forbidden` error.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Guests > List guests</b>" href="./list-guests/"> Get a list of all guests. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Update guest</b>" href="./update-guest/"> Modify this guest's details. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Delete guest</b>" href="./delete-guest/"> Remove this guest. </LinkTitleCard>
+</CardGrid> 

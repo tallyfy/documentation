@@ -1,0 +1,260 @@
+---
+id: api-tags-update
+sidebar:
+  order: 4
+title: Update tag
+snippet: Modify the title or color of an existing tag.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`PUT /organizations/{org_id}/tags/{tag_id}`
+
+This endpoint updates the properties (like title or color) of an existing tag.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{tag_id}` with the ID of the tag to update.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+-   `Content-Type: application/json`
+
+### Body (JSON)
+
+The request body requires a JSON object containing the tag properties to modify.
+
+Refer to the `#definitions/createTagInput` schema (often similar to update). Key fields:
+
+-   `title` (string): New title for the tag.
+-   `color` (string): New hex color code.
+
+**Example Body:**
+
+```json
+{
+  "title": "High Priority (Red)",
+  "color": "#ff0000"
+}
+```
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const tagId = 'TAG_ID_TO_UPDATE'; 
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tags/${tagId}`;
+
+const updateData = {
+  title: "JS Updated Tag Name",
+  color: "#1abc9c" // Turquoise
+};
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'PUT',
+    headers: headers,
+    body: JSON.stringify(updateData)
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully updated tag ${tagId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error updating tag ${tagId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+tag_id = 'TAG_ID_TO_UPDATE'
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/tags/{tag_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+update_payload = {
+    'title': 'Python Updated Tag', 
+    'color': '#34495e' # Dark blue/grey
+}
+
+try:
+    response = requests.put(api_url, headers=headers, json=update_payload)
+    response.raise_for_status()
+
+    updated_tag = response.json()
+    print(f'Successfully updated tag {tag_id}:')
+    print(json.dumps(updated_tag, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+// Assumes JSON library
+
+public class UpdateTag {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String tagId = "TAG_ID_TO_UPDATE";
+        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId);
+
+        // Build payload using Map/POJO and JSON library
+        // Map<String, String> updateData = Map.of("title", "New Java Title", "color", "#ffffff");
+        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
+
+        String jsonPayload = "{\"title\": \"Java Updated Tag\", \"color\": \"#bdc3c7\"}"; // Simple example
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully updated tag " + tagId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                 // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    tagId := "TAG_ID_TO_UPDATE"
+    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId)
+
+	updateData := map[string]interface{}{
+		"title": "Go Updated Tag",
+        "color": "#27ae60", // Green
+	}
+
+	jsonData, err := json.Marshal(updateData)
+	// Error handling...
+
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully updated tag %s:\n", tagId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing the full details of the tag *after* the update.
+
+```json
+{
+  "data": {
+    "id": "TAG_ID_TO_UPDATE",
+    "title": "Python Updated Tag", // Updated title
+    "color": "#34495e", // Updated color
+    // ... other tag properties ...
+    "updated_at": "2024-05-21T20:30:00Z" // Reflects update time
+  }
+}
+```
+
+If the tag ID is not found or the payload is invalid, an error status code (`404`, `400`, `422`) will be returned.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tags > Get tag</b>" href="./get-tag/"> Fetch the current details of this tag. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > Archive tag</b>" href="./archive-tag/"> Archive this tag. </LinkTitleCard>
+<LinkTitleCard header="<b>Tags > List tags</b>" href="./list-tags/"> See all available tags. </LinkTitleCard>
+</CardGrid> 
