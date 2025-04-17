@@ -1,5 +1,255 @@
 ---
-id: c085bcbff67dbdc00e3b77ba9ec3b562
+id: api-members-get
+sidebar:
+  order: 3
+title: Get member
+snippet: Retrieve profile details for a specific member by their user ID.
 ---
 
----\nid: api-members-get\nsidebar:\n  order: 3\ntitle: Get member\nsnippet: Retrieve profile details for a specific member by their user ID.\n---\n\nimport { Tabs, TabItem } from \'@astrojs/starlight/components\';\n\n## Endpoint\n\n`GET /organizations/{org_id}/users/{user_id}`\n\nThis endpoint retrieves the profile information for a specific member (user) within the organization, identified by their unique user ID.\n\n## Request\n\nReplace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID of the member you want to retrieve.\n\n### Headers\n\n-   `Authorization: Bearer {your_access_token}`\n-   `Accept: application/json`\n-   `X-Tallyfy-Client: APIClient`\n\n### Query Parameters (Optional)\n\n-   `with` (string): Include additional related data. Common options might be `stats`, `assets`, `groups` (check Swagger for specifics).\n\n## Code Samples\n\n<Tabs>\n<TabItem label=\"JavaScript (fetch)\">\n```javascript\nconst accessToken = \'YOUR_PERSONAL_ACCESS_TOKEN\';\nconst orgId = \'YOUR_ORGANIZATION_ID\';\nconst userId = 12345; // ID of the member to retrieve\n\nconst queryParams = \'?with=stats\'; // Example: get stats\nconst apiUrl = `https://api.tallyfy.com/organizations/${orgId}/users/${userId}${queryParams}`;\n\nconst headers = new Headers();\nheaders.append(\'Authorization\', `Bearer ${accessToken}`);\nheaders.append(\'Accept\', \'application/json\');\nheaders.append(\'X-Tallyfy-Client\', \'APIClient\');\n\nfetch(apiUrl, {\n    method: \'GET\',\n    headers: headers\n})\n.then(response => {\n    if (!response.ok) {\n        // Error handling...\n        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });\n    }\n    return response.json();\n})\n.then(data => {\n    console.log(`Successfully retrieved member ${userId}:\`);\n    console.log(JSON.stringify(data, null, 2));\n})\n.catch(error => {\n    console.error(`Error getting member ${userId}:`, error);\n});\n```\n</TabItem>\n<TabItem label=\"Python (requests)\">\n```python\nimport requests\nimport json\nimport os\n\naccess_token = os.environ.get(\'TALLYFY_ACCESS_TOKEN\', \'YOUR_PERSONAL_ACCESS_TOKEN\')\norg_id = os.environ.get(\'TALLYFY_ORG_ID\', \'YOUR_ORGANIZATION_ID\')\nuser_id = 12345 # ID of the member to retrieve\napi_url = f\'https://api.tallyfy.com/organizations/{org_id}/users/{user_id}\'\n\nheaders = {\n    \'Authorization\': f\'Bearer {access_token}\',\n    \'Accept\': \'application/json\',\n    \'X-Tallyfy-Client\': \'APIClient\'\n}\n\nparams = {\n    \'with\': \'stats,groups\' # Example\n}\n\ntry:\n    response = requests.get(api_url, headers=headers, params=params)\n    response.raise_for_status()\n\n    member_data = response.json()\n    print(f\'Successfully retrieved member {user_id}:\')\n    print(json.dumps(member_data, indent=4))\n\nexcept requests.exceptions.RequestException as e:\n    # Error handling...\n    print(f\"Request failed: {e}\")\nexcept json.JSONDecodeError:\n    print(\"Failed to decode JSON response\")\n```\n</TabItem>\n<TabItem label=\"Java (HttpClient)\">\n```java\nimport java.net.URI;\nimport java.net.URLEncoder;\nimport java.net.http.HttpClient;\nimport java.net.http.HttpRequest;\nimport java.net.http.HttpResponse;\nimport java.io.IOException;\nimport java.nio.charset.StandardCharsets;\nimport java.util.Map;\nimport java.util.stream.Collectors;\n\npublic class GetMember {\n    public static void main(String[] args) {\n        String accessToken = System.getenv().getOrDefault(\"TALLYFY_ACCESS_TOKEN\", \"YOUR_PERSONAL_ACCESS_TOKEN\");\n        String orgId = System.getenv().getOrDefault(\"TALLYFY_ORG_ID\", \"YOUR_ORGANIZATION_ID\");\n        int userId = 12345; // ID of the member\n        String baseUrl = \"https://api.tallyfy.com/organizations/\" + orgId + \"/users/\" + userId;\n\n        Map<String, String> queryParamsMap = Map.of(\"with\", \"stats\"); // Example\n        String queryParams = queryParamsMap.entrySet().stream()\n            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + \"=\" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))\n            .collect(Collectors.joining(\"&\", \"?\", \"\"));\n        \n        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? \"\" : queryParams);\n\n        HttpClient client = HttpClient.newHttpClient();\n        HttpRequest request = HttpRequest.newBuilder()\n                .uri(URI.create(apiUrl))\n                .header(\"Authorization\", \"Bearer \" + accessToken)\n                .header(\"Accept\", \"application/json\")\n                .header(\"X-Tallyfy-Client\", \"APIClient\")\n                .GET()\n                .build();\n\n        try {\n            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());\n            if (response.statusCode() == 200) {\n                System.out.println(\"Successfully retrieved member \" + userId + \":\");\n                System.out.println(response.body());\n                // TODO: Parse JSON\n            } else {\n                // Error handling...\n                System.err.println(\"Failed. Status: \" + response.statusCode());\n            }\n        } catch (IOException | InterruptedException e) {\n             // Error handling...\n             System.err.println(\"Request failed: \" + e.getMessage());\n        }\n    }\n}\n```\n</TabItem>\n<TabItem label=\"Go (net/http)\">\n```go\npackage main\n\nimport (\n\t\"fmt\"\n\t\"io/ioutil\"\n\t\"net/http\"\n\t\"net/url\"\n\t\"os\"\n    \"strconv\"\n)\n\nfunc main() {\n\taccessToken := os.Getenv(\"TALLYFY_ACCESS_TOKEN\")\n\torgId := os.Getenv(\"TALLYFY_ORG_ID\")\n    userId := 12345 // ID of the member\n    baseUrl := fmt.Sprintf(\"https://api.tallyfy.com/organizations/%s/users/%s\", orgId, strconv.Itoa(userId))\n\n    queryParams := url.Values{}\n    queryParams.Add(\"with\", \"stats,groups\") // Example\n    \n    apiUrl := baseUrl + \"?\" + queryParams.Encode()\n\n\tclient := &http.Client{}\n\treq, err := http.NewRequest(\"GET\", apiUrl, nil)\n    // Error handling...\n\n\treq.Header.Set(\"Authorization\", \"Bearer \"+accessToken)\n\treq.Header.Set(\"Accept\", \"application/json\")\n\treq.Header.Set(\"X-Tallyfy-Client\", \"APIClient\")\n\n\tresp, err := client.Do(req)\n    // Error handling...\n\tdefer resp.Body.Close()\n\n\tbody, err := ioutil.ReadAll(resp.Body)\n    // Error handling...\n\n\tif resp.StatusCode != http.StatusOK {\n        // Error handling...\n\t\tfmt.Printf(\"Failed. Status: %d\\nBody: %s\\n\", resp.StatusCode, string(body))\n\t\treturn\n\t}\n\n\tfmt.Printf(\"Successfully retrieved member %d:\\n\", userId)\n\tfmt.Println(string(body))\n\t// TODO: Unmarshal JSON\n}\n```\n</TabItem>\n</Tabs>\n\n## Response\n\nA successful request returns a `200 OK` status code and a JSON object containing a `data` field. The value of `data` is an object representing the requested member's profile.\n\n```json\n{\n  \"data\": {\n    \"id\": 12345,\n    \"email\": \"specific.user@example.com\",\n    \"username\": \"specificuser\",\n    \"first_name\": \"Specific\",\n    \"last_name\": \"User\",\n    \"full_name\": \"Specific User\",\n    \"profile_pic\": \"https://.../avatar.png\",\n    \"active\": true,\n    \"status\": \"active\",\n    \"user_role\": \"Standard\",\n    \"timezone\": \"America/Los_Angeles\",\n    \"created_at\": \"2023-02-01T12:00:00Z\",\n    // ... other standard user properties ...\n    // Included if requested with \'with=stats\':\n    \"stats\": {\n        \"active_tasks\": 15,\n        \"completed_tasks\": 120,\n        // ... other stats ...\n    },\n    // Included if requested with \'with=groups\':\n    \"groups\": [\n         { \"id\": \"group_id_3\", \"name\": \"Project Alpha\" }\n    ]\n  }\n}\n```\n\nIf the user ID is not found or you lack permission, you will receive a `404 Not Found` or `403 Forbidden` error.\n\n---\n\nimport { CardGrid, LinkTitleCard} from \"~/components\";\n\n## Related articles\n<CardGrid>\n<LinkTitleCard header=\"<b>Members > List members</b>\" href=\"./list-members/\"> Get a list of all members. </LinkTitleCard>\n<LinkTitleCard header=\"<b>Members > Update member</b>\" href=\"./update-member/\"> Modify this member\'s details. </LinkTitleCard>\n<LinkTitleCard header=\"<b>Members > Remove member</b>\" href=\"./remove-member/\"> Remove this member from the organization. </LinkTitleCard>\n</CardGrid>\n
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Endpoint
+
+`GET /organizations/{org_id}/users/{user_id}`
+
+This endpoint retrieves the profile information for a specific member (user) within the organization, identified by their unique user ID.
+
+## Request
+
+Replace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID of the member you want to retrieve.
+
+### Headers
+
+-   `Authorization: Bearer {your_access_token}`
+-   `Accept: application/json`
+-   `X-Tallyfy-Client: APIClient`
+
+### Query Parameters (Optional)
+
+-   `with` (string): Include additional related data. Common options might be `stats`, `assets`, `groups` (check Swagger for specifics).
+
+## Code Samples
+
+<Tabs>
+<TabItem label="JavaScript (fetch)">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const userId = 12345; // ID of the member to retrieve
+
+const queryParams = '?with=stats'; // Example: get stats
+const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/users/${userId}${queryParams}`;
+
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+fetch(apiUrl, {
+    method: 'GET',
+    headers: headers
+})
+.then(response => {
+    if (!response.ok) {
+        // Error handling...
+        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+    }
+    return response.json();
+})
+.then(data => {
+    console.log(`Successfully retrieved member ${userId}:`);
+    console.log(JSON.stringify(data, null, 2));
+})
+.catch(error => {
+    console.error(`Error getting member ${userId}:`, error);
+});
+```
+</TabItem>
+<TabItem label="Python (requests)">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+user_id = 12345 # ID of the member to retrieve
+api_url = f'https://api.tallyfy.com/organizations/{org_id}/users/{user_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+params = {
+    'with': 'stats,groups' # Example
+}
+
+try:
+    response = requests.get(api_url, headers=headers, params=params)
+    response.raise_for_status()
+
+    member_data = response.json()
+    print(f'Successfully retrieved member {user_id}:')
+    print(json.dumps(member_data, indent=4))
+
+except requests.exceptions.RequestException as e:
+    # Error handling...
+    print(f"Request failed: {e}")
+except json.JSONDecodeError:
+    print("Failed to decode JSON response")
+```
+</TabItem>
+<TabItem label="Java (HttpClient)">
+```java
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class GetMember {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        int userId = 12345; // ID of the member
+        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/users/" + userId;
+
+        Map<String, String> queryParamsMap = Map.of("with", "stats"); // Example
+        String queryParams = queryParamsMap.entrySet().stream()
+            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+            .collect(Collectors.joining("&", "?", ""));
+        
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully retrieved member " + userId + ":");
+                System.out.println(response.body());
+                // TODO: Parse JSON
+            } else {
+                // Error handling...
+                System.err.println("Failed. Status: " + response.statusCode());
+            }
+        } catch (IOException | InterruptedException e) {
+             // Error handling...
+             System.err.println("Request failed: " + e.getMessage());
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go (net/http)">
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+    "strconv"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    userId := 12345 // ID of the member
+    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/users/%s", orgId, strconv.Itoa(userId))
+
+    queryParams := url.Values{}
+    queryParams.Add("with", "stats,groups") // Example
+    
+    apiUrl := baseUrl + "?" + queryParams.Encode()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", apiUrl, nil)
+    // Error handling...
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+    // Error handling...
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    // Error handling...
+
+	if resp.StatusCode != http.StatusOK {
+        // Error handling...
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Successfully retrieved member %d:\n", userId)
+	fmt.Println(string(body))
+	// TODO: Unmarshal JSON
+}
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+A successful request returns a `200 OK` status code and a JSON object containing a `data` field. The value of `data` is an object representing the requested member's profile.
+
+```json
+{
+  "data": {
+    "id": 12345,
+    "email": "specific.user@example.com",
+    "username": "specificuser",
+    "first_name": "Specific",
+    "last_name": "User",
+    "full_name": "Specific User",
+    "profile_pic": "https://.../avatar.png",
+    "active": true,
+    "status": "active",
+    "user_role": "Standard",
+    "timezone": "America/Los_Angeles",
+    "created_at": "2023-02-01T12:00:00Z",
+    // ... other standard user properties ...
+    // Included if requested with 'with=stats':
+    "stats": {
+        "active_tasks": 15,
+        "completed_tasks": 120,
+        // ... other stats ...
+    },
+    // Included if requested with 'with=groups':
+    "groups": [
+         { "id": "group_id_3", "name": "Project Alpha" }
+    ]
+  }
+}
+```
+
+If the user ID is not found or you lack permission, you will receive a `404 Not Found` or `403 Forbidden` error.
+
+---
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Members > List members</b>" href="./list-members/"> Get a list of all members. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Update member</b>" href="./update-member/"> Modify this member's details. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Remove member</b>" href="./remove-member/"> Remove this member from the organization. </LinkTitleCard>
+</CardGrid>
