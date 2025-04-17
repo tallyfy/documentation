@@ -37,8 +37,8 @@ const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const tagId = 'TAG_ID_TO_GET'; 
 
-const queryParams = '?with=statistics'; // Example
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tags/${tagId}${queryParams}`;
+const queryParams = '?with=usage_count'; // Example
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tags/${tagId}${queryParams}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -74,7 +74,7 @@ import os
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 tag_id = 'TAG_ID_TO_GET'
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/tags/{tag_id}'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tags/{tag_id}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -83,7 +83,7 @@ headers = {
 }
 
 params = {
-    'with': 'statistics' # Example
+    'with': 'usage_count' # Example
 }
 
 try:
@@ -118,9 +118,9 @@ public class GetTag {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String tagId = "TAG_ID_TO_GET";
-        String baseUrl = String.format("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId);
+        String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId);
 
-        Map<String, String> queryParamsMap = Map.of("with", "statistics"); // Example
+        Map<String, String> queryParamsMap = Map.of("with", "usage_count"); // Example
         String queryParams = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
@@ -169,38 +169,43 @@ import (
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    tagId := "TAG_ID_TO_GET"
-    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tags/%s", orgId, tagId)
+	tagId := "TAG_ID_TO_GET"
 
-    queryParams := url.Values{}
-    queryParams.Add("with", "statistics") // Example
-    
-    apiUrl := baseUrl + "?" + queryParams.Encode()
+	baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId)
+	queryParams := url.Values{}
+	queryParams.Set("with", "usage_count") // Example
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+	req, err := http.NewRequest("GET", baseUrl+"?"+queryParams.Encode(), nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
 		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully retrieved tag %s:\n", tagId)
 	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
 }
 ```
 </TabItem>

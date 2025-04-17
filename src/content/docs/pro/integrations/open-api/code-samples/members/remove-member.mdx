@@ -54,7 +54,7 @@ const params = new URLSearchParams();
 //   params.append('to', reassignToUserId.toString());
 // }
 const queryStr = params.toString();
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/users/${userId}${queryStr ? '?' + queryStr : ''}`;
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/users/${userId}${queryStr ? '?' + queryStr : ''}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -96,7 +96,7 @@ org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 user_id = 12345 # ID of the member to remove
 reassign_to_user_id = 1002 # Optional
 
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/users/{user_id}'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/users/{user_id}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -145,7 +145,7 @@ public class RemoveMember {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         int userId = 12345;
         Integer reassignToUserId = null; // Set to user ID if reassigning
-        String baseUrl = String.format("https://api.tallyfy.com/organizations/%s/users/%d", orgId, userId);
+        String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/users/%d", orgId, userId);
 
         // Build query params if needed
         Map<String, String> queryParamsMap = new java.util.HashMap<>();
@@ -205,45 +205,50 @@ import (
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    userId := 12345
-    reassignToUserId := 0 // Set to > 0 if reassigning
-    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/users/%s", orgId, strconv.Itoa(userId))
+	userId := 12345
+	reassignToUserId := 0 // Set to > 0 if reassigning
+	notifyUser := true
 
-    queryParams := url.Values{}
-    // if reassignToUserId > 0 {
-    //     queryParams.Add("with_reassignment", "true")
-    //     queryParams.Add("to", strconv.Itoa(reassignToUserId))
-    // }
-    
-    apiUrl := baseUrl
-    if len(queryParams) > 0 {
-        apiUrl = baseUrl + "?" + queryParams.Encode()
-    }
+	baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/%s", orgId, strconv.Itoa(userId))
+	queryParams := url.Values{}
+	queryParams.Set("notify_user", strconv.FormatBool(notifyUser))
+
+	apiUrl := baseUrl
+	if len(queryParams) > 0 {
+		apiUrl = baseUrl + "?" + queryParams.Encode()
+	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
 
 	if resp.StatusCode == http.StatusOK {
-        fmt.Printf("Successfully removed member %d. Status: %d\n", userId, resp.StatusCode)
-        if len(body) > 0 {
-             fmt.Println("Response Body:")
-             fmt.Println(string(body))
-             // TODO: Unmarshal JSON
-        }
+		fmt.Printf("Successfully removed member %d. Status: %d\n", userId, resp.StatusCode)
+		if len(body) > 0 {
+			fmt.Println("Response Body:")
+			fmt.Println(string(body))
+		}
 	} else {
-        // Error handling...
 		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 	}
 }

@@ -41,7 +41,7 @@ const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const guestEmail = "guest.to.delete@example.com";
 const encodedEmail = encodeURIComponent(guestEmail);
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests/${encodedEmail}`;
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests/${encodedEmail}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -88,7 +88,7 @@ access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKE
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 guest_email = "guest.to.delete@example.com"
 encoded_email = quote(guest_email)
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests/{encoded_email}'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/guests/{encoded_email}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -135,7 +135,7 @@ public class DeleteGuest {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String guestEmail = "guest.to.delete@example.com";
         String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
-        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail);
+        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -185,34 +185,45 @@ import (
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    guestEmail := "guest.to.delete@example.com"
-    encodedEmail := url.PathEscape(guestEmail)
-    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail)
+	email := "guest.to.delete@example.com"
+
+	// URL-encode the email
+	encodedEmail := url.QueryEscape(email)
+
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusNoContent {
-        fmt.Printf("Successfully deleted guest %s. Status: %d\n", guestEmail, resp.StatusCode)
-        if resp.StatusCode != http.StatusNoContent && len(body) > 0 {
-             fmt.Println("Response Body:")
-             fmt.Println(string(body))
-             // TODO: Unmarshal JSON
-        }
+		fmt.Printf("Successfully deleted guest %s. Status: %d\n", email, resp.StatusCode)
+		if resp.StatusCode != http.StatusNoContent && len(body) > 0 {
+			fmt.Println("Response Body:")
+			fmt.Println(string(body))
+			// TODO: Unmarshal JSON
+		}
 	} else {
-        // Error handling...
 		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 	}
 }

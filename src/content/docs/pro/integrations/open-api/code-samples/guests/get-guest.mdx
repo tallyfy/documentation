@@ -39,7 +39,7 @@ const guestEmail = "guest.to.get@example.com";
 const encodedEmail = encodeURIComponent(guestEmail);
 
 const queryParams = '?with=stats'; // Example
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/guests/${encodedEmail}${queryParams}`;
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests/${encodedEmail}${queryParams}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -78,7 +78,7 @@ org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 guest_email = "guest.to.get@example.com"
 encoded_email = quote(guest_email)
 
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/guests/{encoded_email}'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/guests/{encoded_email}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -124,7 +124,7 @@ public class GetGuest {
         String guestEmail = "guest.to.get@example.com";
         String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
         
-        String baseUrl = String.format("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail);
+        String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail);
 
         Map<String, String> queryParamsMap = Map.of("with", "stats"); // Example
         String queryParams = queryParamsMap.entrySet().stream()
@@ -175,38 +175,45 @@ import (
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    guestEmail := "guest.to.get@example.com"
-    encodedEmail := url.PathEscape(guestEmail) // Use PathEscape for path segments
-    
-    baseUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/guests/%s", orgId, encodedEmail)
+	email := "guest@example.com" // Email of the guest to retrieve
 
-    queryParams := url.Values{}
-    queryParams.Add("with", "stats") // Example
-    
-    apiUrl := baseUrl + "?" + queryParams.Encode()
+	// URL-encode the email
+	encodedEmail := url.QueryEscape(email)
+
+	baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail)
+	queryParams := url.Values{}
+	// queryParams.Set("fields", "id,name") // Optional: Specify fields
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+	req, err := http.NewRequest("GET", baseUrl, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated { // API might return 201
-        // Error handling...
 		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
-	fmt.Printf("Successfully retrieved guest %s:\n", guestEmail)
+	fmt.Printf("Successfully retrieved guest %s:\n", email)
 	fmt.Println(string(body))
 	// TODO: Unmarshal JSON
 }

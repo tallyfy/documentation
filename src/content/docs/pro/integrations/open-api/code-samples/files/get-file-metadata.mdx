@@ -36,7 +36,7 @@ No common query parameters are typically needed for this endpoint.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const assetId = 'ASSET_ID_TO_GET_METADATA';
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/assets/${assetId}`;
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/assets/${assetId}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -72,7 +72,7 @@ import os
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 asset_id = 'ASSET_ID_TO_GET_METADATA'
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/assets/{asset_id}'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/assets/{asset_id}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -108,7 +108,7 @@ public class GetFileMetadata {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String assetId = "ASSET_ID_TO_GET_METADATA";
-        String apiUrl = String.format("https://api.tallyfy.com/organizations/%s/assets/%s", orgId, assetId);
+        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/assets/%s", orgId, assetId);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -151,26 +151,38 @@ import (
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    assetId := "ASSET_ID_TO_GET_METADATA"
-    apiUrl := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/assets/%s", orgId, assetId)
+	assetId := "ASSET_ID_TO_GET_METADATA"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/assets/%s", orgId, assetId)
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+	if err != nil {
+		// Error handling...
+		fmt.Println("Error creating request:", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+	if err != nil {
+		// Error handling...
+		fmt.Println("Error making request:", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+	if err != nil {
+		// Error handling...
+		fmt.Println("Error reading response body:", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
+		// Error handling...
 		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
