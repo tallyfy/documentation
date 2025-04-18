@@ -1,0 +1,303 @@
+---
+id: d8f3a1b9c7e5d2a1b4c8f0e9a1b2c3d4
+sidebar:
+  order: 2 
+snippet: Create a new procedure or document template within a specific Tallyfy organization using the API.
+title: Create a template
+---
+
+import { CodeSample } from "~/components";
+import { String } from "~/components/api-reference";
+
+This endpoint allows you to create a new template (also known as a blueprint) within a specified organization.
+
+## Endpoint
+
+```http
+POST https://go.tallyfy.com/api/organizations/{org}/checklists
+```
+
+### Path Parameters
+
+| Parameter | Type     | Description                            |
+| :-------- | :------- | :------------------------------------- |
+| `org`     | <String/> | **Required.** The ID of the organization. |
+
+### Body Parameters
+
+The request body should be a JSON object containing the desired properties for the new template.
+
+| Parameter                      | Type    | Description                                                                                                |
+| :----------------------------- | :------ | :--------------------------------------------------------------------------------------------------------- |
+| `title`                        | string  | **Required.** The title of the template.                                                                       |
+| `summary`                      | string  | A brief summary or description of the template.                                                            |
+| `owner_id`                     | integer | The ID of the member who will own the template.                                                            |
+| `webhook`                      | string  | A URL to send webhook notifications to for template events.                                                  |
+| `explanation_video`            | string  | URL of a video explaining the template.                                                                    |
+| `starred`                      | boolean | Whether the template should be starred by default.                                                         |
+| `guidance`                     | string  | Detailed guidance or instructions for using the template.                                                  |
+| `icon`                         | string  | Name of an icon to associate with the template.                                                            |
+| `is_public`                    | boolean | Whether the template should be publicly accessible in the library.                                           |
+| `is_featured`                  | boolean | Whether the template should be featured in the public library.                                             |
+| `public_cover`                 | string  | URL for a cover image for the public library listing.                                                      |
+| `type`                         | string  | The type of template (e.g., `procedure`, `form`, `document`).                                              |
+| `default_process_name_format`  | string  | A format string for automatically naming processes launched from this template (uses variables).         |
+| `is_public_kickoff`            | boolean | Whether the kick-off form for this template is public.                                                   |
+| `auto_naming`                  | boolean | Enable or disable automatic naming of processes launched from this template based on the format string.    |
+| `users`                        | array   | An array of member IDs who have default access permissions to this template.                             |
+| `groups`                       | array   | An array of group IDs that have default access permissions to this template.                             |
+| `prerun`                       | array   | An array of objects defining kick-off form fields for the template. See `swagger.json` for structure.     |
+| `folderize_process`            | boolean | Automatically create a folder for processes launched from this template.                                   |
+| `tag_process`                  | boolean | Automatically tag processes launched from this template.                                                   |
+| `allow_launcher_change_name`   | boolean | Whether the user launching a process can override the default process name.                                |
+| `ko_form_blueprint_id`         | string  | ID of another template to use as the kick-off form.                                                        |
+| `default_folder`               | string  | The ID of the folder where processes launched from this template should be placed by default.                |
+| `folder_changeable_by_launcher`| boolean | Whether the user launching a process can change the default folder.                                        |
+| `kickoff_sharing_user_id`      | integer | The ID of the user whose sharing settings should be used for the public kick-off form.                   |
+
+## Code Samples
+
+<CodeSample tabs={["curl", "python", "nodejs", "ruby", "php"]}>
+```curl
+curl -X POST "https://go.tallyfy.com/api/organizations/{org}/checklists" \
+     -H "Authorization: Bearer {access_token}" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json" \
+     -H "X-Tallyfy-Client: APIClient" \
+     -d '{
+           "title": "New Client Onboarding Template",
+           "summary": "Standard procedure for onboarding new clients.",
+           "owner_id": 12345,
+           "type": "procedure"
+         }'
+```
+
+```python
+import requests
+
+url = "https://go.tallyfy.com/api/organizations/{org}/checklists"
+access_token = "{access_token}"
+org_id = "{org}" # Replace {org} with the actual Organization ID
+
+headers = {
+    "Authorization": f"Bearer {access_token}",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "X-Tallyfy-Client": "APIClient"
+}
+
+payload = {
+    "title": "New Client Onboarding Template",
+    "summary": "Standard procedure for onboarding new clients.",
+    "owner_id": 12345,
+    "type": "procedure"
+}
+
+response = requests.post(url.format(org=org_id), json=payload, headers=headers)
+
+if response.status_code == 200:
+    print("Template created successfully:")
+    print(response.json())
+else:
+    print(f"Error creating template: {response.status_code}")
+    print(response.text)
+
+```
+
+```nodejs
+const https = require('https');
+
+const orgId = '{org}'; // Replace {org} with the actual Organization ID
+const accessToken = '{access_token}';
+
+const data = JSON.stringify({
+  title: 'New Client Onboarding Template',
+  summary: 'Standard procedure for onboarding new clients.',
+  owner_id: 12345,
+  type: 'procedure'
+});
+
+const options = {
+  hostname: 'go.tallyfy.com',
+  path: `/api/organizations/${orgId}/checklists`,
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Length': data.length
+  }
+};
+
+const req = https.request(options, (res) => {
+  console.log(`statusCode: ${res.statusCode}`);
+  let responseData = '';
+
+  res.on('data', (d) => {
+    responseData += d;
+  });
+
+  res.on('end', () => {
+    if (res.statusCode === 200) {
+        console.log('Template created successfully:');
+        console.log(JSON.parse(responseData));
+    } else {
+        console.error('Error creating template:');
+        console.error(responseData);
+    }
+  });
+});
+
+req.on('error', (error) => {
+  console.error(error);
+});
+
+req.write(data);
+req.end();
+```
+
+```ruby
+require 'net/http'
+require 'uri'
+require 'json'
+
+org_id = '{org}' # Replace {org} with the actual Organization ID
+access_token = '{access_token}'
+
+uri = URI.parse("https://go.tallyfy.com/api/organizations/#{org_id}/checklists")
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::Post.new(uri.request_uri)
+request['Authorization'] = "Bearer #{access_token}"
+request['Content-Type'] = 'application/json'
+request['Accept'] = 'application/json'
+request['X-Tallyfy-Client'] = 'APIClient'
+
+payload = {
+  title: 'New Client Onboarding Template',
+  summary: 'Standard procedure for onboarding new clients.',
+  owner_id: 12345,
+  type: 'procedure'
+}.to_json
+
+request.body = payload
+
+response = http.request(request)
+
+if response.code == '200'
+  puts "Template created successfully:"
+  puts JSON.parse(response.body)
+else
+  puts "Error creating template: #{response.code}"
+  puts response.body
+end
+```
+
+```php
+<?php
+
+$orgId = '{org}'; // Replace {org} with the actual Organization ID
+$accessToken = '{access_token}';
+$url = "https://go.tallyfy.com/api/organizations/" . $orgId . "/checklists";
+
+$payload = json_encode([
+    'title' => 'New Client Onboarding Template',
+    'summary' => 'Standard procedure for onboarding new clients.',
+    'owner_id' => 12345,
+    'type' => 'procedure'
+]);
+
+$ch = curl_init($url);
+
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer ' . $accessToken,
+    'Content-Type: application/json',
+    'Accept: application/json',
+    'X-Tallyfy-Client: APIClient',
+    'Content-Length: ' . strlen($payload)
+]);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+curl_close($ch);
+
+if ($httpCode == 200) {
+    echo "Template created successfully:\n";
+    print_r(json_decode($response, true));
+} else {
+    echo "Error creating template: " . $httpCode . "\n";
+    echo $response;
+}
+
+?>
+```
+
+</CodeSample>
+
+## Example Response (200 OK)
+
+```json
+{
+  "data": {
+    "id": "b3d9c1a8e7f6...", // Unique ID of the newly created template
+    "title": "New Client Onboarding Template",
+    "summary": "Standard procedure for onboarding new clients.",
+    "starred": false,
+    "webhook": null,
+    "explanation_video": null,
+    "guidance": null,
+    "icon": null,
+    "alias": "new-client-onboarding-template-b3d9c1", // Auto-generated alias
+    "prerun": [], // Empty array as no kick-off fields were defined
+    "automated_actions": [],
+    "created_by": 123, // ID of the user who made the API call
+    "owner_id": 12345,
+    "started_processes": 0,
+    "kickoff_title": null,
+    "kickoff_description": null,
+    "created_at": "2023-10-27T10:00:00.000Z",
+    "last_updated": "2023-10-27T10:00:00.000Z",
+    "archived_at": null,
+    "is_public": false,
+    "is_featured": false,
+    "users": [],
+    "groups": [],
+    "public_cover": null,
+    "industry_tags": [],
+    "topic_tags": [],
+    "type": "procedure",
+    "default_process_name_format": null,
+    "is_public_kickoff": false,
+    "dual_version_enabled": false,
+    "is_published_state": false, // Templates are created in draft state
+    "auto_naming": false,
+    "last_updated_by": 123,
+    "linked_tasks": [],
+    "folderize_process": false,
+    "tag_process": false,
+    "allow_launcher_change_name": false,
+    "is_pinned": false,
+    "ko_form_blueprint_id": null,
+    "default_folder": null,
+    "folder_changeable_by_launcher": false,
+    "kickoff_sharing_user_id": null
+    // ... other template properties with default values
+  }
+}
+```
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>API > Templates > List templates</b>" href="./list-templates" > Retrieve a list of templates within an organization, optionally filtering by various criteria. </LinkTitleCard>
+<LinkTitleCard header="<b>API > Templates > Get a template</b>" href="./get-template" > Fetch detailed information about a specific template using its unique ID. </LinkTitleCard>
+<LinkTitleCard header="<b>API > Templates > Update a template</b>" href="./update-template" > Modify the properties of an existing template, such as its title, summary, or owner. </LinkTitleCard>
+<LinkTitleCard header="<b>API > Templates > Archive or Delete a template</b>" href="./delete-archive-template" > Archive a template to hide it from lists or permanently delete it. </LinkTitleCard>
+</CardGrid> 
