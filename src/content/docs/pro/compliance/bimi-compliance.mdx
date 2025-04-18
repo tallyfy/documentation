@@ -1,0 +1,66 @@
+---
+id: bimi-compliance-tallyfy
+sidebar:
+  order: 2
+title: Understanding BIMI compliance for Tallyfy emails
+snippet: Tallyfy uses the BIMI standard to display its verified logo in your inbox, increasing email trust and security. Learn how BIMI works and how custom SMTP settings affect it.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+Brand Indicators for Message Identification (BIMI) is an email standard that allows organizations like Tallyfy to display their official logo next to authenticated emails in your inbox. This helps you quickly identify legitimate emails from Tallyfy and builds trust in our communications.
+
+## How BIMI works
+
+BIMI builds upon existing email authentication protocols to provide a visual layer of trust. Here's a simplified overview:
+
+<Steps>
+1.  **Authentication Foundation:**
+    Tallyfy uses email authentication standards like SPF (Sender Policy Framework), DKIM (DomainKeys Identified Mail), and DMARC (Domain-based Message Authentication, Reporting & Conformance). These standards work behind the scenes to verify that emails claiming to be from `tallyfy.com` are actually authorized by us.
+
+2.  **DMARC Enforcement:**
+    For BIMI to work, Tallyfy enforces a strict DMARC policy (`p=quarantine` or `p=reject`). This tells receiving email servers to quarantine or reject emails that fail authentication checks, preventing spoofing attempts.
+
+3.  **BIMI Record:**
+    Tallyfy publishes a special DNS record (a BIMI TXT record). This record points to the location of our official logo file.
+
+4.  **Verified Mark Certificate (VMC):**
+    Tallyfy uses a VMC, a digital certificate that verifies our ownership and rights to use the Tallyfy logo specified in the BIMI record. This certificate is issued by a trusted Mark Verifying Authority (MVA).
+
+5.  **Logo Display:**
+    When your email provider (like Gmail, Yahoo, Apple Mail, etc.) receives an email from `tallyfy.com`, it performs the standard SPF, DKIM, and DMARC checks. If these pass and the DMARC policy is enforced, the provider looks up our BIMI record. It then verifies our VMC and, if everything checks out, displays the official Tallyfy logo next to the email in your inbox.
+</Steps>
+
+## Benefits for Tallyfy users
+
+Tallyfy's BIMI compliance provides several advantages:
+
+*   **Increased Trust and Security:** The presence of the verified Tallyfy logo gives you greater confidence that an email is genuinely from us, making it easier to spot phishing or spoofing attempts that lack the logo.
+*   **Easier Identification:** Quickly locate official Tallyfy emails in a crowded inbox by recognizing our logo.
+*   **Enhanced Brand Recognition:** Consistent display of our logo reinforces brand identity.
+
+## Security threats avoided by BIMI and DMARC
+
+The underlying DMARC standard, which BIMI relies upon, helps prevent several email-based threats:
+
+*   **Email Spoofing:** Attackers sending emails pretending to be from `tallyfy.com` will fail DMARC checks and won't have the BIMI logo displayed, making the fraud more apparent. For example, a fake password reset email would lack the logo.
+*   **Phishing:** Malicious emails designed to trick you into revealing sensitive information are less effective when they cannot display the trusted brand logo. A fake "Account Update Required" email without the Tallyfy logo is a clear warning sign.
+*   **Brand Impersonation:** BIMI protects Tallyfy's brand reputation by making it significantly harder for cybercriminals to misuse our identity in malicious email campaigns.
+
+## Important note on custom SMTP settings
+
+:::caution[Using Custom SMTP Disables BIMI Benefits]
+If you configure Tallyfy to send emails using your own **Custom SMTP** server instead of the default Tallyfy mail servers (`tallyfy.com`), the BIMI benefits described here **will not apply** to those emails.
+
+This is because the emails will originate from *your* domain and infrastructure, not Tallyfy's. Therefore, Tallyfy's DMARC policy and BIMI record (including our verified logo) are not used for these emails. Authentication and logo display would depend entirely on *your* domain's own SPF, DKIM, DMARC, and potentially BIMI configuration.
+:::
+
+To benefit from the enhanced trust and security provided by Tallyfy's BIMI compliance, use the default Tallyfy email sending settings.
+
+import { CardGrid, LinkTitleCard} from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Compliance > HSTS Compliance</b>" href="/products/pro/compliance/hsts-compliance/" > Tallyfy uses HSTS (HTTP Strict Transport Security) to ensure all connections to its website are securely encrypted via HTTPS, protecting against protocol downgrade attacks and cookie hijacking. </LinkTitleCard>
+<LinkTitleCard header="<b>Settings > Org Settings > Set up Custom SMTP</b>" href="/products/pro/settings/org-settings/custom-smtp-setup/" > Configure Tallyfy to send emails via your own SMTP server for customized delivery, though this bypasses Tallyfy's default BIMI logo display. </LinkTitleCard>
+</CardGrid> 
