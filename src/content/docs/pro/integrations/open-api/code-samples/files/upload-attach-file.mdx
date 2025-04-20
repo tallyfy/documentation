@@ -15,24 +15,26 @@ Attaching files (like images or documents) to form fields via the API usually in
 
 Alternatively, for files already hosted publicly online, you might be able to link them directly in a single step (see Method 2 in the older article content, though this might be less common and subject to change - prioritize the upload method).
 
-## Method 1: Upload Local File (Recommended)
+### Method 1: Upload local file (Recommended)
 
-### Step 1: Upload the File
+### Step 1: Upload the file
 
-**Endpoint:** `POST /organizations/{org_id}/file`
+#### Endpoint
+`POST /organizations/{org_id}/file`
 
-**Request Type:** `multipart/form-data`
+#### Request type
+`multipart/form-data`
 
 This request uploads the raw file data. It requires specific form data fields to correctly categorize the upload.
 
-**Headers:**
+#### Headers
 
 -   `Authorization: Bearer {your_access_token}`
 -   `Accept: application/json`
 -   `X-Tallyfy-Client: APIClient`
 -   *(Content-Type header will be set automatically by your HTTP client for multipart/form-data)*
 
-**Form Data Fields (Required):**
+#### Form data fields (required)
 
 | Field | Description | Example Value |
 |---|---|---|
@@ -48,7 +50,7 @@ This request uploads the raw file data. It requires specific form data fields to
 -   Form Field IDs (`uploaded_from` for tasks), Step IDs, Run IDs, Checklist IDs can often be found by using the `GET` endpoints for Tasks, Processes (Runs), or Templates with the `with` parameter (e.g., `with=step,form_fields`).
 :::
 
-**Code Samples (Step 1: Upload)**
+#### Code samples (Step 1: Upload)
 
 (Note: Handling `multipart/form-data` varies significantly between languages and libraries. These are conceptual examples.)
 
@@ -354,7 +356,7 @@ func main() {
 </TabItem>
 </Tabs>
 
-**Response (Step 1: Upload)**
+#### Response (Step 1: Upload)
 
 A successful upload returns `200 OK` and a JSON response containing an array usually with one element: the asset object representing the uploaded file. You need this object for Step 2.
 
@@ -381,25 +383,26 @@ A successful upload returns `200 OK` and a JSON response containing an array usu
 
 **Extract the entire object** within the `data` array (e.g., `response.data[0]` in JavaScript) for the next step.
 
-### Step 2: Attach Uploaded File to Field
+### Step 2: Attach uploaded file to field
 
 Now, use the asset object obtained from Step 1 to update the specific task or process run, linking the file to the form field.
 
-**Endpoint:**
+#### Endpoint
 
 -   **Process Task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
 -   **Kick-off Form:** `PUT /organizations/{org_id}/checklists/{checklist_id}` (Modify the `prerun` field in the template update payload)
 
-**Request Type:** `application/json`
+#### Request type
+`application/json`
 
-**Headers:**
+#### Headers
 
 -   `Authorization: Bearer {your_access_token}`
 -   `Accept: application/json`
 -   `X-Tallyfy-Client: APIClient`
 -   `Content-Type: application/json`
 
-**Body (JSON - for Task Field):**
+#### Body (JSON - for Task field)
 
 Update the task using its endpoint. The body should include a `taskdata` object targeting the file field ID.
 
@@ -428,7 +431,7 @@ Update the task using its endpoint. The body should include a `taskdata` object 
 }
 ```
 
-**Body (JSON - for Kick-off Field):**
+#### Body (JSON - for Kick-off field)
 
 Update the template using its endpoint. The body needs to include the `prerun` array, modifying the entry for your file field.
 
@@ -455,7 +458,7 @@ Update the template using its endpoint. The body needs to include the `prerun` a
 }
 ```
 
-**Response (Step 2: Attach)**
+#### Response (Step 2: Attach)
 
 A successful `PUT` request returns `200 OK` and the updated Task or Checklist object, reflecting the file attachment in the `taskdata` or `prerun.value` respectively.
 
