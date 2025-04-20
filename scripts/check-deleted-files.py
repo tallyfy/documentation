@@ -9,8 +9,8 @@ import sys
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Constants
-OWNER = 'muAdham'
-REPO = 'support-docs'
+OWNER = 'tallyfy'
+REPO = 'documentation'
 GITHUB_API_BASE = f'https://api.github.com/repos/{OWNER}/{REPO}/'
 TALLYFY_ANSWERS_API_BASE = 'https://answers.tallyfy.com/collections/'
 ANSWERS_API_KEY = None
