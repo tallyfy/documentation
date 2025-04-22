@@ -10,55 +10,47 @@ title: Launch a process from a web form
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Populating process fields from web form data
+## Starting a Tallyfy process from a web form submission
 
-Tallyfy allows you to [launch](/products/pro/launching/) [processes](/products/pro/tracking-and-tasks/processes/) and automatically populate their [fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) using data submitted through web forms. This [integration](/products/pro/integrations/) streamlines workflow initiation by eliminating manual data entry.
+You can set up an external web form (like one on your website, or using a tool like Typeform or Google Forms) so that when someone submits it, a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) starts automatically, and the answers from the form fill in certain Tallyfy [fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). This saves time by avoiding manual data entry.
 
-### Requirements
+### What you need
 
-To use this feature, you need:
+1. A Tallyfy account where you can launch processes.
+2. An external web form that collects information.
+3. A Tallyfy [process template](/products/pro/documenting/templates/) with [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that have *exactly* the same names as the fields in your web form (or the names you will send in the URL).
 
-1. A Tallyfy account with permission to [launch processes](/products/pro/launching/)
-2. A web form to collect user input data
-3. A [process template](/products/pro/documenting/templates/) with matching field names
+### How to set it up
 
-### Implementation process
-
-#### Creating the Process template
-
-Before establishing the web form connection:
+#### 1. Prepare your Tallyfy Template
 
 <Steps>
-1. Design your [process template](/products/pro/documenting/templates/) in Tallyfy
-2. Create [kickoff form fields](/products/pro/launching/triggers/kick-off-forms/) to store incoming data
-3. Ensure field names match the parameters you'll pass from the web form
+1. Design the Tallyfy [process template](/products/pro/documenting/templates/) you want to launch.
+2. Add [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) to this template to receive the data from your web form.
+3. **Crucially**, make sure the internal names of these Tallyfy fields exactly match the names you will send from your web form (e.g., if your web form has a field named `customer_email`, make sure the corresponding Tallyfy kick-off field is also named `customer_email`).
 </Steps>
 
-#### Configuring the web form integration
+#### 2. Set up the Web Form / Link
 
-To enable web form data population:
+The basic idea is to make the "submit" action of your web form redirect the user to a special Tallyfy launch URL, adding the form answers onto the end of the URL.
 
 <Steps>
-1. Generate a process launch URL (available in your process settings)
-2. Append query parameters to this URL using the format: `?field_name=field_value`
-3. URL-encode values containing spaces or special characters
+1. Get the special launch URL for your Tallyfy template. (This is often called a "Kick-off Form Link" or "Public Form Link" - find it in the template's **Triggers** settings).
+2. Modify your web form so that when it's submitted, it directs the user to that Tallyfy URL.
+3. Add the data from the web form fields onto the end of the URL as "query parameters". The format is `?fieldName1=value1&fieldName2=value2`.
+4. **Important**: The `fieldName` parts *must exactly match* the names of the kick-off form fields in your Tallyfy template.
+5. **Important**: The `value` parts need to be "URL encoded" if they contain spaces or special characters (e.g., a space becomes `%20`, the `@` symbol becomes `%40`). Most web form tools or simple coding can handle this encoding automatically.
 </Steps>
 
-#### Example implementation
+#### Example URL
 
-For a [process](/products/pro/tracking-and-tasks/processes/) with a [field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) named "customer_name" that you want to populate with "John Doe":
-
-```
-https://example.tallyfy.com/process-webform?customer_name=John%20Doe
-```
-
-Multiple fields can be populated by adding more parameters:
+If your Tallyfy template kick-off link is `https://example.tallyfy.com/launch/xyz` and your template has kick-off fields named `customer_name` and `customer_email`, the final URL your web form should send the user to might look like this:
 
 ```
-https://example.tallyfy.com/process-webform?customer_name=John%20Doe&customer_email=john.doe%40example.com
+https://example.tallyfy.com/launch/xyz?customer_name=John%20Doe&customer_email=john.doe%40example.com
 ```
 
-When a user submits the web form, Tallyfy creates a new [process instance](/products/pro/tracking-and-tasks/processes/) with pre-populated [fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) matching the provided parameter values.
+When the user lands on this URL, Tallyfy will automatically start the process and pre-fill the "customer_name" field with "John Doe" and the "customer_email" field with "john.doe@example.com".
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

@@ -9,111 +9,98 @@ snippet: The CSV export feature provides a comprehensive 45-column data structur
 title: CSV file structure
 ---
 
-## CSV Export Structure
+## Understanding the CSV Export Structure
 
-Tallyfy's CSV export provides a flat-file representation of process data. Each CSV file contains 45 columns that capture the complete state of a process, its tasks, form fields, and comments.
+Tallyfy lets you export the data from a running process into a CSV file (a common spreadsheet format). This file contains 45 columns of detailed information about the process, its tasks, form answers, and comments.
 
-### Accessing CSV Exports
+### How to Export a Process to CSV
 
-You can export a CSV file for any process by:
-
-1. Opening the process
-2. Clicking **Settings** in the top right corner
-3. Scrolling to the bottom of the settings panel
-4. Clicking **Export CSV**
+1. Open the running process you want to export.
+2. Click **Settings** (usually in the top right).
+3. Scroll down to the bottom of the settings panel.
+4. Click **Export CSV**.
 
 ![CSV export location in process settings](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-export-csv.png)
 
-### Data Organization
+### How the Data is Organized
 
-The CSV format presents hierarchical process data in a flattened structure. Each row represents a specific element within the process (task, form field, or comment), with columns providing detailed attributes.
+The CSV file takes all the information from the process (which has different levels like process details, tasks, fields within tasks) and lays it out in a flat list. Each row in the CSV represents either a task, a form field within a task, or a comment on a task.
 
-For Tallyfy Analytics customers, this same CSV structure forms the basis for the parquet files used in Amazon Athena for business intelligence integration.
+*Note for Tallyfy Analytics users: The data you query using reporting tools (via Amazon Athena) is based on this same structure, just stored in a more efficient format (Parquet).* 
 
-### Column Categories
+### Understanding the Columns
 
-The 45 columns are organized into logical groupings:
+The 45 columns are grouped like this:
 
-#### Blueprint and Process Information (Columns 1-12)
+#### Process & Template Info (Columns 1-12)
 
-:::note[Terminology Note]
-The column names in the CSV export use API terminology. While the Tallyfy user interface refers to standardized workflow designs as "Templates", the API and data exports use the term "Blueprint" for the same objects.
+:::note[Template vs. Blueprint]
+Some column names use the term "Blueprint". This is the technical/API name for what you see as a "Template" in the Tallyfy app.
 :::
 
-| Column | Description | Data Type |
-|--------|-------------|-----------|
-| **blueprint_id** | Unique identifier for the template (uses API terminology) | String |
-| **blueprint_name** | Name of the template used (uses API terminology) | String |
-| **blueprint_version** | Version number of the template (uses API terminology) | Integer (as String) |
-| **process_id** | Unique identifier for the specific process instance | String |
-| **process_name** | Name of the process instance | String |
-| **process_tag** | Tags assigned to the process | String (comma-separated) |
-| **process_owner** | Name of the process owner | String |
-| **process_owner_id** | Member ID of the process owner | Integer (as String) |
-| **total_tasks_in_process** | Total number of tasks in the process | Integer (as String) |
-| **tasks_completed** | Number of completed tasks | Integer (as String) |
-| **process_status** | Current status: active, problem, or complete | String |
-| **process_last_modified** | Date/time of last process modification | Timestamp |
+*   **blueprint_id**: Template's unique ID.
+*   **blueprint_name**: Template's name.
+*   **blueprint_version**: Template's version number.
+*   **process_id**: Unique ID for this specific run of the process.
+*   **process_name**: Name given to this run of the process.
+*   **process_tag**: Any tags added to this process run.
+*   **process_owner**: Name of the person who owns this process run.
+*   **process_owner_id**: ID of the process owner.
+*   **total_tasks_in_process**: How many tasks are in the whole process.
+*   **tasks_completed**: How many tasks are finished.
+*   **process_status**: Current status (active, problem, or complete).
+*   **process_last_modified**: Date/time the process was last updated.
 
-#### Task Identification (Columns 13-23)
+#### Task Info (Columns 13-23)
 
-| Column | Description | Data Type |
-|--------|-------------|-----------|
-| **type** | Data type in this row: kick_off_task, process_task, process_task_data, or process_task_comment | String |
-| **has_form_fields** | Whether the task has form fields (Yes/No) | String |
-| **kick_off_task_id** | Identifier for the kickoff task | String |
-| **kick_off_task_name** | Name of the kickoff task | String |
-| **process_task_id** | Identifier for the specific task instance | String |
-| **process_task_status** | Whether the task is shown or hidden by rules | String |
-| **process_task_name** | Name of the task | String |
-| **process_task_alias** | Stable identifier for comparing the same task across different processes | String |
-| **process_task_data_id** | Identifier for a form field | String |
-| **process_task_data_name** | Name of the task containing the form field | String |
-| **process_task_comment_id** | Identifier for a comment | String |
+*   **type**: What kind of data this row represents (e.g., `process_task`, `process_task_data` for a form field, `process_task_comment` for a comment).
+*   **has_form_fields**: Does the task in this row have form fields? (Yes/No).
+*   **kick_off_task_id / name**: ID/Name if this row relates to the initial kick-off form.
+*   **process_task_id**: Unique ID for this specific task instance.
+*   **process_task_status**: Task status (e.g., shown, hidden, completed - *check exact values*).
+*   **process_task_name**: Name of the task.
+*   **process_task_alias**: A stable ID for this step from the template (useful for comparing across runs).
+*   **process_task_data_id**: ID if this row is for a form field.
+*   **process_task_data_name**: Name of the task this form field belongs to.
+*   **process_task_comment_id**: ID if this row is for a comment.
 
-#### Assignment and Completion (Columns 24-32)
+#### Assignment & Timing Info (Columns 24-32)
 
-| Column | Description | Data Type |
-|--------|-------------|-----------|
-| **user_assigned** | Names of assigned users (includes "GROUP - Group Name" format for groups) | String |
-| **assigned_user_id** | IDs of assigned users | String |
-| **guest_assigned** | Email address of assigned guests | String |
-| **total_users_assigned** | Number of users assigned | Integer (as String) |
-| **total_guests_assigned** | Number of guests assigned | Integer (as String) |
-| **total_assignees** | Total number of people assigned | Integer (as String) |
-| **completed_by** | ID of member or guest who completed the task | Integer (as String) |
-| **assigned_or_shown_on** | Date when the task became visible/assigned | Timestamp |
-| **due_by** | Task deadline | Timestamp |
+*   **user_assigned**: Names of assigned members/groups.
+*   **assigned_user_id**: IDs of assigned members.
+*   **guest_assigned**: Email of assigned guest.
+*   **total_users_assigned**: Number of members assigned.
+*   **total_guests_assigned**: Number of guests assigned.
+*   **total_assignees**: Total people assigned.
+*   **completed_by**: ID of person who completed the task.
+*   **assigned_or_shown_on**: Date task appeared/was assigned.
+*   **due_by**: Task deadline date/time.
 
-#### Form Field Information (Columns 33-36)
+#### Form Field Info (Columns 33-36)
+*(These columns only have data if the row `type` is `process_task_data`)*
+*   **no_of_form_fields**: How many fields are in the parent task.
+*   **form_field_type**: Type of this specific field (text, date, dropdown, etc.).
+*   **question_in_form_field**: The question/label for this field.
+*   **answer_in_form_field**: The answer entered into this field.
 
-| Column | Description | Data Type |
-|--------|-------------|-----------|
-| **no_of_form_fields** | Number of form fields in the task | Integer (as String) |
-| **form_field_type** | Type of form field: text, multiselect, textarea, radio, dropdown, date, file | String |
-| **question_in_form_field** | Question text from the form field | String |
-| **answer_in_form_field** | Member's or guest's response to the form field | String |
+#### Comments & Issues Info (Columns 37-45)
+*(These columns often relate to rows where `type` is `process_task_comment` or provide summary counts on `process_task` rows)*
+*   **issue_reported**: Was this comment reporting an issue? (Yes/No).
+*   **no_of_issue_reported**: Total issues reported on the task.
+*   **issue_resolved**: Was the reported issue resolved? (Yes/No).
+*   **no_of_issue_resolved**: Total resolved issues on the task.
+*   **total_comments**: Number of regular comments on the task.
+*   **comment**: The text of the comment (if `type` is `process_task_comment`).
+*   **last_modified**: When this row's data was last updated.
+*   **completed_on**: When the task was completed.
 
-#### Comments and Issues (Columns 37-45)
+### Note on Dates for Reporting Tools
 
-| Column | Description | Data Type |
-|--------|-------------|-----------|
-| **issue_reported** | Whether this comment reported an issue | String |
-| **no_of_issue_reported** | Total issues reported on this task | Integer (as String) |
-| **issue_resolved** | Whether this issue was resolved | String |
-| **no_of_issue_resolved** | Total resolved issues on this task | Integer (as String) |
-| **total_comments** | Number of non-issue comments on this task | Integer (as String) |
-| **comment** | Text of the comment | String |
-| **last_modified** | When this data row was last updated | Timestamp |
-| **completed_on** | When the task was completed | Timestamp |
+If you use Tallyfy Analytics to query this data in tools like Power BI or Tableau, the date columns might need special formatting in your SQL queries (using Amazon Athena / Presto SQL functions).
 
-### Working with Dates in BI Tools
+### Example CSV View
 
-When using this data in business intelligence tools through Tallyfy Analytics, be aware that date fields may require transformation in your SQL queries. Amazon Athena uses Presto SQL, which has specific date handling functions that differ from other SQL dialects.
-
-### Example CSV Export
-
-Below is a sample of how the CSV export appears when opened in a spreadsheet application:
+Here's how the exported data might look in a spreadsheet program:
 
 ![Example of CSV export opened in a spreadsheet](https://screenshots.tallyfy.com/file-JFjFk3MCzJ.png)
 

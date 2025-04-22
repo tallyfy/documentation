@@ -8,165 +8,127 @@ snippet: Magic links are specialized URLs that enable automated actions in Tally
 title: Launch via a magic link
 ---
 
-## Understanding and creating magic links
+## Understanding and Creating Magic Links
 
-### Requirements
+### What you need
 
-Before implementing magic links, ensure you have:
-- A Tallyfy account with access to the [integrations](/products/pro/integrations/) settings
-- Knowledge of the [templates](/products/pro/documenting/templates/) or [tasks](/products/pro/tracking-and-tasks/tasks/) you want to manipulate via magic links
-- Basic understanding of URL parameters and encoding
-- Authentication credentials for Tallyfy
+- Access to Tallyfy **Settings** > **Integrations** > **Magic Links**.
+- To know which [template](/products/pro/documenting/templates/) or [task](/products/pro/tracking-and-tasks/tasks/) you want the link to affect.
+- Basic understanding of how web links (URLs) work, including parameters.
+- Users clicking the link must be logged into Tallyfy.
 
-### Understanding magic links
+### What are Magic Links?
 
-Magic links are specialized URLs that perform predefined actions in Tallyfy. They enable automation through simple HTTP requests and can pass data parameters to trigger specific system behaviors without requiring manual intervention.
+Magic links are special web links (URLs) that make Tallyfy automatically perform an action when a logged-in user clicks them. You can create links to:
 
-:::caution[Authentication requirement]
-You must be signed into Tallyfy to use magic links. Unauthenticated users will be prompted to sign in first before the magic link action is performed.
+*   Create a one-off task.
+*   Launch a process from a template (and pre-fill some info).
+*   Complete a specific task.
+*   Re-open a specific task.
+*   Add a comment to a task.
+*   Change a task's deadline.
+*   Update the value of a form field in a task.
+
+They are useful for triggering Tallyfy actions from other places, like buttons in emails, links on an internal website, or from other software.
+
+:::caution[For Internal Users Only]
+Magic links require the user clicking them to be logged into your Tallyfy organization. They **cannot** be used by external clients or guests. For external users to start processes or submit info, use [public kick-off forms](/products/pro/launching/triggers/kick-off-forms/).
 :::
 
-:::caution[External users and clients]
-Magic links are not suitable for external clients or users who are not [members](/products/pro/documenting/members/) of your Tallyfy organization. For collecting information from external parties or allowing them to initiate [processes](/products/pro/tracking-and-tasks/processes/), use [public kick-off forms](/products/pro/launching/triggers/kick-off-forms/) instead.
+### Finding the Magic Link Generator
+
+1. Go to **Settings** > **Integrations**.
+2. Click on the **Magic Links** section.
+
+### What Magic Links Can Do
+
+| Action                      | Description                                        |
+|-----------------------------|----------------------------------------------------|
+| Create One-Off Task         | Creates a single task not part of a process.       |
+| Launch Process              | Starts a new process run from a template.          |
+| Complete Task               | Marks a specific task as done.                     |
+| Re-open Task                | Changes a completed task's status back to open.    |
+| Add Comment                 | Adds a predefined comment to a specific task.      |
+| Edit Deadline               | Changes the due date of a specific task.         |
+| Update Form Field           | Changes the value of a field in a specific task. |
+
+### Creating Magic Links
+
+#### Example: Link to Launch a Process
+
+1. Go to the Magic Links section in Settings.
+2. Click **Get a Magic Link**.
+3. Choose **Launch a Process** from the dropdown.
+4. Select the **Template** you want the link to launch.
+5. Configure options like the default **Process Name** (you can use variables).
+6. You can also pre-fill **kick-off form fields** by adding parameters (see structure below).
+7. Copy the generated magic link URL.
+8. You might need to customize the parameters further (e.g., adding field values).
+
+#### Example: Link to Create a One-Off Task
+
+1. Go to the Magic Links section.
+2. Click **Get a Magic Link**.
+3. Choose **Create a One-Off Task**.
+4. Set the default task name, assignee, and due date (some can be passed in the URL later).
+5. Copy the generated URL.
+
+### Magic Link Structure (Example for Launching)
+
+A link to launch a process and fill in kick-off fields looks like this:
+
+```
+https://go.tallyfy.com/[YourOrgID]/process/[TemplateID]/create?default_run_name=Your+Process+Name&ko_fields=[{"fieldName1":"Value1"},{"fieldName2":"Value2"}]&launchprocess=true
+```
+
+*   Replace `[YourOrgID]` and `[TemplateID]`.
+*   `default_run_name` sets the process name.
+*   `ko_fields` contains the kick-off field names and values you want to pre-fill.
+*   **Important**: Values need to be [URL encoded](https://www.w3schools.com/tags/ref_urlencode.ASP) (e.g., spaces become `+` or `%20`).
+*   The `ko_fields` part needs specific JSON formatting `[{"field-name":"field-value"}]` which also needs URL encoding.
+
+#### Using "Auto" Naming
+
+If your template uses [kick-off fields to automatically name the process](/products/pro/launching/triggers/kick-off-forms/#naming-the-triggered-process), you can use `auto` instead of the `[TemplateID]` in the URL:
+
+```
+https://go.tallyfy.com/[YourOrgID]/process/auto?ko_fields=[{"fieldName1":"Value1"}]&launchprocess=true
+```
+
+:::note[Auto-Naming Rules]
+- Only works if the fields used for auto-naming are *required* kick-off fields.
+- The total length of the auto-generated name cannot exceed 550 characters.
 :::
 
-### Accessing magic links
+### Field Value Syntax (for ko_fields parameter)
 
-To find magic link settings:
-1. Navigate to **Settings** in your Tallyfy account
-2. Select **Integrations** from the menu
-3. Click on **Magic Links** section
+When adding field values to the `ko_fields` part of the URL, use this format (before URL encoding):
 
-### Magic link capabilities
+| Field Type        | Example JSON Value String                                                    |
+|-------------------|----------------------------------------------------------------------------|
+| Short/Long Text   | `"Your Text Value"`                                                          |
+| Dropdown          | `{"id":ID,"text":"Selected Label","value":null,"required":true}` (Get ID/Label from template setup) |
+| Checkbox          | `[{"id":ID,"text":"Checked Label","value":null,"required":false,"selected":true}]` (List of checked items) |
+| Radio Button      | `"Selected Radio Value"`                                                     |
+| Date/Time         | `"YYYY-MM-DDTHH:MM:SS.mmmZ"` (UTC format)                                  |
 
-Magic links can perform various actions in Tallyfy:
+### Other Magic Link Action Examples
 
-| Action Type | Description | Use Case |
-|-------------|-------------|----------|
-| Create one-off [tasks](/products/pro/tracking-and-tasks/tasks/) | Generate standalone tasks | Quick to-dos without full [processes](/products/pro/tracking-and-tasks/processes/) |
-| Launch [processes](/products/pro/tracking-and-tasks/processes/) | Start new process instances | Template execution from external systems |
-| Complete [tasks](/products/pro/tracking-and-tasks/tasks/) | Mark tasks as finished | Remote task completion |
-| Reopen tasks | Change task status to active | Reactivate previously completed tasks |
-| Add comments | Post text to task activity logs | Remote communication |
-| Edit deadlines | Change task due dates | Schedule adjustments |
-| Update [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) | Modify form field values | Data updates from external sources |
+(Replace `[YourOrgID]`, `[TaskID]`, values, etc. as needed)
 
-### Creating magic links
+*   **Create Task:** `...?action=createOotTask&default_task_name=Review+Doc`
+*   **Complete Task:** `...?action=completeTask&task_id=12345`
+*   **Re-open Task:** `...?action=reOpenTask&task_id=12345`
+*   **Add Comment:** `...?action=writeAComment&task_id=12345&comment=Please+review`
+*   **Edit Deadline:** `...?action=editDeadline&task_id=12345&deadline=2024-12-31+17:00:00`
+*   **Update Form Field:** `...?action=updateFormFieldValue&task_id=12345&form_fields={"fieldId123":"New+Value"}`
 
-#### For one-off tasks
+### Where to use Magic Links
 
-1. Navigate to the Magic Links section
-2. Click **Get a Magic Link**
-3. Select **Create a One-Off [Task](/products/pro/tracking-and-tasks/tasks/)** from the dropdown
-4. Configure the basic parameters:
-   - Task name (or use a parameter)
-   - Default assignee
-   - Due date (or use a parameter)
-5. Copy the generated URL for implementation
-
-#### For Process launches
-
-1. Navigate to the Magic Links section
-2. Click **Get a Magic Link**
-3. Select **Launch a [Process](/products/pro/tracking-and-tasks/processes/)** from the dropdown
-4. Choose a [template](/products/pro/documenting/templates/) from your library list
-5. Configure process launch parameters:
-   - Process naming convention
-   - Default field values (if applicable)
-6. Copy the generated URL
-7. Customize parameters as needed
-
-The system generates a link containing your organization ID and template ID that can be used to trigger process launches.
-
-### Magic link structure
-
-A typical process launch magic link with kickoff field data has this format:
-
-```
-https://go.tallyfy.com/[OrganizationID]/process/[TemplateID]/create?
-default_run_name=Process+Name&
-ko_fields=%5B%7B%22field-name%22:%22field-value%22%7D%5D&
-launchprocess=true
-```
-
-:::note[URL encoding]
-Parameter values in magic links must be properly URL-encoded to handle special characters. Most programming languages provide built-in functions for URL encoding.
-:::
-
-#### Using auto-naming
-
-For [templates](/products/pro/documenting/templates/) with auto-naming enabled, you can simplify magic links by using the "auto" keyword instead of a specific template ID:
-
-```
-https://go.tallyfy.com/[OrganizationID]/process/auto?
-default_run_name=Process+Name&
-ko_fields=%5B%7B%22field-name%22:%22field-value%22%7D%5D&
-launchprocess=true
-```
-
-:::note[Auto-naming limitations]
-The auto-naming feature only works with required [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) in your template. This ensures that the fields used for naming will always contain values, as they are mandatory when [launching the process](/products/pro/launching/). Optional fields cannot be used in auto-naming.
-
-The auto-naming feature has a maximum limit of 550 characters. When setting up auto-naming in your template settings, ensure that your naming pattern (including [field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) variables) doesn't exceed this limit.
-:::
-
-### Field value syntax reference
-
-When passing [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) values in magic links, use the following syntax for different field types:
-
-|Field Type|Syntax Format|Example|
-|------------------|------|-------|
-|Short text box|`"text value"`|`"John Doe"`|
-|Long text box|`"text content"`|`"This is a detailed description..."`|
-|Dropdown|`{"id":ID,"text":"LABEL","value":null,"required":BOOLEAN}`|`{"id":1,"text":"High Priority","value":null,"required":true}`|
-|Checkbox|`[{"id":ID,"text":"LABEL","value":null,"required":BOOLEAN,"selected":BOOLEAN}]`|`[{"id":1,"text":"Include shipping","value":null,"required":true,"selected":true}]`|
-|Radio button|`"SELECTED_VALUE"`|`"Option A"`|
-|Date/time|`"YYYY-MM-DDTHH:MM:SS.mmmZ"`|`"2023-05-01T00:00:00.000Z"`|
-
-### Additional magic link action examples
-
-Magic links support various Tallyfy actions with the following formats:
-
-#### 1. Create a one-off Task
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=createOotTask&default_task_name=Review+Documents
-```
-
-#### 2. Complete a Task
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=completeTask&task_id=[TaskID]
-```
-
-#### 3. Reopen a Task
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=reOpenTask&task_id=[TaskID]
-```
-
-#### 4. Write a comment
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=writeAComment&task_id=[TaskID]&comment=Please+review+this+task
-```
-
-#### 5. Edit Task deadline
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=editDeadline&task_id=[TaskID]&deadline=2023-05-15+15:30:00
-```
-
-#### 6. Update Form field
-```
-https://go.tallyfy.com/[OrganizationID]/magic?action=updateFormFieldValue&task_id=[TaskID]&form_fields={"field_id":"new_value"}
-```
-
-### Implementation examples
-
-Magic links can be used in various scenarios to improve workflow automation:
-
-1. **Email button integration** - Embed magic links in email buttons to allow one-click [task](/products/pro/tracking-and-tasks/tasks/) completion
-2. **QR code generation** - Create QR codes with magic links for mobile scanning and [process](/products/pro/tracking-and-tasks/processes/) initiation
-3. **Internal dashboard integration** - Add magic link buttons to intranet pages for common workflows
-4. **CRM system integration** - Generate magic links from customer records to launch related [processes](/products/pro/tracking-and-tasks/processes/)
-
-These implementations enable integration between Tallyfy and other systems, allowing one-click actions and data transfers without manual intervention.
+- Buttons in emails (e.g., "Click here to approve task").
+- Links on your company intranet.
+- Buttons or links generated by other software (like your CRM).
+- QR codes for mobile users.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

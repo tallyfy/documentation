@@ -8,54 +8,54 @@ snippet: HTTP Strict Transport Security enforces secure HTTPS-only connections b
 title: How Tallyfy uses HTTP Strict Transport Security (HSTS)
 ---
 
-HTTP Strict Transport Security (HSTS) is a web security standard that Tallyfy employs to protect your data and ensure secure communication between your browser and our platform. This article explains what HSTS is, how it benefits you as a Tallyfy user, and the security threats it helps prevent.
+HTTP Strict Transport Security (HSTS) is a web security rule that Tallyfy uses to protect your data. It makes sure the connection between your web browser and Tallyfy is always secure. This article explains what HSTS is, how it helps you, and what security problems it prevents.
 
 ### What is HTTP Strict Transport Security (HSTS)?
 
-HSTS is a security policy mechanism that web servers use to declare that browsers (or other compliant user agents) should only interact with them using secure **HTTPS** connections. It effectively tells your browser: "Only talk to me over a secure, encrypted channel."
+HSTS is a security rule that websites use. It tells web browsers (like Chrome, Firefox, Safari) that they must *only* talk to the website using a secure **HTTPS** connection. It's like Tallyfy telling your browser, "Always use a secret code when you talk to me."
 
-When you connect to Tallyfy for the first time over HTTPS, our servers send a special response header called `Strict-Transport-Security`. This header instructs your browser to exclusively use HTTPS for all future connections to Tallyfy domains for a specific duration (defined by the `max-age` directive, typically set for a long period like two years).
+When you visit Tallyfy using a secure HTTPS connection for the first time, our website sends a special message back to your browser (called the `Strict-Transport-Security` header). This message tells your browser to only use HTTPS for all future visits to Tallyfy for a long time (usually about two years).
 
 ### How Tallyfy uses HSTS
 
-Tallyfy fully implements HSTS across its services. Importantly, Tallyfy is also included in the **HSTS preload lists** used by major web browsers (like Chrome, Firefox, Safari, and Edge).
+Tallyfy uses HSTS everywhere on our platform. More importantly, Tallyfy is included in the **HSTS preload lists** built into major web browsers.
 
-Being on the preload list means your browser knows to *only* use HTTPS for Tallyfy **even before your first visit**. This eliminates a small window of vulnerability present with standard HSTS implementation, providing enhanced security from the very start.
+Being on this list means your browser knows it *must* use a secure HTTPS connection for Tallyfy **even before you visit us for the first time**. This closes a small security loophole that could exist otherwise, giving you better security right from the start.
 
 ### Benefits of HSTS for Tallyfy customers
 
-Tallyfy's use of HSTS provides several security and privacy benefits:
+Tallyfy using HSTS gives you several security benefits:
 
-*   **Protection Against Man-in-the-Middle Attacks:** A significant benefit is preventing **SSL stripping** attacks. In this attack, an adversary intercepts your initial HTTP request (if you accidentally typed `http://tallyfy.com` or clicked an old HTTP link) and forces your browser to communicate over unencrypted HTTP, even if the server supports HTTPS. HSTS prevents this by forcing the browser to upgrade to HTTPS *before* any communication occurs over the network.
-*   **Cookie Security:** Sensitive information stored in browser cookies (like session identifiers) can be intercepted if sent over an unencrypted HTTP connection. HSTS ensures that cookies marked as secure are never transmitted over HTTP, protecting your session from hijacking on insecure networks like public Wi-Fi.
-*   **Privacy:** By enforcing encryption for all communication, HSTS ensures that your interactions with Tallyfy remain confidential and resistant to eavesdropping.
-*   **User Confidence:** Knowing that Tallyfy employs established security standards like HSTS provides assurance that your data is handled securely.
+*   **Protection Against Eavesdropping Attacks:** HSTS helps stop attackers from forcing your browser to switch from a secure HTTPS connection to an insecure HTTP one (this is called an **SSL stripping** attack). This often happens if you accidentally type `http://tallyfy.com` or click an old link. HSTS tells your browser to switch to HTTPS *before* sending any information, blocking this attack.
+*   **Secure Cookies:** Information stored in your browser's cookies (like login information) could be stolen if sent over an insecure HTTP connection. HSTS makes sure that important cookies are never sent insecurely, protecting your account, especially on public Wi-Fi.
+*   **Privacy:** By forcing all communication to be encrypted (scrambled), HSTS keeps your activity on Tallyfy private and safe from spying.
+*   **Confidence:** Knowing Tallyfy uses security rules like HSTS shows we take protecting your data seriously.
 
 ### Security threats prevented by HSTS
 
-HSTS specifically addresses security vulnerabilities:
+HSTS helps stop these security problems:
 
-*   **SSL Stripping:** As mentioned, HSTS is the primary defense against attackers downgrading your connection from secure HTTPS to insecure HTTP.
-*   **Protocol Downgrade Attacks:** More broadly, it prevents any attempt to force the use of the insecure HTTP protocol.
-*   **Cookie Hijacking:** By ensuring cookies are only sent over encrypted HTTPS, it thwarts attempts to steal session cookies on insecure networks.
+*   **SSL Stripping:** As mentioned, HSTS stops attackers from tricking your browser into using insecure HTTP instead of secure HTTPS.
+*   **Protocol Downgrade Attacks:** It prevents any tricks that try to force your browser to use the less secure HTTP connection.
+*   **Cookie Theft:** It stops attackers from stealing your login information (session cookies) when you use insecure networks by ensuring cookies are only sent over secure HTTPS.
 
 #### Real-life example: Public Wi-Fi
 
-Imagine you're using Tallyfy on a public Wi-Fi network (e.g., at a coffee shop or airport). An attacker on the same network could attempt an SSL stripping attack. If you typed `http://tallyfy.com`, the attacker could intercept this and prevent your browser from upgrading to the secure HTTPS version, potentially capturing your login credentials or other sensitive data. Because Tallyfy uses HSTS (and is preloaded), your browser automatically upgrades the connection to HTTPS *locally*, thwarting the attacker before the request even leaves your device.
+Imagine using Tallyfy on public Wi-Fi (like at a coffee shop). A hacker on the same network could try an SSL stripping attack. If you typed `http://tallyfy.com`, the hacker could try to stop your browser from switching to the secure HTTPS version. They could then potentially see your login details or other data. Because Tallyfy uses HSTS and is preloaded, your browser *automatically* switches to HTTPS *on your computer* before sending anything, stopping the hacker.
 
 ### HSTS requirements and why they exist
 
-For HSTS (and especially HSTS preloading) to work effectively and securely, web services must meet certain requirements:
+For HSTS (especially the preloading feature) to work safely, websites need to meet certain rules:
 
-1.  **Serve a Valid TLS/SSL Certificate:** The foundation of HTTPS is a valid certificate from a trusted authority. This proves the server's identity and enables encryption. *Why? Ensures the encrypted connection is genuinely with Tallyfy and not an imposter.*
-2.  **Redirect HTTP to HTTPS:** Any request made to the HTTP version of the site must be permanently redirected (using a 301 status code) to the HTTPS version. *Why? Guides users and search engines to the secure version and is necessary for the HSTS header to be received over a secure connection.*
-3.  **Serve All Content Over HTTPS:** The website, including all subdomains (if `includeSubDomains` is used) and all resources (images, scripts, stylesheets), must be accessible over HTTPS without errors. *Why? Prevents mixed content warnings and ensures the entire user experience is secure.*
-4.  **Serve the HSTS Header over HTTPS:** The `Strict-Transport-Security` header must be sent only on responses from HTTPS connections. *Why? Headers sent over HTTP can be manipulated or stripped by attackers, so they are ignored by browsers.*
-5.  **Specify a Long `max-age`:** The `max-age` directive must be set to a substantial duration (at least 31536000 seconds, or 1 year, is required for preloading). *Why? Ensures browsers enforce HTTPS for an extended period, maintaining protection between visits.*
-6.  **Include the `includeSubDomains` Directive (for Preload):** This directive must be present for preload list inclusion, ensuring the policy applies to all current and future subdomains. *Why? Provides comprehensive protection across the entire domain.*
-7.  **Include the `preload` Directive (for Preload):** This directive signals consent for the domain to be included in browser preload lists. *Why? Necessary opt-in mechanism for the enhanced security of preloading.*
+1.  **Have a Valid Security Certificate (TLS/SSL):** This is the basis of HTTPS. It proves the website is really Tallyfy and allows secure, scrambled communication. *Why? Ensures you're connected to the real Tallyfy, not a fake site.*
+2.  **Send HTTP Visitors to HTTPS:** Anyone trying to visit the `http://` address must be automatically sent to the `https://` address. *Why? Guides everyone to the secure version and makes sure the HSTS rule is delivered securely.*
+3.  **Serve Everything Over HTTPS:** The entire website, including all images, scripts, and styles, must work securely over HTTPS. *Why? Prevents security warnings and ensures your whole experience is safe.*
+4.  **Send the HSTS Rule Only Over HTTPS:** The `Strict-Transport-Security` message must only be sent over a secure HTTPS connection. *Why? Messages sent over insecure HTTP can be changed or removed by attackers.*
+5.  **Set a Long Time Limit (`max-age`):** The rule needs to tell browsers to use HTTPS for a long time (at least one year for preloading). *Why? Keeps your connection secure even if you don't visit Tallyfy for a while.*
+6.  **Include Subdomains (for Preload):** The rule must apply to all parts of the Tallyfy website (like `app.tallyfy.com`). *Why? Protects the entire Tallyfy service.*
+7.  **Include the `preload` Marker (for Preload):** This signals that Tallyfy agrees to be included in the browser's built-in HSTS list. *Why? This is needed to get the extra security of being preloaded.*
 
-These requirements ensure that once a browser learns the HSTS policy for Tallyfy, it can reliably and securely enforce HTTPS-only communication, providing protection against common web attacks.
+These rules make sure that once your browser learns the HSTS rule for Tallyfy, it can reliably force secure connections, protecting you from common attacks.
 
 import { CardGrid, LinkTitleCard} from "~/components";
 

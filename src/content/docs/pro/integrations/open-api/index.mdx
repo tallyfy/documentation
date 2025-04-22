@@ -9,96 +9,82 @@ snippet: The Tallyfy REST API enables programmatic access to core platform featu
 title: Open API
 ---
 
-## Tallyfy REST API Integration
+## Integrating with the Tallyfy REST API (For Developers)
 
-The Tallyfy REST API provides developers with programmatic access to platform functionality. Tallyfy is built with an **API-first design**, meaning the user interface itself utilizes the same public API available to you. This ensures the API is well-maintained and covers core platform features.
+The Tallyfy REST API lets developers interact with Tallyfy features using code. Because Tallyfy was built "API-first", the web app you use actually uses this same public API. This means the API is well-tested and covers most core features.
 
-This enables you to build custom integrations, automate workflows, and extend Tallyfy's capabilities to meet your organization's specific needs.
+Using the API allows you to build custom connections, automate complex workflows between Tallyfy and other systems, and extend Tallyfy beyond its standard features.
 
-Tallyfy provides multiple integration approaches to connect your workflow processes with other business systems. Each method offers different capabilities, complexity levels, and technical requirements to suit various organizational needs.
+*(Note: This section is technical and intended for developers or those working with them.)*
 
-### API overview
+### API Basics
 
-| Endpoint | Base URL | Documentation |
-|----------|----------|---------------|
-| Production | `https://go.tallyfy.com/api/` | [API Reference](https://go.tallyfy.com/api/) |
+| Environment | Base URL                  | Documentation Link                     |
+|-------------|---------------------------|----------------------------------------|
+| Production  | `https://go.tallyfy.com/api/` | [Tallyfy API Reference](https://go.tallyfy.com/api/) |
 
-### Authentication methods
+### How to Authenticate (Log In) to the API
 
-Tallyfy supports three authentication approaches:
+Tallyfy offers three ways for your code to securely access the API:
 
-1. **User-based Authentication**
-   - Obtain a user token via the API or web interface
-   - Used for integrations acting on behalf of specific users
-   - Subject to user permissions and restrictions
+1. **User Token**: Get a token for a specific Tallyfy user (from their profile or via API). Your code acts *as that user*, with their permissions.
+2. **Application Token** (Enterprise Plans): Get credentials for your application itself (client ID & secret). Your app can act on behalf of *multiple* users. Good for server-to-server connections or apps used by many people.
+3. **OAuth Flow** (Enterprise Plans): The standard secure way for users to grant your application access to their Tallyfy data without sharing their password. Recommended for third-party apps. [Learn more](/products/pro/integrations/open-api/oauth-authorization-flow/).
 
-2. **Application Authentication** (Enterprise Feature)
-   - Client credentials grant for server-to-server integrations
-   - Ability to act on behalf of multiple users
-   - Ideal for embedded applications and ISVs
+### Required Information in API Requests (Headers)
 
-3. **OAuth Authorization Flow** (Enterprise Feature)
-   - Standard OAuth flow where users authenticate directly with Tallyfy
-   - Redirect-based flow that returns access tokens to your application
-   - Recommended method for third-party integrations
-   - [Learn more about OAuth Authorization Flow](/products/pro/integrations/open-api/oauth-authorization-flow/)
-
-### Required request headers
-
-All API requests must include these headers:
+Every API request your code sends must include:
 
 ```
-Authorization: Bearer {your_access_token}
-Content-Type: application/json
-X-Tallyfy-Client: APIClient
+Authorization: Bearer {your_access_token}  // Your user or app token
+Content-Type: application/json           // Tells Tallyfy you're sending JSON data
+X-Tallyfy-Client: APIClient            // **Required** - Identifies the request source
 ```
 
-:::caution[Header Requirement]
-The `X-Tallyfy-Client: APIClient` header is mandatory for all direct API calls. Requests without this header will be automatically rejected.
+:::caution[X-Tallyfy-Client Header is Mandatory!]
+Your code *must* include the `X-Tallyfy-Client: APIClient` header. Requests without it will fail.
 :::
 
-### Core API capabilities
+### What You Can Do with the API
 
-The API provides access to all major Tallyfy functionalities:
+The API lets you control most Tallyfy features, including:
 
-| Category | Capabilities |
-|----------|--------------|
-| **Process Management** | Launch processes, retrieve status, cancel runs |
-| **Task Operations** | Complete tasks, update form fields, add comments |
-| **User Administration** | Create users, manage permissions, assign roles |
-| **Template Management** | Create/update templates, manage steps, set permissions |
-| **Data Access** | Export process data, generate reports, access analytics |
-| **File Operations** | Upload files, attach documents, manage storage |
+| Category              | Examples                                                |
+|-----------------------|---------------------------------------------------------|
+| **Processes**         | Start processes, check status, cancel runs              |
+| **Tasks**             | Complete tasks, update forms, add comments              |
+| **Users**             | Create/manage users, set roles & permissions            |
+| **Templates**         | Create/update templates, manage steps & settings        |
+| **Data**              | Export process data, get analytics info                 |
+| **Files**             | Upload files, manage attachments                        |
 
-### Response format
+### API Responses
 
-All API responses:
-- Use JSON format
-- Include HTTP status codes indicating success/failure
-- Provide detailed error messages for troubleshooting
-- Support pagination for collection endpoints
+When Tallyfy responds to your API request:
+- It sends data in JSON format.
+- It includes standard HTTP status codes (like 200 for success, 4xx/5xx for errors).
+- Error responses include helpful messages.
+- Lists of items (like tasks or processes) support paging (getting results in chunks).
 
-### Rate limiting
+### API Usage Limits (Rate Limiting)
 
-API requests are subject to the following limits:
+To ensure stability, there are limits on how many API requests you can make:
 
-- 100 requests per minute per organization
-- 1,000 requests per hour per organization
-- Responses include rate limit headers showing usage and reset times
+- Max 100 requests per minute (per organization).
+- Max 1,000 requests per hour (per organization).
+- API responses tell you how close you are to the limit.
 
-### Getting started
+### Getting Started with the API
 
-To begin using the Tallyfy API:
+1. Get your API keys/tokens from **Settings** > **Integrations** > **REST API** in Tallyfy.
+2. Read the official [API documentation](https://go.tallyfy.com/api/) for details on specific commands (endpoints).
+3. Look at code examples on [Tallyfy's GitHub](https://github.com/tallyfy/api-support/).
 
-1. Obtain API credentials from **Settings** > **Integrations** > **REST API**
-2. Review the [API documentation](https://go.tallyfy.com/api/) for endpoint details
-3. Check [GitHub examples](https://github.com/tallyfy/api-support/) for code samples
-
-:::note[Testing the API]
-While Tallyfy does not provide an interactive API explorer, you can use standard tools like Postman, Insomnia, or `curl` commands to send requests to the API endpoints and test your integrations. Refer to the API documentation for request formats and expected responses.
+:::note[Testing API Calls]
+Tallyfy doesn't have a built-in API testing tool. Use standard developer tools like Postman, Insomnia, or command-line `curl` to experiment with API requests.
 :::
 
-The articles below provide detailed guides for common API integration scenarios.
+The articles below provide more details on specific API uses.
 
 import PageTree from '@/components/PageTree.astro';
 
