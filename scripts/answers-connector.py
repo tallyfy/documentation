@@ -56,11 +56,11 @@ ANSWERS_API_KEY = args.answers_api_key
 
 print("Current dir:", dir_path)
 
-EN_CONTENT_PATH = f"{dir_path}"
+
 
 en_files_list = []
 skip_list = ["404.mdx"]
-for path, subdirs, files in os.walk(EN_CONTENT_PATH):
+for path, subdirs, files in os.walk(dir_path):
 	for file in files:
 		if file.endswith('.mdx') and file not in skip_list:
 			en_files_list.append(path + '/' + file)
@@ -68,15 +68,15 @@ for path, subdirs, files in os.walk(EN_CONTENT_PATH):
 content = []
 for file in en_files_list:
 	data = frontmatter.load(file)
-	url = file.split(EN_CONTENT_PATH)[1].split('.mdx')[0]
+	url = file.split(dir_path)[1].split('.mdx')[0]
 	if url.endswith("index"):
 		url = url.replace("index", '')
 
-	hierarchy = generate_file_hierarchy(file, EN_CONTENT_PATH)
+	hierarchy = generate_file_hierarchy(file, dir_path)
 	depth = 0
 	try:
 		content.append(
-			{"title": data.metadata['title'], "url": url, "content": str(data).replace("\n", " ").replace("#", ""),
+			{"title": data.metadata['title'], "url": "/" + url, "content": str(data).replace("\n", " ").replace("#", ""),
 			 "hierarchy": hierarchy,
 			 "uid": data.metadata['id'], "source": hierarchy["lvl0"], "snippet": data.metadata['snippet']})
 	except Exception as e:
