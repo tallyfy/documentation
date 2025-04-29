@@ -3,8 +3,36 @@ import os
 import frontmatter
 import argparse
 import requests
+import re
 
 
+
+def clean_markdown(content):
+	# Step 1: Remove code blocks (content within triple backticks)
+	# This regex matches triple backticks and everything between them
+	content = re.sub(r'```[^`]*```', '', content, flags=re.DOTALL)
+
+	# Step 2: Remove TabItem blocks and their content
+	# First find all TabItem openings and closings
+	tab_item_pattern = re.compile(r'<TabItem\s+label=[^>]*>(.*?)</TabItem>', re.DOTALL)
+	content = re.sub(tab_item_pattern, '', content)
+
+	# Step 3: Remove Tabs component if it exists
+	tabs_pattern = re.compile(r'<Tabs>(.*?)</Tabs>', re.DOTALL)
+	content = re.sub(tabs_pattern, '', content)
+
+	# Step 4: Clean up import statements
+	import_pattern = re.compile(r'import\s+{[^}]*}\s+from\s+[^;]*;', re.DOTALL)
+	content = re.sub(import_pattern, '', content)
+
+	# Step 5: Clean up any leftover triple backticks
+	content = re.sub(r'```.*', '', content)
+
+	# Step 6: Clean up consecutive empty lines
+	content = re.sub(r'\n{3,}', '\n\n', content)
+	content = content.split("## Related articles")[0].rstrip()
+
+	return content
 def generate_file_hierarchy(current_file, root_directory):
 	hierarchy = []
 
@@ -35,7 +63,7 @@ def generate_file_hierarchy(current_file, root_directory):
 
 
 TALLYFY_ANSWERS_BASE_URL = "https://answers.tallyfy.com"
-
+# TALLYFY_ANSWERS_BASE_URL = "http://localhost:5000"
 # Create an argument parser
 parser = argparse.ArgumentParser()
 
@@ -74,9 +102,11 @@ for file in en_files_list:
 
 	hierarchy = generate_file_hierarchy(file, dir_path)
 	depth = 0
+	clean_content = clean_markdown(str(data))
+	clean_content = str(clean_content).replace("\n", " ").replace("#", "")
 	try:
 		content.append(
-			{"title": data.metadata['title'], "url": "/" + url, "content": str(data).replace("\n", " ").replace("#", ""),
+			{"title": data.metadata['title'], "url": url, "content": clean_content,
 			 "hierarchy": hierarchy,
 			 "uid": data.metadata['id'], "source": hierarchy["lvl0"], "snippet": data.metadata['snippet']})
 	except Exception as e:
