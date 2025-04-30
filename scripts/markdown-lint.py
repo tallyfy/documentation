@@ -85,12 +85,17 @@ def main():
         for file in files:
             if file.endswith('.mdx') and file not in skip_list:
                 files_list.append(path + '/' + file)
-
+    found_invalid_files = False
     for file in files_list:
         is_valid = validate_mdx_file(file)
         if not is_valid:
+            found_invalid_files = True
             print("Invalid file:", file)
             print("-----------------------------------")
+    if found_invalid_files:
+        return 1
+    else:
+        return 0
 
 if __name__ == "__main__":
     exit(main())
