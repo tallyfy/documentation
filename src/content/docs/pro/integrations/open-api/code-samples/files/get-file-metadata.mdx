@@ -33,7 +33,7 @@ No common query parameters are typically needed for this endpoint.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -51,8 +51,13 @@ fetch(apiUrl, {
 })
 .then(response => {
     if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+        // Attempt to parse error as JSON, fallback to text
+        return response.json()
+            .catch(() => response.text()) // If JSON parsing fails, get text
+            .then(errData => {
+                console.error(`Error response for asset ${assetId}:`, errData); 
+                throw new Error(`HTTP error! status: ${response.status}`);
+            });
     }
     return response.json();
 })
@@ -61,11 +66,11 @@ fetch(apiUrl, {
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error getting asset metadata ${assetId}:`, error);
+    console.error(`Error getting asset metadata ${assetId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -82,22 +87,31 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None
 try:
     response = requests.get(api_url, headers=headers)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     metadata = response.json()
     print(f'Successfully retrieved metadata for asset {asset_id}:')
     print(json.dumps(metadata, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred for asset {asset_id}: {http_err}")
+    if response is not None:
+        print(f"Response Body: {response.text}") 
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed for asset {asset_id}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode JSON response for asset {asset_id}")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
+
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -123,44 +137,71 @@ public class GetFileMetadata {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
                 System.out.println("Successfully retrieved metadata for asset " + assetId + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // Consider using a JSON library (e.g., Jackson, Gson) for parsing:
+                // ObjectMapper mapper = new ObjectMapper();
+                // AssetMetadata metadata = mapper.readValue(response.body(), AssetMetadata.class);
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Failed to get metadata for asset " + assetId + ". Status: " + response.statusCode());
+                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
+    // Define a simple AssetMetadata class if using Jackson/Gson for parsing
+    // static class AssetMetadata { public Data[] data; }
+    // static class Data { public String id; public String filename; /* ... other fields */ }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
+
+// Basic struct matching the expected JSON structure (can be more detailed)
+type AssetMetadataResponse struct {
+	Data []struct {
+		ID         string `json:"id"`
+		Filename   string `json:"filename"`
+		Version    int    `json:"version"`
+		UploadedAt string `json:"uploaded_at"`
+		// Add other fields as needed
+	} `json:"data"`
+}
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
 	assetId := "ASSET_ID_TO_GET_METADATA"
 	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/assets/%s", orgId, assetId)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
-		// Error handling...
-		fmt.Println("Error creating request:", err)
+		fmt.Printf("Error creating request for asset %s: %v\n", assetId, err)
 		return
 	}
 
@@ -170,28 +211,181 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		// Error handling...
-		fmt.Println("Error making request:", err)
+		fmt.Printf("Error making request for asset %s: %v\n", assetId, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		// Error handling...
-		fmt.Println("Error reading response body:", err)
+		fmt.Printf("Error reading response body for asset %s: %v\n", assetId, err)
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to get metadata for asset %s. Status: %d\nBody: %s\n", assetId, resp.StatusCode, string(body))
+		return
+	}
+
+	// Attempt to unmarshal the JSON response
+	var metadata AssetMetadataResponse
+	err = json.Unmarshal(body, &metadata)
+	if err != nil {
+		fmt.Printf("Error unmarshalling JSON for asset %s: %v\n", assetId, err)
+        fmt.Printf("Raw response body: %s\n", string(body))
 		return
 	}
 
 	fmt.Printf("Successfully retrieved metadata for asset %s:\n", assetId)
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print the struct (or access fields like metadata.Data[0].Filename)
+    prettyJSON, _ := json.MarshalIndent(metadata, "", "  ")
+	fmt.Println(string(prettyJSON))
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/filestream.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+
+pplx::task<void> GetAssetMetadata(const utility::string_t& assetId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); // Replace
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); // Replace
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/assets/") + assetId;
+
+    http_client client(apiUrl);
+
+    http_request request(methods::GET);
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([assetId](http_response response)
+    {
+        utility::string_t assetIdW = assetId;
+        if (response.status_code() == status_codes::OK)
+        {
+            return response.extract_json().then([assetIdW](json::value v)
+            {
+                 std::wcout << L"Successfully retrieved metadata for asset " << assetIdW << L":\n" << v.serialize() << std::endl;
+                 // Access fields e.g., v[U("data")][0][U("filename")].as_string();
+            });
+        }
+        else
+        {
+            // Handle error
+            return response.extract_string().then([response, assetIdW](utility::string_t body)
+            {
+                std::wcerr << L"Failed to get metadata for asset " << assetIdW << L". Status: " << response.status_code() << std::endl;
+                std::wcerr << L"Response Body: " << body << std::endl;
+                // Indicate error - throwing exception is another option
+                return pplx::task_from_exception<void>(std::runtime_error("API request failed"));
+            });
+        }
+    });
+}
+
+int main()
+{
+    utility::string_t assetToGet = U("ASSET_ID_TO_GET_METADATA"); // Replace
+    try
+    {
+        GetAssetMetadata(assetToGet).wait();
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Note: Requires C++ REST SDK (Casablanca).
+// Proper JSON parsing (checking types, field existence) is recommended.
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json; // Or Newtonsoft.Json
+using System.Threading.Tasks;
+
+public class TallyfyAssetMetadata
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    // Basic class structure for deserialization (adjust based on actual API response)
+    public class AssetMetadataResponse {
+        public AssetData[] Data { get; set; }
+    }
+    public class AssetData {
+        public string Id { get; set; }
+        public string Filename { get; set; }
+        public int Version { get; set; }
+        // Add other fields like UploadedAt, Subject, etc.
+    }
+
+    public static async Task GetMetadataAsync(string assetId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/assets/{assetId}";
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.Add("X-Tallyfy-Client", "APIClient");
+
+        try
+        {
+            HttpResponseMessage response = await client.GetAsync(apiUrl);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Successfully retrieved metadata for asset {assetId}:");
+                // Deserialize and print nicely or use the data
+                try {
+                    // Using System.Text.Json
+                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                     var metadata = JsonSerializer.Deserialize<AssetMetadataResponse>(responseBody, options);
+                     Console.WriteLine(JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
+                     // Now you can access metadata.Data[0].Filename etc.
+                } catch (JsonException jsonEx) {
+                    Console.WriteLine("Failed to parse JSON response: " + jsonEx.Message);
+                    Console.WriteLine("Raw Response:");
+                    Console.WriteLine(responseBody); // Print raw body if parsing fails
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to get metadata for asset {assetId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response Body: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception for asset {assetId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example usage:
+    // static async Task Main(string[] args)
+    // {
+    //     string assetIdToGet = "ASSET_ID_TO_GET_METADATA";
+    //     await GetMetadataAsync(assetIdToGet);
+    // }
 }
 ```
 </TabItem>

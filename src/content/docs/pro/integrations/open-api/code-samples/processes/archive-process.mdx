@@ -33,7 +33,7 @@ No request body is needed for this DELETE request.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -46,27 +46,29 @@ headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
 fetch(apiUrl, {
-    method: 'DELETE',
+    method: 'DELETE', // DELETE method archives the process run
     headers: headers
 })
 .then(response => {
-    if (!response.ok) { // Expect 200 OK
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    console.log(`Successfully archived process ${runId}. Status: ${response.status}`);
-    return response.json(); // Archive usually returns the updated process
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) { // Expect 200 OK on success
+            console.error(`Failed to archive process ${runId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log(`Successfully archived process ${runId}. Status: ${response.status}`);
+        return data; // Archive usually returns the updated process data
+    });
 })
 .then(data => {
     console.log('Archived process details:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error archiving process ${runId}:`, error);
+    console.error(`Error archiving process ${runId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -83,24 +85,35 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None
 try:
     response = requests.delete(api_url, headers=headers)
-    response.raise_for_status() # Expect 200 OK
+    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
 
     print(f'Successfully archived process {run_id}. Status: {response.status_code}')
     try:
-        archived_process = response.json()
-        print('Archived process details:')
-        print(json.dumps(archived_process, indent=4))
+        # Attempt to parse JSON body if it exists
+        if response.content:
+            archived_process = response.json()
+            print('Archived process details:')
+            print(json.dumps(archived_process, indent=4))
+        else:
+             print("(Response body empty)")
     except json.JSONDecodeError:
-        print("(No JSON body returned on archive)")
+        print("(Could not parse response body as JSON)")
+        print(f"Raw Response Text: {response.text}")
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred archiving process {run_id}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed archiving process {run_id}: {req_err}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -121,74 +134,235 @@ public class ArchiveProcess {
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .DELETE()
+                .DELETE() // DELETE method archives the process run
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) { 
-                System.out.println("Successfully archived process " + runId + ". Status: " + response.statusCode());
+                System.out.println("Successfully archived process " + runId + ". Status: 200 OK");
                  if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body:");
+                     System.out.println("Response Body (Archived Process Details):");
                      System.out.println(response.body());
-                     // TODO: Parse JSON
+                     // TODO: Consider parsing JSON using Jackson/Gson
+                 } else {
+                      System.out.println("(Response body empty)");
                  }
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Failed to archive process " + runId + ". Status: " + response.statusCode());
+                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
-             System.err.println("Request failed: " + e.getMessage());
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     runId := "PROCESS_RUN_ID_TO_ARCHIVE"
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
+    // Create DELETE request (DELETE method archives the process run)
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating archive process request for run %s: %v\n", runId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing archive process request for run %s: %v\n", runId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading archive process response body for run %s: %v\n", runId, err)
+        // Continue processing status code even if body read fails
+    }
 
 	if resp.StatusCode == http.StatusOK {
         fmt.Printf("Successfully archived process %s. Status: %d\n", runId, resp.StatusCode)
         if len(body) > 0 {
-             fmt.Println("Response Body:")
-             fmt.Println(string(body))
-             // TODO: Unmarshal JSON
+            fmt.Println("Response Body (Archived Process Details):")
+            // Pretty print JSON response
+            var prettyJSON bytes.Buffer
+            if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+                fmt.Println(prettyJSON.String())
+            } else {
+                fmt.Println(string(body))
+            }
+            // TODO: Unmarshal JSON if needed
+        } else {
+             fmt.Println("(Response body empty)")
         }
 	} else {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to archive process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
 	}
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ArchiveTallyfyProcess(const utility::string_t& runId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/runs/") + runId;
+
+    http_client client(apiUrl);
+    http_request request(methods::DEL); // DELETE method archives the run
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    // No request body needed
+
+    return client.request(request).then([runId](http_response response)
+    {
+        status_code status = response.status_code();
+        return response.extract_string().then([status, runId, response](utility::string_t responseBody)
+        {
+             utility::string_t runIdW = runId;
+             if (status == status_codes::OK) {
+                 std::wcout << L"Successfully archived process " << runIdW << L". Status: " << status << std::endl;
+                 if (!responseBody.empty()) {
+                     std::wcout << L"Response Body (Archived Process Details):\n" << responseBody << std::endl;
+                     // Try to parse as JSON if needed
+                     try {
+                         value jsonVal = value::parse(responseBody);
+                     } catch (const std::exception& jsonEx) {
+                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
+                     }
+                 } else {
+                     std::wcout << L"(Response body empty)" << std::endl;
+                 }
+             } else {
+                 std::wcerr << L"Failed to archive process " << runIdW << L". Status: " << status << std::endl;
+                 std::wcerr << L"Response Body: " << responseBody << std::endl;
+                 throw std::runtime_error("Failed to archive process");
+             }
+        });
+    });
+}
+
+int main() {
+    try {
+        ArchiveTallyfyProcess(U("PROCESS_RUN_ID_TO_ARCHIVE")).wait(); // Replace with actual Run ID
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+
+public class TallyfyProcessArchiver
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task ArchiveProcessAsync(string runId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+            // No request body needed for DELETE archive
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully archived process {runId}. Status: {response.StatusCode}");
+                if (!string.IsNullOrWhiteSpace(responseBody))
+                {
+                    Console.WriteLine("Archived process details:");
+                    try {
+                        using var doc = JsonDocument.Parse(responseBody);
+                        Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                    } catch (JsonException) {
+                        Console.WriteLine(responseBody);
+                    }
+                } else {
+                     Console.WriteLine("(Response body empty)");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to archive process {runId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception archiving process {runId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await ArchiveProcessAsync("PROCESS_RUN_ID_TO_ARCHIVE");
+    // }
 }
 ```
 </TabItem>

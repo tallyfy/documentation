@@ -33,7 +33,7 @@ No request body is needed for this PUT request.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -48,25 +48,28 @@ headers.append('X-Tallyfy-Client', 'APIClient');
 fetch(apiUrl, {
     method: 'PUT', // Use PUT method
     headers: headers
+    // No body required for this request
 })
 .then(response => {
-    if (!response.ok) { // Expect 200 OK
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    console.log(`Successfully activated process ${runId}. Status: ${response.status}`);
-    return response.json(); // Activation returns the updated process
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) { // Expect 200 OK on success
+            console.error(`Failed to activate process ${runId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log(`Successfully activated process ${runId}. Status: ${response.status}`);
+        return data; // Activation returns the updated process
+    });
 })
 .then(data => {
     console.log('Activated process details:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error activating process ${runId}:`, error);
+    console.error(`Error activating process ${runId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -83,23 +86,40 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None
 try:
+    # PUT request with no body data needed
     response = requests.put(api_url, headers=headers)
-    response.raise_for_status() # Expect 200 OK
+    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
 
     print(f'Successfully activated process {run_id}. Status: {response.status_code}')
     activated_process = response.json()
     print('Activated process details:')
     print(json.dumps(activated_process, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    
+    print(f"HTTP error occurred activating process {run_id}: {http_err}") 
+    print(f"Response Body: {error_details}")
+
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed activating process {run_id}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode successful JSON response for process {run_id} activation")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -120,70 +140,216 @@ public class ActivateProcess {
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .PUT(HttpRequest.BodyPublishers.noBody()) // Use PUT with no body
+                .PUT(HttpRequest.BodyPublishers.noBody()) // Use PUT method with no request body
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) { 
-                System.out.println("Successfully activated process " + runId + ". Status: " + response.statusCode());
-                 System.out.println("Response Body:");
+                System.out.println("Successfully activated process " + runId + ". Status: 200 OK");
+                 System.out.println("Response Body (Activated Process):");
                  System.out.println(response.body());
-                 // TODO: Parse JSON
+                 // TODO: Consider parsing JSON using Jackson/Gson
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Failed to activate process " + runId + ". Status: " + response.statusCode());
+                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     runId := "PROCESS_RUN_ID_TO_ACTIVATE"
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/activate", orgId, runId)
 
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, apiUrl, nil) // PUT request, no body
-    // Error handling...
+	client := &http.Client{Timeout: 15 * time.Second}
+    // Create PUT request with no body (nil reader)
+	req, err := http.NewRequest(http.MethodPut, apiUrl, nil) 
+    if err != nil {
+        fmt.Printf("Error creating activate process request for run %s: %v\n", runId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing activate process request for run %s: %v\n", runId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading activate process response body for run %s: %v\n", runId, err)
+        return
+    }
 
 	if resp.StatusCode == http.StatusOK {
         fmt.Printf("Successfully activated process %s. Status: %d\n", runId, resp.StatusCode)
-        fmt.Println("Response Body:")
-        fmt.Println(string(body))
-        // TODO: Unmarshal JSON
+        fmt.Println("Response Body (Activated Process):")
+        // Pretty print JSON response
+        var prettyJSON bytes.Buffer
+        if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+            fmt.Println(prettyJSON.String())
+        } else {
+            fmt.Println(string(body))
+        }
+        // TODO: Unmarshal JSON if needed
 	} else {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to activate process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
 	}
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ActivateTallyfyProcess(const utility::string_t& runId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/runs/") + runId + U("/activate");
+
+    http_client client(apiUrl);
+    http_request request(methods::PUT);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    // No request body is needed for activation
+
+    return client.request(request).then([runId](http_response response)
+    {
+        utility::string_t runIdW = runId;
+        return response.extract_json().then([response, runIdW](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully activated process " << runIdW << L". Status: " << response.status_code() << L"\nResponse:\n" << body.serialize() << std::endl;
+                } else {
+                    std::wcerr << L"Failed to activate process " << runIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during activate process: " << e.what() << std::endl;
+                 // Consider extracting string body for non-JSON errors
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during activate process response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        ActivateTallyfyProcess(U("PROCESS_RUN_ID_TO_ACTIVATE")).wait(); // Replace with actual Run ID
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+
+public class TallyfyProcessActivator
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task ActivateProcessAsync(string runId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/activate";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+            // No request body needed for PUT /activate
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully activated process {runId}. Status: {response.StatusCode}");
+                Console.WriteLine("Activated process details:");
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to activate process {runId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception activating process {runId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await ActivateProcessAsync("PROCESS_RUN_ID_TO_ACTIVATE");
+    // }
 }
 ```
 </TabItem>

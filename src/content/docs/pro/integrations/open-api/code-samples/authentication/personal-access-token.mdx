@@ -41,7 +41,7 @@ You also need to include two other standard headers:
 Here's how to add these headers in different languages:
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -70,7 +70,7 @@ fetch(apiUrl, {
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -100,7 +100,7 @@ except json.JSONDecodeError:
 
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -144,7 +144,7 @@ public class TallyfyApiClient {
 
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -191,8 +191,142 @@ func main() {
 	}
 
 	fmt.Println("Response Body:")
-	fmt.Println(string(body)) 
+	fmt.Println(string(body))
     // Consider using encoding/json to unmarshal the body into a struct
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cpprest/http_client.h>
+#include <cpprest/filestream.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+
+pplx::task<void> GetMyTasks()
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/me/tasks");
+
+    http_client client(apiUrl);
+
+    http_request request(methods::GET);
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([](http_response response)
+    {
+        if (response.status_code() == status_codes::OK)
+        {
+            return response.extract_json();
+        }
+        else
+        {
+            // Handle error
+            return response.extract_string().then([](utility::string_t body) {
+                std::wcerr << L"Error response body: " << body << std::endl;
+                 return pplx::task_from_result(json::value::null());
+            });
+        }
+    }).then([](pplx::task<json::value> previousTask)
+    {
+        try
+        {
+            json::value const & v = previousTask.get();
+             if (!v.is_null()) {
+                 std::wcout << L"Success:\n" << v.serialize() << std::endl;
+             } else {
+                 std::wcerr << L"Error fetching tasks." << std::endl;
+             }
+        }
+         catch (const http_exception& e)
+        {
+            std::wcerr << L"HTTP Exception caught: " << e.what() << std::endl;
+        }
+        catch (const std::exception& e)
+        {
+             std::wcerr << L"Exception caught: " << e.what() << std::endl;
+        }
+         catch (...) {
+             std::wcerr << L"Unknown exception caught" << std::endl;
+         }
+    });
+}
+
+int main()
+{
+    try {
+        GetMyTasks().wait();
+    }
+    catch (const std::exception &e)
+    {
+        std::wcerr << L"Error in main: " << e.what() << std::endl;
+    }
+     catch (...) {
+         std::wcerr << L"Unknown exception caught in main" << std::endl;
+     }
+    return 0;
+}
+// Note: Requires C++ REST SDK (Casablanca). Ensure proper setup and linking.
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+
+public class TallyfyApiRequest
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task GetMyTasks()
+    {
+        var accessToken = "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/me/tasks"; // Example endpoint
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        client.DefaultRequestHeaders.Add("X-Tallyfy-Client", "APIClient");
+
+        try
+        {
+            HttpResponseMessage response = await client.GetAsync(apiUrl);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Success:");
+                Console.WriteLine(responseBody);
+                // TODO: Deserialize JSON (e.g., using System.Text.Json or Newtonsoft.Json)
+            }
+            else
+            {
+                Console.WriteLine($"Error: {response.StatusCode}");
+                Console.WriteLine(responseBody);
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+    }
+
+    // Example usage (e.g., in a Main method)
+    // static async Task Main(string[] args)
+    // {
+    //     await GetMyTasks();
+    // }
 }
 ```
 </TabItem>

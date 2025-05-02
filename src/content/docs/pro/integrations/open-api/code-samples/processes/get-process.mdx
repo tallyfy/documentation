@@ -34,13 +34,13 @@ Replace `{org_id}` with your Organization ID and `{run_id}` with the specific ID
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const runId = 'PROCESS_RUN_ID_TO_GET';
 
-const queryParams = '?with=checklist,tasks,tags'; // Example
+const queryParams = '?with=checklist,tasks,tags,form_fields&form_fields_values=true'; // Example: get related data and field values
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}${queryParams}`;
 
 const headers = new Headers();
@@ -53,22 +53,24 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error(`Failed to get process ${runId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log(`Successfully retrieved process ${runId}:`);
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error getting process ${runId}:`, error);
+    console.error(`Error getting process ${runId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -85,27 +87,36 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+# Optional: Add query parameters
 params = {
     'with': 'checklist,tasks,tags,form_fields',
-    'form_fields_values': 'true'
+    'form_fields_values': 'true' # Include values entered into form fields
 }
 
+response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     process_data = response.json()
     print(f'Successfully retrieved process {run_id}:')
     print(json.dumps(process_data, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred getting process {run_id}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed getting process {run_id}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode JSON response for process {run_id}")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -115,6 +126,7 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.HashMap; // Use HashMap for mutable map
 import java.util.stream.Collectors;
 
 public class GetProcess {
@@ -124,12 +136,16 @@ public class GetProcess {
         String runId = "PROCESS_RUN_ID_TO_GET";
         String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId);
 
-        Map<String, String> queryParamsMap = Map.of("with", "checklist,tasks"); // Example
-        String queryParams = queryParamsMap.entrySet().stream()
+        // Optional: Add query parameters
+        Map<String, String> queryParamsMap = new HashMap<>(); 
+        queryParamsMap.put("with", "checklist,tasks");
+        queryParamsMap.put("form_fields_values", "true");
+        
+        String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
             
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -142,69 +158,233 @@ public class GetProcess {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
                 System.out.println("Successfully retrieved process " + runId + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to get process " + runId + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     runId := "PROCESS_RUN_ID_TO_GET"
     baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
 
+    // Optional: Add query parameters
     queryParams := url.Values{}
-    queryParams.Add("with", "checklist,tasks,tags") // Example
+    queryParams.Add("with", "checklist,tasks,tags,form_fields") 
+    queryParams.Add("form_fields_values", "true")
     
-    apiUrl := baseUrl + "?" + queryParams.Encode()
+    apiUrl := baseUrl
+    if len(queryParams) > 0 {
+         apiUrl += "?" + queryParams.Encode()
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating get process request for run %s: %v\n", runId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing get process request for run %s: %v\n", runId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading get process response body for run %s: %v\n", runId, err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to get process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully retrieved process %s:\n", runId)
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON into a struct if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> GetTallyfyProcess(const utility::string_t& runId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
+    builder.append_path(orgId);
+    builder.append_path(U("runs"));
+    builder.append_path(runId);
+    builder.append_query(U("with"), U("checklist,tasks,tags,form_fields")); // Example query parameters
+    builder.append_query(U("form_fields_values"), U("true"));
+    utility::string_t apiUrl = builder.to_string();
+
+    http_client client(apiUrl);
+    http_request request(methods::GET);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([runId](http_response response)
+    {
+        utility::string_t runIdW = runId;
+        return response.extract_json().then([response, runIdW](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully retrieved process " << runIdW << L":\n" << body.serialize() << std::endl;
+                    // Access data: body[U("data")][U("name")].as_string();
+                } else {
+                    std::wcerr << L"Failed to get process " << runIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during get process: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during get process response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        GetTallyfyProcess(U("PROCESS_RUN_ID_TO_GET")).wait(); // Replace with actual Run ID
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+using System.Web; // For HttpUtility
+
+public class TallyfyProcessGetter
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task GetProcessAsync(string runId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        // Build URL with query parameters
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        query["with"] = "checklist,tasks,tags,form_fields"; // Example
+        query["form_fields_values"] = "true";
+        string queryString = query.ToString();
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}?{queryString}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Successfully retrieved process {runId}:");
+                // Pretty print JSON
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                    // Access data: doc.RootElement.GetProperty("data").GetProperty("name").GetString();
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to get process {runId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception getting process {runId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await GetProcessAsync("PROCESS_RUN_ID_TO_GET");
+    // }
 }
 ```
 </TabItem>

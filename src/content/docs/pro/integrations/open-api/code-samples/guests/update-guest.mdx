@@ -57,12 +57,12 @@ Changing a guest's email address is typically not possible via this endpoint; yo
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const guestEmail = "guest.to.update@example.com";
-const encodedEmail = encodeURIComponent(guestEmail);
+const encodedEmail = encodeURIComponent(guestEmail); // Ensure email is URL encoded
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests/${encodedEmail}`;
 
 const updateData = {
@@ -83,22 +83,24 @@ fetch(apiUrl, {
     body: JSON.stringify(updateData)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error(`Failed to update guest ${guestEmail}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log(`Successfully updated guest ${guestEmail}:`);
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error updating guest ${guestEmail}:`, error);
+    console.error(`Error updating guest ${guestEmail}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -108,7 +110,7 @@ from urllib.parse import quote
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 guest_email = "guest.to.update@example.com"
-encoded_email = quote(guest_email)
+encoded_email = quote(guest_email) # URL-encode the email
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/guests/{encoded_email}'
 
 headers = {
@@ -120,25 +122,34 @@ headers = {
 
 update_payload = {
     'first_name': 'UpdatedFName',
-    'last_name': 'UpdatedLName'
+    'last_name': 'UpdatedLName',
+    'company_name': 'Newly Updated Co.'
 }
 
+response = None
 try:
     response = requests.put(api_url, headers=headers, json=update_payload)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     updated_guest = response.json()
     print(f'Successfully updated guest {guest_email}:')
     print(json.dumps(updated_guest, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred updating guest {guest_email}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed updating guest {guest_email}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode JSON response for guest update {guest_email}")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -147,7 +158,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-// Assumes JSON library
+// Requires a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.HashMap;
 
 public class UpdateGuest {
     public static void main(String[] args) {
@@ -157,11 +171,24 @@ public class UpdateGuest {
         String encodedEmail = URLEncoder.encode(guestEmail, StandardCharsets.UTF_8);
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail);
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, Object> updateData = Map.of("company_name", "New Guest Company");
-        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
-        
-        String jsonPayload = "{\"company_name\": \"Updated Company LLC\"}"; // Simple example
+        // --- Payload Construction ---
+        // Using Jackson/Gson is recommended:
+        /*
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> updateData = new HashMap<>();
+        updateData.put("company_name", "New Guest Company");
+        updateData.put("phone_1", "+15551234567");
+        String jsonPayload;
+        try {
+            jsonPayload = mapper.writeValueAsString(updateData);
+        } catch (Exception e) {
+            System.err.println("Failed to serialize JSON: " + e.getMessage());
+            return;
+        }
+        */
+        // Simple manual JSON string for example:
+        String jsonPayload = "{\"company_name\": \"Updated Company LLC\"}"; 
+        // --- End Payload ---
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -175,23 +202,27 @@ public class UpdateGuest {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
                 System.out.println("Successfully updated guest " + guestEmail + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON response
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to update guest " + guestEmail + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             // Error handling...
-             System.err.println("Request failed: " + e.getMessage());
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -203,25 +234,35 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     guestEmail := "guest.to.update@example.com"
-    encodedEmail := url.PathEscape(guestEmail)
+    encodedEmail := url.PathEscape(guestEmail) // Use PathEscape for path segments
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail)
 
 	updateData := map[string]interface{}{
 		"first_name": "UpdatedGoFirstName",
+        "company_name": "GoLang Inc.",
 	}
 
 	jsonData, err := json.Marshal(updateData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating update guest request for %s: %v\n", guestEmail, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -229,21 +270,202 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing update guest request for %s: %v\n", guestEmail, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading update guest response body for %s: %v\n", guestEmail, err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to update guest %s. Status: %d\nBody: %s\n", guestEmail, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully updated guest %s:\n", guestEmail)
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <urlmon.h> // Windows example for encoding
+#include <windows.h>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+#pragma comment(lib, "urlmon.lib")
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+// Basic URL encoding (Windows specific)
+utility::string_t UrlEncodePathSegment(const utility::string_t& input) {
+     DWORD size = 0;
+     UrlEscape(input.c_str(), nullptr, &size, URL_ESCAPE_PERCENT);
+     if (size == 0) return input;
+     std::vector<wchar_t> buffer(size);
+     if (S_OK == UrlEscape(input.c_str(), buffer.data(), &size, URL_ESCAPE_PERCENT)) {
+         return utility::string_t(buffer.data());
+     } else { return input; }
+}
+
+pplx::task<void> UpdateTallyfyGuest(const utility::string_t& guestEmail, const value& updatePayload)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t encodedEmail = UrlEncodePathSegment(guestEmail);
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/guests/") + encodedEmail;
+
+    http_client client(apiUrl);
+    http_request request(methods::PUT);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(updatePayload);
+
+    return client.request(request).then([guestEmail](http_response response)
+    {
+        utility::string_t emailW = guestEmail;
+        return response.extract_json().then([response, emailW](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully updated guest " << emailW << L":\n" << body.serialize() << std::endl;
+                } else {
+                    std::wcerr << L"Failed to update guest " << emailW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during update guest: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during update guest response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        value payload = value::object();
+        payload[U("first_name")] = value::string(U("CPP_Updated"));
+        payload[U("company_name")] = value::string(U("CPP Guest Systems Inc."));
+
+        UpdateTallyfyGuest(U("guest.to.update@example.com"), payload).wait(); 
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca). URL encoding uses Windows API.
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using System.Web; // For HttpUtility
+
+public class TallyfyGuestUpdater
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    // Define properties you might want to update
+    public class GuestUpdatePayload
+    {
+        // Use [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] 
+        // if you want sending null to NOT clear the field vs sending empty string
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string CompanyName { get; set; }
+        public string Phone1 { get; set; }
+        // Note: Updating AssociatedMembers might replace the list - check API behavior
+        public List<int> AssociatedMembers { get; set; } 
+    }
+
+    public static async Task UpdateGuestAsync(string guestEmail, GuestUpdatePayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var encodedEmail = HttpUtility.UrlPathEncode(guestEmail); // Use UrlPathEncode
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/guests/{encodedEmail}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            // Serialize payload, ignore null properties so only provided fields are sent
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully updated guest {guestEmail}:");
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update guest {guestEmail}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception updating guest {guestEmail}: {e.Message}");
+        }
+        catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     var guestUpdate = new GuestUpdatePayload {
+    //         FirstName = "GuestyUpdated",
+    //         CompanyName = "Updated Guest Co"
+    //     };
+    //     await UpdateGuestAsync("guest.to.update@example.com", guestUpdate);
+    // }
 }
 ```
 </TabItem>

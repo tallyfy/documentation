@@ -41,12 +41,12 @@ No request body is needed for this DELETE request.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const taskId = 'ONE_OFF_TASK_ID_TO_DELETE';
-const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}/delete`; // Note the /delete suffix
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}/delete`; // Note the /delete path segment
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -60,19 +60,24 @@ fetch(apiUrl, {
 .then(response => {
     // Expect 204 No Content for successful deletion
     if (response.status === 204) { 
-        console.log(`Successfully deleted one-off task ${taskId}. Status: ${response.status}`);
-        return null; // No body expected
+        console.log(`Successfully permanently deleted one-off task ${taskId}. Status: ${response.status}`);
+        return null; // No body expected for 204
     } else {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+        // Try to parse error JSON, fallback to text
+        return response.json()
+            .catch(() => response.text())
+            .then(errData => { 
+                console.error(`Failed to delete task ${taskId}. Status: ${response.status}`, errData);
+                throw new Error(`HTTP error! status: ${response.status}`); 
+            });
     }
 })
 .catch(error => {
-    console.error(`Error deleting one-off task ${taskId}:`, error);
+    console.error(`Error deleting one-off task ${taskId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -81,7 +86,7 @@ import os
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 task_id = 'ONE_OFF_TASK_ID_TO_DELETE'
-api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}/delete' # Note /delete
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}/delete' # Note /delete path
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -89,26 +94,36 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None
 try:
     response = requests.delete(api_url, headers=headers)
-    # Check specifically for 204
+    
+    # Check specifically for 204 No Content
     if response.status_code == 204:
-        print(f'Successfully deleted one-off task {task_id}. Status: {response.status_code}')
+        print(f'Successfully permanently deleted one-off task {task_id}. Status: {response.status_code}')
     else:
-        # Raise for other non-204 responses (including potential 200 OK with message)
-        print(f"Unexpected status code: {response.status_code}")
+        # Try to get error details, then raise for status if unexpected success or other error
+        error_details = ""
         try:
-             print(f"Response: {response.json()}")
+            if response is not None:
+                error_details = response.json()
         except json.JSONDecodeError:
-             print(f"Response: {response.text}")
+            if response is not None:
+                error_details = response.text
+        print(f"Unexpected status code: {response.status_code}")
+        print(f"Response Body: {error_details}")
         response.raise_for_status() # Raise an error for non-204 status
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    # Error already printed above if status was not 204
+    print(f"HTTP error occurred deleting task {task_id}: {http_err}") 
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed deleting task {task_id}: {req_err}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -121,7 +136,8 @@ public class DeleteOneOffTask {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String taskId = "ONE_OFF_TASK_ID_TO_DELETE";
-        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s/delete", orgId, taskId); // Note /delete
+        // Ensure the /delete path segment is included
+        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s/delete", orgId, taskId); 
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -137,51 +153,75 @@ public class DeleteOneOffTask {
             HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() == 204) { 
-                System.out.println("Successfully deleted one-off task " + taskId + ". Status: " + response.statusCode());
+                System.out.println("Successfully permanently deleted one-off task " + taskId + ". Status: " + response.statusCode());
             } else {
-                // Error handling - might need to re-request with BodyHandlers.ofString() to see error body
+                // If status is not 204, the server *might* have sent an error body.
+                // We discarded it, so make a new request to try and get the error message.
                 System.err.println("Failed to delete one-off task. Status: " + response.statusCode());
-                // You might need another request to get the error body if status != 204
+                System.err.println("Attempting to retrieve error details...");
+                try {
+                     HttpRequest errorRequest = HttpRequest.newBuilder(request.uri())
+                         .DELETE()
+                         .headers(request.headers().map().entrySet().stream().flatMap(e -> e.getValue().stream().map(v -> new String[]{e.getKey(), v})).toArray(String[][]::new))
+                         .build();
+                     HttpResponse<String> errorResponse = client.send(errorRequest, HttpResponse.BodyHandlers.ofString());
+                     System.err.println("Error Response Body: " + errorResponse.body());
+                 } catch (Exception errorFetchEx) {
+                     System.err.println("Could not retrieve error details: " + errorFetchEx.getMessage());
+                 }
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
-	"io/ioutil" // Import ioutil to potentially read error body
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     taskId := "ONE_OFF_TASK_ID_TO_DELETE"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s/delete", orgId, taskId) // Note /delete
+    // Ensure the /delete path segment is included
+    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s/delete", orgId, taskId) 
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating delete task request for task %s: %v\n", taskId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing delete task request for task %s: %v\n", taskId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNoContent {
-        fmt.Printf("Successfully deleted one-off task %s. Status: %d\n", taskId, resp.StatusCode)
+        fmt.Printf("Successfully permanently deleted one-off task %s. Status: %d No Content\n", taskId, resp.StatusCode)
 	} else {
         // Read body for potential error message
         body, readErr := ioutil.ReadAll(resp.Body)
@@ -191,6 +231,120 @@ func main() {
             fmt.Printf("Failed to delete task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(body))
         }
 	}
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> DeleteTallyfyOneOffTask(const utility::string_t& taskId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    // Ensure the /delete path segment is included
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/tasks/") + taskId + U("/delete");
+
+    http_client client(apiUrl);
+    http_request request(methods::DEL); 
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    // No request body needed
+
+    return client.request(request).then([taskId](http_response response)
+    {
+        status_code status = response.status_code();
+        utility::string_t taskIdW = taskId;
+
+        if (status == status_codes::NoContent) {
+             std::wcout << L"Successfully permanently deleted one-off task " << taskIdW << L". Status: " << status << L" No Content." << std::endl;
+        } else {
+            // Try to extract error body
+            response.extract_string().then([status, taskIdW](utility::string_t errorBody) {
+                 std::wcerr << L"Failed to delete task " << taskIdW << L". Status: " << status << std::endl;
+                 std::wcerr << L"Response Body: " << errorBody << std::endl;
+            }).wait(); // Wait for string extraction in error case
+            throw std::runtime_error("Failed to delete task");
+        }
+    });
+}
+
+int main() {
+    try {
+        DeleteTallyfyOneOffTask(U("ONE_OFF_TASK_ID_TO_DELETE")).wait(); // Replace with actual Task ID
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+
+public class TallyfyOneOffTaskDeleter
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task DeleteTaskAsync(string taskId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        // Ensure the /delete path segment is included
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks/{taskId}/delete"; 
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+            // No request body needed
+
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            {
+                Console.WriteLine($"Successfully permanently deleted one-off task {taskId}. Status: {response.StatusCode}");
+            }
+            else
+            {
+                // Attempt to read error body
+                string responseBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Failed to delete task {taskId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception deleting task {taskId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await DeleteTaskAsync("ONE_OFF_TASK_ID_TO_DELETE");
+    // }
 }
 ```
 </TabItem>

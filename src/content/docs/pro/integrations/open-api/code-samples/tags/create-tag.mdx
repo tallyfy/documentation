@@ -45,18 +45,18 @@ Refer to the `#definitions/createTagInput` schema in Swagger. Key fields:
 }
 ```
 
-## Code Samples
+## Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tags`;
 
 const tagData = {
-  title: "JS Created Tag",
-  color: "#9b59b6" // Purple
+  title: "JS Created Tag", // Required
+  color: "#9b59b6" // Optional: Purple
 };
 
 const headers = new Headers();
@@ -71,22 +71,25 @@ fetch(apiUrl, {
     body: JSON.stringify(tagData)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error("Failed to create tag:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log('Successfully created tag:');
     console.log(JSON.stringify(data, null, 2));
+    // Use data.data.id to get the new tag ID
 })
 .catch(error => {
-    console.error('Error creating tag:', error);
+    console.error('Error creating tag:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -104,33 +107,51 @@ headers = {
 }
 
 tag_payload = {
-    'title': 'Python Tag',
-    'color': '#f1c40f' # Yellow
+    'title': 'Python Tag', # Required
+    'color': '#f1c40f' # Optional: Yellow
 }
 
+response = None
 try:
     response = requests.post(api_url, headers=headers, json=tag_payload)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     created_tag = response.json()
     print('Successfully created tag:')
     print(json.dumps(created_tag, indent=4))
+    # new_tag_id = created_tag.get('data', {}).get('id')
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    print(f"HTTP error occurred creating tag: {http_err}") 
+    print(f"Response Body: {error_details}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed creating tag: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print("Failed to decode successful JSON response after creating tag")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Assumes JSON library
+// Requires a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.HashMap;
 
 public class CreateTag {
     public static void main(String[] args) {
@@ -138,11 +159,24 @@ public class CreateTag {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/tags";
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, String> tagData = Map.of("title", "Java Tag", "color", "#3498db");
-        // String jsonPayload = new ObjectMapper().writeValueAsString(tagData);
-
-        String jsonPayload = "{\"title\": \"Java Tag\", \"color\": \"#3498db\"}"; // Simple example
+        // --- Payload Construction --- 
+        // Using Jackson/Gson recommended:
+        /*
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, String> tagData = new HashMap<>();
+        tagData.put("title", "Java Tag"); // Required
+        tagData.put("color", "#3498db"); // Optional
+        String jsonPayload;
+        try {
+            jsonPayload = mapper.writeValueAsString(tagData);
+        } catch (Exception e) {
+            System.err.println("Failed to serialize JSON: " + e.getMessage());
+            return;
+        }
+        */
+        // Simple manual JSON string:
+        String jsonPayload = "{\"title\": \"Java Tag\", \"color\": \"#3498db\"}"; 
+        // --- End Payload --- 
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -156,23 +190,28 @@ public class CreateTag {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200 || response.statusCode() == 201) {
+            
+            if (response.statusCode() == 200 || response.statusCode() == 201) { // API might return 201 Created
                 System.out.println("Successfully created tag:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing the JSON response (e.g., using Jackson/Gson)
+                // String tagId = objectMapper.readTree(response.body()).path("data").path("id").asText();
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to create tag. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -183,24 +222,33 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags", orgId)
 
 	tagData := map[string]interface{}{
-		"title": "Go Tag",
-        "color": "#e67e22", // Orange
+		"title": "Go Tag", // Required
+        "color": "#e67e22", // Optional: Orange
 	}
 
 	jsonData, err := json.Marshal(tagData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating create tag request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -208,21 +256,191 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing create tag request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading create tag response body: %v\n", err)
+        return
+    }
 
+    // API might return 201 Created
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to create tag. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully created tag:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON to get the new tag ID etc.
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> CreateTallyfyTag(const utility::string_t& title, const utility::string_t& color = U(""))
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/tags");
+
+    // Construct payload
+    value payload = value::object();
+    payload[U("title")] = value::string(title); // Required
+    if (!color.empty()) {
+        payload[U("color")] = value::string(color); // Optional
+    }
+
+    http_client client(apiUrl);
+    http_request request(methods::POST);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(payload);
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                // API might return 201 Created
+                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully created tag:\n" << body.serialize() << std::endl;
+                    // Extract new tag ID: body[U("data")][U("id")].as_string();
+                } else {
+                    std::wcerr << L"Failed to create tag. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during create tag: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during create tag response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        CreateTallyfyTag(U("C++ High Priority"), U("#e74c3c")).wait(); 
+        CreateTallyfyTag(U("C++ Info Only")).wait(); // Create without color
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization; // For JsonIgnoreCondition
+using System.Threading.Tasks;
+
+public class TallyfyTagCreator
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public class TagPayload
+    {
+        public string Title { get; set; } // Required
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Color { get; set; } // Optional hex code, e.g., "#3498db"
+    }
+
+    public static async Task CreateTagAsync(TagPayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tags";
+
+        if (string.IsNullOrWhiteSpace(payload?.Title)) {
+            Console.WriteLine("Error: Tag Title is required.");
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            // Serialize payload, ignore nulls
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Check for 200 OK or 201 Created
+            {
+                Console.WriteLine("Successfully created tag:");
+                 try {
+                     using var doc = JsonDocument.Parse(responseBody);
+                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                     // Get tag ID: doc.RootElement.GetProperty("data").GetProperty("id").GetString();
+                 } catch (JsonException) {
+                     Console.WriteLine(responseBody);
+                 }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create tag. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     var newTag = new TagPayload {
+    //         Title = "C# Project Tag",
+    //         Color = "#2ecc71" // Green
+    //     };
+    //     await CreateTagAsync(newTag);
+    // }
 }
 ```
 </TabItem>

@@ -60,7 +60,7 @@ Refer to the `#definitions/createGroupInput` schema in Swagger. Key fields:
 ## Code Samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -85,22 +85,24 @@ fetch(apiUrl, {
     body: JSON.stringify(groupData)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => {
+        if (!response.ok) {
+            console.error("Failed to create group:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data;
+    });
 })
 .then(data => {
     console.log('Successfully created group:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error('Error creating group:', error);
+    console.error('Error creating group:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -119,9 +121,10 @@ headers = {
 
 group_payload = {
     'name': 'Finance Approvers',
-    'members': [1004, 1006] 
+    'members': [1004, 1006]
 }
 
+response = None
 try:
     response = requests.post(api_url, headers=headers, json=group_payload)
     response.raise_for_status()
@@ -130,21 +133,27 @@ try:
     print('Successfully created group:')
     print(json.dumps(created_group, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred: {http_err}")
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed: {req_err}")
 except json.JSONDecodeError:
     print("Failed to decode JSON response")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+    print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Assumes JSON library
 
 public class CreateGroup {
     public static void main(String[] args) {
@@ -152,13 +161,7 @@ public class CreateGroup {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/groups";
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, Object> groupData = new HashMap<>();
-        // groupData.put("name", "Java Created Group");
-        // groupData.put("members", List.of(1001));
-        // String jsonPayload = new ObjectMapper().writeValueAsString(groupData);
-
-        String jsonPayload = "{\"name\": \"Support Escalation Team\", \"members\": [1002, 1003]}"; // Simple example
+        String jsonPayload = "{\"name\": \"Support Escalation Team\", \"members\": [1002, 1003]}";
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -172,23 +175,26 @@ public class CreateGroup {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200 || response.statusCode() == 201) {
                 System.out.println("Successfully created group:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Failed to create group. Status: " + response.statusCode());
+                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -199,11 +205,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups", orgId)
 
 	groupData := map[string]interface{}{
@@ -213,11 +222,17 @@ func main() {
 	}
 
 	jsonData, err := json.Marshal(groupData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -225,21 +240,184 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading response body: %v\n", err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to create group. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully created group:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> CreateTallyfyGroup(const utility::string_t& groupName, 
+                                  const std::vector<int>& memberIds,
+                                  const std::vector<utility::string_t>& guestEmails)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/groups");
+
+    value payload = value::object();
+    payload[U("name")] = value::string(groupName);
+
+    if (!memberIds.empty()) {
+        value membersArray = value::array(memberIds.size());
+        for (size_t i = 0; i < memberIds.size(); ++i) {
+            membersArray[i] = value::number(memberIds[i]);
+        }
+        payload[U("members")] = membersArray;
+    }
+     if (!guestEmails.empty()) {
+        value guestsArray = value::array(guestEmails.size());
+        for (size_t i = 0; i < guestEmails.size(); ++i) {
+            guestsArray[i] = value::string(guestEmails[i]);
+        }
+        payload[U("guests")] = guestsArray;
+    }
+
+    http_client client(apiUrl);
+    http_request request(methods::POST);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(payload);
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully created group:\n" << body.serialize() << std::endl;
+                } else {
+                    std::wcerr << L"Failed to create group. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during create group: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during create group response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        std::vector<int> members = {1001, 1005};
+        std::vector<utility::string_t> guests = {U("client.liaison@partner.com")};
+        CreateTallyfyGroup(U("C++ Created Team"), members, guests).wait();
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class TallyfyGroupCreator
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public class GroupPayload
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public List<int> Members { get; set; }
+        public List<string> Guests { get; set; }
+    }
+
+    public static async Task CreateGroupAsync(GroupPayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            var options = new JsonSerializerOptions { IgnoreNullValues = true };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Successfully created group:");
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create group. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
 }
 ```
 </TabItem>

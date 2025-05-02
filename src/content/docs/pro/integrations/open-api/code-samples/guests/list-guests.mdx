@@ -34,12 +34,12 @@ Replace `{org_id}` with your Organization ID.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = ''; // e.g., '?with=stats'
+const queryParams = ''; // Example: Add query params like '?with=stats&page=2'
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests${queryParams}`;
 
 const headers = new Headers();
@@ -52,22 +52,24 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error("Failed to list guests:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log('Successfully listed guests:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error('Error listing guests:', error);
+    console.error('Error listing guests:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -83,28 +85,37 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+# Optional: Add query parameters
 params = {
-    # 'with': 'stats' 
-    # 'page': 1,
-    # 'per_page': 50
+     'with': 'stats', 
+     'page': 1,
+     'per_page': 50
 }
 
+response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     guests_data = response.json()
     print('Successfully listed guests:')
     print(json.dumps(guests_data, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred listing guests: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed listing guests: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print("Failed to decode JSON response when listing guests")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -122,12 +133,13 @@ public class ListGuests {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/guests";
 
-        Map<String, String> queryParamsMap = Map.of(); // Add params if needed
-        String queryParams = queryParamsMap.entrySet().stream()
+        // Optional: Add query parameters
+        Map<String, String> queryParamsMap = Map.of("with", "stats", "page", "1"); 
+        String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
         
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -140,71 +152,229 @@ public class ListGuests {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed guests:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to list guests. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests", orgId)
 
+    // Optional: Add query parameters
     queryParams := url.Values{}
-    // queryParams.Add("with", "stats")
+    queryParams.Add("with", "stats")
+    queryParams.Add("page", "1")
     
     apiUrl := baseURL
     if len(queryParams) > 0 {
-        apiUrl = baseURL + "?" + queryParams.Encode()
+        apiUrl += "?" + queryParams.Encode()
     }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error creating list guests request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error executing list guests request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error reading list guests response body: %v\n", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to list guests. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully listed guests:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON into a slice of guest structs if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ListTallyfyGuests()
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
+    builder.append_path(orgId);
+    builder.append_path(U("guests"));
+    builder.append_query(U("with"), U("stats")); // Example query parameter
+    // builder.append_query(U("page"), 1); // Example pagination
+    utility::string_t apiUrl = builder.to_string();
+
+    http_client client(apiUrl);
+    http_request request(methods::GET);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully listed guests:\n" << body.serialize() << std::endl;
+                    // Access data: body[U("data")].as_array()
+                } else {
+                    std::wcerr << L"Failed to list guests. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during list guests: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during list guests response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        ListTallyfyGuests().wait(); 
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+using System.Web; // For HttpUtility
+
+public class TallyfyGuestLister
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task ListGuestsAsync()
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        // Build URL with query parameters
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        query["with"] = "stats"; // Example
+        // query["page"] = "1";
+        string queryString = query.ToString();
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/guests?{queryString}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Successfully listed guests:");
+                // Pretty print JSON
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to list guests. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception listing guests: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await ListGuestsAsync();
+    // }
 }
 ```
 </TabItem>

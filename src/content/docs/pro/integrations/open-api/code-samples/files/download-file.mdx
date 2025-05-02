@@ -37,13 +37,17 @@ No common query parameters are typically needed for this endpoint.
 These samples demonstrate how to fetch the file content and save it locally. Error handling should check the response status and `Content-Type` header.
 
 <Tabs>
-<TabItem label="JavaScript (fetch + Blob)">
+<TabItem label="Javascript">
 ```javascript
+// Note: This JS example is designed for a browser environment
+// to leverage Blob creation and download triggering.
+// For Node.js, you would pipe the response stream to a file.
+
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const fileId = 'ASSET_ID_TO_DOWNLOAD';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/file/${fileId}/dl`;
-const localFilename = 'downloaded_file'; // Desired local filename
+const defaultLocalFilename = 'downloaded_file'; // Default name if header is missing
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -55,22 +59,45 @@ fetch(apiUrl, {
 })
 .then(response => {
     if (!response.ok) {
-        // Try to read error as text, might not be JSON
-        return response.text().then(text => { 
-            throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
+        // Attempt to read error as text, as it might not be JSON for file endpoints
+        return response.text().then(text => {
+            console.error(`Error Response Body: ${text}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }).catch(() => {
+             // Fallback if reading text also fails
+            throw new Error(`HTTP error! status: ${response.status}`);
         });
     }
-    // Get filename from Content-Disposition header if available
+
+    // Try to get filename from Content-Disposition header
     const disposition = response.headers.get('content-disposition');
-    let filename = localFilename;
-    if (disposition && disposition.indexOf('attachment') !== -1) {
-        const filenameRegex = /filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/;
+    let filename = defaultLocalFilename;
+    if (disposition && disposition.includes('attachment')) {
+        const filenameRegex = /filename[^;=\n]*=((['"])(.*?)\2|[^;\n]*)/i;
         const matches = filenameRegex.exec(disposition);
-        if (matches != null && matches[3]) { 
-          filename = matches[3].replace(/[^\w\.\-]/g, '_'); // Basic sanitization
+        if (matches != null && matches[3]) {
+          filename = decodeURIComponent(matches[3].replace(/\+/g, ' ')); // Decode URI component
+          // Basic sanitization (replace potentially problematic characters)
+          filename = filename.replace(/[^\w\.\-]/g, '_');
+        } else {
+          // Fallback if regex fails but header exists
+          filename = `${defaultLocalFilename}_${fileId}`;
         }
     }
+     else {
+         // If no header, construct a name
+         filename = `${defaultLocalFilename}_${fileId}`;
+         const contentType = response.headers.get('content-type');
+         if (contentType) {
+            const ext = contentType.split('/')[1]; // Basic extension guess
+            if (ext && !filename.includes('.')) {
+                filename += `.${ext}`;
+            }
+         }
+     }
+
     console.log(`Attempting to download as: ${filename}`);
+    // Return the blob and the determined filename
     return response.blob().then(blob => ({ blob, filename }));
 })
 .then(({ blob, filename }) => {
@@ -79,7 +106,7 @@ fetch(apiUrl, {
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = filename;
+    a.download = filename; // Use the determined filename
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -87,11 +114,11 @@ fetch(apiUrl, {
     console.log('File download initiated.');
 })
 .catch(error => {
-    console.error('Error downloading file:', error);
+    console.error('Error downloading file:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import os
@@ -108,38 +135,59 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None # Initialize response to None
 try:
-    # Use stream=True to handle potentially large files
-    with requests.get(api_url, headers=headers, stream=True) as response:
-        response.raise_for_status()
+    # Use stream=True to handle potentially large files efficiently
+    response = requests.get(api_url, headers=headers, stream=True)
+    response.raise_for_status() # Check for 4xx/5xx errors
 
-        # Try to get filename from header
-        filename = f"downloaded_{file_id}" # Default filename
-        content_disposition = response.headers.get('content-disposition')
-        if content_disposition:
-            fname_match = re.search(r'filename=['\"]?([^'\"\n;]+)['\"]?', content_disposition)
-            if fname_match:
-                filename = fname_match.group(1)
-
-        output_path = os.path.join(output_directory, filename)
+    # Try to get filename from header
+    filename = f"downloaded_{file_id}" # Default filename
+    content_disposition = response.headers.get('content-disposition')
+    if content_disposition:
+        # Use a robust regex for filename extraction
+        fname_match = re.search(r'filename\*?=(?:UTF-'8'')?([^'"\n;]+)['"\n;]?', content_disposition, re.IGNORECASE)
+        if not fname_match:
+            fname_match = re.search(r'filename=['\"]?([^'\"\n;]+)['\"]?', content_disposition, re.IGNORECASE)
         
-        print(f"Downloading file to: {output_path}")
-        # Write the content chunk by chunk
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
+        if fname_match:
+            potential_filename = fname_match.group(1)
+            # Basic sanitization - remove potentially harmful chars
+            filename = re.sub(r'[^\w.\-]', '_', potential_filename)
+            if not filename: # Handle case where sanitization removes everything
+                 filename = f"downloaded_{file_id}"
+
+    output_path = os.path.join(output_directory, filename)
+    
+    print(f"Downloading file to: {output_path}")
+    # Write the content chunk by chunk
+    with open(output_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+             # filter out keep-alive new chunks
+            if chunk:
                 f.write(chunk)
-        print("File downloaded successfully.")
+    print("File downloaded successfully.")
 
 except requests.exceptions.RequestException as e:
-    print(f"Request failed: {e}")
+    print(f"Request failed for file {file_id}: {e}")
     if response is not None:
         print(f"Status Code: {response.status_code}")
-        print(f"Response Text: {response.text}")
+        # Try to print error text, might fail if response is closed
+        try:
+             print(f"Response Text: {response.text}")
+        except Exception as read_err:
+             print(f"Could not read error response body: {read_err}")
+
 except Exception as e:
-     print(f"An error occurred: {e}")
+     print(f"An unexpected error occurred: {e}")
+
+finally:
+     if response is not None:
+        response.close() # Ensure the connection is closed
+
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -147,19 +195,29 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.Files;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DownloadFile {
+
+    // Pattern to extract filename from Content-Disposition header
+    private static final Pattern FILENAME_PATTERN = Pattern.compile("filename\*?=(?:UTF-8'')?([^;\"\n]+)", Pattern.CASE_INSENSITIVE);
+
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String fileId = "ASSET_ID_TO_DOWNLOAD";
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/file/%s/dl", orgId, fileId);
-        Path outputPath = Paths.get("./downloaded_file_" + fileId); // Default output path
+        String downloadDir = "."; // Current directory
+        Path tempOutputPath = Paths.get(downloadDir, "temp_download_" + fileId); // Temporary file path
 
-        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build(); // Allow redirects
+        HttpClient client = HttpClient.newBuilder()
+                                      .followRedirects(HttpClient.Redirect.NORMAL) // Handle redirects
+                                      .build();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Authorization", "Bearer " + accessToken)
@@ -168,106 +226,356 @@ public class DownloadFile {
                 .build();
 
         try {
-            // Request the body directly as a file
-            HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(outputPath));
+            // Request the body directly as a file (download to temp location first)
+            HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(tempOutputPath));
 
             if (response.statusCode() == 200) {
-                 // Try to get a better filename from header
+                 // Determine the final filename
+                 String finalFilename = "downloaded_" + fileId;
                  Optional<String> disposition = response.headers().firstValue("content-disposition");
-                 String finalFilename = outputPath.getFileName().toString();
                  if (disposition.isPresent()) {
-                     String headerValue = disposition.get();
-                     // Basic parsing, might need refinement
-                     int index = headerValue.indexOf("filename=");
-                     if (index >= 0) {
-                         finalFilename = headerValue.substring(index + 9).replace("\"", ""); 
+                     Matcher matcher = FILENAME_PATTERN.matcher(disposition.get());
+                     if (matcher.find()) {
+                         // Extract and sanitize filename
+                         String extractedName = matcher.group(1).replace("\"", "").trim();
+                         finalFilename = extractedName.replaceAll("[^\w.\-]", "_"); // Sanitize
+                         if (finalFilename.isEmpty()) { // Handle case where sanitization removes everything
+                             finalFilename = "downloaded_" + fileId;
+                         }
                      }
                  }
-                 Path finalOutputPath = outputPath.resolveSibling(finalFilename);
-                 java.nio.file.Files.move(outputPath, finalOutputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+                 Path finalOutputPath = Paths.get(downloadDir, finalFilename);
+                 // Move the downloaded file from temp path to final path
+                 Files.move(tempOutputPath, finalOutputPath, StandardCopyOption.REPLACE_EXISTING);
                 
-                 System.out.println("Successfully downloaded file to: " + finalOutputPath); 
+                 System.out.println("Successfully downloaded file to: " + finalOutputPath.toAbsolutePath()); 
             } else {
-                // If status is not 200, the body might contain an error message (not the file)
-                // We requested it as a file, so outputPath might be created but empty/invalid.
-                // Try reading the error from the potentially created file (or handle differently)
-                System.err.println("Failed to download file. Status: " + response.statusCode());
+                System.err.println("Failed to download file " + fileId + ". Status: " + response.statusCode());
+                // Try reading the error message from the temporary file
                 try { 
-                    String errorBody = java.nio.file.Files.readString(outputPath);
+                    String errorBody = Files.readString(tempOutputPath);
                     System.err.println("Error Response Body: " + errorBody);
                 } catch (IOException readError) {
-                     System.err.println("Could not read error response body from temp file.");
+                     System.err.println("Could not read error response body from temp file: " + readError.getMessage());
+                } finally {
+                     Files.deleteIfExists(tempOutputPath); // Clean up temp file
                 }
-                java.nio.file.Files.deleteIfExists(outputPath); // Clean up temp file on error
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
              try {
-                 java.nio.file.Files.deleteIfExists(outputPath); // Clean up temp file on error
-             } catch (IOException cleanupError) { /* Ignore cleanup error */ }
+                 Files.deleteIfExists(tempOutputPath); // Ensure cleanup on other exceptions
+             } catch (IOException cleanupError) { 
+                  System.err.println("Failed to cleanup temp file: " + cleanupError.getMessage());
+             }
+            Thread.currentThread().interrupt();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
-	"regexp"
+	"path/filepath"
+    "regexp"
+    "strings"
+    "time"
 )
+
+// Sanitize filename to prevent directory traversal and invalid characters
+func sanitizeFilename(filename string) string {
+    // Remove path components
+    filename = filepath.Base(filename)
+    // Replace invalid characters (example: allow alphanumeric, underscore, hyphen, dot)
+    sanitized := regexp.MustCompile(`[^\w.\-]`).ReplaceAllString(filename, "_")
+    // Prevent names that are just dots or empty
+    if sanitized == "" || strings.Trim(sanitized, ".") == "" {
+        return "downloaded_file"
+    }
+    return sanitized
+}
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
     fileId := "ASSET_ID_TO_DOWNLOAD"
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/file/%s/dl", orgId, fileId)
+    outputDir := "."
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil { /* handle error */ }
+    if err != nil {
+        fmt.Printf("Error creating request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil { /* handle error */ }
+    if err != nil {
+        fmt.Printf("Error making request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
         bodyBytes, _ := io.ReadAll(resp.Body)
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(bodyBytes))
+		fmt.Printf("Failed to download file %s. Status: %d\nBody: %s\n", fileId, resp.StatusCode, string(bodyBytes))
 		return
 	}
 
-    // Determine filename
-    filename := "downloaded_" + fileId
+    // Determine filename securely
+    filename := "downloaded_" + fileId // Default
     disposition := resp.Header.Get("Content-Disposition")
     if disposition != "" {
-        re := regexp.MustCompile(`filename=["']?([^"']+)["']?`)
-        matches := re.FindStringSubmatch(disposition)
-        if len(matches) > 1 {
-            filename = matches[1]
+        _, params, err := mime.ParseMediaType(disposition)
+        if err == nil && params["filename"] != "" {
+            filename = sanitizeFilename(params["filename"])
+        } else if err == nil && params["filename*"] != "" {
+             // Handle RFC 5987 encoding (basic)
+             parts := strings.SplitN(params["filename*"], "''", 2)
+             if len(parts) == 2 {
+                 decodedName, decodeErr := url.PathUnescape(parts[1])
+                 if decodeErr == nil {
+                    filename = sanitizeFilename(decodedName)
+                 }
+             }
         }
     }
 
-    fmt.Printf("Downloading file as: %s\n", filename)
+    outputPath := filepath.Join(outputDir, filename)
+    fmt.Printf("Downloading file to: %s\n", outputPath)
 
     // Create the output file
-    outFile, err := os.Create(filename)
-    if err != nil { /* handle error */ }
+    outFile, err := os.Create(outputPath)
+    if err != nil {
+         fmt.Printf("Error creating output file %s: %v\n", outputPath, err)
+         return
+     }
     defer outFile.Close()
 
     // Copy the response body to the file
-    _, err = io.Copy(outFile, resp.Body)
-    if err != nil { /* handle error */ }
+    bytesWritten, err := io.Copy(outFile, resp.Body)
+    if err != nil {
+         fmt.Printf("Error writing to file %s: %v\n", outputPath, err)
+         // Attempt to remove partially written file
+         os.Remove(outputPath)
+         return
+     }
 
-    fmt.Println("File downloaded successfully.")
+    fmt.Printf("File downloaded successfully (%d bytes).\n", bytesWritten)
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <regex>
+#include <cpprest/http_client.h>
+#include <cpprest/filestream.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace concurrency::streams;
+
+// Basic filename extraction and sanitization
+utility::string_t GetAndSanitizeFilename(const http_headers& headers, const utility::string_t& defaultFilename)
+{
+    utility::string_t filename = defaultFilename;
+    if (headers.has(header_names::content_disposition)) {
+        utility::string_t disposition = headers[header_names::content_disposition];
+        // Very basic regex, production code needs more robust parsing (RFC 6266)
+        std::wsmatch match;
+        std::wregex pattern(U("filename\*?=[\"\']?([^\"\';]+)[\"\']?"));
+        if (std::regex_search(disposition, match, pattern) && match.size() > 1) {
+            filename = match[1].str();
+            // Basic sanitization: replace non-alphanumeric/dot/hyphen/underscore
+            filename = std::regex_replace(filename, std::wregex(U("[^\\w.\\-]")), utility::string_t(U("_")));
+            if (filename.empty() || filename == U(".") || filename == U("..")) {
+                 filename = defaultFilename; // Revert if sanitization made it invalid
+            }
+        }
+    }
+     // TODO: Potentially check Content-Type for extension if filename is still default
+    return filename;
+}
+
+pplx::task<void> DownloadFileAsset(const utility::string_t& fileId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/file/") + fileId + U("/dl");
+    utility::string_t defaultFilename = U("downloaded_") + fileId;
+
+    http_client client(apiUrl);
+
+    http_request request(methods::GET);
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([defaultFilename](http_response response)
+    {
+        if (response.status_code() == status_codes::OK)
+        {
+            utility::string_t finalFilename = GetAndSanitizeFilename(response.headers(), defaultFilename);
+            std::wcout << L"Attempting to download as: " << finalFilename << std::endl;
+
+            // Create file stream for output
+            return file_stream<uint8_t>::open_ostream(finalFilename).then([response](ostream os)
+            {
+                return response.body().read_to_end(os.streambuf());
+            }).then([finalFilename](size_t size)
+            {
+                std::wcout << L"Successfully downloaded file " << finalFilename << L" (" << size << L" bytes)." << std::endl;
+            });
+        }
+        else
+        {
+            // Handle error: Read the response body as string to show error message
+            return response.extract_string().then([response](utility::string_t errorBody)
+            {
+                std::wcerr << L"Failed to download file. Status: " << response.status_code() << std::endl;
+                std::wcerr << L"Error Response Body: " << errorBody << std::endl;
+                // Throw an exception or return error indication
+                 return pplx::task_from_result((size_t)0); // Indicate failure
+            });
+        }
+    });
+}
+
+int main()
+{
+    utility::string_t fileToDownload = U("ASSET_ID_TO_DOWNLOAD");
+    try
+    {
+        DownloadFileAsset(fileToDownload).wait();
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Note: Requires C++ REST SDK (Casablanca). Ensure proper setup.
+// This example performs basic filename extraction and sanitization.
+// Robust error handling (e.g., network issues, file write errors) is crucial for production.
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+
+public class TallyfyFileDownloader
+{
+    private static readonly HttpClient client = new HttpClient() { Timeout = TimeSpan.FromMinutes(5) }; // Longer timeout for downloads
+
+    // Basic sanitization for filenames
+    private static string SanitizeFilename(string filename)
+    {
+        // Remove invalid characters (example preserves alphanumeric, dot, hyphen, underscore)
+        string invalidChars = Regex.Escape(new string(Path.GetInvalidFileNameChars()));
+        string invalidRegStr = string.Format(@"([{0}]*\.\.)|([{0}])", invalidChars);
+        string sanitized = Regex.Replace(filename, invalidRegStr, "_");
+        return string.IsNullOrWhiteSpace(sanitized) ? "downloaded_file" : sanitized;
+    }
+
+    public static async Task DownloadFileAsync(string fileId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/file/{fileId}/dl";
+        string outputDir = "."; // Or specify a directory
+        string defaultFilename = $"downloaded_{fileId}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+        try
+        {
+            // Send the request and specify completion option to read headers first
+            HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            
+            if (response.IsSuccessStatusCode) // Status 200 OK
+            {
+                // Determine filename
+                string filename = defaultFilename;
+                ContentDispositionHeaderValue contentDisposition = response.Content.Headers.ContentDisposition;
+                if (contentDisposition != null)
+                {
+                    // Prefer filename* if available (handles encoding)
+                    if (!string.IsNullOrWhiteSpace(contentDisposition.FileNameStar))
+                    {
+                         filename = SanitizeFilename(contentDisposition.FileNameStar);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(contentDisposition.FileName))
+                    {
+                        filename = SanitizeFilename(contentDisposition.FileName);
+                    }
+                }
+
+                string outputPath = Path.Combine(outputDir, filename);
+                Console.WriteLine($"Downloading file to: {outputPath}");
+
+                // Stream the content directly to a file
+                using (var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (var httpStream = await response.Content.ReadAsStreamAsync())
+                {
+                    await httpStream.CopyToAsync(fileStream);
+                }
+                Console.WriteLine("File downloaded successfully.");
+            }
+            else
+            {
+                string errorBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Failed to download file {fileId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Error Response: {errorBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception for file {fileId}: {e.Message}");
+        }
+        catch (IOException ioEx)
+        {
+             Console.WriteLine($"File I/O Exception: {ioEx.Message}");
+        }
+         catch (Exception ex)
+        {
+             Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example usage:
+    // static async Task Main(string[] args)
+    // {
+    //     string fileIdToDownload = "ASSET_ID_TO_DOWNLOAD";
+    //     await DownloadFileAsync(fileIdToDownload);
+    // }
 }
 ```
 </TabItem>

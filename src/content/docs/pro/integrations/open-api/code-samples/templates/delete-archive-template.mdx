@@ -282,105 +282,474 @@ Replace `{org_id}` and `{checklist_id}` as appropriate.
 
 No request body is needed.
 
-#### Code samples (Permanent deletion)
-
-The code samples are very similar to archiving, just change the `apiUrl` to include the `/delete` suffix.
+#### Code Samples (Archive & Delete)
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
-// ... (setup accessToken, orgId, checklistId as before) ...
-const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}/delete`; // <-- Added /delete
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const checklistId = 'TEMPLATE_ID_TO_ACTION'; 
 
-// ... (fetch call using DELETE method as in archive example) ...
+// Choose the action: true to permanently delete, false (or omit) to archive
+const permanentlyDelete = false; 
 
-// Check for 200 OK or 204 No Content for successful deletion
-fetch(apiUrl, { /* ... */ })
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+
+const actionPath = permanentlyDelete ? '/delete' : '';
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}${actionPath}`;
+
+fetch(apiUrl, {
+    method: 'DELETE',
+    headers: headers
+})
 .then(response => {
-    if (response.status === 200 || response.status === 204) {
-        console.log(`Successfully deleted template ${checklistId}. Status: ${response.status}`);
+    const successStatus = permanentlyDelete ? 204 : 200; // Delete often returns 204, Archive 200
+    const successStatusAlt = permanentlyDelete ? 200 : null; // Delete might also return 200
+
+    if (response.status === successStatus || (successStatusAlt && response.status === successStatusAlt)) {
+        const actionText = permanentlyDelete ? 'deleted' : 'archived';
+        console.log(`Successfully ${actionText} template ${checklistId}. Status: ${response.status}`);
+        if (response.status === 204) {
+            return null; // No body expected for 204
+        } else {
+             // Try to parse JSON for 200 OK
+            return response.json().catch(e => {
+                 console.warn("Could not parse JSON response:", e);
+                 return null;
+             });
+        }
     } else {
-        // Error handling
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+        // Try to parse error JSON, fallback to text
+        return response.json()
+            .catch(() => response.text())
+            .then(errData => {
+                const actionText = permanentlyDelete ? 'delete' : 'archive';
+                console.error(`Failed to ${actionText} template ${checklistId}. Status: ${response.status}`, errData);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            });
+    }
+})
+.then(data => {
+    if (data) {
+        const actionText = permanentlyDelete ? 'Deleted' : 'Archived';
+        console.log(`${actionText} template details (if returned):`);
+        console.log(JSON.stringify(data, null, 2));
     }
 })
 .catch(error => {
-    console.error('Error deleting template:', error);
+    const actionText = permanentlyDelete ? 'deleting' : 'archiving';
+    console.error(`Error ${actionText} template ${checklistId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
-# ... (setup access_token, org_id, checklist_id as before) ...
-api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/checklists/{checklist_id}/delete' # <-- Added /delete
+import requests
+import json
+import os
 
-# ... (requests.delete call as in archive example) ...
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+checklist_id = 'TEMPLATE_ID_TO_ACTION'
 
+# Choose action
+permanently_delete = False # Set to True to permanently delete
+
+action_path = "/delete" if permanently_delete else ""
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/checklists/{checklist_id}{action_path}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+}
+
+response = None
 try:
-    response = requests.delete(api_url, headers=headers)
-    # Check for 200 or 204
-    if response.status_code == 200 or response.status_code == 204:
-        print(f'Successfully deleted template {checklist_id}. Status: {response.status_code}')
-        if response.content:
+    response = requests.delete(api_url, headers=headers) 
+    
+    action_text_past = "deleted" if permanently_delete else "archived"
+    success_status = 204 if permanently_delete else 200
+    alt_success_status = 200 if permanently_delete else None
+
+    if response.status_code == success_status or (alt_success_status and response.status_code == alt_success_status):
+        print(f'Successfully {action_text_past} template {checklist_id}. Status: {response.status_code}')
+        if response.status_code != 204 and response.content:
              print(f"Response Body: {response.text}") # May return success message
     else:
         response.raise_for_status() # Raise exception for other errors
-except requests.exceptions.RequestException as e:
-    # ... (error handling as before) ...
-    pass
+
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    action_text = "delete" if permanently_delete else "archive"
+    print(f"HTTP error occurred trying to {action_text} template {checklist_id}: {http_err}") 
+    print(f"Response Body: {error_details}")
+
+except requests.exceptions.RequestException as req_err:
+     action_text = "delete" if permanently_delete else "archive"
+     print(f"Request failed trying to {action_text} template {checklist_id}: {req_err}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
-// ... (setup accessToken, orgId, checklistId as before) ...
-String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/checklists/" + checklistId + "/delete"; // <-- Added /delete
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.time.Duration;
 
-// ... (HttpClient setup and request build with .DELETE() as in archive example) ...
+public class DeleteOrArchiveTemplate {
 
-try {
-    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-    if (response.statusCode() == 200 || response.statusCode() == 204) { // Check for 200 or 204
-        System.out.println("Successfully deleted template " + checklistId + ". Status: " + response.statusCode());
-         if (response.body() != null && !response.body().isEmpty()) {
-              System.out.println("Response Body: " + response.body());
-         }
-    } else {
-        // Error handling
-        System.err.println("Failed to delete template. Status: " + response.statusCode());
-        System.err.println("Response: " + response.body());
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        String checklistId = "TEMPLATE_ID_TO_ACTION";
+        boolean permanentlyDelete = false; // Set to true to permanently delete
+
+        String actionPath = permanentlyDelete ? "/delete" : "";
+        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/checklists/%s%s", 
+                                    orgId, checklistId, actionPath);
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .DELETE() // Use DELETE method for both archive and delete
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            int statusCode = response.statusCode();
+            String actionTextPast = permanentlyDelete ? "deleted" : "archived";
+            String actionTextPresent = permanentlyDelete ? "delete" : "archive";
+
+            // Define expected success codes
+            int expectedStatus = permanentlyDelete ? 204 : 200;
+            Integer altExpectedStatus = permanentlyDelete ? 200 : null;
+
+            if (statusCode == expectedStatus || (altExpectedStatus != null && statusCode == altExpectedStatus)) {
+                 System.out.printf("Successfully %s template %s. Status: %d\n", 
+                                   actionTextPast, checklistId, statusCode);
+                 if (statusCode != 204 && response.body() != null && !response.body().isEmpty()) {
+                     System.out.println("Response Body:");
+                     System.out.println(response.body());
+                     // TODO: Consider parsing JSON
+                 } else if (statusCode == 204) {
+                      System.out.println("(Received status 204 No Content)");
+                 } else {
+                      System.out.println("(Response body empty for 200 OK)");
+                 }
+            } else {
+                System.err.printf("Failed to %s template %s. Status: %d\n", 
+                                  actionTextPresent, checklistId, statusCode);
+                System.err.println("Response Body: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            String actionTextPresent = permanentlyDelete ? "delete" : "archive";
+            System.err.printf("Request failed trying to %s template %s: %s\n", 
+                              actionTextPresent, checklistId, e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
+        }
     }
-} catch (IOException | InterruptedException e) {
-    // Error handling
-    System.err.println("Request failed: " + e.getMessage());
-    Thread.currentThread().interrupt();
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
-// ... (setup accessToken, orgId, checklistId as before) ...
-apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/checklists/%s/delete", orgId, checklistId) // <-- Added /delete
+package main
 
-// ... (client setup and request creation with http.MethodDelete as in archive example) ...
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
+)
 
-resp, err := client.Do(req)
-// ... (error handling for request execution) ...
-defer resp.Body.Close()
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	checklistId := "TEMPLATE_ID_TO_ACTION"
+    permanentlyDelete := false // Set to true to permanently delete
 
-body, err := ioutil.ReadAll(resp.Body)
-// ... (error handling for reading body) ...
-
-if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent { // Check for 200 or 204
-    fmt.Printf("Successfully deleted template %s. Status: %d\n", checklistId, resp.StatusCode)
-    if len(body) > 0 {
-        fmt.Printf("Response Body: %s\n", string(body))
+    actionPath := ""
+    if permanentlyDelete {
+        actionPath = "/delete"
     }
-} else {
-    fmt.Printf("Failed to delete template %s. Status: %d\nBody: %s\n", checklistId, resp.StatusCode, string(body))
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/checklists/%s%s", 
+                        orgId, checklistId, actionPath)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil) 
+	if err != nil {
+		fmt.Printf("Error creating DELETE request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error making DELETE request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        // Might happen for 204, check status first
+    }
+
+    actionTextPast := "deleted" 
+    if !permanentlyDelete { actionTextPast = "archived" }
+    actionTextPresent := "delete" 
+    if !permanentlyDelete { actionTextPresent = "archive" }
+
+	expectedStatus := http.StatusNoContent // Default for delete
+	altExpectedStatus := http.StatusOK    // Delete might also return 200
+    if !permanentlyDelete {
+        expectedStatus = http.StatusOK // Archive expects 200
+        altExpectedStatus = 0 // No alternative for archive
+    }
+
+	if resp.StatusCode == expectedStatus || (altExpectedStatus != 0 && resp.StatusCode == altExpectedStatus) {
+		fmt.Printf("Successfully %s template %s. Status: %d\n", actionTextPast, checklistId, resp.StatusCode)
+        if resp.StatusCode != http.StatusNoContent && len(body) > 0 {
+            fmt.Println("Response Body:")
+             // Pretty print JSON response
+            var prettyJSON bytes.Buffer
+            if json.Indent(&prettyJSON, body, "", "  ") == nil {
+                fmt.Println(prettyJSON.String())
+            } else {
+                fmt.Println(string(body))
+            }
+        } else if resp.StatusCode == http.StatusNoContent{
+             fmt.Println("(Received status 204 No Content)")
+        } else {
+             fmt.Println("(Response body empty)")
+        }
+	} else {
+		fmt.Printf("Failed to %s template %s. Status: %d\nBody: %s\n", 
+                   actionTextPresent, checklistId, resp.StatusCode, string(body))
+	}
 }
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ArchiveOrDeleteTallyfyTemplate(const utility::string_t& checklistId, bool permanentlyDelete)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    utility::string_t actionPath = permanentlyDelete ? U("/delete") : U("");
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/checklists/") + checklistId + actionPath;
+
+    http_client client(apiUrl);
+    http_request request(methods::DEL); // DELETE method for both
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    // No request body needed
+
+    return client.request(request).then([checklistId, permanentlyDelete](http_response response)
+    {
+        status_code status = response.status_code();
+        utility::string_t checklistIdW = checklistId;
+        utility::string_t actionTextPast = permanentlyDelete ? U("deleted") : U("archived");
+        utility::string_t actionTextPresent = permanentlyDelete ? U("delete") : U("archive");
+
+        status_code expectedStatus = permanentlyDelete ? status_codes::NoContent : status_codes::OK;
+        status_code altExpectedStatus = permanentlyDelete ? status_codes::OK : 0;
+
+        return response.extract_string().then([=](utility::string_t responseBody)
+        {
+             if (status == expectedStatus || (altExpectedStatus != 0 && status == altExpectedStatus)) {
+                 std::wcout << L"Successfully " << actionTextPast << L" template " << checklistIdW << L". Status: " << status << std::endl;
+                 if (status != status_codes::NoContent && !responseBody.empty()) {
+                     std::wcout << L"Response Body:\n" << responseBody << std::endl;
+                     try {
+                         value jsonVal = value::parse(responseBody);
+                     } catch (const std::exception& jsonEx) {
+                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
+                     }
+                 } else if (status == status_codes::NoContent) {
+                     std::wcout << L"(Received status 204 No Content)" << std::endl;
+                 } else {
+                     std::wcout << L"(Response body empty)" << std::endl;
+                 }
+             } else {
+                 std::wcerr << L"Failed to " << actionTextPresent << L" template " << checklistIdW << L". Status: " << status << std::endl;
+                 std::wcerr << L"Response Body: " << responseBody << std::endl;
+                 throw std::runtime_error("Failed to archive/delete template");
+             }
+        });
+    });
+}
+
+int main() {
+    try {
+        // Archive a template
+        ArchiveOrDeleteTallyfyTemplate(U("TEMPLATE_ID_TO_ARCHIVE"), false).wait(); 
+        
+        // Permanently delete a template (USE WITH CAUTION)
+        // ArchiveOrDeleteTallyfyTemplate(U("TEMPLATE_ID_TO_DELETE"), true).wait(); 
+
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+
+public class TallyfyTemplateDeleter
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task ArchiveOrDeleteTemplateAsync(string checklistId, bool permanentlyDelete)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        string actionPath = permanentlyDelete ? "/delete" : "";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/checklists/{checklistId}{actionPath}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+            // No request body needed
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            string actionTextPast = permanentlyDelete ? "deleted" : "archived";
+            string actionTextPresent = permanentlyDelete ? "delete" : "archive";
+            System.Net.HttpStatusCode expectedStatus = permanentlyDelete ? System.Net.HttpStatusCode.NoContent : System.Net.HttpStatusCode.OK;
+            System.Net.HttpStatusCode? altExpectedStatus = permanentlyDelete ? System.Net.HttpStatusCode.OK : null;
+
+            if (response.StatusCode == expectedStatus || (altExpectedStatus.HasValue && response.StatusCode == altExpectedStatus.Value)) 
+            {
+                Console.WriteLine($"Successfully {actionTextPast} template {checklistId}. Status: {response.StatusCode}");
+                if (response.StatusCode != System.Net.HttpStatusCode.NoContent && !string.IsNullOrWhiteSpace(responseBody))
+                {
+                    Console.WriteLine($"{actionTextPast.Capitalize()} template details (if returned):");
+                    try {
+                         using var doc = JsonDocument.Parse(responseBody);
+                         Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                     } catch (JsonException) {
+                         Console.WriteLine(responseBody); 
+                     }
+                } else if (response.StatusCode == System.Net.HttpStatusCode.NoContent) {
+                     Console.WriteLine("(Received status 204 No Content)");
+                 } else { // Handle 200 OK for archive with empty body
+                     Console.WriteLine("(Response body empty)");
+                 }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to {actionTextPresent} template {checklistId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+             string actionTextPresent = permanentlyDelete ? "delete" : "archive";
+             Console.WriteLine($"Request Exception trying to {actionTextPresent} template {checklistId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+}
+// Helper (place inside or outside class)
+public static class StringExtensions {
+    public static string Capitalize(this string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        return char.ToUpper(input[0]) + input.Substring(1);
+    }
+}
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     // Archive
+    //     await ArchiveOrDeleteTemplateAsync("TEMPLATE_TO_ARCHIVE", false);
+    //     // Delete (Use with Caution!)
+    //     // await ArchiveOrDeleteTemplateAsync("TEMPLATE_TO_DELETE", true);
+    // }
+
 ```
 </TabItem>
 </Tabs>
+
+
+#### Response (Archiving)
+
+A successful archive request typically returns a `200 OK` status code. The response body *may* contain the details of the archived template, now including an `archived_at` timestamp.
+
+```json
+{
+  "data": {
+    "id": "TEMPLATE_ID_TO_ARCHIVE",
+    "title": "Template To Be Archived",
+    // ... other properties ...
+    "archived_at": "2024-05-20T13:00:00.000Z" // Timestamp indicates archival
+  }
+}
+```
 
 #### Response (Permanent deletion)
 

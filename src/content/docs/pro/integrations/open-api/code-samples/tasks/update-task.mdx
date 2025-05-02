@@ -79,10 +79,8 @@ Providing the `owners` object *replaces* all existing assignees with the ones sp
 
 ### Code samples
 
-(Examples use the endpoint for process tasks. Adapt the URL for one-off tasks.)
-
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -91,20 +89,20 @@ const taskId = 'TASK_ID_TO_UPDATE';
 
 // Choose the correct URL based on task type
 const apiUrl = runId 
-    ? `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/tasks/${taskId}`
-    : `https://api.tallyfy.com/organizations/${orgId}/tasks/${taskId}`; 
+    ? `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/tasks/${taskId}`
+    : `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}`; 
 
 const updatePayload = {
   // Example: Update deadline and a text form field
-  deadline: "2024-07-01T09:00:00Z", 
+  deadline: "2024-07-01T09:00:00Z", // Use ISO 8601 Format
   taskdata: {
-    "text_field_id_example": "Updated value from JS"
+    "text_field_id_example": "Updated value from JS" // Use actual Field ID
   },
-  // Example: Change assignees
+  // Example: Change assignees (this REPLACES the entire list)
   owners: {
       users: [1005], // Assign only user 1005
-      groups: [],
-      guests: []
+      groups: [],    // Remove all group assignments
+      guests: []     // Remove all guest assignments
   }
 };
 
@@ -120,22 +118,24 @@ fetch(apiUrl, {
     body: JSON.stringify(updatePayload)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error(`Failed to update task ${taskId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log(`Successfully updated task ${taskId}:`);
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error updating task ${taskId}:`, error);
+    console.error(`Error updating task ${taskId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -143,13 +143,13 @@ import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-run_id = 'PROCESS_RUN_ID' # Set to None for one-off task
+run_id = os.environ.get('TALLYFY_RUN_ID') # Get from env, might be None for one-off task
 task_id = 'TASK_ID_TO_UPDATE'
 
 if run_id:
-    api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/tasks/{task_id}'
+    api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}'
 else:
-    api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks/{task_id}'
+    api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -158,70 +158,106 @@ headers = {
     'Content-Type': 'application/json'
 }
 
+# Note: Updating 'owners' replaces the entire list.
+# Fetch current task if you need to add/remove incrementally.
 update_payload = {
     'summary': 'Task summary updated via Python.',
     # Example: Update a dropdown form field
     'taskdata': {
         'dropdown_field_id_example': {
-            'id': 3, # Option ID
+            'id': 3, # Option ID from template form field definition
             'text': 'Selected Option C', 
-            'value': None
+            'value': None # Value is often null for dropdowns/radios
          }
     }
-    # Add other fields like 'owners' or 'deadline' as needed
+    # Add other fields like 'owners' or 'deadline' or 'title' as needed
 }
 
+response = None
 try:
     response = requests.put(api_url, headers=headers, json=update_payload)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     updated_task = response.json()
     print(f'Successfully updated task {task_id}:')
     print(json.dumps(updated_task, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    print(f"HTTP error occurred updating task {task_id}: {http_err}") 
+    print(f"Response Body: {error_details}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed updating task {task_id}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode successful JSON response for task update {task_id}")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Assumes JSON library
+import java.time.Duration;
+// Requires a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.HashMap;
+// import java.util.List;
 
 public class UpdateTask {
 
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String runId = "PROCESS_RUN_ID"; // Set to null for one-off task
+        String runId = System.getenv("TALLYFY_RUN_ID"); // Set to null for one-off task
         String taskId = "TASK_ID_TO_UPDATE";
         
         String apiUrl;
         if (runId != null && !runId.isEmpty()) {
-             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId);
+             apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId);
         } else {
-             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId);
+             apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId);
         }
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, Object> updateData = new HashMap<>();
-        // updateData.put("deadline", "2024-07-10T12:00:00Z");
-        // Map<String, Object> taskData = new HashMap<>();
-        // taskData.put("some_field_id", "new value");
-        // updateData.put("taskdata", taskData);
-        // String jsonPayload = new ObjectMapper().writeValueAsString(updateData);
-        
-        // Simple example payload
+        // --- Payload Construction --- 
+        // Using Jackson/Gson recommended:
+        /*
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> updateData = new HashMap<>();
+        updateData.put("deadline", "2024-07-10T12:00:00Z");
+        Map<String, Object> taskData = new HashMap<>();
+        taskData.put("some_field_id", "new value");
+        updateData.put("taskdata", taskData);
+        // Map<String, List<Integer>> owners = Map.of("users", List.of(1001));
+        // updateData.put("owners", owners); // Replaces assignees
+        String jsonPayload;
+        try {
+            jsonPayload = mapper.writeValueAsString(updateData);
+        } catch (Exception e) {
+            System.err.println("Failed to serialize JSON: " + e.getMessage());
+            return;
+        }
+        */
+        // Simple manual JSON string:
         String jsonPayload = "{\"summary\": \"Updated via Java HttpClient\", \"taskdata\": {\"field_abc\":\"Java value\"}}";
+        // --- End Payload --- 
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+                
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Authorization", "Bearer " + accessToken)
@@ -237,20 +273,23 @@ public class UpdateTask {
             if (response.statusCode() == 200) {
                 System.out.println("Successfully updated task " + taskId + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON response
             } else {
-                // Error handling...
-                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to update task " + taskId + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
-             System.err.println("Request failed: " + e.getMessage());
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -261,34 +300,47 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     runId := os.Getenv("TALLYFY_RUN_ID") // Set to "" for one-off task
     taskId := "TASK_ID_TO_UPDATE"
     
     var apiUrl string
     if runId != "" {
-        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId)
+        apiUrl = fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId)
     } else {
-        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks/%s", orgId, taskId)
+        apiUrl = fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId)
     }
 
+    // Note: Updating owners replaces the list
 	updateData := map[string]interface{}{
 		"title":   "Go Updated Task Title",
-        "taskdata": map[string]interface{}{
-            "radio_button_field_id": "Option B",
+        "taskdata": map[string]interface{}{ // Update form field value
+            "radio_button_field_id": "Option B", // Use actual Field ID
         },
+        // "owners": map[string][]interface{} { // Example: Update owners
+        //    "users": {1005}, 
+        // },
 	}
 
 	jsonData, err := json.Marshal(updateData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating update task request for task %s: %v\n", taskId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -296,21 +348,223 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing update task request for task %s: %v\n", taskId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading update task response body for task %s: %v\n", taskId, err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to update task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully updated task %s:\n", taskId)
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <optional>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> UpdateTallyfyTask(const utility::string_t& taskId, const value& updatePayload, std::optional<utility::string_t> runId = std::nullopt)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    utility::string_t apiUrlBase = U("https://go.tallyfy.com/api/organizations/") + orgId;
+    utility::string_t apiUrl;
+    
+    if (runId) {
+        apiUrl = apiUrlBase + U("/runs/") + runId.value() + U("/tasks/") + taskId;
+    } else {
+        apiUrl = apiUrlBase + U("/tasks/") + taskId;
+    }
+
+    http_client client(apiUrl);
+    http_request request(methods::PUT);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(updatePayload);
+
+    return client.request(request).then([taskId](http_response response)
+    {
+        utility::string_t taskIdW = taskId;
+        return response.extract_json().then([response, taskIdW](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully updated task " << taskIdW << L":\n" << body.serialize() << std::endl;
+                } else {
+                    std::wcerr << L"Failed to update task " << taskIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during update task: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during update task response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        value payload = value::object();
+        payload[U("summary")] = value::string(U("C++ Updated Summary"));
+        value taskdata = value::object();
+        taskdata[U("text_field_123")] = value::string(U("Value set by C++"));
+        payload[U("taskdata")] = taskdata;
+
+        // Update a process task
+        UpdateTallyfyTask(U("TASK_ID_TO_UPDATE"), payload, U("RUN_ID")).wait(); 
+        
+        // Update a one-off task (runId omitted)
+        // UpdateTallyfyTask(U("ONE_OFF_TASK_ID"), payload).wait(); 
+
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization; // For JsonIgnoreCondition
+using System.Threading.Tasks;
+
+public class TallyfyTaskUpdater
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    // Payload class - define properties you might update
+    public class TaskUpdatePayload
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Title { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Summary { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Deadline { get; set; } // ISO 8601 string
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public TaskOwners Owners { get; set; } // Remember: Replaces existing
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, object> TaskData { get; set; } 
+        // Add other updatable fields as needed
+    }
+    public class TaskOwners { // Same as in Create One-Off Task example
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public List<int> Users { get; set; }
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public List<string> Guests { get; set; }
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public List<string> Groups { get; set; }
+    }
+
+    // Use runId = null for one-off tasks
+    public static async Task UpdateTaskAsync(string taskId, TaskUpdatePayload payload, string runId = null)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        string apiUrl;
+        if (!string.IsNullOrEmpty(runId)) {
+            apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/tasks/{taskId}";
+        } else {
+            apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks/{taskId}";
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            // Serialize payload, ignore nulls
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully updated task {taskId}:");
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update task {taskId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception updating task {taskId}: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     var taskUpdate = new TaskUpdatePayload {
+    //         Summary = "C# updated summary.",
+    //         TaskData = new Dictionary<string, object> { { "field_xyz", 123.45 } }
+    //     };
+    //     // Update a process task
+    //     await UpdateTaskAsync("TASK_ID_1", taskUpdate, "RUN_ID_1"); 
+    //     // Update a one-off task
+    //     // await UpdateTaskAsync("ONE_OFF_TASK_ID", taskUpdate);
+    // }
 }
 ```
 </TabItem>

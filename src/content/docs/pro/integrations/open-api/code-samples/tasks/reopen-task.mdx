@@ -37,19 +37,17 @@ No request body is needed for this DELETE request.
 
 ### Code samples
 
-(Examples use the endpoint for process tasks. Adapt the URL for one-off tasks.)
-
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const runId = 'PROCESS_RUN_ID'; // Set to null or use different endpoint for one-off
+const runId = 'PROCESS_RUN_ID'; // Set to null or omit for one-off task
 const taskId = 'TASK_ID_TO_REOPEN';
 
 const apiUrl = runId
-    ? `https://api.tallyfy.com/organizations/${orgId}/runs/${runId}/completed-tasks/${taskId}`
-    : `https://api.tallyfy.com/organizations/${orgId}/completed-tasks/${taskId}`;
+    ? `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/completed-tasks/${taskId}`
+    : `https://go.tallyfy.com/api/organizations/${orgId}/completed-tasks/${taskId}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -57,17 +55,18 @@ headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
 fetch(apiUrl, {
-    method: 'DELETE', // Use DELETE method
+    method: 'DELETE', // Use DELETE method on completed-tasks endpoint
     headers: headers
 })
 .then(response => {
-    if (!response.ok) { // Check for 200 OK
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    console.log(`Successfully reopened task ${taskId}. Status: ${response.status}`);
-    // Reopen might return the updated task state
-    return response.json(); 
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) { // Check for 200 OK on success
+            console.error(`Failed to reopen task ${taskId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+         console.log(`Successfully reopened task ${taskId}. Status: ${response.status}`);
+        return data; // Reopen might return the updated task state
+    });
 })
 .then(data => {
     if(data) {
@@ -76,11 +75,11 @@ fetch(apiUrl, {
     }
 })
 .catch(error => {
-    console.error(`Error reopening task ${taskId}:`, error);
+    console.error(`Error reopening task ${taskId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -88,13 +87,13 @@ import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-run_id = 'PROCESS_RUN_ID' # Set to None for one-off task
+run_id = os.environ.get('TALLYFY_RUN_ID') # Get from env, might be None for one-off task
 task_id = 'TASK_ID_TO_REOPEN'
 
 if run_id:
-    api_url = f'https://api.tallyfy.com/organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}'
+    api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}'
 else:
-    api_url = f'https://api.tallyfy.com/organizations/{org_id}/completed-tasks/{task_id}'
+    api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/completed-tasks/{task_id}'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -102,127 +101,326 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+response = None
 try:
     response = requests.delete(api_url, headers=headers)
-    response.raise_for_status()
+    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
 
     print(f'Successfully reopened task {task_id}. Status: {response.status_code}')
     try:
-        reopened_task = response.json()
-        print('Reopened task details:')
-        print(json.dumps(reopened_task, indent=4))
+         # Attempt to parse JSON body if it exists
+        if response.content:
+            reopened_task = response.json()
+            print('Reopened task details:')
+            print(json.dumps(reopened_task, indent=4))
+        else:
+            print("(Response body empty)")
     except json.JSONDecodeError:
-        print("(No JSON body returned on reopen)")
+        print("(Could not parse response body as JSON)")
+        print(f"Raw Response Text: {response.text}")
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred reopening task {task_id}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed reopening task {task_id}: {req_err}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
+import java.time.Duration;
 
 public class ReopenTask {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String runId = System.getenv().get("TALLYFY_RUN_ID"); // Might be null
+        String runId = System.getenv("TALLYFY_RUN_ID"); // Get from env, might be null for one-off task
         String taskId = "TASK_ID_TO_REOPEN";
 
         String apiUrl;
          if (runId != null && !runId.isEmpty()) {
-            apiUrl = String.format("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId);
+            apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId);
         } else {
-             apiUrl = String.format("https://api.tallyfy.com/organizations/%s/completed-tasks/%s", orgId, taskId);
+             apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/completed-tasks/%s", orgId, taskId);
         }
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+                
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .DELETE()
+                .DELETE() // Use DELETE method
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) { 
-                System.out.println("Successfully reopened task " + taskId + ". Status: " + response.statusCode());
+            if (response.statusCode() == 200) { // Expect 200 OK
+                System.out.println("Successfully reopened task " + taskId + ". Status: 200 OK");
                  if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body:");
+                     System.out.println("Response Body (Reopened Task Details):");
                      System.out.println(response.body());
-                     // TODO: Parse JSON
+                     // TODO: Consider parsing JSON using Jackson/Gson
+                 } else {
+                      System.out.println("(Response body empty)");
                  }
             } else {
-                // Error handling...
-                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to reopen task " + taskId + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    runId := os.Getenv("TALLYFY_RUN_ID") // Might be ""
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+    runId := os.Getenv("TALLYFY_RUN_ID") // Get from env, might be "" for one-off task
     taskId := "TASK_ID_TO_REOPEN"
 
     var apiUrl string
     if runId != "" {
-        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId)
+        apiUrl = fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/completed-tasks/%s", orgId, runId, taskId)
     } else {
-        apiUrl = fmt.Sprintf("https://api.tallyfy.com/organizations/%s/completed-tasks/%s", orgId, taskId)
+        apiUrl = fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/completed-tasks/%s", orgId, taskId)
     }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
+    // Create DELETE request
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating reopen task request for task %s: %v\n", taskId, err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing reopen task request for task %s: %v\n", taskId, err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading reopen task response body for task %s: %v\n", taskId, err)
+        // Continue processing status code even if body read fails
+    }
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to reopen task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully reopened task %s. Status: %d\n", taskId, resp.StatusCode)
     if len(body) > 0 {
-        fmt.Println("Response Body:")
-        fmt.Println(string(body))
-        // TODO: Unmarshal JSON
+        fmt.Println("Response Body (Reopened Task Details):")
+        // Pretty print JSON response
+        var prettyJSON bytes.Buffer
+        if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+            fmt.Println(prettyJSON.String())
+        } else {
+            fmt.Println(string(body))
+        }
+        // TODO: Unmarshal JSON if needed
+    } else {
+         fmt.Println("(Response body empty)")
     }
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <optional>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ReopenTallyfyTask(const utility::string_t& taskId, std::optional<utility::string_t> runId = std::nullopt)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    utility::string_t apiUrlBase = U("https://go.tallyfy.com/api/organizations/") + orgId;
+    utility::string_t apiUrl;
+    
+    if (runId) {
+        apiUrl = apiUrlBase + U("/runs/") + runId.value() + U("/completed-tasks/") + taskId;
+    } else {
+        apiUrl = apiUrlBase + U("/completed-tasks/") + taskId;
+    }
+
+    http_client client(apiUrl);
+    http_request request(methods::DEL); // Use DELETE method
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    // No request body needed
+
+    return client.request(request).then([taskId](http_response response)
+    {
+        utility::string_t taskIdW = taskId;
+        status_code status = response.status_code();
+
+        // Handle potential JSON or string response
+        return response.extract_string().then([status, taskIdW, response](utility::string_t responseBody)
+        {
+             if (status == status_codes::OK) {
+                 std::wcout << L"Successfully reopened task " << taskIdW << L". Status: " << status << std::endl;
+                 if (!responseBody.empty()) {
+                     std::wcout << L"Response Body (Reopened Task Details):\n" << responseBody << std::endl;
+                     try {
+                         value jsonVal = value::parse(responseBody);
+                     } catch (const std::exception& jsonEx) {
+                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
+                     }
+                 } else {
+                     std::wcout << L"(Response body empty)" << std::endl;
+                 }
+             } else {
+                 std::wcerr << L"Failed to reopen task " << taskIdW << L". Status: " << status << std::endl;
+                 std::wcerr << L"Response Body: " << responseBody << std::endl;
+                 throw std::runtime_error("Failed to reopen task");
+             }
+        });
+    });
+}
+
+int main() {
+    try {
+        // Reopen a process task
+        ReopenTallyfyTask(U("TASK_ID_TO_REOPEN"), U("RUN_ID")).wait(); 
+        // Reopen a one-off task (runId is omitted/null)
+        // ReopenTallyfyTask(U("ONEOFF_TASK_ID_TO_REOPEN")).wait(); 
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+
+public class TallyfyTaskReopener
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    // Use runId = null for one-off tasks
+    public static async Task ReopenTaskAsync(string taskId, string runId = null)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        string apiUrl;
+        if (!string.IsNullOrEmpty(runId)) {
+            apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/completed-tasks/{taskId}";
+        } else {
+            apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/completed-tasks/{taskId}";
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+            // No request body needed for DELETE
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync(); 
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully reopened task {taskId}. Status: {response.StatusCode}");
+                if (!string.IsNullOrWhiteSpace(responseBody))
+                {
+                    Console.WriteLine("Reopened task details:");
+                    try {
+                        using var doc = JsonDocument.Parse(responseBody);
+                        Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                    } catch (JsonException) {
+                        Console.WriteLine(responseBody);
+                    }
+                } else {
+                     Console.WriteLine("(Response body empty)");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to reopen task {taskId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception reopening task {taskId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     // Reopen a process task
+    //     await ReopenTaskAsync("TASK_ID_TO_REOPEN", "RUN_ID"); 
+    //     // Reopen a one-off task
+    //     // await ReopenTaskAsync("ONE_OFF_TASK_ID_TO_REOPEN"); 
+    // }
 }
 ```
 </TabItem>

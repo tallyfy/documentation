@@ -34,13 +34,13 @@ Replace `{org_id}` with your Organization ID and `{group_id}` with the specific 
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const groupId = 'GROUP_ID_TO_GET'; // ID of the group
 
-const queryParams = '?with=assets'; // Example
+const queryParams = '?with=assets'; // Example: include group logo if available
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/groups/${groupId}${queryParams}`;
 
 const headers = new Headers();
@@ -53,22 +53,24 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+     return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error(`Failed to get group ${groupId}:`, data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log(`Successfully retrieved group ${groupId}:`);
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error getting group ${groupId}:`, error);
+    console.error(`Error getting group ${groupId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -85,26 +87,35 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+# Optional: Add query parameters
 params = {
-    'with': 'assets' # Example
+    'with': 'assets' # Example: include group logo if available
 }
 
+response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     group_data = response.json()
     print(f'Successfully retrieved group {group_id}:')
     print(json.dumps(group_data, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred getting group {group_id}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed getting group {group_id}: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print(f"Failed to decode JSON response for group {group_id}")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -123,12 +134,13 @@ public class GetGroup {
         String groupId = "GROUP_ID_TO_GET";
         String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/groups/%s", orgId, groupId);
 
-        Map<String, String> queryParamsMap = Map.of("with", "assets"); // Example
-        String queryParams = queryParamsMap.entrySet().stream()
+        // Optional: Add query parameters
+        Map<String, String> queryParamsMap = Map.of("with", "assets"); 
+        String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
             
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -141,69 +153,227 @@ public class GetGroup {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
                 System.out.println("Successfully retrieved group " + groupId + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
-                // Error handling...
-                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to get group " + groupId + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     groupId := "GROUP_ID_TO_GET"
     baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups/%s", orgId, groupId)
 
+    // Optional: Add query parameters
     queryParams := url.Values{}
-    queryParams.Add("with", "assets") // Example
+    queryParams.Add("with", "assets") 
     
     apiUrl := baseUrl + "?" + queryParams.Encode()
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error creating request for group %s: %v\n", groupId, err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error executing request for group %s: %v\n", groupId, err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+		fmt.Printf("Error reading response body for group %s: %v\n", groupId, err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to get group %s. Status: %d\nBody: %s\n", groupId, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully retrieved group %s:\n", groupId)
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON from body into a struct if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> GetTallyfyGroup(const utility::string_t& groupId)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
+    builder.append_path(orgId);
+    builder.append_path(U("groups"));
+    builder.append_path(groupId);
+    builder.append_query(U("with"), U("assets")); // Example query parameter
+    utility::string_t apiUrl = builder.to_string();
+
+    http_client client(apiUrl);
+    http_request request(methods::GET);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([groupId](http_response response)
+    {
+        utility::string_t groupIdW = groupId;
+        return response.extract_json().then([response, groupIdW](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully retrieved group " << groupIdW << L":\n" << body.serialize() << std::endl;
+                    // Access data: body[U("data")][U("name")].as_string();
+                } else {
+                    std::wcerr << L"Failed to get group " << groupIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during get group: " << e.what() << std::endl;
+                 // You might want to extract the response as string here for non-JSON errors
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during get group response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        GetTallyfyGroup(U("GROUP_ID_TO_GET")).wait(); // Replace with actual ID
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+
+public class TallyfyGroupGetter
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task GetGroupAsync(string groupId)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        // Build URL with query parameters
+        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        query["with"] = "assets"; // Example
+        string queryString = query.ToString();
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups/{groupId}?{queryString}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Successfully retrieved group {groupId}:");
+                // Pretty print JSON
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                    // Access data: doc.RootElement.GetProperty("data").GetProperty("name").GetString();
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to get group {groupId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception getting group {groupId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await GetGroupAsync("GROUP_ID_TO_GET");
+    // }
 }
 ```
 </TabItem>
@@ -211,34 +381,4 @@ func main() {
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` field with the group's details.
-
-```json
-{
-  "data": {
-    "id": "GROUP_ID_TO_GET",
-    "name": "Sales Team",
-    "description": "Handles all sales inquiries.",
-    "logo": "https://.../group_logo.png", // Included if requested with 'with=assets'
-    "members": [1001, 1005],
-    "guests": ["client.a@example.com"],
-    "created_at": "2023-03-10T09:00:00Z",
-    "updated_at": "2024-04-20T10:00:00Z",
-    "deleted_at": null
-  }
-}
-```
-
-If the group ID is not found or you lack permission, a `404 Not Found` or `403 Forbidden` error will be returned.
-
----
-
-import { CardGrid, LinkTitleCard } from "~/components";
-
-## Related articles
-<CardGrid>
-<LinkTitleCard header="<b>Groups > List groups</b>" href="/products/pro/integrations/open-api/code-samples/groups/list-groups/" > The GET endpoint allows retrieving organization-specific groups with their details such as IDs names descriptions logos member lists and timestamps through authenticated API requests using various programming languages. </LinkTitleCard>
-<LinkTitleCard header="<b>Members > Get member</b>" href="/products/pro/integrations/open-api/code-samples/members/get-member/" > The GET endpoint retrieves detailed profile information of an organization member including their personal details roles permissions and optional related data like stats assets or groups based on the provided user ID. </LinkTitleCard>
-<LinkTitleCard header="<b>Tags > Get tag</b>" href="/products/pro/integrations/open-api/code-samples/tags/get-tag/" > The GET endpoint enables retrieval of specific tag details through unique IDs with optional related data inclusion and returns a JSON response containing tag information along with error handling for invalid requests or permissions. </LinkTitleCard>
-<LinkTitleCard header="<b>Members > List members</b>" href="/products/pro/integrations/open-api/code-samples/members/list-members/" > A comprehensive API endpoint documentation for retrieving organization members through various programming languages including authentication headers optional query parameters and response structure with sample code snippets. </LinkTitleCard>
-</CardGrid>
+A successful request returns a `200 OK` status code and a JSON object containing a `data`

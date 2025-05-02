@@ -50,19 +50,21 @@ Refer to the `GET /organizations/{org}/tasks` definition in Swagger for the full
 ## Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
+// Construct query parameters
 const params = new URLSearchParams({
-    status: 'active', // Get active tasks
-    // unassigned: 'true', // Get only unassigned tasks
-    // owners: '1001,1002',
-    per_page: '20'
+    status: 'active', // Example: Get active tasks
+    // unassigned: 'true', // Example: Get only unassigned tasks
+    // owners: '1001,1002', // Example: Tasks owned by user 1001 OR 1002
+    per_page: '20',
+    with: 'run' // Example: Include run information
 });
 const queryStr = params.toString();
-const apiUrl = `https://api.tallyfy.com/organizations/${orgId}/tasks${queryStr ? '?' + queryStr : ''}`;
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks${queryStr ? '?' + queryStr : ''}`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -74,22 +76,25 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error("Failed to list organization tasks:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log('Successfully listed organization tasks:');
     console.log(JSON.stringify(data, null, 2));
+    // Access pagination info via data.meta.pagination if needed
 })
 .catch(error => {
-    console.error('Error listing organization tasks:', error);
+    console.error('Error listing organization tasks:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -97,7 +102,7 @@ import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-api_url = f'https://api.tallyfy.com/organizations/{org_id}/tasks'
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tasks'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -105,30 +110,40 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
+# Define query parameters
 params = {
-    'status': 'overdue', # Get overdue tasks
-    # 'unassigned': True,
+    'status': 'overdue', # Example: Get overdue tasks
+    # 'unassigned': True, # Example: Get only unassigned tasks
     'per_page': 15,
-    'sort': '-deadline' # Sort by deadline descending
+    'sort': '-deadline', # Example: Sort by deadline descending
+    'with': 'run,step' # Example: Include run and step details
 }
 
+response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     tasks_data = response.json()
     print('Successfully listed organization tasks:')
     print(json.dumps(tasks_data, indent=4))
+    # Access pagination: tasks_data.get('meta', {}).get('pagination')
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred listing org tasks: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed listing org tasks: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
-
+    print("Failed to decode JSON response when listing org tasks")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -139,6 +154,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.HashMap; // Use HashMap for mutable map
 import java.util.stream.Collectors;
 
 public class ListOrgTasks {
@@ -146,21 +162,25 @@ public class ListOrgTasks {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String baseUrl = "https://api.tallyfy.com/organizations/" + orgId + "/tasks";
+        String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/tasks";
 
-        Map<String, String> queryParamsMap = Map.of(
-            "status", "active",
-            "per_page", "10",
-            "unassigned", "true" // Get unassigned active tasks
-            // "sort", "deadline"
-        );
-        String queryParams = queryParamsMap.entrySet().stream()
+        // Define query parameters
+        Map<String, String> queryParamsMap = new HashMap<>();
+        queryParamsMap.put("status", "active");
+        queryParamsMap.put("per_page", "10");
+        queryParamsMap.put("unassigned", "true"); // Example: Get unassigned active tasks
+        queryParamsMap.put("with", "run"); // Example: Include run details
+        // queryParamsMap.put("sort", "deadline");
+        
+        String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
         
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
-        HttpClient client = HttpClient.newBuilder().build(); // Default settings
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
@@ -176,24 +196,30 @@ public class ListOrgTasks {
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed organization tasks:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing JSON response using Jackson/Gson
+                // Access pagination: Use jsonNode.path("meta").path("pagination")
             } else {
-                // Error handling...
-                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to list organization tasks. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -203,42 +229,203 @@ import (
 )
 
 func main() {
-	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN") // Get from env
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN") 
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-	baseURL := fmt.Sprintf("https://api.tallyfy.com/organizations/%s/tasks", orgId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks", orgId)
 
+    // Define query parameters
     queryParams := url.Values{}
     queryParams.Add("status", "active")
     queryParams.Add("per_page", "5")
     queryParams.Add("unassigned", "true") // Example: Get unassigned tasks
+    queryParams.Add("with", "run,step") // Example: Include run and step info
     // queryParams.Add("sort", "-deadline")
 
-    apiUrl := baseURL + "?" + queryParams.Encode()
+    apiUrl := baseURL
+    if len(queryParams) > 0 {
+        apiUrl += "?" + queryParams.Encode()
+    }
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    // Error handling for request creation...
+    if err != nil {
+        fmt.Printf("Error creating list org tasks request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    // Error handling for request execution...
+    if err != nil {
+        fmt.Printf("Error executing list org tasks request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling for reading body...
+    if err != nil {
+        fmt.Printf("Error reading list org tasks response body: %v\n", err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to list organization tasks. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully listed organization tasks:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON into structs, including meta/pagination if needed
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> ListTallyfyOrgTasks()
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    
+    uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
+    builder.append_path(orgId);
+    builder.append_path(U("tasks"));
+    builder.append_query(U("status"), U("active")); // Example query parameter
+    builder.append_query(U("unassigned"), U("true")); 
+    builder.append_query(U("per_page"), 10); 
+    builder.append_query(U("with"), U("run")); 
+    utility::string_t apiUrl = builder.to_string();
+
+    http_client client(apiUrl);
+    http_request request(methods::GET);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK) {
+                    std::wcout << L"Successfully listed organization tasks:\n" << body.serialize() << std::endl;
+                    // Access data: body[U("data")].as_array()
+                    // Access pagination: body[U("meta")][U("pagination")]
+                } else {
+                    std::wcerr << L"Failed to list org tasks. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during list org tasks: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during list org tasks response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        ListTallyfyOrgTasks().wait(); 
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+using System.Web; // For HttpUtility
+
+public class TallyfyOrgTaskLister
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task ListOrgTasksAsync()
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        // Build URL with query parameters
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        query["status"] = "active"; // Example
+        query["unassigned"] = "true";
+        query["per_page"] = "20";
+        query["with"] = "run,step"; // Example: Include run and step info
+        // query["sort"] = "-deadline";
+        string queryString = query.ToString();
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks?{queryString}";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Successfully listed organization tasks:");
+                // Pretty print JSON
+                try {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                    // Access pagination: doc.RootElement.GetProperty("meta").GetProperty("pagination")...
+                } catch (JsonException) {
+                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to list organization tasks. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception listing org tasks: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await ListOrgTasksAsync();
+    // }
 }
 ```
 </TabItem>

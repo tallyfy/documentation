@@ -65,7 +65,7 @@ Refer to the `#definitions/createGuestInput` schema in Swagger for all available
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -90,22 +90,24 @@ fetch(apiUrl, {
     body: JSON.stringify(guestData)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling (check for 422 if email exists)
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error("Failed to create guest:", data); // Log error details from JSON body
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data; // Pass successful data along
+    });
 })
 .then(data => {
     console.log('Successfully created guest:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error('Error creating guest:', error);
+    console.error('Error creating guest:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -128,29 +130,40 @@ guest_payload = {
     'company_name': 'Supply Network Inc.'
 }
 
+response = None
 try:
     response = requests.post(api_url, headers=headers, json=guest_payload)
-    response.raise_for_status()
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
 
     created_guest = response.json()
     print('Successfully created guest:')
     print(json.dumps(created_guest, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred creating guest: {http_err}") 
+    if response is not None:
+         print(f"Response Body: {response.text}") # Show error details
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed creating guest: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print("Failed to decode JSON response when creating guest")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Assumes JSON library
+// Requires a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.HashMap;
 
 public class CreateGuest {
     public static void main(String[] args) {
@@ -158,13 +171,24 @@ public class CreateGuest {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/guests";
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, Object> guestData = new HashMap<>();
-        // guestData.put("email", "contractor@domain.org");
-        // guestData.put("first_name", "Contractor");
-        // String jsonPayload = new ObjectMapper().writeValueAsString(guestData);
-
-        String jsonPayload = "{\"email\": \"contractor@domain.org\", \"first_name\": \"Contractor A\"}"; // Simple example
+        // --- Payload Construction --- 
+        // Using Jackson/Gson is recommended:
+        /*
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> guestData = new HashMap<>();
+        guestData.put("email", "contractor@domain.org");
+        guestData.put("first_name", "Contractor");
+        String jsonPayload;
+        try {
+            jsonPayload = mapper.writeValueAsString(guestData);
+        } catch (Exception e) {
+            System.err.println("Failed to serialize JSON: " + e.getMessage());
+            return;
+        }
+        */
+        // Simple manual JSON string for example:
+        String jsonPayload = "{\"email\": \"contractor@domain.org\", \"first_name\": \"Contractor A\"}"; 
+        // --- End Payload --- 
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -178,23 +202,27 @@ public class CreateGuest {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200 || response.statusCode() == 201) {
+            
+            if (response.statusCode() == 200 || response.statusCode() == 201) { // 201 Created might be possible
                 System.out.println("Successfully created guest:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
+                // TODO: Consider parsing the JSON response 
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to create guest. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body()); // Log error response
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
              System.err.println("Request failed: " + e.getMessage());
+             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -205,11 +233,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests", orgId)
 
 	guestData := map[string]interface{}{
@@ -220,11 +251,17 @@ func main() {
 	}
 
 	jsonData, err := json.Marshal(guestData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -232,21 +269,192 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading response body: %v\n", err)
+        return
+    }
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        // Error handling (check for 422)
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to create guest. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully created guest:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON to get the new guest ID etc.
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> CreateTallyfyGuest(const value& guestPayload)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/guests");
+
+    http_client client(apiUrl);
+    http_request request(methods::POST);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(guestPayload);
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully created guest:\n" << body.serialize() << std::endl;
+                    // Extract new guest ID: body[U("data")][U("id")].as_string();
+                } else {
+                    std::wcerr << L"Failed to create guest. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during create guest: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during create guest response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        value payload = value::object();
+        payload[U("email")] = value::string(U("cpp.guest@example.com"));
+        payload[U("first_name")] = value::string(U("CPP"));
+        payload[U("last_name")] = value::string(U("Guest"));
+        payload[U("company_name")] = value::string(U("Example Systems"));
+        
+        CreateTallyfyGuest(payload).wait();
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class TallyfyGuestCreator
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public class GuestPayload
+    {
+        public string Email { get; set; } // Required
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string CompanyName { get; set; }
+        public string Phone1 { get; set; }
+        public List<int> AssociatedMembers { get; set; }
+        // Add other optional fields from Swagger definition as needed
+    }
+
+    public static async Task CreateGuestAsync(GuestPayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/guests";
+
+        if (string.IsNullOrWhiteSpace(payload?.Email)) {
+            Console.WriteLine("Error: Guest email is required.");
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            // Serialize the payload, ignoring nulls
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) // Check for 200 OK or 201 Created
+            {
+                Console.WriteLine("Successfully created guest:");
+                 try {
+                     using var doc = JsonDocument.Parse(responseBody);
+                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                     // Get guest ID: doc.RootElement.GetProperty("data").GetProperty("id").GetString();
+                 } catch (JsonException) {
+                     Console.WriteLine(responseBody);
+                 }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create guest. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}"); // Often contains error details (e.g., email exists)
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     var newGuest = new GuestPayload {
+    //         Email = "new.csharp.guest@example.com",
+    //         FirstName = "CSharp",
+    //         CompanyName = "DotNet Co"
+    //     };
+    //     await CreateGuestAsync(newGuest);
+    // }
 }
 ```
 </TabItem>

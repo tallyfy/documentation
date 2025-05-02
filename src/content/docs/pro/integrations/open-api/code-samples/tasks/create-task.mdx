@@ -71,7 +71,7 @@ Refer to the `#definitions/createStandaloneTaskInput` schema in Swagger for all 
 ## Code Samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
@@ -81,7 +81,7 @@ const taskData = {
   name: "JS One-Off Task: Review Budget",
   description: "Review the draft budget spreadsheet.",
   owners: {
-    users: [12345] // Assign to user 12345
+    users: [12345]
   },
   deadline: "2024-06-10T12:00:00Z"
 };
@@ -98,22 +98,24 @@ fetch(apiUrl, {
     body: JSON.stringify(taskData)
 })
 .then(response => {
-    if (!response.ok) {
-        // Error handling...
-         return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
-    }
-    return response.json();
+    return response.json().then(data => {
+        if (!response.ok) {
+            console.error("Failed to create one-off task:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return data;
+    });
 })
 .then(data => {
     console.log('Successfully created one-off task:');
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error('Error creating one-off task:', error);
+    console.error('Error creating one-off task:', error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -137,10 +139,11 @@ task_payload = {
         'users': [1001],
         'guests': [],
         'groups': []
-     }
-    # 'deadline': 'YYYY-MM-DDTHH:mm:ssZ'
+     },
+    'tags': ["planning", "kickoff"]
 }
 
+response = None
 try:
     response = requests.post(api_url, headers=headers, json=task_payload)
     response.raise_for_status()
@@ -149,21 +152,34 @@ try:
     print('Successfully created one-off task:')
     print(json.dumps(created_task, indent=4))
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    print(f"HTTP error occurred creating task: {http_err}") 
+    print(f"Response Body: {error_details}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed creating task: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response")
+    print("Failed to decode successful JSON response after creating task")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Assumes JSON library
+import java.time.Duration;
 
 public class CreateOneOffTask {
     public static void main(String[] args) {
@@ -171,18 +187,12 @@ public class CreateOneOffTask {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/tasks";
 
-        // Build payload using Map/POJO and JSON library
-        // Map<String, Object> taskData = new HashMap<>();
-        // taskData.put("name", "Java One-Off Task: Research");
-        // Map<String, List<Object>> owners = new HashMap<>();
-        // owners.put("users", List.of(1002));
-        // taskData.put("owners", owners);
-        // String jsonPayload = new ObjectMapper().writeValueAsString(taskData);
-
-        // Simple example payload
         String jsonPayload = "{\"name\": \"Java One-Off: Simple Task\"}";
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+                
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Authorization", "Bearer " + accessToken)
@@ -194,23 +204,26 @@ public class CreateOneOffTask {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200 || response.statusCode() == 201) {
                 System.out.println("Successfully created one-off task:");
                 System.out.println(response.body());
-                // TODO: Parse JSON
             } else {
-                 // Error handling...
-                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Failed to create task. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             // Error handling...
             System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
@@ -221,11 +234,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks", orgId)
 
 	taskData := map[string]interface{}{
@@ -234,14 +250,21 @@ func main() {
             "users": {1005},
         },
         "deadline": "2024-06-30T10:00:00Z",
+        "tags": []string{"go_api", "updates"},
 	}
 
 	jsonData, err := json.Marshal(taskData)
-	// Error handling...
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error creating create task request: %v\n", err)
+        return
+    }
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -249,21 +272,197 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error executing create task request: %v\n", err)
+        return
+    }
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    // Error handling...
+    if err != nil {
+        fmt.Printf("Error reading create task response body: %v\n", err)
+        return
+    }
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        // Error handling...
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		fmt.Printf("Failed to create task. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully created one-off task:")
-	fmt.Println(string(body))
-	// TODO: Unmarshal JSON
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> CreateTallyfyOneOffTask(const value& taskPayload)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/tasks");
+
+    http_client client(apiUrl);
+    http_request request(methods::POST);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(taskPayload);
+
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully created one-off task:\n" << body.serialize() << std::endl;
+                } else {
+                    std::wcerr << L"Failed to create task. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during create task: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during create task response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
+
+int main() {
+    try {
+        value payload = value::object();
+        payload[U("name")] = value::string(U("C++ Task: Prepare Presentation"));
+        
+        value owners = value::object();
+        value users = value::array();
+        users[0] = value::number(12345);
+        owners[U("users")] = users;
+        payload[U("owners")] = owners;
+        
+        payload[U("deadline")] = value::string(U("2024-07-20T17:00:00Z"));
+
+        value tags = value::array();
+        tags[0] = value::string(U("presentations"));
+        payload[U("tags")] = tags;
+
+        CreateTallyfyOneOffTask(payload).wait();
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+
+public class TallyfyOneOffTaskCreator
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public class TaskOwners
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<int> Users { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> Guests { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> Groups { get; set; }
+    }
+
+    public class TaskPayload
+    {
+        public string Name { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Description { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public TaskOwners Owners { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Deadline { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> Tags { get; set; }
+    }
+
+    public static async Task CreateOneOffTaskAsync(TaskPayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks";
+
+        if (string.IsNullOrWhiteSpace(payload?.Name)) {
+            Console.WriteLine("Error: Task Name is required.");
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode) {
+                Console.WriteLine("Successfully created one-off task:");
+                 try {
+                     using var doc = JsonDocument.Parse(responseBody);
+                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                 } catch (JsonException) {
+                     Console.WriteLine(responseBody);
+                 }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create one-off task. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
 }
 ```
 </TabItem>
@@ -280,9 +479,9 @@ A successful request returns a `200 OK` or `201 Created` status code and a JSON 
     "increment_id": 1250,
     "title": "Python One-Off Task: Plan Meeting",
     "description": "Schedule and plan the project kickoff meeting.",
-    "run_id": null, // Null for one-off tasks
-    "step_id": null, // Null for one-off tasks
-    "status": "active", // Initial status
+    "run_id": null,
+    "step_id": null,
+    "status": "active",
     "owners": {
       "users": [
         { "id": 1001, "full_name": "Bob", "profile_pic": "..." }
@@ -290,10 +489,9 @@ A successful request returns a `200 OK` or `201 Created` status code and a JSON 
       "guests": [],
       "groups": []
      },
-    "deadline": null, // Or the specified deadline
+    "deadline": null,
     "created_at": "2024-05-20T18:00:00.000Z",
     "last_updated": "2024-05-20T18:00:00.000Z"
-    // ... other task properties ...
   }
 }
 ```

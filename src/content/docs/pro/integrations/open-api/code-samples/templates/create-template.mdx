@@ -59,152 +59,431 @@ The request body should be a JSON object containing the desired properties for t
 ## Code Samples
 
 <Tabs>
-	<TabItem label="JavaScript (fetch)">
-		```curl
-		curl -X POST "https://go.tallyfy.com/api/organizations/{org}/checklists" \
-		-H "Authorization: Bearer {access_token}" \
-		-H "Content-Type: application/json" \
-		-H "Accept: application/json" \
-		-H "X-Tallyfy-Client: APIClient" \
-		-d '{
-		"title": "New Client Onboarding Template",
-		"summary": "Standard procedure for onboarding new clients.",
-		"owner_id": 12345,
-		"type": "procedure"
-	}'
-		```
-	</TabItem>
-	<TabItem label="Python (requests)">
-		```python
-		import requests
+<TabItem label="Javascript">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID'; // Replace with actual Org ID
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists`;
 
-		url = "https://go.tallyfy.com/api/organizations/{org}/checklists"
-		access_token = "{access_token}"
-		org_id = "{org}" # Replace {org} with the actual Organization ID
+const templateData = {
+    title: "New JS API Template", // Required
+    summary: "Template created via Fetch API.",
+    owner_id: 12345, // Optional: Specify owner User ID
+    type: "procedure" // Or "form", "document"
+    // Add other optional fields like prerun, users, groups, etc. as needed
+};
 
-		headers = {
-		"Authorization": f"Bearer {access_token}",
-		"Content-Type": "application/json",
-		"Accept": "application/json",
-		"X-Tallyfy-Client": "APIClient"
+const headers = new Headers();
+headers.append('Authorization', `Bearer ${accessToken}`);
+headers.append('Accept', 'application/json');
+headers.append('X-Tallyfy-Client', 'APIClient');
+headers.append('Content-Type', 'application/json');
+
+fetch(apiUrl, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(templateData)
+})
+.then(response => {
+    return response.json().then(data => { // Attempt to parse JSON regardless of status
+        if (!response.ok) {
+            console.error("Failed to create template:", data);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+         // Expect 200 OK or 201 Created
+        console.log(`Template creation initiated. Status: ${response.status}`);
+        return data; // Pass successful data along
+    });
+})
+.then(data => {
+    console.log('Successfully created template:');
+    console.log(JSON.stringify(data, null, 2));
+    // Use data.data.id to get the new template ID
+})
+.catch(error => {
+    console.error('Error creating template:', error.message);
+});
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import requests
+import json
+import os
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID') # Replace with actual Org ID
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/checklists'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+}
+
+template_payload = {
+    'title': 'New Python API Template', # Required
+    'summary': 'Template created via Python requests.',
+    'owner_id': 12345, # Optional: Specify owner User ID
+    'type': 'procedure',
+    # Example: Add default users with access
+    # 'users': [1001, 1005]
+}
+
+response = None
+try:
+    response = requests.post(api_url, headers=headers, json=template_payload)
+    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+
+    created_template = response.json()
+    print('Successfully created template:')
+    print(json.dumps(created_template, indent=4))
+    # new_template_id = created_template.get('data', {}).get('id')
+
+except requests.exceptions.HTTPError as http_err:
+    error_details = ""
+    try:
+        if response is not None:
+             error_details = response.json()
+    except json.JSONDecodeError:
+        if response is not None:
+             error_details = response.text
+    print(f"HTTP error occurred creating template: {http_err}") 
+    print(f"Response Body: {error_details}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed creating template: {req_err}")
+except json.JSONDecodeError:
+    print("Failed to decode successful JSON response after creating template")
+    if response is not None:
+        print(f"Response Text: {response.text}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
+```
+</TabItem>
+<TabItem label="Java">
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.time.Duration;
+// Requires a JSON library like Jackson or Gson
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import java.util.Map;
+// import java.util.HashMap;
+
+public class CreateTemplate {
+    public static void main(String[] args) {
+        String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
+        String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID"); // Replace with actual Org ID
+        String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/checklists";
+
+        // --- Payload Construction --- 
+        // Using Jackson/Gson recommended:
+        /*
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> templateData = new HashMap<>();
+        templateData.put("title", "Java API Template"); // Required
+        templateData.put("summary", "Created via Java");
+        templateData.put("type", "procedure");
+        String jsonPayload;
+        try {
+            jsonPayload = mapper.writeValueAsString(templateData);
+        } catch (Exception e) {
+            System.err.println("Failed to serialize JSON: " + e.getMessage());
+            return;
+        }
+        */
+        // Simple manual JSON string:
+        String jsonPayload = "{\"title\": \"Java API Template Simple\", \"type\": \"procedure\"}"; // Minimal payload
+        // --- End Payload --- 
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+                
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Accept", "application/json")
+                .header("X-Tallyfy-Client", "APIClient")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200 || response.statusCode() == 201) { // API might return 201 Created
+                System.out.println("Successfully created template:");
+                System.out.println(response.body());
+                // TODO: Consider parsing the JSON response
+                // String templateId = objectMapper.readTree(response.body()).path("data").path("id").asText();
+            } else {
+                System.err.println("Failed to create template. Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
+        }
+    }
+}
+```
+</TabItem>
+<TabItem label="Go">
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+    "time"
+)
+
+func main() {
+	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" } // Replace with actual Org ID
+    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/checklists", orgId)
+
+	templateData := map[string]interface{}{
+		"title": "Go API Template", // Required
+        "summary": "Created via Go net/http",
+        "type": "procedure",
+        // "owner_id": 12345,
+        // "users": []int{1001},
 	}
 
-		payload = {
-		"title": "New Client Onboarding Template",
-		"summary": "Standard procedure for onboarding new clients.",
-		"owner_id": 12345,
-		"type": "procedure"
+	jsonData, err := json.Marshal(templateData)
+	if err != nil {
+        fmt.Printf("Error marshalling JSON: %v\n", err)
+        return
+    }
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
+    if err != nil {
+        fmt.Printf("Error creating create template request: %v\n", err)
+        return
+    }
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+    if err != nil {
+        fmt.Printf("Error executing create template request: %v\n", err)
+        return
+    }
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        fmt.Printf("Error reading create template response body: %v\n", err)
+        return
+    }
+
+    // API might return 201 Created
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		fmt.Printf("Failed to create template. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
 	}
 
-		response = requests.post(url.format(org=org_id), json=payload, headers=headers)
+	fmt.Println("Successfully created template:")
+    // Pretty print JSON response
+    var prettyJSON bytes.Buffer
+    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+        fmt.Println(prettyJSON.String())
+    } else {
+	    fmt.Println(string(body))
+    }
+	// TODO: Unmarshal JSON to get the new template ID etc.
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
 
-		if response.status_code == 200:
-		print("Template created successfully:")
-		print(response.json())
-		else:
-		print(f"Error creating template: {response.status_code}")
-		print(response.text)
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
 
-		```
-	</TabItem>
-	<TabItem label="NodeJS">
-		```nodejs
-		const https = require('https');
+pplx::task<void> CreateTallyfyTemplate(const value& templatePayload)
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); // Replace with actual Org ID
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/checklists");
 
-		const orgId = '{org}'; // Replace {org} with the actual Organization ID
-		const accessToken = '{access_token}';
+    http_client client(apiUrl);
+    http_request request(methods::POST);
 
-		const data = JSON.stringify({
-		title: 'New Client Onboarding Template',
-		summary: 'Standard procedure for onboarding new clients.',
-		owner_id: 12345,
-		type: 'procedure'
-	});
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+    request.headers().set_content_type(U("application/json"));
+    request.set_body(templatePayload);
 
-		const options = {
-		hostname: 'go.tallyfy.com',
-		path: `/api/organizations/${orgId}/checklists`,
-		method: 'POST',
-		headers: {
-		'Authorization': `Bearer ${accessToken}`,
-		'Content-Type': 'application/json',
-		'Accept': 'application/json',
-		'X-Tallyfy-Client': 'APIClient',
-		'Content-Length': data.length
-	}
-	};
+    return client.request(request).then([](http_response response)
+    {
+        return response.extract_json().then([response](pplx::task<value> task)
+        {
+            try {
+                value const & body = task.get();
+                // API might return 201 Created
+                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully created template:\n" << body.serialize() << std::endl;
+                    // Extract new template ID: body[U("data")][U("id")].as_string();
+                } else {
+                    std::wcerr << L"Failed to create template. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                }
+            } catch (const http_exception& e) {
+                 std::wcerr << L"HTTP exception during create template: " << e.what() << std::endl;
+            } catch (const std::exception& e) {
+                std::wcerr << L"Exception during create template response handling: " << e.what() << std::endl;
+            }
+        });
+    });
+}
 
-		const req = https.request(options, (res) => {
-		console.log(`statusCode: ${res.statusCode}`);
-		let responseData = '';
+int main() {
+    try {
+        value payload = value::object();
+        payload[U("title")] = value::string(U("C++ API Template")); // Required
+        payload[U("summary")] = value::string(U("Created via C++ REST SDK"));
+        payload[U("type")] = value::string(U("procedure"));
+        // payload[U("owner_id")] = value::number(12345);
+        
+        CreateTallyfyTemplate(payload).wait();
+    } catch (const std::exception &e) {
+        std::cerr << "Error in main: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization; // For JsonIgnoreCondition
+using System.Threading.Tasks;
 
-		res.on('data', (d) => {
-		responseData += d;
-	});
+public class TallyfyTemplateCreator
+{
+    private static readonly HttpClient client = new HttpClient();
 
-		res.on('end', () => {
-		if (res.statusCode === 200) {
-		console.log('Template created successfully:');
-		console.log(JSON.parse(responseData));
-	} else {
-		console.error('Error creating template:');
-		console.error(responseData);
-	}
-	});
-	});
+    public class TemplatePayload
+    {
+        public string Title { get; set; } // Required
 
-		req.on('error', (error) => {
-		console.error(error);
-	});
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Summary { get; set; }
 
-		req.write(data);
-		req.end();
-		```
-	</TabItem>
-	<TabItem label="PHP">
-		```php
-		<?php
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? OwnerId { get; set; }
 
-		$orgId = '{org}'; // Replace {org} with the actual Organization ID
-		$accessToken = '{access_token}';
-		$url = "https://go.tallyfy.com/api/organizations/" . $orgId . "/checklists";
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string Type { get; set; } // e.g., "procedure"
+        
+        // Add other properties from the Body Parameters table as needed
+        // [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        // public List<int> Users { get; set; }
+        // ... etc ...
+    }
 
-		$payload = json_encode([
-				'title' => 'New Client Onboarding Template',
-				'summary' => 'Standard procedure for onboarding new clients.',
-				'owner_id' => 12345,
-				'type' => 'procedure'
-		]);
+    public static async Task CreateTemplateAsync(TemplatePayload payload)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID"; // Replace with actual Org ID
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/checklists";
 
-		$ch = curl_init($url);
+        if (string.IsNullOrWhiteSpace(payload?.Title)) {
+            Console.WriteLine("Error: Template Title is required.");
+            return;
+        }
 
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_POST, true);
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, [
-				'Authorization: Bearer ' . $accessToken,
-				'Content-Type: application/json',
-				'Accept: application/json',
-				'X-Tallyfy-Client: APIClient',
-				'Content-Length: ' . strlen($payload)
-		]);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
-		$response = curl_exec($ch);
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            // Serialize payload, ignore nulls
+            var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-		curl_close($ch);
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
 
-		if ($httpCode == 200) {
-				echo "Template created successfully:\n";
-				print_r(json_decode($response, true));
-		} else {
-				echo "Error creating template: " . $httpCode . "\n";
-				echo $response;
-		}
+            if (response.IsSuccessStatusCode) // Check for 200 OK or 201 Created
+            {
+                Console.WriteLine("Successfully created template:");
+                 try {
+                     using var doc = JsonDocument.Parse(responseBody);
+                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                     // Get template ID: doc.RootElement.GetProperty("data").GetProperty("id").GetString();
+                 } catch (JsonException) {
+                     Console.WriteLine(responseBody);
+                 }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create template. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception: {e.Message}");
+        }
+         catch (JsonException jsonEx)
+        {
+             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
 
-		?>
-		```
-	</TabItem>
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     var newTemplate = new TemplatePayload {
+    //         Title = "C# API Template Example",
+    //         Summary = "Created from C#",
+    //         Type = "procedure"
+    //     };
+    //     await CreateTemplateAsync(newTemplate);
+    // }
+}
+```
+</TabItem>
 </Tabs>
 
 ## Example Response (200 OK)

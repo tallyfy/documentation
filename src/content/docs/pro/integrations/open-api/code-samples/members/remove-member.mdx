@@ -42,19 +42,19 @@ No request body is needed for this DELETE request.
 ### Code samples
 
 <Tabs>
-<TabItem label="JavaScript (fetch)">
+<TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const userId = 12345; // ID of the member to remove
-const reassignToUserId = 1002; // Optional: ID of member to reassign tasks to
+const reassignToUserId = null; // Optional: Set to ID (number) of member to reassign tasks to
 
 // Construct query string if reassigning
 const params = new URLSearchParams();
-// if (reassignToUserId) {
-//   params.append('with_reassignment', 'true');
-//   params.append('to', reassignToUserId.toString());
-// }
+if (reassignToUserId != null) {
+  params.append('with_reassignment', 'true');
+  params.append('to', reassignToUserId.toString());
+}
 const queryStr = params.toString();
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/users/${userId}${queryStr ? '?' + queryStr : ''}`;
 
@@ -69,25 +69,38 @@ fetch(apiUrl, {
 })
 .then(response => {
     if (!response.ok) { // Expect 200 OK on success usually
-        // Error handling...
-        return response.json().then(errData => { throw new Error(/*...*/); }).catch(() => { throw new Error(/*...*/); });
+        // Try to parse error JSON, fallback to text
+        return response.json()
+            .catch(() => response.text())
+            .then(errData => {
+                console.error(`Failed to remove member ${userId}. Status: ${response.status}`, errData);
+                throw new Error(`HTTP error! status: ${response.status}`); 
+            });
     }
     console.log(`Successfully removed member ${userId}. Status: ${response.status}`);
     // API might return the details of the removed user
-    return response.json(); 
+    // Use response.text() first as body might be empty or non-json on 200 OK
+    return response.text().then(text => {
+        try {
+            return text ? JSON.parse(text) : null;
+        } catch (e) {
+            console.warn("Could not parse response body as JSON:", text);
+            return null;
+        }
+    });
 })
 .then(data => {
     if (data) { 
-      console.log('Removed member details:');
+      console.log('Removed member details (if returned):');
       console.log(JSON.stringify(data, null, 2));
     }
 })
 .catch(error => {
-    console.error(`Error removing member ${userId}:`, error);
+    console.error(`Error during removal of member ${userId}:`, error.message);
 });
 ```
 </TabItem>
-<TabItem label="Python (requests)">
+<TabItem label="Python">
 ```python
 import requests
 import json
@@ -96,7 +109,7 @@ import os
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 user_id = 12345 # ID of the member to remove
-reassign_to_user_id = 1002 # Optional
+reassign_to_user_id = None # Optional: Set to user ID (int) if reassigning
 
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/users/{user_id}'
 
@@ -108,28 +121,39 @@ headers = {
 
 # Optional parameters for reassignment
 params = {}
-# if reassign_to_user_id:
-#     params['with_reassignment'] = 'true'
-#     params['to'] = reassign_to_user_id
+if reassign_to_user_id is not None:
+    params['with_reassignment'] = 'true'
+    params['to'] = reassign_to_user_id
 
+response = None
 try:
     response = requests.delete(api_url, headers=headers, params=params)
-    response.raise_for_status() # Expect 200 OK
+    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
 
     print(f'Successfully removed member {user_id}. Status: {response.status_code}')
     try:
-        removed_user_data = response.json()
-        print('Removed member details:')
-        print(json.dumps(removed_user_data, indent=4))
+        # Attempt to parse JSON body if it exists
+        if response.content:
+            removed_user_data = response.json()
+            print('Removed member details (if returned):')
+            print(json.dumps(removed_user_data, indent=4))
+        else:
+             print("(Response body empty)")
     except json.JSONDecodeError:
-        print("(No JSON body returned on remove)")
+        print("(Could not parse response body as JSON)")
+        print(f"Raw Response Text: {response.text}")
 
-except requests.exceptions.RequestException as e:
-    # Error handling...
-    print(f"Request failed: {e}")
+except requests.exceptions.HTTPError as http_err:
+    print(f"HTTP error occurred removing member {user_id}: {http_err}") 
+    if response is not None:
+        print(f"Response Body: {response.text}")
+except requests.exceptions.RequestException as req_err:
+    print(f"Request failed removing member {user_id}: {req_err}")
+except Exception as err:
+     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
-<TabItem label="Java (HttpClient)">
+<TabItem label="Java">
 ```java
 import java.net.URI;
 import java.net.URLEncoder;
@@ -139,6 +163,7 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.HashMap; // Use HashMap for mutable map
 import java.util.stream.Collectors;
 
 public class RemoveMember {
@@ -146,20 +171,20 @@ public class RemoveMember {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         int userId = 12345;
-        Integer reassignToUserId = null; // Set to user ID if reassigning
+        Integer reassignToUserId = null; // Set to user ID (e.g., 1002) if reassigning
         String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/users/%d", orgId, userId);
 
         // Build query params if needed
-        Map<String, String> queryParamsMap = new java.util.HashMap<>();
-        // if (reassignToUserId != null) {
-        //     queryParamsMap.put("with_reassignment", "true");
-        //     queryParamsMap.put("to", String.valueOf(reassignToUserId));
-        // }
-        String queryParams = queryParamsMap.entrySet().stream()
+        Map<String, String> queryParamsMap = new HashMap<>(); // Use mutable map
+        if (reassignToUserId != null) {
+            queryParamsMap.put("with_reassignment", "true");
+            queryParamsMap.put("to", String.valueOf(reassignToUserId));
+        }
+        String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
             
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParams);
+        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -172,58 +197,73 @@ public class RemoveMember {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) { 
-                System.out.println("Successfully removed member " + userId + ". Status: " + response.statusCode());
+                System.out.println("Successfully removed member " + userId + ". Status: 200 OK");
                  if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body:");
+                     System.out.println("Response Body (Removed Member Details):");
                      System.out.println(response.body());
-                     // TODO: Parse JSON
+                     // TODO: Consider parsing JSON using Jackson/Gson
+                 } else {
+                      System.out.println("(Response body empty)");
                  }
             } else {
-                // Error handling...
-                 System.err.println("Failed. Status: " + response.statusCode());
+                 System.err.println("Failed to remove member " + userId + ". Status: " + response.statusCode());
+                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            // Error handling...
-             System.err.println("Request failed: " + e.getMessage());
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+             System.err.println("An unexpected error occurred: " + e.getMessage());
+             e.printStackTrace();
         }
     }
 }
 ```
 </TabItem>
-<TabItem label="Go (net/http)">
+<TabItem label="Go">
 ```go
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+    "time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
+    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
+    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
 	userId := 12345
-	reassignToUserId := 0 // Set to > 0 if reassigning
-	notifyUser := true
+	reassignToUserId := 0 // Optional: Set to user ID (e.g., 1002) if reassigning
 
 	baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/%s", orgId, strconv.Itoa(userId))
-	queryParams := url.Values{}
-	queryParams.Set("notify_user", strconv.FormatBool(notifyUser))
+	
+    // Build query params if needed
+    queryParams := url.Values{}
+	if reassignToUserId > 0 {
+	    queryParams.Set("with_reassignment", "true")
+	    queryParams.Set("to", strconv.Itoa(reassignToUserId))
+	}
 
 	apiUrl := baseUrl
 	if len(queryParams) > 0 {
-		apiUrl = baseUrl + "?" + queryParams.Encode()
+		apiUrl += "?" + queryParams.Encode()
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		fmt.Printf("Error creating remove member request for ID %d: %v\n", userId, err)
 		return
 	}
 
@@ -233,26 +273,193 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error making request:", err)
+		fmt.Printf("Error executing remove member request for ID %d: %v\n", userId, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return
+		fmt.Printf("Error reading remove member response body for ID %d: %v\n", userId, err)
+        // Continue processing status code even if body read fails
 	}
 
 	if resp.StatusCode == http.StatusOK {
 		fmt.Printf("Successfully removed member %d. Status: %d\n", userId, resp.StatusCode)
 		if len(body) > 0 {
-			fmt.Println("Response Body:")
-			fmt.Println(string(body))
-		}
+			fmt.Println("Response Body (Removed Member Details):")
+             // Pretty print JSON response
+            var prettyJSON bytes.Buffer
+            if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+                fmt.Println(prettyJSON.String())
+            } else {
+                fmt.Println(string(body))
+            }
+            // TODO: Unmarshal JSON if needed
+		} else {
+            fmt.Println("(Response body empty)")
+        }
 	} else {
-		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Failed to remove member %d. Status: %d\nBody: %s\n", userId, resp.StatusCode, string(body))
 	}
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+using namespace web::json;
+
+pplx::task<void> RemoveTallyfyMember(int userId, int reassignToUserId = 0) // Use 0 or -1 to indicate no reassignment
+{
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t userIdStr = utility::conversions::to_string_t(std::to_string(userId));
+    
+    uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
+    builder.append_path(orgId);
+    builder.append_path(U("users"));
+    builder.append_path(userIdStr);
+
+    if (reassignToUserId > 0) {
+        builder.append_query(U("with_reassignment"), U("true"));
+        builder.append_query(U("to"), utility::conversions::to_string_t(std::to_string(reassignToUserId)));
+    }
+    utility::string_t apiUrl = builder.to_string();
+
+    http_client client(apiUrl);
+    http_request request(methods::DEL);
+
+    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
+    request.headers().add(U("Accept"), U("application/json"));
+    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
+
+    return client.request(request).then([userId](http_response response)
+    {
+        status_code status = response.status_code();
+        // Handle potential JSON or string response
+        return response.extract_string().then([status, userId, response](utility::string_t responseBody)
+        {
+             if (status == status_codes::OK) {
+                 std::wcout << L"Successfully removed member " << userId << L". Status: " << status << std::endl;
+                 if (!responseBody.empty()) {
+                     std::wcout << L"Response Body (Removed Member Details):\n" << responseBody << std::endl;
+                     // Try to parse as JSON if needed
+                     try {
+                         value jsonVal = value::parse(responseBody);
+                         // Process jsonVal...
+                     } catch (const std::exception& jsonEx) {
+                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
+                     }
+                 } else {
+                     std::wcout << L"(Response body empty)" << std::endl;
+                 }
+             } else {
+                 std::wcerr << L"Failed to remove member " << userId << L". Status: " << status << std::endl;
+                 std::wcerr << L"Response Body: " << responseBody << std::endl;
+                 throw std::runtime_error("Failed to remove member");
+             }
+        });
+    });
+}
+
+int main() {
+    try {
+        RemoveTallyfyMember(12345).wait(); // Remove without reassignment
+        // RemoveTallyfyMember(12346, 1002).wait(); // Remove with reassignment
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
+// Requires C++ REST SDK (Casablanca)
+```
+</TabItem>
+<TabItem label="C#">
+```csharp
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using System.Text.Json;
+using System.Web; // For HttpUtility
+
+public class TallyfyMemberRemover
+{
+    private static readonly HttpClient client = new HttpClient();
+
+    public static async Task RemoveMemberAsync(int userId, int? reassignToUserId = null)
+    {
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+        
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        if (reassignToUserId.HasValue) {
+             query["with_reassignment"] = "true";
+             query["to"] = reassignToUserId.Value.ToString();
+        }
+        string queryString = query.ToString();
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/users/{userId}";
+        if (!string.IsNullOrEmpty(queryString)) {
+            apiUrl += "?" + queryString;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, apiUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync(); 
+
+            if (response.IsSuccessStatusCode) // Expect 200 OK
+            {
+                Console.WriteLine($"Successfully removed member {userId}. Status: {response.StatusCode}");
+                if (!string.IsNullOrWhiteSpace(responseBody))
+                {
+                    Console.WriteLine("Removed member details (if returned):");
+                    try {
+                         using var doc = JsonDocument.Parse(responseBody);
+                         Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
+                     } catch (JsonException) {
+                         Console.WriteLine(responseBody); 
+                     }
+                } else {
+                    Console.WriteLine("(Response body empty)");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to remove member {userId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Response: {responseBody}");
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            Console.WriteLine($"Request Exception removing member {userId}: {e.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+        }
+    }
+
+    // Example Usage:
+    // static async Task Main(string[] args)
+    // {
+    //     await RemoveMemberAsync(12345); // Remove without reassignment
+    //     // await RemoveMemberAsync(12346, 1002); // Remove and reassign to user 1002
+    // }
 }
 ```
 </TabItem>
@@ -260,34 +467,4 @@ func main() {
 
 ## Response
 
-A successful request typically returns a `200 OK` status code. The response body might contain the details of the removed user, possibly with updated status fields (e.g., `active: false`, `disabled_at` timestamp).
-
-```json
-{
-  "data": {
-    "id": 12345,
-    "email": "removed.user@example.com",
-    "first_name": "Removed",
-    "last_name": "User",
-    "active": false,
-    "status": "disabled", // Or similar status
-    "disabled_at": "2024-05-21T15:00:00Z",
-    "disabled_by": 1001, // ID of admin who performed the action
-    // ... other properties ...
-  }
-}
-```
-
-If the user ID is not found or you lack permission, a `404` or `403` error will be returned.
-
----
-
-import { CardGrid, LinkTitleCard } from "~/components";
-
-## Related articles
-<CardGrid>
-<LinkTitleCard header="<b>Groups > Delete group</b>" href="/products/pro/integrations/open-api/code-samples/groups/delete-group/" > A DELETE endpoint removes a group from an organization while preserving individual member and guest accounts but eliminating their group associations. </LinkTitleCard>
-<LinkTitleCard header="<b>Guests > Delete guest</b>" href="/products/pro/integrations/open-api/code-samples/guests/delete-guest/" > A DELETE endpoint that removes guest users from an organization by their email address and returns either a success status code or guest record details upon completion. </LinkTitleCard>
-<LinkTitleCard header="<b>Tasks > Delete task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/delete-task/" > An API endpoint that permanently deletes standalone tasks through DELETE requests with mandatory authorization headers and returns a 204 status code upon successful deletion. </LinkTitleCard>
-<LinkTitleCard header="<b>Files > Delete file</b>" href="/products/pro/integrations/open-api/code-samples/files/delete-file/" > A DELETE API endpoint that removes uploaded files and their associations from tasks or kick-off forms while offering implementation examples in JavaScript Python Java and Go. </LinkTitleCard>
-</CardGrid>
+A successful request typically returns a `
