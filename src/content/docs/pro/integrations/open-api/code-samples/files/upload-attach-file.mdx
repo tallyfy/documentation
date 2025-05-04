@@ -17,7 +17,7 @@ Attaching files (like images or documents) to form fields via the API usually in
 
 Alternatively, for files already hosted publicly online, you might be able to link them directly in a single step (see Method 2 in the older article content, though this might be less common and subject to change - prioritize the upload method).
 
-### Method 1: Upload local file (Recommended)
+### Method 1: Upload a local file (Recommended)
 
 ### Step 1: Upload the file
 
@@ -52,7 +52,7 @@ This request uploads the raw file data. It requires specific form data fields to
 -   Form Field IDs (`uploaded_from` for tasks), Step IDs, Run IDs, Checklist IDs can often be found by using the `GET` endpoints for Tasks, Processes (Runs), or Templates with the `with` parameter (e.g., `with=step,form_fields`).
 :::
 
-#### Code samples (Step 1: Upload)
+#### Code samples for Step 1: Upload
 
 (Note: Handling `multipart/form-data` varies significantly between languages and libraries. These are conceptual examples.)
 
@@ -631,7 +631,7 @@ public class TallyfyFileUpload
 </TabItem>
 </Tabs>
 
-#### Response (Step 1: Upload)
+#### Response examples for Step 1: Upload
 
 A successful upload returns `200 OK` and a JSON response containing an array usually with one element: the asset object representing the uploaded file. You need this object for Step 2.
 
@@ -677,7 +677,7 @@ Now, use the asset object obtained from Step 1 to update the specific task or pr
 -   `X-Tallyfy-Client: APIClient`
 -   `Content-Type: application/json`
 
-#### Body (JSON - for Task field)
+#### Body JSON for task fields
 
 Update the task using its endpoint. The body should include a `taskdata` object targeting the file field ID. The value should be an **array containing the asset object** from Step 1.
 
@@ -685,7 +685,6 @@ Update the task using its endpoint. The body should include a `taskdata` object 
 {
   "taskdata": {
     "CAPTURE_ID_OF_FILE_FIELD": [
-       // Paste the entire asset object from Step 1 response's data[0] here
        {
           "id": "asset_id_abc123xyz", 
           "filename": "document.pdf",
@@ -696,8 +695,9 @@ Update the task using its endpoint. The body should include a `taskdata` object 
             "id": "run_id_or_checklist_id",
             "type": "Run"
           },
-          "url": "...", // Include all fields returned in Step 1 data[0]
-          "uploaded_at": "..." 
+          "url": "...",
+          "uploaded_at": "...",
+          "uploaded_to_s3": true
        }
     ]
   }
@@ -705,7 +705,7 @@ Update the task using its endpoint. The body should include a `taskdata` object 
 }
 ```
 
-#### Body (JSON - for Kick-off field)
+#### Body JSON for kick-off fields
 
 Update the template using its endpoint. The body needs to include the `prerun` array, modifying the entry for your file field. The `value` for the file field should be an **array containing the asset object** from Step 1.
 
@@ -738,7 +738,7 @@ When updating fields that expect arrays (like file fields or multi-selects), ens
 For `prerun`, when updating one kick-off field, you typically need to send the *entire* `prerun` array containing all other kick-off fields with their current values, otherwise they might be removed or reset. Fetch the template first to get the current structure.
 :::
 
-#### Code Samples (Step 2: Attach File to Task)
+#### Code samples for Step 2: Attach file to task
 
 (These examples assume you have the `assetObject` from the Step 1 response and the necessary IDs: `orgId`, `runId`, `taskId`, `formFieldId`)
 
@@ -1165,10 +1165,34 @@ public class TallyfyFileAttacher
 </TabItem>
 </Tabs>
 
-
-#### Response (Step 2: Attach)
+#### Response examples for Step 2: Attach
 
 A successful `PUT` request returns `200 OK` and the updated Task or Checklist object, reflecting the file attachment in the `taskdata` or `prerun.value` respectively.
+
+```json
+{
+  // ... other task properties ...
+  "taskdata": {
+    "CAPTURE_ID_OF_FILE_FIELD": [
+       {
+          "id": "asset_id_abc123xyz", 
+          "filename": "document.pdf",
+          "version": 1,
+          "step_id": "step_id_xyz789", 
+          "uploaded_from": "capture_id_abc123",
+          "subject": {
+            "id": "run_id_or_checklist_id",
+            "type": "Run"
+          },
+          "url": "...",
+          "uploaded_at": "...",
+          "uploaded_to_s3": true
+       }
+    ]
+  }
+  // ... other task properties ...
+}
+```
 
 ---
 
