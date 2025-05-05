@@ -1,0 +1,49 @@
+name: Tallyfy Answers - Generate IDs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - src/content/docs/**
+      - .github/workflows/answers.yml
+      - .github/workflows/publish.yml
+      - scripts/**
+  workflow_dispatch:
+
+
+jobs:
+  generate-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate IDs script
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            python -m pip install --upgrade python-frontmatter
+            python scripts/generate-ids.py --dir=$PWD --files="$file_changes"
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+        shell: bash
+      - name: Commit and push new articles with IDs
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git pull
+            git add .
+            git commit -m "Push Articles With ID(s)" -a
+            git push
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+    outputs:
+      generate-ids-completed: ${{ steps.generate-ids.outcome }}
