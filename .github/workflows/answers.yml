@@ -1,6 +1,4 @@
-permissions:
-  contents: write
-  actions: write
+name: Tallyfy Answers Workflow
 
 on:
   push:
@@ -9,67 +7,52 @@ on:
     paths:
       - src/content/docs/**
       - .github/workflows/answers.yml
+      - .github/workflows/publish.yml
       - scripts/**
   workflow_dispatch:
+
 
 jobs:
   generate-ids:
     runs-on: ubuntu-latest
-    outputs:
-      new-files: ${{ steps.check-new-files.outputs.new_files }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: Detect new MDX files
-        id: check-new-files
-        run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true)
-          echo "new_files=$([[ -n \"$file_changes\" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
-
+          fetch-depth: 2
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
       - name: Generate IDs script
-        if: steps.check-new-files.outputs.new_files == 'true'
         run: |
-          python -m pip install --upgrade python-frontmatter
-          python scripts/generate-ids.py --dir=$PWD --files="$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$')"
-
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            python -m pip install --upgrade python-frontmatter
+            python scripts/generate-ids.py --dir=$PWD --files="$file_changes"
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+        shell: bash
       - name: Commit and push new articles with IDs
-        if: steps.check-new-files.outputs.new_files == 'true'
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git pull
-          git add .
-          git commit -m "Push Articles With ID(s)" -a
-          git push
-
-  dispatch-if-new:
-    needs: generate-ids
-    if: needs.generate-ids.outputs.new-files == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger workflow_dispatch for a fresh run
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'answers.yml',
-              ref: 'main'
-            });
+          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git pull
+            git add .
+            git commit -m "Push Articles With ID(s)" -a
+            git push
+          else
+            echo "No new files added. Skipping ID generation."
+          fi
+    outputs:
+      generate-ids-completed: ${{ steps.generate-ids.outcome }}
 
   validate-markdown:
-    needs: [generate-ids, dispatch-if-new]
+    needs: generate-ids
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: actions/setup-python@v4
@@ -79,12 +62,15 @@ jobs:
         run: |
           python -m pip install --upgrade pyyaml
           python scripts/markdown-lint.py --dir=$PWD
+        shell: bash
+    outputs:
+      validate-markdown-completed: ${{ steps.validate-markdown.outcome }}
 
   generate-snippets:
     needs: validate-markdown
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: actions/setup-python@v4
@@ -121,7 +107,7 @@ jobs:
     needs: generate-snippets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: actions/setup-python@v4
@@ -140,7 +126,7 @@ jobs:
     needs: upload-to-tallyfy-answers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: actions/setup-python@v4
@@ -162,7 +148,7 @@ jobs:
     #    if: needs.upload-to-tallyfy-search.outputs.upload-to-tallyfy-search-completed == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       - uses: actions/setup-python@v4
