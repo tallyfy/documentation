@@ -1,0 +1,132 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 15
+snippet: Explore how AI Builder models in Power Automate can analyze text, process forms, or identify objects related to Tallyfy data.
+title: Leveraging AI Builder in Power Automate
+---
+
+Artificial Intelligence (AI) can enhance your Power Automate flows that interact with Tallyfy by enabling them to perform tasks that traditionally require human cognition, such as understanding text from Tallyfy [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/), recognizing images attached to Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/), or processing varied document formats that might initiate a Tallyfy [process](/products/pro/tracking-and-tasks/processes/). **AI Builder**, a capability within Power Automate, allows you to infuse AI into your automations with low-code solutions, opening up new possibilities for your Tallyfy-driven workflows.
+
+## What is AI Builder?
+
+AI Builder allows you to add intelligence to your Power Automate flows (and Power Apps) without needing to be a data scientist or write complex code. It provides pre-built AI models ready for common scenarios and allows creating custom AI models tailored to your specific Tallyfy data and business needs.
+
+The primary purpose of AI Builder, when used with Tallyfy, is to automate tasks involving interpretation of unstructured data (like text in an email that should trigger a Tallyfy task, or fields in a scanned form meant to launch a Tallyfy [process](/products/pro/tracking-and-tasks/processes/)) or making predictions based on historical Tallyfy data, thereby making your Tallyfy integrations smarter.
+
+## Types of AI Builder models relevant to Tallyfy
+
+AI Builder offers various models. Here are some particularly useful in conjunction with Tallyfy workflows:
+
+*   **Pre-built Models (Ready to Use):** These models are trained by Microsoft and can be used directly in your flows supporting Tallyfy.
+    *   **Text Recognition (OCR):** Extracts text from images and PDF documents. This could process scanned forms or documents that are part of a Tallyfy [process](/products/pro/tracking-and-tasks/processes/), making their content usable in subsequent Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/).
+    *   **Sentiment Analysis:** Analyzes text to detect sentiment. Excellent for processing customer feedback received through a Tallyfy [task's](/products/pro/tracking-and-tasks/tasks/) [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) and routing it accordingly within Tallyfy or to other systems.
+    *   **Key Phrase Extraction:** Identifies main talking points in text. Could summarize notes from a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
+    *   **Language Detection:** Identifies the language of text. Useful if your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) handle multilingual communications.
+    *   **Business Card Reader:** Extracts contact information from business card images, which could then populate fields in a new Tallyfy "Contact Creation" [process](/products/pro/tracking-and-tasks/processes/).
+    *   **Receipt Processing:** Extracts data from receipts, which could feed into an expense approval [process](/products/pro/tracking-and-tasks/processes/) in Tallyfy.
+
+*   **Custom Models (Train with Your Own Data):** These models require your data to train them for your specific Tallyfy use case.
+    *   **Form Processing:** Train a model to understand your specific forms (e.g., invoices, purchase orders that will initiate a Tallyfy [process](/products/pro/tracking-and-tasks/processes/)) and extract data. Powerful for documents without consistent structure that need to feed into Tallyfy.
+    *   **Object Detection:** Train a model to identify objects in images. Relevant for Tallyfy quality control [processes](/products/pro/tracking-and-tasks/processes/) where images are uploaded to [tasks](/products/pro/tracking-and-tasks/tasks/).
+    *   **Prediction:** Predict an outcome based on historical Tallyfy data. E.g., predict likelihood of a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) instance meeting its SLA based on initial input [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/).
+    *   **Category Classification (Text):** Train a model to classify text from Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) or [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) into custom categories (e.g., categorize support requests logged via Tallyfy).
+
+## Using a pre-built AI Builder model: sentiment analysis with Tallyfy data
+
+Let's walk through a scenario where we use AI Builder's pre-built Sentiment Analysis model to process customer feedback submitted through a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
+
+**Scenario:** A Tallyfy "Customer Feedback Collection" [process](/products/pro/tracking-and-tasks/processes/) includes a [task](/products/pro/tracking-and-tasks/tasks/) where customers provide textual feedback in a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). We want to automatically analyze the sentiment and take different actions within Tallyfy or other systems.
+
+<Steps>
+
+1.  **Trigger: Tallyfy - "When a task is completed".**
+    *   Configure your Power Automate flow to trigger when the specific "Provide Feedback" task in your Tallyfy [process](/products/pro/tracking-and-tasks/processes/) is completed. Refer to [creating your first flow](/products/pro/integrations/middleware/power-automate/creating-your-first-flow-in-power-automate/) for trigger basics.
+
+2.  **Action: Tallyfy - "Get task details".**
+    *   Use the `Task ID` from the trigger to fetch the full details of the completed Tallyfy [task](/products/pro/tracking-and-tasks/tasks/), including the feedback text from the relevant [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) (e.g., a field named `CustomerFeedbackText`).
+
+3.  **Action: AI Builder - "Detect the language being used in text".**
+    *   Sentiment analysis works best when the language is known. Add this AI Builder action.
+    *   **Text:** Provide the dynamic content `CustomerFeedbackText` (or your equivalent field name) from the Tallyfy "Get task details" output.
+
+    ![Screenshot of AI Builder Detect Language action](mdc:/pro/integrations/middleware/power-automate/assets/ai-builder-detect-language.png)
+
+4.  **Action: AI Builder - "Analyze positive or negative sentiment in text".**
+    *   **Language:** Use the `Language` dynamic content output from the "Detect the language being used in text" step.
+    *   **Text:** Again, provide the `CustomerFeedbackText` dynamic content from Tallyfy.
+
+    ![Screenshot of AI Builder Sentiment Analysis action](mdc:/pro/integrations/middleware/power-automate/assets/ai-builder-sentiment-analysis.png)
+
+5.  **Control: "Condition" or "Switch".**
+    *   Add a Condition or Switch control to act based on the sentiment. See [using conditional logic](/products/pro/integrations/middleware/power-automate/using-conditional-logic-in-power-automate/) or [advanced conditions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/).
+    *   **Condition Example:**
+        *   Value 1: `Overall text sentiment` (dynamic content output from the "Analyze positive or negative sentiment..." action).
+        *   Operator: `is equal to`.
+        *   Value 2: `Negative`.
+    *   **IF YES (Sentiment is Negative):**
+        *   Action: Tallyfy - "Create a task". Create a new high-priority follow-up [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy "Customer Retention" [process](/products/pro/tracking-and-tasks/processes/) assigned to a customer service manager. Include the original feedback and customer details in the new Tallyfy task.
+    *   **IF NO (and optionally check for Positive):**
+        *   Action: (Optional) Send a thank you email to the customer if positive.
+        *   Action: (Optional) Log the feedback and sentiment score from Tallyfy to a SharePoint list or Excel sheet for trend analysis.
+
+6.  **Save and test your flow.** Submit feedback through your Tallyfy task and observe the sentiment analysis and subsequent actions. Refer to [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tips.
+
+</Steps>
+
+## Training a custom AI Builder model: form processing with Tallyfy (conceptual overview)
+
+Custom models require more setup but offer intelligence tailored for your Tallyfy data. Here's a high-level concept for using Form Processing with scanned documents that might initiate a Tallyfy [process](/products/pro/tracking-and-tasks/processes/).
+
+**Scenario:** Your company receives purchase orders (POs) as scanned PDFs. These POs have varied layouts but contain key information like PO Number, Customer Name, Items, and Quantities. You want to extract this data to automatically launch an "Order Fulfillment" [process](/products/pro/tracking-and-tasks/processes/) in Tallyfy.
+
+<Steps>
+
+1.  **In AI Builder (within Power Automate portal):**
+    *   Choose to create a new **Form processing** model.
+    *   Define the fields you want to extract (e.g., `PO Number`, `Customer Name`, `ItemDescription`, `Quantity`).
+    *   Create collections of documents. Upload at least 5 sample PO documents for each collection (representing different layouts if they vary significantly).
+    *   Tag your documents: For each uploaded sample, draw boxes around the data you want to extract and assign it to the fields you defined.
+    *   Train your model. Once training is complete, test it and publish it for use in flows connected to Tallyfy.
+
+    ![Conceptual screenshot of AI Builder Form Processing tagging interface](mdc:/pro/integrations/middleware/power-automate/assets/ai-builder-form-processing-tagging.png)
+
+2.  **In your Power Automate Flow:**
+    *   **Trigger:** E.g., "When a new file is created" in a SharePoint folder (where scanned POs are saved by an admin or another process).
+    *   **Action: AI Builder - "Process and save information from forms".** (This might be named slightly differently, like "Extract information from forms").
+        *   Select your published custom Form Processing model.
+        *   **Form type:** `PDF Document` (or image type).
+        *   **Form:** Provide the file content of the new PO from the trigger.
+    *   The outputs of this action will be the extracted fields you defined (e.g., `PO Number value`, `Customer Name value`) available as dynamic content.
+    *   **Action: Tallyfy - "Launch process".**
+        *   Select your "Order Fulfillment" Tallyfy [procedure template](/products/pro/documenting/templates/).
+        *   Map the extracted dynamic content (e.g., `PO Number value`, `Customer Name value`) to the corresponding launch [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) in your Tallyfy template.
+
+</Steps>
+
+## Licensing and considerations for AI Builder with Tallyfy
+
+*   **Licensing:** AI Builder functionality typically requires specific Power Platform licensing (AI Builder credits), separate from standard Power Automate licenses. These are consumed as your models process data, including data from Tallyfy.
+*   **Effort:** Pre-built models are easy to implement with Tallyfy data. Custom models require effort in collecting diverse sample documents/images related to your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/), tagging them, and training the model.
+*   **Accuracy:** Custom model performance for Tallyfy integrations depends on the quality and variety of training data provided.
+
+## How AI Builder can make Tallyfy processes smarter
+
+Integrating AI Builder with Power Automate can elevate your Tallyfy workflows:
+
+*   **Reduce manual data entry:** Automatically extract data from emails or documents and populate Tallyfy [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/), saving time and reducing errors in your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/).
+*   **Gain deeper insights:** Analyze unstructured text within Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) (like customer comments or support notes) to understand sentiment or extract key information for better decision-making in Tallyfy.
+*   **Intelligent routing:** Route Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) or entire [processes](/products/pro/tracking-and-tasks/processes/) more intelligently based on AI-driven analysis of incoming data before it even hits Tallyfy.
+*   **Proactive actions:** Use prediction models to anticipate potential issues in a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) (e.g., risk of delay) and trigger alerts or alternative actions within Tallyfy or other systems.
+
+By leveraging AI Builder as part of your Power Automate toolkit, you can make your Tallyfy automations more adaptive, insightful, and efficient.
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Introduction to RPA with Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/introduction-to-rpa-with-power-automate/" > Get an overview of Robotic Process Automation (RPA) for scenarios where AI or APIs might not fit for Tallyfy. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Working with data operations and variables</b>" href="/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/" > Learn about variables and data operations, often used to prepare Tallyfy data for AI Builder. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Managing and monitoring Power Automate flows</b>" href="/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/" > Understand how to monitor flows that include AI Builder actions connected to Tallyfy. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Documenting > Templates > Automations</b>" href="/products/pro/documenting/templates/automations/" > Explore Tallyfy's native automation capabilities which can complement or provide alternatives to some AI Builder scenarios. </LinkTitleCard>
+</CardGrid> 

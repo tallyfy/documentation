@@ -1,0 +1,111 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 11
+snippet: Connect Power Automate to various external data sources like databases and Microsoft Forms to integrate with your Tallyfy processes.
+title: Connecting Power Automate to external data sources
+---
+
+Power Automate can act as a bridge between different applications and services. For Tallyfy users, this means you can connect your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) with external data sources, either to feed information into Tallyfy or to extract data from Tallyfy for use elsewhere, enhancing your core Tallyfy workflows.
+
+This article focuses on common external data scenarios: interacting with databases (like SQL Server) and processing responses from Microsoft Forms to support Tallyfy [processes](/products/pro/tracking-and-tasks/processes/).
+
+Remember, Tallyfy itself is a powerful data source and destination. Through its [Open API](/products/pro/integrations/open-api/), [webhooks](/products/pro/integrations/webhooks/), and the dedicated Tallyfy Power Automate [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/), you have multiple avenues to directly integrate Tallyfy data with your flows.
+
+## Working with databases (e.g., SQL Server) to support Tallyfy
+
+Databases often store critical business information. Connecting them to Tallyfy via Power Automate can enhance your data management strategy.
+
+*   **Why connect Tallyfy to a database via Power Automate?**
+    *   **Log Tallyfy data for reporting:** Automatically log details of completed Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) or specific [task](/products/pro/tracking-and-tasks/tasks/) outcomes into a SQL database for advanced reporting. This can supplement [Tallyfy Analytics](/products/pro/integrations/analytics/).
+    *   **Archive Tallyfy details:** Systematically archive Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) information, including [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data, into a data warehouse.
+    *   **Trigger Tallyfy from database events:** When a new record is added to a database (e.g., a new customer in a CRM's database), a Power Automate flow can trigger and launch a Tallyfy "New Customer Onboarding" [procedure template](/products/pro/documenting/templates/).
+
+*   **SQL Server connector in Power Automate:**
+    This is a common [connector](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/) for database interactions.
+    *   **Triggers:** `When an item is created (V2)`, `When an item is modified (V2)`.
+    *   **Actions:** `Get rows (V2)`, `Insert row (V2)`, `Update row (V2)`, `Delete row (V2)`, `Execute SQL query (V2)`.
+
+*   **Setting up a connection:** Provide connection details like server name, database name, and authentication.
+
+*   **Example: logging Tallyfy task completion to SQL**
+
+    <Steps>
+
+    1.  **Trigger: Tallyfy - "When a task is completed".**
+        *   Configure this to monitor a specific Tallyfy [procedure template](/products/pro/documenting/templates/) or task name. See [creating your first flow](/products/pro/integrations/middleware/power-automate/creating-your-first-flow-in-power-automate/) for trigger basics.
+
+    2.  **Action: Tallyfy - "Get task details".**
+        *   Use the `Task ID` from the trigger to fetch all data for the completed Tallyfy [task](/products/pro/tracking-and-tasks/tasks/), including custom [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/).
+
+    3.  **Action: SQL Server - "Insert row (V2)".**
+        *   Establish or select your SQL Server connection.
+        *   **Server name, Database name, Table name:** Select the appropriate values for your target database and table.
+        *   **Row:** The action will display fields corresponding to your SQL table's columns. Map dynamic content from the "Get task details" step (e.g., Task Name, Completion Date, Assigned User Email, specific form field values like `outputs('Get_task_details')?['body/forms/YourFormFieldName/value']`) to these columns.
+
+        ![Screenshot of SQL Server Insert Row action mapping Tallyfy data](mdc:/pro/integrations/middleware/power-automate/assets/sql-insert-row-from-tallyfy.png)
+
+    </Steps>
+
+## Processing Microsoft Forms responses to initiate Tallyfy processes
+
+Microsoft Forms can create surveys and polls. Integrating it with Tallyfy via Power Automate can streamline data collection for your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/).
+
+*   **Why use Microsoft Forms with Tallyfy via Power Automate?**
+    *   **User-friendly Tallyfy process initiation:** Use a simple Microsoft Form for users to submit requests that kick off a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) (e.g., an IT support request form that launches a Tallyfy support [procedure template](/products/pro/documenting/templates/)).
+    *   **Detailed data collection for Tallyfy:** Collect information through a Form and use Power Automate to populate multiple [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) in a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or launch form.
+    *   **Feedback loop for Tallyfy:** Gather feedback about a completed Tallyfy [process](/products/pro/tracking-and-tasks/processes/) using a Form, and use Power Automate to link this feedback back to the specific Tallyfy process instance.
+
+*   **Microsoft Forms connector:** (See [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/) for general connector information)
+    *   **Trigger:** `When a new response is submitted`.
+    *   **Action:** `Get response details`.
+
+*   **Example: launch Tallyfy Process from Form submission**
+
+    <Steps>
+
+    1.  **Create your Microsoft Form.**
+        *   Design a form (e.g., "New Project Request Form") with fields like Project Name, Client, Project Description, and Requested Deadline.
+
+    2.  **Trigger: Forms - "When a new response is submitted".**
+        *   In Power Automate, create an automated flow.
+        *   Select this trigger and choose your newly created form from the **Form Id** dropdown.
+
+    3.  **Action: Forms - "Get response details".**
+        *   **Form Id:** Select the same form again.
+        *   **Response Id:** Use the `Response Id` dynamic content from the trigger step.
+
+        ![Screenshot of Forms Get response details action](mdc:/pro/integrations/middleware/power-automate/assets/forms-get-response-details.png)
+
+    4.  **Action: Tallyfy - "Launch process".**
+        *   Select your Tallyfy "New Project Setup" [procedure template](/products/pro/documenting/templates/).
+        *   **Run Name:** Create a descriptive name using Form data, e.g., `Project: [Project Name from Forms output]`.
+        *   **Launch Form Fields:** Map the dynamic content outputs from the "Get response details" step to the corresponding launch [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) in your Tallyfy template.
+
+    </Steps>
+
+## Gathering user input in manual flows for Tallyfy (recap)
+
+As discussed in the [triggering flows manually (button flows)](/products/pro/integrations/middleware/power-automate/triggering-flows-manually-button-flows/) article, instant flows can accept user input at runtime.
+
+This directly relates to external data because this input is provided by the user. This data can then be passed to Tallyfy (e.g., to pre-fill a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or launch a Tallyfy [process](/products/pro/tracking-and-tasks/processes/)) or sent to other external systems.
+
+*Example:* A button flow named "Log Urgent Client Issue for Tallyfy" could prompt for "Client Name" and "Issue Description." This information then creates a high-priority [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy support [process](/products/pro/tracking-and-tasks/processes/).
+
+## Tips for data integration with Tallyfy
+
+*   **Data type compatibility:** Ensure data types are compatible between Tallyfy and external systems. Use Power Automate [expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) (e.g., `int()`, `string()`) for conversions.
+*   **Unique Tallyfy identifiers:** When logging Tallyfy data to external systems, always include unique Tallyfy identifiers like Process ID or Task ID for easier correlation.
+*   **Inspect with "Compose":** Use the "Compose" Data Operation action (see [working with data operations and variables](/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/)) to view data payloads during development of your Tallyfy integrations.
+*   **Tallyfy [Open API](/products/pro/integrations/open-api/) as an alternative:** For complex data interactions with Tallyfy not covered by the connector, use Power Automate's HTTP action with Tallyfy's comprehensive [Open API](/products/pro/integrations/open-api/).
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Working with data operations and variables</b>" href="/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/" > Use variables and data parsing for complex data handling when integrating Tallyfy with external sources. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Learn about Tallyfy's Open API for direct and advanced data integrations. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Webhooks</b>" href="/products/pro/integrations/webhooks/" > Discover how to use Tallyfy Webhooks to send data from Tallyfy to Power Automate. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Triggering flows manually (button flows)</b>" href="/products/pro/integrations/middleware/power-automate/triggering-flows-manually-button-flows/" > Understand how to gather user input at runtime for your Tallyfy automations. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Tracking and Tasks > Tasks > What are form fields in Tallyfy</b>" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > Understand how Tallyfy form fields are used to capture data within processes. </LinkTitleCard>
+</CardGrid> 

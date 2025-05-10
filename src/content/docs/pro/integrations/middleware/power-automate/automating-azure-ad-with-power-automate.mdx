@@ -1,0 +1,125 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 13
+snippet: Learn how to automate Azure Active Directory user and group management tasks using Power Automate, relevant for managing Tallyfy members.
+title: Automating Azure AD with Power Automate
+---
+
+Azure Active Directory (Azure AD) is Microsoft's cloud-based identity service. If your organization uses Azure AD, Power Automate can be a valuable tool for automating routine Azure AD administrative tasks. This can be particularly relevant for managing Tallyfy [members](/products/pro/documenting/members/) and their access, especially in organizations using Azure AD for Single Sign-On ([SSO](/products/pro/integrations/authentication/)) with Tallyfy.
+
+## Introduction to Azure AD automation for Tallyfy
+
+Automating Azure AD tasks with Power Automate can improve efficiency for operations related to Tallyfy user management, such as onboarding and offboarding users who need Tallyfy access, managing group memberships that grant Tallyfy roles, and generating compliance reports related to Tallyfy users.
+
+**Relevance to Tallyfy:**
+
+*   **Managing Tallyfy [members](/products/pro/documenting/members/):** If your Tallyfy [member](/products/pro/documenting/members/) list is synchronized with or managed via Azure AD groups, Power Automate can help automate adding or removing users from these groups. This ensures Tallyfy access aligns with your central identity management.
+*   **Automating Tallyfy access via [SSO](/products/pro/integrations/authentication/):** If Tallyfy [SSO](/products/pro/integrations/authentication/) is linked to specific Azure AD security groups, Power Automate can manage membership in these groups, thereby controlling who can access Tallyfy.
+*   **Reporting for Tallyfy compliance:** Generate reports on users who have access to Tallyfy (via Azure AD group membership) for regular access reviews, helping maintain security and compliance for your Tallyfy organization.
+
+## Key Azure AD actions in Power Automate for Tallyfy integration
+
+Power Automate offers connectors and actions for interacting with Azure AD relevant to Tallyfy:
+
+*   **Azure AD Connector:** This is the primary connector for user and group operations that can impact Tallyfy access. For general information on connectors, see [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/).
+    *   `Get user profile (V2)` and `Get manager (V2)`: Useful for retrieving user details which could inform Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) assignments.
+    *   `Create user`, `Update user`, `Delete user`: For automating user lifecycle management that might affect Tallyfy [member](/products/pro/documenting/members/) status.
+    *   `Add user to group`, `Remove user from group`: Directly manage membership in Azure AD security groups that control access to Tallyfy or specific Tallyfy-related resources.
+    *   `List group members`, `List users`: Essential for reporting on Tallyfy user access.
+*   **Office 365 Groups Connector:** Can be relevant if Microsoft 365 Groups are used to manage teams that also require specific Tallyfy access.
+*   **HTTP with Microsoft Graph API (Advanced):** For scenarios not covered by standard connectors (e.g., accessing custom user attributes relevant to Tallyfy roles), you can use Power Automate's HTTP action to call the Microsoft Graph API directly. This is an advanced technique detailed further in [connecting Power Automate to external data](/products/pro/integrations/middleware/power-automate/connecting-power-automate-to-external-data/).
+
+## Example: new Tallyfy member added to an Azure AD group
+
+**Scenario:** Your organization wants to automatically add new Tallyfy [members](/products/pro/documenting/members/) to a specific "Tallyfy Users" Azure AD security group if their job title (perhaps captured during an HR onboarding process that feeds Tallyfy) indicates they belong in a certain department like "Sales."
+
+*This example assumes a mechanism exists to trigger the flow when a new Tallyfy member is fully activated. This could be a Tallyfy [webhook](/products/pro/integrations/webhooks/) (if available for new member events), a Power Automate flow triggered by an HR system, or for this demonstration, a [manual trigger](/products/pro/integrations/middleware/power-automate/triggering-flows-manually-button-flows/).*
+
+<Steps>
+
+1.  **Trigger: Manually trigger a flow (for demonstration).**
+    *   Add input fields: `User Email` (Text), `Job Title` (Text).
+    *(In a real scenario, this data might come from Tallyfy or an HR system).*
+
+2.  **Action: Azure AD - "Get user (V2)".**
+    *   **User UPN or ID:** Use the `User Email` dynamic content from the trigger. This action fetches the user's full Azure AD profile, including their Object ID or UPN needed for group management.
+
+3.  **Control: "Condition".**
+    *   Refer to [using conditional logic](/products/pro/integrations/middleware/power-automate/using-conditional-logic-in-power-automate/) for details on conditions.
+    *   **Value 1:** Dynamic content `Job Title` from the trigger.
+    *   **Operator:** `contains` (or `is equal to` if titles are exact).
+    *   **Value 2:** `Sales`.
+
+4.  **IF YES Branch: Action: Azure AD - "Add user to group".**
+    *   **Group Id:** The Object ID of your "Tallyfy Sales Users" Azure AD security group. (You can find this ID in the Azure portal by navigating to Azure Active Directory > Groups, selecting your group, and copying its Object ID).
+    *   **User Id:** Use the `Id` (Object ID) dynamic content from the "Get user (V2)" action output.
+
+    ![Screenshot of adding user to Azure AD group in Power Automate](mdc:/pro/integrations/middleware/power-automate/assets/azure-ad-add-user-to-group.png)
+
+5.  **Save and test the flow.** Refer to [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing guidance.
+
+</Steps>
+
+## Example: reporting on Azure AD users for Tallyfy access review
+
+**Scenario:** Generate a monthly CSV report of all users in an Azure AD group that grants Tallyfy access (e.g., "Tallyfy General Access") and email it for review.
+
+<Steps>
+
+1.  **Trigger: Recurrence.**
+    *   Set the **Interval** to `1` and **Frequency** to `Month`.
+    *   Configure a specific day and time.
+
+2.  **Action: Azure AD - "List group members".**
+    *   **Group Id:** Provide the Object ID of your "Tallyfy General Access" Azure AD group.
+
+3.  **Action: "Create CSV table" (Data Operation).**
+    *   For more on data operations, see [working with data operations and variables](/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/).
+    *   **From:** Use the `value` dynamic content from the "List group members" action (this is an array of users).
+    *   **Columns:** Select `Custom`.
+        *   Header 1: `UserPrincipalName`, Value 1: Select `User Principal Name` dynamic content from the "List group members" items.
+        *   Header 2: `DisplayName`, Value 2: Select `Display Name` dynamic content.
+
+    ![Screenshot of Create CSV table action for Azure AD group members](mdc:/pro/integrations/middleware/power-automate/assets/create-csv-azure-ad-users.png)
+
+4.  **Action: "Send an email (V2)" (Outlook 365).**
+    *   **To:** Administrator's email address.
+    *   **Subject:** `Monthly Tallyfy User Access Review Report`.
+    *   **Body:** `Please find attached the monthly report of users in the 'Tallyfy General Access' group.`
+    *   Click **Show advanced options**.
+    *   **Attachments Name - 1:** `TallyfyUserReport.csv`.
+    *   **Attachments Content - 1:** Use the `Output` dynamic content from the "Create CSV table" action.
+
+5.  **Save and test your flow.**
+
+</Steps>
+
+## Using the HTTP connector for advanced Azure AD tasks affecting Tallyfy (brief overview)
+
+For tasks beyond the standard Azure AD connector, like accessing specific user properties to determine Tallyfy roles, use the generic HTTP action with the Microsoft Graph API. This advanced method is covered in more detail in [connecting Power Automate to external data](/products/pro/integrations/middleware/power-automate/connecting-power-automate-to-external-data/).
+
+This involves:
+1.  **App Registration in Azure AD:** Create an app registration with appropriate API permissions for accessing data relevant to Tallyfy users.
+2.  **Authentication Details:** Securely manage credentials within your HTTP action.
+3.  **HTTP Action Configuration:** Configure the method, URI, headers, and body for the Graph API call.
+4.  **Parse JSON Action:** Convert the JSON response from Graph API into usable dynamic content for your Tallyfy-related flow logic.
+
+This offers flexibility but requires understanding Azure AD app registrations and Graph API structures.
+
+## Tips for Tallyfy and Azure AD automation
+
+*   **Permissions:** Use the principle of least privilege for API permissions and service accounts impacting Tallyfy access.
+*   **Use group IDs:** Always use the immutable Group Object ID for Azure AD groups in flows, not display names.
+*   **Testing:** Test flows with non-administrator permissions if they are intended for delegated use for Tallyfy user management.
+*   **User lifecycle:** Leverage Azure AD user lifecycle events to automate Tallyfy [member](/products/pro/documenting/members/) provisioning or de-provisioning, especially with [SSO](/products/pro/integrations/authentication/).
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Documenting > Members</b>" href="/products/pro/documenting/members/" > Learn about managing members and their roles within Tallyfy. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Authentication</b>" href="/products/pro/integrations/authentication/" > Understand how Tallyfy integrates with Single Sign-On solutions like Azure AD. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Explore Tallyfy's API for more advanced user and group management if direct Tallyfy integration is preferred. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Understanding Power Automate basics</b>" href="/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/" > Review the fundamentals of Power Automate for context. </LinkTitleCard>
+</CardGrid> 

@@ -1,0 +1,106 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 5
+snippet: Discover how to automate file management tasks like copying, moving, and archiving files in conjunction with Tallyfy processes.
+title: Managing files with Power Automate
+---
+
+Many Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) involve creating, sharing, and archiving files. Power Automate offers tools to automate these file management tasks, helping you keep documents related to your Tallyfy workflows organized and integrated with other systems.
+
+## File management connectors in Power Automate for Tallyfy integration
+
+Power Automate supports various file storage services. For Tallyfy users, the most relevant [connectors](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/) are typically:
+
+*   **SharePoint:** Ideal for team collaboration and document libraries that can interact with Tallyfy [processes](/products/pro/tracking-and-tasks/processes/).
+*   **OneDrive for Business:** Suitable for individual user storage that might need to be synced with Tallyfy-related locations.
+
+Other connectors (Dropbox, Google Drive, FTP) are available. Core file automation concepts remain similar.
+
+Key triggers for file automation relevant to Tallyfy often include:
+
+*   `When a file is created (properties only)` (e.g., in a SharePoint library where Tallyfy-related documents are stored)
+*   `When a file is created or modified (properties only)`
+*   `When a file is created in a folder`
+
+Common actions you'll use to manage files related to Tallyfy include:
+
+*   `Create file`
+*   `Copy file`
+*   `Move file`
+*   `Get file content`
+*   `Get file properties`
+*   `Delete file`
+
+## Use cases for file management with Tallyfy
+
+Automating file management can enhance your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/):
+
+*   **Archiving Tallyfy-generated documents:** When a Tallyfy [document template](/products/pro/documenting/documents/) is finalized or a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) generates an output file (e.g., a user uploads a report in a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)), Power Automate can act. If a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) completion (with an uploaded file) triggers a [webhook](/products/pro/integrations/webhooks/), Power Automate can move these files to an archive in SharePoint.
+*   **Attaching files to Tallyfy tasks automatically:** A new contract template saved in SharePoint can trigger Power Automate to create a "Review Contract" [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy "Legal Review" [process](/products/pro/tracking-and-tasks/processes/), attaching the contract.
+*   **Triggering Tallyfy processes from file events:** A sales proposal dropped into a monitored OneDrive folder can trigger Power Automate to launch a Tallyfy "Sales Proposal Review" [procedure template](/products/pro/documenting/templates/). The flow can pass the file link into the Tallyfy launch form.
+
+## Building an example file management flow for Tallyfy
+
+Let's create a flow: A Tallyfy "Project Completion" [process](/products/pro/tracking-and-tasks/processes/) has a final [task](/products/pro/tracking-and-tasks/tasks/) where a "Project Closure Report.pdf" is uploaded to a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). Upon task completion, Power Automate archives this report to SharePoint.
+
+<Steps>
+
+1.  **Set up the Tallyfy trigger.**
+    In Power Automate, create an **Automated cloud flow** (see [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/)).
+    Trigger: `Tallyfy` - **When a task is completed**.
+    *   Configure the Tallyfy [connection](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/).
+    *   **Blueprint ID (Optional):** Select your "Project Completion" Tallyfy [procedure template](/products/pro/documenting/templates/).
+    *   **Step Position (Optional):** Specify the task step if known.
+
+2.  **Get Tallyfy task details (including the file).**
+    Add step: `Tallyfy` - **Get task details**.
+    *   **Task ID:** Use `Task ID` dynamic content from the trigger.
+    This retrieves Tallyfy [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data, including file information.
+
+    ![Screenshot of Tallyfy Get Task Details action](mdc:/pro/integrations/middleware/power-automate/assets/tallyfy-get-task-details-file.png)
+
+3.  **Initialize a variable to store file content (optional but good practice).**
+    Files from Tallyfy form fields might be base64 encoded. Explicitly decoding can be useful. See [working with data operations and variables](/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/) for more on variables and expressions.
+    Action: **Initialize variable**.
+    *   **Name:** `FileContentDecoded`
+    *   **Type:** `String`
+    *   **Value:** Use an [expression](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) to decode your Tallyfy file field (e.g., if your Tallyfy file field is `ProjectClosureReportFile`):
+        `base64ToString(outputs('Get_task_details')?['body/forms/ProjectClosureReportFile/contentBytes'])`
+        *Alternatively, if the Tallyfy connector provides directly usable file content for SharePoint (e.g., `ProjectClosureReportFile_Content`), you might use that in the next step and skip this variable initialization.* 
+
+4.  **Create the file in SharePoint.**
+    Add step: `SharePoint` - **Create file**.
+    *   **Site Address:** Select your SharePoint site.
+    *   **Folder Path:** Select the library/folder (e.g., `/Project Archives/Completed Reports/`). You can use [expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) for dynamic subfolders: `/Project Archives/Completed Reports/@{formatDateTime(utcNow(),'yyyy')}/@{formatDateTime(utcNow(),'MM')}`.
+    *   **File Name:** Use dynamic content from Tallyfy's **Get task details**. Ensure a unique name, e.g., `Project Report - [Process Name from Tallyfy] - [Task Name from Tallyfy].pdf`. If the Tallyfy file field provides a name (e.g., `ProjectClosureReportFile_Name`), use that.
+    *   **File Content:** Select the dynamic content for the file. If you used the variable, select that. Otherwise, use the Tallyfy file content output from **Get task details** (e.g., `ProjectClosureReportFile_Content`).
+
+    ![Screenshot of SharePoint Create File action](mdc:/pro/integrations/middleware/power-automate/assets/sharepoint-create-file-from-tallyfy.png)
+
+5.  **(Optional) Notify the team.**
+    Action: **Post a message in a chat or channel** (Microsoft Teams connector).
+    *   Post to a project team channel: "Project Closure Report for `[Process Name from Tallyfy Get task details]` has been archived."
+
+6.  **Save and test your flow.**
+    Complete the Tallyfy task with a file upload. Verify archiving and notification. (See [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tips).
+
+</Steps>
+
+## Tips for effective file automation with Tallyfy
+
+*   **Clear folder structures:** Organize SharePoint/OneDrive folders for easier Power Automate configuration for Tallyfy files.
+*   **Permissions management:** Ensure the Power Automate connection account has needed permissions for Tallyfy-related file operations.
+*   **File naming conventions:** Use consistent naming. Include unique Tallyfy [process](/products/pro/tracking-and-tasks/processes/) or [task](/products/pro/tracking-and-tasks/tasks/) IDs (e.g., `ProcessID_ReportName.pdf`) for traceability.
+*   **Leverage Tallyfy's capabilities:** For robust integrations involving files with Tallyfy, explore Tallyfy's [Open API](/products/pro/integrations/open-api/) and [webhooks](/products/pro/integrations/webhooks/). These offer more control than folder monitoring alone.
+*   **Error handling:** Add conditions or error handling in your flow for missing Tallyfy files or incorrect formats.
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Working with email automation in Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/working-with-email-automation-in-power-automate/" > Automate email tasks, which can include attaching files managed through Tallyfy. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Working with data operations and variables</b>" href="/products/pro/integrations/middleware/power-automate/working-with-data-operations-and-variables/" > Learn about handling file content and metadata using variables and data operations for Tallyfy. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Explore Tallyfy's Open API for advanced file interactions with Tallyfy processes. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Documenting > Documents</b>" href="/products/pro/documenting/documents/" > Understand Tallyfy document templates, which can be part of file management workflows. </LinkTitleCard>
+</CardGrid> 

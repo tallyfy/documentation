@@ -1,0 +1,105 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 12
+snippet: Enhance Tallyfy approval workflows by integrating Power Automate approvals with Microsoft Teams for seamless notifications and actions.
+title: Integrating Power Automate approvals with Microsoft Teams
+---
+
+Microsoft Teams is a common hub for collaboration. By integrating Power Automate approvals directly into Teams, you can streamline your Tallyfy-related approval [processes](/products/pro/tracking-and-tasks/processes/), reduce context switching for your Tallyfy users, and potentially achieve faster response times for critical decisions impacting your Tallyfy workflows.
+
+While Tallyfy has robust built-in approval capabilities, this integration can be useful if your organization heavily uses Teams for notifications.
+
+## Why integrate Power Automate approvals with Teams for Tallyfy?
+
+The benefits of bringing Power Automate approvals into the Microsoft Teams environment for Tallyfy-related decisions include:
+
+*   **Centralized notifications in Teams:** Approvers receive notifications and can act on requests directly within Teams.
+*   **Reduced context switching:** Users handling Tallyfy-related approvals via Power Automate don't need to jump to email if they are already in Teams.
+*   **Faster responses:** Approvals appearing in Teams can lead to quicker responses, keeping your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) and [tasks](/products/pro/tracking-and-tasks/tasks/) moving.
+*   **Enhanced visibility:** Approval requests concerning Tallyfy items and their statuses can be made visible within relevant Teams channels if desired.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+*   **Power Automate approvals set up:** You should be familiar with creating approval workflows in Power Automate as detailed in our article on [building approval workflows with Power Automate](/products/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate/).
+*   **Microsoft Teams with Power Automate app:** Users involved in the approval process for Tallyfy items should have Microsoft Teams and the Power Automate app (sometimes referred to as the "Flow bot", see [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/)) installed.
+
+## Posting approval requests to Teams for Tallyfy items
+
+You can use specific Microsoft Teams connector actions in Power Automate to send approval requests directly to users or channels within Teams. The primary method involves using **Adaptive Cards**.
+
+*   **Adaptive Cards:** These are interactive UI snippets displayed in Teams. For Tallyfy-related approvals, an Adaptive Card can show key details and provide "Approve" and "Reject" buttons directly within Teams.
+*   **Teams connector actions:** (Covered in [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/))
+    *   `Post adaptive card in a chat or channel`
+    *   `Post a choice of options as the Flow bot to a user` (simpler alternative for some scenarios).
+
+**Flow modification example (building on a Tallyfy budget approval scenario):**
+
+Let's say you have an existing Power Automate flow that uses the "Start and wait for an approval" action for a Tallyfy-triggered budget request (as detailed in the [building approval workflows](/products/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate/) article). To add Teams integration:
+
+<Steps>
+
+1.  **Locate your existing approval action.**
+    Find the "Start and wait for an approval" action in your flow that handles the Tallyfy item.
+
+2.  **Add the Teams action *after* creating the approval.**
+    Immediately *after* the "Start and wait for an approval" action, add a new step.
+    Search for `Microsoft Teams` and select the action **Post adaptive card in a chat or channel**.
+
+3.  **Configure the "Post adaptive card" action:**
+    *   **Post as:** Select `Flow bot`.
+    *   **Post in:**
+        *   Choose `Chat with Flow bot` to send the approval card as a direct message to the approver.
+        *   Alternatively, choose `Channel` to post it to a specific Teams channel (useful for group visibility or if multiple people can approve from a channel).
+    *   **Recipient (if Chat with Flow bot):** Use dynamic content to select the approver's email address (e.g., the `Mail` output from a "Get manager (V2)" step or the `Assigned to` email from your approval setup).
+    *   **Team and Channel (if Channel):** Select the appropriate Team and Channel.
+    *   **Adaptive Card:** This is key for displaying Tallyfy approval information.
+        *   The "Start and wait for an approval" action provides the Adaptive Card JSON as an output. In the dynamic content pane, search for `Teams Adaptive Card` (from your "Start and wait for an approval" action for the Tallyfy item) and select it.
+        *   This populates the field with JSON to render the approval card for the Tallyfy item in Teams.
+
+    ![Screenshot of configuring Post adaptive card in Teams](mdc:/pro/integrations/middleware/power-automate/assets/teams-post-adaptive-card.png)
+
+    :::tip[Custom Adaptive Cards]
+    If the default card for your Tallyfy approval isn't sufficient, you can construct your own Adaptive Card JSON. Tools like the [Adaptive Cards Designer](https://adaptivecards.io/designer/) can help. Your custom card would need placeholders for dynamic content from Tallyfy (title, details, requestor) and `Action.Submit` buttons.
+    :::
+
+4.  **Save your flow.**
+
+</Steps>
+
+Now, when this part of the Tallyfy-related flow runs, the approver will also receive an Adaptive Card in Teams, allowing them to approve or reject the Tallyfy item directly from Teams.
+
+## Handling responses from Teams approvals for Tallyfy
+
+*   **Using "Start and wait for an approval":** If you used the `Teams Adaptive Card` output from a "Start and wait for an approval" action linked to a Tallyfy item, Power Automate handles the response. The flow pauses at this step. When the user clicks an action on the Adaptive Card in Teams, the response is sent back. The flow then proceeds, and you can use the `Outcome` and `Comments` to update the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/).
+*   **Custom Adaptive Cards with `Action.Submit`:** If you designed a fully custom Adaptive Card for a Tallyfy approval, handling the response is more complex and typically involves another flow or advanced logic to correlate the response back to the original Tallyfy item.
+
+For most Tallyfy-related scenarios, using the standard "Start and wait for an approval" action and its `Teams Adaptive Card` output is the most straightforward approach for integrating with Teams.
+
+## Notifying users in Teams about Tallyfy events
+
+Beyond approvals, you can use the Microsoft Teams connector to post general notifications about Tallyfy events:
+
+*   **Tallyfy task overdue:** Trigger a flow when a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) becomes overdue (this might require a scheduled flow checking Tallyfy task statuses via its [API](/products/pro/integrations/open-api/) or a Tallyfy [webhook](/products/pro/integrations/webhooks/) if available for due dates). Post a message to a Teams channel, tagging the assignee.
+*   **Tallyfy process completion:** When a key Tallyfy [process](/products/pro/tracking-and-tasks/processes/) like "New Client Onboarding" completes (triggered by the Tallyfy connector), post a summary message to a project channel in Teams.
+*   **New Tallyfy task assignment:** When a new high-priority task is created in Tallyfy and assigned, send the assignee a direct message in Teams with Tallyfy task details and a link.
+
+## Best practices for Teams and Tallyfy integration
+
+*   **Clarity in cards:** Keep Adaptive Cards for Tallyfy approvals clear and focused on essential information. Include links back to the relevant Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/) for more context.
+*   **Flow bot adoption:** Ensure users receiving Tallyfy-related approvals or notifications in Teams have the Power Automate app installed.
+*   **Thorough testing:** Test the end-to-end Tallyfy-to-Teams experience.
+*   **Targeted notifications:** Use direct messages for individual Tallyfy approvals or notifications. Use channel posts when the Tallyfy information is relevant to a whole team.
+*   **Complement, don't overwhelm:** Use Teams notifications to enhance Tallyfy workflows where it adds value. Don't replicate every Tallyfy notification if Tallyfy's native notifications are sufficient. Focus on high-value interactions that streamline Tallyfy [process](/products/pro/tracking-and-tasks/processes/) progression.
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Building approval workflows with Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate/" > Learn to design approval workflows in Power Automate that can be extended to Teams for Tallyfy items. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Slack</b>" href="/products/pro/integrations/slack/" > Explore how Tallyfy integrates with Slack, a similar chat-based integration pattern. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations > Middleware > Power Automate > Understanding Power Automate basics</b>" href="/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/" > Review fundamentals of Power Automate, including connectors like the Teams connector. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Tracking and Tasks > Tasks</b>" href="/products/pro/tracking-and-tasks/tasks/" > Understand Tallyfy tasks, which are often the subject of approvals. </LinkTitleCard>
+</CardGrid> 
