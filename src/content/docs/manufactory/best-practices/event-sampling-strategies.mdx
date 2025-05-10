@@ -1,0 +1,87 @@
+---
+id: 00000000000000000000000000000000
+title: Effective event sampling strategies
+sidebar:
+  order: 7
+snippet: Learn about event sampling techniques to manage high-volume event streams sent to Tallyfy Manufactory while retaining crucial data for observability.
+---
+
+As your systems scale, the volume of events generated can become substantial. While Tallyfy Manufactory is designed to handle significant event loads, sending, storing, and processing every single event might become impractical or cost-prohibitive, both for Manufactory itself and for any downstream observability or analytics systems. Event sampling offers a way to manage this volume while still retaining the crucial data needed for effective observability.
+
+## Why consider sampling for events sent to Tallyfy Manufactory?
+
+Implementing an event sampling strategy before events reach Tallyfy Manufactory, or for data exported from Manufactory, can offer several benefits:
+
+*   **Volume and Cost Reduction:** High-traffic applications can generate millions or even billions of events. Storing and processing every single one within Tallyfy Manufactory and any connected analytics platforms can lead to significant infrastructure and vendor costs.
+*   **Performance Optimization:** Ingesting, indexing, and analyzing massive, unsampled event streams can potentially impact the performance of Tallyfy Manufactory or the tools you use to query its data.
+*   **Signal vs. Noise Enhancement:** Not all events are equally valuable for observability. Many events are repetitive and indicate successful, normal operations. While some record of these is important, keeping every single one might not be necessary if a statistically representative sample is retained. Sampling can help focus on the more interesting or anomalous events.
+
+The primary goal of sampling events related to Tallyfy Manufactory is to reduce the overall data volume without losing the ability to debug issues, understand system behavior, and meet your [Service Level Objectives (SLOs)](./setting-up-alerts-and-slos/) for processes involving Manufactory.
+
+## Key sampling concepts
+
+Before diving into specific strategies, let's define some core sampling terms:
+
+*   **Sample Rate:** The proportion of events that are kept and processed versus discarded. For example, a sample rate of 1:100 (or 1%) means one event is kept for every 100 generated.
+*   **Head-based Sampling:** The decision to keep or drop an event (or an entire trace) is made at the beginning of its lifecycle, typically based on static attributes known at that time.
+*   **Tail-based Sampling:** The decision to sample is deferred until after an event or an entire trace has completed. This allows sampling decisions to be based on the outcome of the operation (e.g., whether it was an error, or if it exceeded a latency threshold).
+*   **Dynamic Sampling:** The sample rate is not fixed but adjusts automatically based on factors like current traffic volume or specific characteristics of the events.
+
+## Common sampling strategies relevant to Tallyfy Manufactory
+
+Here are a few sampling strategies that can be particularly relevant when dealing with events sent to or processed by Tallyfy Manufactory:
+
+*   **Constant Probability (Fixed-Rate) Sampling:**
+    *   **How it works:** You define a fixed rate (e.g., keep 1 out of every N events) that applies to all events being sent to Manufactory, or to a specific category of events.
+    *   **Pros:** Very simple to implement in your event-producing applications.
+    *   **Cons:** If the rate is too low (e.g., sampling 1 in 1000), you risk missing rare but critical events, like infrequent error types within a Manufactory workflow. High-volume, low-importance event types can also disproportionately drown out low-volume, high-importance events in your sampled dataset.
+*   **Per-Key (Content-Based) Sampling:**
+    *   **How it works:** You define different sample rates based on the values of one or more attributes within the event. For example, you could sample based on `event_type`, `customer_id`, or an `error_status` field that indicates if a previous step related to a Manufactory process failed.
+    *   **Example for Manufactory:** Always keep 100% of `PaymentTransactionFailed` events that are routed through a Manufactory project, but sample only 5% of `UserActivityHeartbeat` events that Manufactory might also ingest for auditing.
+    *   **Pros:** Ensures that events you deem critical are always captured. Allows you to balance representation across different types or priorities of events that interact with Manufactory.
+    *   **Cons:** Requires careful thought to define the right keys and their respective rates. Managing a large number of keys can become complex.
+*   **Target Rate Sampling (Adaptive Sampling):**
+    *   **How it works:** Instead of a fixed percentage, you aim to send a target number of events per second (or minute) to Tallyfy Manufactory, either overall or for specific keys. The actual sampling percentage dynamically adjusts based on the incoming event volume.
+    *   **Example:** If your `OrderCreated` events (processed by a Manufactory project) suddenly spike from 10/second to 1000/second, an adaptive sampler might automatically reduce the sampling percentage from 100% down to 1% to maintain a target ingested rate of, say, 10 `OrderCreated` events/second in Manufactory or your analytics tool.
+    *   **Pros:** Helps protect Tallyfy Manufactory and downstream analysis systems from being overwhelmed by traffic spikes. Provides a more consistent volume of data for analysis, which can simplify capacity planning for your observability infrastructure.
+    *   **Cons:** Can be more complex to implement correctly, especially ensuring that the `sample_rate` metadata is accurately calculated and propagated for weighted analysis later on.
+
+## Best practices for sampling events sent to Tallyfy Manufactory
+
+When implementing sampling for events that will be processed or observed via Tallyfy Manufactory:
+
+*   **Prioritize Keeping Critical Events:**
+    *   Always aim to keep 100% (or a very high percentage) of events indicating errors or failures, especially those related directly to Tallyfy Manufactory's processing (e.g., an actor failing, a routing rule mismatch).
+    *   Preserve events for critical business transactions (e.g., order completions, payment processing steps that involve Manufactory).
+    *   Consider higher sampling rates for events from key customers or high-value workflows managed by Manufactory.
+*   **Understand the Purpose of Events in Manufactory:**
+    *   If Tallyfy Manufactory *requires* seeing every single event for a specific trigger or project to function correctly (e.g., for accurate state management or sequencing), then sampling those events *before* they reach Manufactory is likely not an option. In such cases, sampling might only be viable for data *exported from* Manufactory for long-term storage or analysis.
+    *   If Manufactory is primarily used for observation, or for triggering less critical, idempotent downstream actions, then sampling upstream events might be more feasible.
+*   **Propagate Sampling Decisions with Traces:**
+    *   If an event is part of a [distributed trace](./implementing-distributed-tracing/), and a head-based sampling decision has already been made to keep that trace, ensure all subsequent events belonging to that trace (including any sent to or generated by Tallyfy Manufactory) are also kept. The trace context should carry the sampling decision.
+    *   Crucially, **include the `sample_rate` as an attribute in the event data** sent to Tallyfy Manufactory (and any other observability backend). This allows analysis tools to correctly reconstruct original event volumes and perform weighted calculations for accurate metrics.
+*   **Start Simple and Iterate:** You don't need a perfect, complex sampling strategy from day one. Begin with a basic approach (like fixed-rate for non-critical events, and 100% for errors) and refine it as you understand your event volumes and the specific insights you need from Manufactory data.
+*   **Monitor Your Sampling Effectiveness:** Regularly ask: Are we still able to debug issues effectively with the sampled data? Are we missing important trends or anomalies in our Tallyfy Manufactory event flows because of sampling?
+
+## How Tallyfy Manufactory might interact with sampled data
+
+Consider these aspects regarding Tallyfy Manufactory itself:
+
+*   **Awareness of `sample_rate`:** If events ingested by Manufactory include a `sample_rate` attribute, can Manufactory or any tools analyzing its data (or data exported from it) leverage this for weighted analysis to reconstruct accurate counts or metrics?
+*   **Internal Sampling (Hypothetical):** Does Tallyfy Manufactory offer any built-in sampling capabilities for the events it processes, or for the data it archives or exports for long-term analysis?
+*   **Impact on Triggers/Actors:** If upstream events are heavily sampled before they reach Tallyfy Manufactory, how does this affect the reliability or completeness of data for Manufactory triggers or actors that depend on those events?
+
+## Balancing cost, performance, and visibility
+
+Event sampling is ultimately a series of trade-offs. The primary goal is to find a strategy that significantly reduces the data load on Tallyfy Manufactory and other systems without critically impairing your ability to observe, understand, and troubleshoot your event-driven workflows.
+
+This often means employing a hybrid approach: perhaps aggressively sampling high-volume, low-criticality events while ensuring complete capture of errors and events from vital business processes that Tallyfy Manufactory handles. Regularly review and adjust your sampling strategy as your system, event volumes, and observability needs evolve. 
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Best Practices > Setting up effective alerts and SLOs with Tallyfy Manufactory event data</b>" href="./setting-up-alerts-and-slos/" >Learn to define Service Level Objectives (SLOs) and create actionable alerts based on event data processed by Tallyfy Manufactory.</LinkTitleCard>
+<LinkTitleCard header="<b>Best Practices > Understanding structured events for observability in Tallyfy Manufactory</b>" href="./understanding-structured-events/" >Learn why structured events are the foundation of observability and how to design effective event schemas for Tallyfy Manufactory.</LinkTitleCard>
+<LinkTitleCard header="<b>Best Practices > Best practices for instrumenting applications for Tallyfy Manufactory</b>" href="./instrumenting-applications-for-manufactory/" >Learn how to effectively instrument your applications to send rich, contextual events to Tallyfy Manufactory for optimal observability.</LinkTitleCard>
+</CardGrid> 

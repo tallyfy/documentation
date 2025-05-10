@@ -1,0 +1,106 @@
+---
+id: 00000000000000000000000000000000
+title: Setting up effective alerts and SLOs
+sidebar:
+  order: 6
+snippet: Learn to define Service Level Objectives (SLOs) and create actionable alerts based on event data processed by Tallyfy Manufactory.
+---
+
+Effective alerting is crucial for maintaining the reliability of your event-driven systems, especially those orchestrated or monitored by Tallyfy Manufactory. However, traditional alerting methods often lead to noise and fatigue. This article introduces Service Level Objectives (SLOs) as a more robust framework for creating actionable alerts based on your Tallyfy Manufactory event data.
+
+## Why traditional alerting falls short for event-driven systems
+
+Many teams struggle with alerts that are either too noisy (triggering for non-issues) or too quiet (missing real problems). This is often because traditional alerts are:
+
+*   **Cause-based:** They trigger on specific technical conditions (e.g., "CPU utilization over 80%," "Queue length exceeds 1000 messages"). While sometimes useful, these don't always correlate directly with user-facing problems or issues in Tallyfy Manufactory event processing.
+*   **Reliant on static thresholds:** Event flows can be highly dynamic. A fixed threshold that makes sense during peak load might be too sensitive during quiet periods, leading to false alarms related to Manufactory workflows.
+*   **Prone to alert fatigue:** When engineers are constantly bombarded with unactionable alerts, they start to ignore them, increasing the risk of missing genuine incidents, including those affecting Tallyfy Manufactory.
+
+For event-driven systems where Tallyfy Manufactory manages critical event lifecycles, a more nuanced approach is needed to ensure alerts are both meaningful and actionable.
+
+## Introduction to Service Level Objectives (SLOs) and Error Budgets
+
+SLOs provide a user-centric way to define and measure reliability:
+
+*   **Service Level Indicator (SLI):** A quantifiable measure of performance or reliability for a specific aspect of your service. For Tallyfy Manufactory, an SLI could be the percentage of events successfully ingested, the latency of an event through a Manufactory [project](/products/manufactory/projects/), or the success rate of a specific Manufactory [actor](/products/manufactory/actors/).
+*   **Service Level Objective (SLO):** A target value or range for an SLI over a defined period. This is your internal goal. For example: "99.9% of `OrderConfirmation` events sent to Tallyfy Manufactory will be successfully ingested and trigger the `NotificationActor` within 5 seconds, measured over a rolling 30-day window."
+*   **Error Budget:** The amount of allowable failure before your SLO is breached (calculated as 100% - SLO target). If your SLO is 99.9%, your error budget is 0.1%. This budget represents the acceptable number of bad events or unacceptable latencies before you consider the service to be underperforming from a user perspective.
+
+SLOs shift the focus from arbitrary system metrics to what truly matters: the experience of your users and the success of critical business processes facilitated by Tallyfy Manufactory.
+
+## Defining meaningful SLIs and SLOs for Tallyfy Manufactory
+
+To create effective SLOs for workflows involving Tallyfy Manufactory, first identify the most critical event flows or user journeys that Manufactory supports.
+
+Consider Manufactory's role in these flows:
+
+*   **Event Ingestion:** Is successful and timely event ingestion by Manufactory critical? An SLI could be the percentage of events successfully accepted by Manufactory's API or collectors.
+*   **Event Processing/Routing:** Does Manufactory route events to different actors or projects based on complex rules? An SLI could measure the success rate of these routing decisions or the latency introduced.
+*   **Actor Performance:** Are specific actors within Manufactory performing critical business logic? SLIs can target their success rate or execution duration.
+*   **End-to-End Event Lifecycle:** For a complete business process where Tallyfy Manufactory is a key component (e.g., processing an e-commerce order from creation to shipment notification), an SLI might measure the overall success rate or duration of that entire flow, with Manufactory's contribution being a part of it.
+
+**Examples of SLIs for Tallyfy Manufactory:**
+
+*   `(Number of successfully ingested events by Manufactory endpoint X) / (Total events attempted to be sent to endpoint X)`
+*   `(Number of events correctly routed by Manufactory project 'UserOnboarding') / (Total events processed by project 'UserOnboarding')`
+*   `(Number of Manufactory actor 'InventoryUpdateActor' executions completed under 300ms) / (Total executions of actor 'InventoryUpdateActor')`
+
+When setting SLO targets, be realistic. Start with achievable goals based on current performance and gradually tighten them as you improve your systems and processes around Manufactory.
+
+## Alerting on SLOs: Burn rate and symptom-based alerting
+
+Instead of alerting on myriad potential causes, **alert on symptoms** that indicate your SLO is at risk. The most effective way to do this is by monitoring your **error budget burn rate**.
+
+*   **Error Budget Burn Rate:** This measures how quickly your allowed error budget is being consumed. If you have a 0.1% error budget for 30 days, and you consume 0.05% in the first day, your burn rate is high.
+*   **Setting Alert Thresholds:** Configure alerts to trigger when, if the current error budget burn rate continues, your entire error budget will be exhausted within a critical timeframe (e.g., alert if you're on track to burn your monthly budget in the next 4 hours, or in the next 24 hours).
+
+This approach ensures alerts are:
+
+*   **Actionable:** A rapidly burning error budget for a Manufactory process signifies a real or imminent problem impacting your defined objectives.
+*   **User-focused:** Alerts are tied directly to the reliability targets you've set for workflows involving Tallyfy Manufactory.
+
+## How Tallyfy Manufactory data supports SLOs and alerting
+
+Event data processed by or originating from Tallyfy Manufactory is key to implementing SLO-based alerting:
+
+*   **Event Status:** Events often contain status fields (e.g., `success`, `failure`, `error_code`). Manufactory itself might add status information regarding its own processing (e.g., `ingestion_successful`, `actor_execution_failed`). This is vital for distinguishing "good" events from "bad" events for your SLIs.
+*   **Event Counts:** To calculate SLIs like success rates, you need accurate counts of total relevant events and failed events. Tallyfy Manufactory data, or data from systems sending events to it, can provide these counts.
+*   **Timestamps:** Manufactory events will typically have timestamps associated with their creation, ingestion by Manufactory, and various processing stages. These are essential for latency-based SLIs.
+*   **Manufactory Metrics/Exports (if available):** If Tallyfy Manufactory exposes its own operational metrics (e.g., number of events processed by a project, error rates for an actor) or allows event data to be exported, this data can be directly fed into your SLO tracking and alerting tools.
+
+## Practical steps for setting up alerts for Manufactory workflows
+
+1.  **Choose an SLO Tracking Tool:** This could be your existing monitoring or observability platform if it supports event-based SLO calculations and burn rate alerting. If not, you might consider dedicated SLO tooling.
+2.  **Feed Manufactory Event Data:** Determine how to get the relevant event data (success/failure status, counts, timestamps for events related to Manufactory) into your SLO tool. This might involve:
+    *   Your applications sending event data directly to the SLO tool in parallel with sending to Manufactory.
+    *   Using an API or webhooks from Manufactory (if available) to push event outcomes.
+    *   Querying Manufactory's data store or logs (if accessible and suitable for real-time analysis).
+3.  **Define SLIs and SLOs:** Configure your chosen SLIs and their target SLOs within the tool, based on your Manufactory workflows.
+4.  **Configure Burn Rate Alerts:** Set up alerts based on different error budget burn rates and time windows (e.g., fast burn over 1 hour, slower burn over 24 hours).
+5.  **Develop Playbooks:** When an alert fires for a Manufactory-related SLO, what are the initial investigation steps? How should engineers use Tallyfy Manufactory's interface, event data, and other tools to diagnose the issue?
+
+## Example scenario: Alerting on a failing Manufactory actor
+
+*   **SLI:** Percentage of successful executions for a critical `OrderValidationActor` within a Tallyfy Manufactory project.
+*   **SLO:** 99.95% success rate over a rolling 7-day period.
+*   **Alerting:** If the `OrderValidationActor` starts failing more frequently (e.g., due to a new type of malformed event payload it can't handle), the error budget for this SLO will begin to deplete. A burn rate alert would notify the on-call team that, at the current failure rate, the 7-day SLO for this actor is in jeopardy.
+*   **Action:** The team would then investigate the `OrderValidationActor` within Manufactory, examine the attributes of the failing events, check actor logs (if available), and potentially look at traces for the problematic event flows.
+
+## Iterating and improving your alerts
+
+Setting up SLOs and alerts is not a one-time task:
+
+*   **Regularly review alert effectiveness:** Are your alerts for Tallyfy Manufactory processes truly actionable? Are you experiencing false positives or negatives?
+*   **Adjust SLO targets and alert thresholds:** As your understanding of your Manufactory workflows and their typical performance improves, refine your SLOs and alerting rules.
+*   **Ensure alerts provide context:** Alerts should give responders enough initial information to efficiently start investigating issues related to Tallyfy Manufactory, perhaps by linking directly to relevant views or queries.
+
+By adopting an SLO-based approach, you can transform your alerting for Tallyfy Manufactory from a source of noise into a reliable system for maintaining and improving the reliability of your critical event-driven processes. 
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Best Practices > Analyzing events and deriving insights with Tallyfy Manufactory</b>" href="./analyzing-events-and-deriving-insights/" >Explore techniques for analyzing event data within Tallyfy Manufactory to identify patterns, anomalies, and gain valuable insights into your workflows.</LinkTitleCard>
+<LinkTitleCard header="<b>Best Practices > Effective event sampling strategies for Tallyfy Manufactory</b>" href="./event-sampling-strategies/" >Learn about event sampling techniques to manage high-volume event streams sent to Tallyfy Manufactory while retaining crucial data for observability.</LinkTitleCard>
+<LinkTitleCard header="<b>Best Practices > What is observability and why use it with Tallyfy Manufactory?</b>" href="./what-is-observability/" >Understand the definition of observability, how it differs from traditional monitoring, and its specific benefits for Tallyfy Manufactory users.</LinkTitleCard>
+</CardGrid> 
