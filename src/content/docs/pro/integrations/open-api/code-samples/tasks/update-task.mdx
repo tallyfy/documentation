@@ -2,8 +2,9 @@
 id: e90e77bdf44a694c9177bb323989ff60
 sidebar:
   order: 5
-snippet: Updates existing tasks by modifying properties like title description deadline
-  assignees and form field values through a PUT request to the Tallyfy API endpoint.
+snippet: The API endpoint enables updating task properties like title summary deadline
+  assignees and form field values through a PUT request while handling both process-run
+  tasks and standalone one-off tasks with appropriate response validation.
 title: Update task
 ---
 
@@ -57,7 +58,7 @@ To update form field values, include a `taskdata` object in the request body. Th
 
 :::tip[Finding Field IDs]
 If you don't know the Form Field IDs (Capture IDs), you can:
-1.  Retrieve the task details using the [Get Task](./get-task/) endpoint with `with=form_fields`.
+1.  Retrieve the task details using the [Get Task](/products/pro/integrations/open-api/code-samples/tasks/get-task/) endpoint with `with=form_fields`.
 2.  Inspect the network requests in your browser's developer tools when interacting with the task form in the Tallyfy UI.
 :::
 
@@ -88,9 +89,9 @@ const runId = 'PROCESS_RUN_ID'; // Or null/omit for one-off task
 const taskId = 'TASK_ID_TO_UPDATE';
 
 // Choose the correct URL based on task type
-const apiUrl = runId 
+const apiUrl = runId
     ? `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/tasks/${taskId}`
-    : `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}`; 
+    : `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}`;
 
 const updatePayload = {
   // Example: Update deadline and a text form field
@@ -166,7 +167,7 @@ update_payload = {
     'taskdata': {
         'dropdown_field_id_example': {
             'id': 3, # Option ID from template form field definition
-            'text': 'Selected Option C', 
+            'text': 'Selected Option C',
             'value': None # Value is often null for dropdowns/radios
          }
     }
@@ -190,7 +191,7 @@ except requests.exceptions.HTTPError as http_err:
     except json.JSONDecodeError:
         if response is not None:
              error_details = response.text
-    print(f"HTTP error occurred updating task {task_id}: {http_err}") 
+    print(f"HTTP error occurred updating task {task_id}: {http_err}")
     print(f"Response Body: {error_details}")
 except requests.exceptions.RequestException as req_err:
     print(f"Request failed updating task {task_id}: {req_err}")
@@ -223,7 +224,7 @@ public class UpdateTask {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String runId = System.getenv("TALLYFY_RUN_ID"); // Set to null for one-off task
         String taskId = "TASK_ID_TO_UPDATE";
-        
+
         String apiUrl;
         if (runId != null && !runId.isEmpty()) {
              apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId);
@@ -231,7 +232,7 @@ public class UpdateTask {
              apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId);
         }
 
-        // --- Payload Construction --- 
+        // --- Payload Construction ---
         // Using Jackson/Gson recommended:
         /*
         ObjectMapper mapper = new ObjectMapper();
@@ -252,12 +253,12 @@ public class UpdateTask {
         */
         // Simple manual JSON string:
         String jsonPayload = "{\"summary\": \"Updated via Java HttpClient\", \"taskdata\": {\"field_abc\":\"Java value\"}}";
-        // --- End Payload --- 
+        // --- End Payload ---
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
-                
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Authorization", "Bearer " + accessToken)
@@ -310,7 +311,7 @@ func main() {
     if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     runId := os.Getenv("TALLYFY_RUN_ID") // Set to "" for one-off task
     taskId := "TASK_ID_TO_UPDATE"
-    
+
     var apiUrl string
     if runId != "" {
         apiUrl = fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId)
@@ -325,7 +326,7 @@ func main() {
             "radio_button_field_id": "Option B", // Use actual Field ID
         },
         // "owners": map[string][]interface{} { // Example: Update owners
-        //    "users": {1005}, 
+        //    "users": {1005},
         // },
 	}
 
@@ -392,12 +393,12 @@ using namespace web::json;
 
 pplx::task<void> UpdateTallyfyTask(const utility::string_t& taskId, const value& updatePayload, std::optional<utility::string_t> runId = std::nullopt)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     utility::string_t apiUrlBase = U("https://go.tallyfy.com/api/organizations/") + orgId;
     utility::string_t apiUrl;
-    
+
     if (runId) {
         apiUrl = apiUrlBase + U("/runs/") + runId.value() + U("/tasks/") + taskId;
     } else {
@@ -443,10 +444,10 @@ int main() {
         payload[U("taskdata")] = taskdata;
 
         // Update a process task
-        UpdateTallyfyTask(U("TASK_ID_TO_UPDATE"), payload, U("RUN_ID")).wait(); 
-        
+        UpdateTallyfyTask(U("TASK_ID_TO_UPDATE"), payload, U("RUN_ID")).wait();
+
         // Update a one-off task (runId omitted)
-        // UpdateTallyfyTask(U("ONE_OFF_TASK_ID"), payload).wait(); 
+        // UpdateTallyfyTask(U("ONE_OFF_TASK_ID"), payload).wait();
 
     } catch (const std::exception &e) {
         std::cerr << "Error in main: " << e.what() << std::endl;
@@ -483,7 +484,7 @@ public class TallyfyTaskUpdater
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public TaskOwners Owners { get; set; } // Remember: Replaces existing
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public Dictionary<string, object> TaskData { get; set; } 
+        public Dictionary<string, object> TaskData { get; set; }
         // Add other updatable fields as needed
     }
     public class TaskOwners { // Same as in Create One-Off Task example
@@ -500,7 +501,7 @@ public class TallyfyTaskUpdater
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
+
         string apiUrl;
         if (!string.IsNullOrEmpty(runId)) {
             apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/tasks/{taskId}";
@@ -561,7 +562,7 @@ public class TallyfyTaskUpdater
     //         TaskData = new Dictionary<string, object> { { "field_xyz", 123.45 } }
     //     };
     //     // Update a process task
-    //     await UpdateTaskAsync("TASK_ID_1", taskUpdate, "RUN_ID_1"); 
+    //     await UpdateTaskAsync("TASK_ID_1", taskUpdate, "RUN_ID_1");
     //     // Update a one-off task
     //     // await UpdateTaskAsync("ONE_OFF_TASK_ID", taskUpdate);
     // }
@@ -606,8 +607,8 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Processes > Update process</b>" href="/products/pro/integrations/open-api/code-samples/processes/update-process/" > A PUT endpoint that allows updating properties of an existing process run including name summary owner tags folders and form field values while returning the complete updated process data upon success. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Update process</b>" href="/products/pro/integrations/open-api/code-samples/processes/update-process/" > The PUT endpoint allows updating properties of a running process instance by sending a JSON payload with modified fields like name summary owner tags and form values through an authenticated request. </LinkTitleCard>
 <LinkTitleCard header="<b>Templates > Update template</b>" href="/products/pro/integrations/open-api/code-samples/templates/update-template/" > Modify the details of an existing process template (blueprint). </LinkTitleCard>
-<LinkTitleCard header="<b>Tasks > Complete task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/complete-task/" > The API endpoint allows marking tasks as complete by sending a POST request with task ID and optional fields like approval status and form data while supporting both process-run tasks and standalone one-off tasks through different URL structures. </LinkTitleCard>
-<LinkTitleCard header="<b>Tags > Update tag</b>" href="/products/pro/integrations/open-api/code-samples/tags/update-tag/" > The PUT endpoint enables updating an existing tag's properties like title and color within an organization by sending a JSON request with the new values and receiving the updated tag details in response. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Complete task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/complete-task/" > An API endpoint marks tasks as complete through POST requests requiring task ID with optional approval status and form field values while supporting both process-based and standalone tasks through different URL structures. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Create one-off task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/create-task/" > The POST endpoint enables creation of standalone tasks with customizable fields like name description assignees deadline and tags through authenticated API requests that return task details upon successful creation. </LinkTitleCard>
 </CardGrid>
