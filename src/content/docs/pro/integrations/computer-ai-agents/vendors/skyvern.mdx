@@ -1,0 +1,133 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 12
+snippet: Explore how Tallyfy integrates with Skyvern, an open-source AI agent for automating browser workflows using LLMs, computer vision, and natural language prompts.
+title: Skyvern AI Agents and Tallyfy
+---
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Automating Browser Tasks with Skyvern and Tallyfy
+
+Skyvern is an open-source platform (AGPL-3.0 license) designed to automate browser-based workflows using Large Language Models (LLMs) and computer vision. Its ability to understand and interact with web pages based on natural language prompts makes it a versatile tool for automating tasks within Tallyfy processes that involve web interactions.
+
+### Understanding Skyvern AI Agents
+
+Skyvern aims to replace brittle automation scripts by enabling AI agents to parse items in a browser's viewport in real-time, create an interaction plan, and execute it. It is designed to work even on websites it hasn't encountered before and to be resilient to website layout changes.
+
+Key aspects of Skyvern include:
+
+*   **Open Source with Cloud Option:** The core Skyvern logic is open-source (AGPL-3.0), allowing for self-hosting. They also offer a managed cloud version (`app.skyvern.com`) with additional features like anti-bot measures, proxy networks, and CAPTCHA solvers.
+*   **LLM and Computer Vision Powered:** Skyvern uses LLMs (supporting models from OpenAI, Anthropic, Azure, AWS Bedrock) to reason through interactions and computer vision to understand on-screen elements. It uses browser automation libraries like Playwright for actual interaction.
+*   **Advanced Features:** Supports CAPTCHA solving, 2FA/TOTP (QR-based, email, SMS), proxy networks for geo-targeting, and provides explainable AI through run summaries and livestreaming of the browser viewport.
+*   **API-Driven:** Facilitates running numerous automation tasks concurrently.
+
+### How Skyvern Works: A Swarm of Specialized Agents
+
+Skyvern employs a multi-agent system, a "swarm of agents," where each sub-agent has a specific role in comprehending a website, planning, and executing actions. This architecture allows for specialized handling of different aspects of web interaction:
+
+1.  **Interactable Element Agent:** Parses the HTML of a website to identify and extract all elements a user can interact with (buttons, forms, links, etc.).
+2.  **Navigation Agent:** Responsible for planning the sequence of actions (e.g., clicks, text input, selections from dropdowns) needed to navigate the website and progress towards the given goal.
+3.  **Data Extraction Agent:** Focuses on extracting specific data from a webpage. It can read tables, text, and other content, then structure this information into a user-defined format like JSON or CSV. This is crucial for bringing information back into Tallyfy.
+4.  **Password Agent:** Securely handles login forms. It can integrate with password managers (Bitwarden, 1Password, LastPass) to retrieve credentials and fill them into login fields, respecting user privacy.
+5.  **2FA Agent:** Manages two-factor authentication prompts during login. It can intercept 2FA requests and either use user-defined APIs for 2FA codes or pause and wait for a user to manually input the code.
+6.  **Dynamic Auto-complete Agent:** Specifically designed to handle dynamic auto-complete form fields, such as address lookups or selecting from long, searchable dropdown lists (e.g., university names).
+
+Skyvern 2.0 further enhanced this with a planner and validator agent architecture, improving its ability to handle complex tasks with zero-shot (no pre-training for the specific site) prompts.
+
+### Getting Started with Skyvern
+
+Skyvern offers both a managed cloud service and a self-hosted open-source option.
+
+<Steps>
+
+1.  **Choose Your Deployment Model:**
+    *   **Skyvern Cloud:** Navigate to `app.skyvern.com`, create an account. This is the quickest way to start and includes managed infrastructure for anti-bot measures, proxies, and CAPTCHA solving.
+    *   **Self-Hosted (Local/Docker):** If you prefer control over the environment or want to leverage the open-source aspect fully.
+
+2.  **Self-Hosting Skyvern (if chosen):**
+    *   **Prerequisites:** Ensure you have Python 3.11. For Docker, ensure Docker Desktop is running.
+    *   **Local Install:**
+        1.  Install Skyvern: `pip install skyvern`
+        2.  Configure: Run `skyvern init`. This creates a `.env` file for your LLM API keys and other settings.
+        3.  Launch Server: `skyvern run server`
+        4.  Launch UI: `skyvern run ui` (access at `http://localhost:8080`)
+    *   **Docker Compose Setup:**
+        1.  Clone the Skyvern GitHub repository: `git clone https://github.com/Skyvern-AI/skyvern.git`
+        2.  Navigate to the cloned directory.
+        3.  Configure `docker-compose.yml` with your LLM provider API key(s).
+        4.  Run: `docker compose up -d`
+        5.  Access UI: `http://localhost:8080`
+
+3.  **Configure LLM Providers:**
+    *   Skyvern supports LLMs from OpenAI, Anthropic, Azure OpenAI, and AWS Bedrock. You'll need to provide API keys for your chosen LLM provider(s) in the environment variables (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) as specified in the Skyvern documentation.
+
+4.  **Define Your First Task or Workflow:**
+    *   **Tasks:** A single request to Skyvern. You need to specify:
+        *   `url`: The starting URL for the task.
+        *   `prompt`: A natural language instruction detailing the goal.
+        *   `data_schema` (optional): A JSONC formatted schema if you want Skyvern to extract data in a specific structure.
+        *   `error_codes` (optional): To define specific situations where Skyvern should stop.
+    *   **Workflows (Beta):** For more complex operations, you can chain multiple tasks. Supported workflow features include navigation, actions, data extraction, loops, file parsing, sending emails, and text prompts.
+
+5.  **Execute and Monitor:**
+    *   Use the Skyvern UI or API to initiate tasks. You can often livestream the browser's viewport to see the agent in action, which is helpful for debugging.
+
+</Steps>
+
+### How Tallyfy Integrates with Skyvern (Example Scenario)
+
+Integrating Tallyfy with Skyvern allows you to delegate browser automation steps from your Tallyfy processes.
+
+**Tallyfy Task:** "Extract Competitor Pricing for Product X"
+
+*   **Inputs from Tallyfy [Form Fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/):**
+    *   `Competitor Site URL`: `https://competitor-store.com/products/comparable-to-x`
+    *   `Product Name on Competitor Site`: "MegaWidget Advanced"
+    *   `Data Schema (JSONC)`:
+        ```jsonc
+        {
+          "product_name": "string", // Should match 'MegaWidget Advanced'
+          "price": "string",
+          "stock_status": "string"
+        }
+        ```
+*   **Integration Steps (Conceptual - API route):**
+    1.  When the Tallyfy task starts, a webhook or middleware calls the Skyvern API's endpoint for creating/running a task.
+    2.  The API request to Skyvern includes:
+        *   `url`: `https://competitor-store.com/products/comparable-to-x` (from Tallyfy)
+        *   `prompt`: "Navigate to the product page. Find the product named 'MegaWidget Advanced'. Extract its current price and stock status. If the product is not found, indicate 'Product not found'."
+        *   `data_schema`: The JSONC schema defined above (from Tallyfy).
+    3.  Skyvern's Navigation Agent locates the product, and the Data Extraction Agent extracts the price and stock status according to the schema.
+    4.  The Tallyfy integration layer polls Skyvern for task completion.
+    5.  Once complete, Skyvern returns the structured JSON output (e.g., `{"product_name": "MegaWidget Advanced", "price": "$99.99", "stock_status": "In Stock"}`).
+    6.  This JSON data is parsed, and the relevant values are used to update designated Tallyfy form fields (e.g., 'Competitor Price', 'Competitor Stock Status'). The Tallyfy [process](/products/pro/tracking-and-tasks/processes/) then moves to the next step.
+
+### Benefits
+
+*   **Flexibility of Open Source:** Option to self-host, customize, and avoid vendor lock-in for the core agent platform.
+*   **Resilience to UI Changes:** Designed to be more robust against website updates than traditional RPA due to its reliance on visual understanding and LLM-based reasoning over brittle selectors.
+*   **Handles Complex Web Elements:** Features like CAPTCHA solving and 2FA support extend automation reach to more challenging websites.
+*   **Structured Data Output:** Directly extract data into usable JSON or CSV formats for easy consumption by Tallyfy and subsequent process steps.
+*   **Scalable Automation:** The API-driven nature allows for parallel execution of many browser tasks.
+
+### Potential Considerations
+
+*   **Prompt Engineering:** The effectiveness of Skyvern heavily relies on well-crafted prompts for tasks and workflows. Ambiguous or poorly defined goals can lead to a higher likelihood of the LLM hallucinating or the agent failing.
+*   **Resource Requirements for Self-Hosting:** Running LLMs and browser automation locally can be resource-intensive (CPU, RAM, GPU if using local vision models). Ensure your self-hosting environment is adequately provisioned.
+*   **Complexity of Advanced Features:** While features like Workflows (Beta), Authentication, and 2FA are powerful, they may require more technical expertise to set up and troubleshoot correctly, especially in a self-hosted environment.
+*   **AGPL-3.0 License:** If you modify the open-source code and use it in a publicly accessible service, the AGPL-3.0 license has specific requirements regarding making your modifications available, which businesses should review.
+*   **Rate Limits and Anti-Bot Measures:** Even with advanced agents, very frequent or rapid interactions can trigger anti-bot defenses on websites. The Skyvern Cloud offering aims to mitigate some of this with managed proxies and anti-bot measures, which might be a consideration for heavy usage.
+*   **Debugging:** While livestreaming helps, debugging issues in a multi-agent system that relies on LLM reasoning can sometimes be complex if an unexpected behavior occurs.
+
+By combining Tallyfy for process orchestration with Skyvern for intelligent browser automation, businesses can tackle a wider array of automation challenges, particularly those involving dynamic or complex web interfaces, with the added flexibility of an open-source core.
+
+## Related articles
+<CardGrid>
+  <LinkTitleCard header="Computer AI Agents > Overview" href="/products/pro/integrations/computer-ai-agents/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Twin.so" href="/products/pro/integrations/computer-ai-agents/vendors/twin/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Manus AI" href="/products/pro/integrations/computer-ai-agents/vendors/manus/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Claude Computer Use" href="/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > OpenAI Operator" href="/products/pro/integrations/computer-ai-agents/vendors/openai-operator/" />
+</CardGrid> 

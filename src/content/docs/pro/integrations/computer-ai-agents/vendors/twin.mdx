@@ -1,0 +1,122 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 11
+snippet: Learn how Twin.so's AI agents automate web tasks in Tallyfy processes via browser interaction using natural language goals and its multimodal Action Model.
+title: Twin.so AI Agents and Tallyfy
+---
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Leveraging Twin.so AI Agents with Tallyfy
+
+Twin.so offers sophisticated AI agents designed to automate complex operations by directly interacting with web applications through a browser, mimicking human behavior. This capability makes Twin.so a strong candidate for integration with Tallyfy, especially for automating tasks where traditional API-based automation is unavailable or impractical.
+
+### Understanding Twin.so AI Agents
+
+Twin.so's AI agents, often referred to as "skilled agents," are built to understand goals and autonomously navigate and interact with web interfaces. They are not reliant on pre-existing APIs for the applications they automate.
+
+Key characteristics of Twin.so agents include:
+
+*   **Browser-Based Interaction:** Agents operate directly within a web browser (typically a remote Chromium-based browser session), controlling the interface to perform tasks.
+*   **Natural Language Goals:** You provide the agent with a `starting URL` and a `goal` defined in natural language. The agent then interprets this goal to carry out the necessary actions.
+*   **Adaptive and Robust:** Twin.so emphasizes that its agents can adapt to changes in website layouts and are more robust than brittle RPA scripts. They reason in real-time at each step.
+*   **Secure Access:** Agents can use your private `access key` or credentials stored securely in Twin.so Vaults to automatically log into authenticated apps on your behalf.
+*   **Scalability:** They provide a scalable, low-latency browser infrastructure designed for enterprise-grade security and large-scale operations.
+
+### How Twin.so Works in Detail
+
+Twin.so's automation capability is centered around its **Twin Agent** and proprietary **Twin Model** (also known as Twin's Action Model).
+
+1.  **Task Initialization:** A task for the Twin Agent is defined by two primary components:
+    *   A `starting URL`: The webpage where the agent begins its work.
+    *   A `goal`: A natural language instruction describing what the agent needs to accomplish.
+2.  **Execution Environment:** Tasks are executed in secure, remote browser sessions controlled by Twin.so.
+3.  **The Twin Model - Multimodal Understanding and Action:** This is the core AI powering the agent. It's a pipeline composed of several proprietary multimodal models specifically trained to:
+    *   **Perceive Web Environments:** Understand the layout, elements (buttons, forms, text), and context of a wide variety of websites and web applications.
+    *   **Decide Optimal Actions:** Based on the current state of the web environment and the overall `goal`, the model determines the most appropriate next action (e.g., click a specific button, type text into a form field, scroll down).
+    *   **Translate to Browser Instructions:** The model's decision is translated into machine-readable instructions that are then executed in the remote browser (e.g., a command to click an element with specific properties or at certain coordinates).
+4.  **Collaboration with LLMs:** Twin.so also mentions leveraging frontier models like OpenAI's CUA (Computer-Using Agent) model, indicating their system likely combines their specialized multimodal models with broader language understanding and reasoning capabilities from general-purpose LLMs.
+5.  **Output Generation:** Upon completing the task, or reaching a defined end-point, the agent returns an output. This can be a summary of actions taken, extracted data, or a confirmation of task completion, as seen in their examples.
+
+### Getting Started with Twin.so for Tallyfy Integration
+
+While specific Tallyfy connector details would depend on the integration method chosen (API or Zapier), here's a general approach to begin using Twin.so with the intent of connecting it to Tallyfy:
+
+<Steps>
+
+1.  **Access Twin.so Platform:**
+    *   Sign up or log in to the Twin.so platform. Explore their **Playground** to test simple tasks and understand how the agent responds to natural language goals and interacts with websites. This helps in formulating effective goals later.
+
+2.  **Obtain API Key:**
+    *   If you plan a direct API integration with Tallyfy (likely via a custom script or an advanced middleware step), navigate to the API key management section in your Twin.so account and generate an API key. Securely store this key.
+
+3.  **Secure Credentials (Optional but Recommended):**
+    *   If your automated tasks require logging into websites, use Twin.so's **Vaults** feature to securely store these credentials. The agent can then use these vaulted credentials via your `access key` without you needing to pass sensitive login details directly in each task request.
+
+4.  **Identify Tallyfy Tasks for Automation:**
+    *   Review your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) and identify specific [tasks](/products/pro/tracking-and-tasks/tasks/) that involve repetitive web browser interactions (e.g., data lookup, form submission on external sites).
+
+5.  **Choose Integration Method:**
+    *   **Twin API:** For direct control and custom logic. You would use a Tallyfy webhook or a middleware that can call the Twin API to start tasks based on Tallyfy triggers. The API allows you to `Start Task`, `Get Task` status, `List Tasks`, and `Cancel Task`.
+    *   **Zapier Integration:** Twin.so provides a Zapier integration. You can create Zaps where a Tallyfy trigger (e.g., task completion, new form entry) initiates a Twin.so agent action. Explore Twin.so's Zap templates or create a custom Zap.
+
+</Steps>
+
+### How Tallyfy Integrates with Twin.so (Example Scenario)
+
+Let's illustrate with an example of a Tallyfy task designed to retrieve information using Twin.so:
+
+**Tallyfy Task:** "Fetch Qonto Invoice for OpenAI Subscription"
+
+*   **Inputs from Tallyfy [Form Fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/):**
+    *   `Service Name`: OpenAI
+    *   `Invoice Month`: February 2025
+    *   `Qonto Login URL`: `https://app.qonto.com/login`
+    *   `Twin Vault Access Key for Qonto`: (Securely managed)
+*   **Integration Steps (Conceptual - API route):**
+    1.  When this Tallyfy task becomes active, a Tallyfy webhook (or a middleware tool listening to Tallyfy) triggers an API call to Twin.so.
+    2.  The API call to Twin.so would be to `Start Task` with parameters like:
+        *   `starting_url`: `https://app.qonto.com/login` (from Tallyfy form field)
+        *   `goal`: "Log into Qonto using the vaulted credentials. Navigate to the OpenAI vendor transactions for February 2025. Find and download the invoice PDF. If not found, report as 'Invoice not available'."
+        *   `access_key`: Your Twin.so API key and the reference to the Qonto credentials vault.
+    3.  Twin.so agent executes the task in a remote browser.
+    4.  The Tallyfy webhook endpoint (or middleware) periodically polls Twin.so's `Get Task` API endpoint using the task ID received from `Start Task`.
+    5.  Once the Twin.so task is complete, the API response might include:
+        *   A status (e.g., "completed", "failed").
+        *   An output message (e.g., "Invoice downloaded successfully" or "Invoice not available for OpenAI in Feb 2025").
+        *   Potentially a link to the downloaded file if Twin.so stores it and provides a URL, or the extracted data itself.
+    6.  The middleware or webhook integration updates the Tallyfy task with the status and output, possibly attaching the file or populating a form field with the extracted data.
+
+### Use Cases for Tallyfy and Twin.so
+
+*   **Automated Data Entry:** Filling out web forms with data captured in Tallyfy tasks.
+*   **Information Retrieval:** Extracting specific information from supplier portals, e-commerce sites, or third-party web applications and bringing it into a Tallyfy process.
+*   **Invoice Processing and Collection:** As demonstrated by Twin.so's "Invoice Operator," automating the retrieval and reconciliation of invoices from various vendor portals.
+*   **E-commerce Operations:** Updating product listings, checking order statuses, or processing returns on e-commerce platforms.
+*   **CRM Updates:** Logging into a web-based CRM to update customer records based on Tallyfy process data.
+
+### Benefits
+
+*   **Automate Previously Manual Web Tasks:** Extend automation to web interactions that lack APIs.
+*   **Increase Resilience:** Twin.so's adaptive agents are designed to be less prone to breaking due to website UI changes compared to traditional screen-scraping or RPA.
+*   **Leverage Tallyfy's Strengths:** Use Tallyfy for overall process definition, human task management, approvals, and tracking, while delegating specific browser automation to Twin.so.
+
+### Potential Considerations
+
+*   **Complexity of Goals:** Crafting effective natural language `goals` that are unambiguous and lead to reliable execution by the agent is key. Poorly defined goals might lead to unexpected agent behavior or failure.
+*   **Dynamic Websites:** While Twin.so aims for robustness, highly dynamic or complex web interfaces (e.g., those with extensive JavaScript, frequent pop-ups, or non-standard controls) can still pose challenges for any UI automation agent.
+*   **Rate Limiting and Anti-Bot Measures:** Websites may have measures to detect and block automated access. While agents aim to mimic human behavior, aggressive or frequent automation could trigger such defenses. Using Twin.so's infrastructure might help, but it's a factor to consider.
+*   **Cost:** Twin.so operates on a usage-based model (as implied by their performance improvements related to cost/step). Understand the pricing structure and how it relates to the complexity and frequency of your automated tasks.
+*   **Error Handling and Debugging:** When an agent fails to complete a task as expected, diagnosing the issue within the remote browser session might require careful review of logs or outputs provided by Twin.so. Tallyfy can track the success/failure, but debugging the agent's specific actions relies on Twin.so's platform capabilities.
+
+By combining Tallyfy's process management capabilities with Twin.so's intelligent web agents, you can achieve a higher degree of automation for complex, end-to-end business processes.
+
+## Related articles
+<CardGrid>
+  <LinkTitleCard header="Computer AI Agents > Overview" href="/products/pro/integrations/computer-ai-agents/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Skyvern" href="/products/pro/integrations/computer-ai-agents/vendors/skyvern/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Manus AI" href="/products/pro/integrations/computer-ai-agents/vendors/manus/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Claude Computer Use" href="/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > OpenAI Operator" href="/products/pro/integrations/computer-ai-agents/vendors/openai-operator/" />
+</CardGrid> 

@@ -1,0 +1,122 @@
+---
+id: 00000000000000000000000000000000
+sidebar:
+  order: 14
+snippet: Learn how Anthropic's Claude with Computer Use enables AI agents to interact with computer UIs, and how this can be leveraged within Tallyfy workflows.
+title: Claude Computer Use and Tallyfy
+---
+
+import { CardGrid, LinkTitleCard, Steps } from "~/components";
+
+## Using Anthropic's Claude for Computer Tasks within Tallyfy
+
+Anthropic's "Computer Use" capability (currently in public beta for Claude 3.5 Sonnet and Claude 3.7 Sonnet) allows developers to build applications where Claude can interact with computer desktop environments much like a human. This includes perceiving screen information, moving a cursor, clicking buttons, and typing text, opening new possibilities for automating UI-based tasks within Tallyfy processes.
+
+### Understanding Claude's Computer Use Feature
+
+Anthropic is enabling Claude with general computer interaction skills rather than creating specific integrations for countless applications. This is achieved through an API that allows Claude to perceive and act within a sandboxed computing environment.
+
+Key aspects of Claude's Computer Use include:
+
+*   **Models Supported:** Claude 3.5 Sonnet (new) and Claude 3.7 Sonnet (which offers enhanced tools and an optional "thinking" capability to expose reasoning steps).
+*   **API-Driven Interaction:** Developers use Anthropic's Messages API, providing Claude with a set of **Anthropic-defined computer use tools**. Claude then requests to use these tools to achieve a user's goal.
+*   **The Agent Loop:**
+    1.  Your application sends a user prompt and the list of available computer use tools to Claude.
+    2.  Claude decides if a tool can help and responds with a `tool_use` request, specifying the tool and its inputs.
+    3.  Your application (the client) is responsible for **executing** this tool request in a secure, sandboxed computing environment and then sending the `tool_result` (e.g., screenshot, command output, success/failure) back to Claude in a new user message.
+    4.  Claude analyzes the result and decides on the next action, which could be another tool call or a final text response. This loop continues until the task is completed.
+*   **Sandboxed Computing Environment:** Essential for safety, this environment (often a Docker container) typically includes:
+    *   A virtual X11 display server (e.g., Xvfb) for rendering the desktop.
+    *   A lightweight Linux desktop environment (e.g., Mutter window manager, Tint2 panel).
+    *   Pre-installed applications (e.g., Firefox, LibreOffice, text editors, file managers).
+    *   Your implementations of the Anthropic-defined tools that translate Claude's requests into actual UI operations.
+*   **Anthropic-Defined Tools (User Executed):** Anthropic specifies the tools, but your application executes them. Core tools include:
+    *   **`computer`**: For mouse/keyboard actions (key presses, typing, cursor movement, clicks, drags, scrolling) and taking screenshots. Requires `display_width_px` and `display_height_px`.
+    *   **`text_editor` (`str_replace_editor`)**: To view, create, and edit files within the environment.
+    *   **`bash`**: To run shell commands in the sandboxed environment.
+    *   Each tool has versions for Claude 3.5 Sonnet (e.g., `computer_20241022`) and Claude 3.7 Sonnet (e.g., `computer_20250124`).
+*   **Natural Language Instructions:** Claude translates user prompts (goals) into a sequence of tool uses.
+*   **Broad Availability:** The Claude API is accessible directly from Anthropic, on Amazon Bedrock, and Google Cloud's Vertex AI.
+
+### Getting Started with Claude Computer Use (for Tallyfy Integration)
+
+Integrating Tallyfy with Claude's Computer Use would typically involve an intermediary application or service that you build to bridge Tallyfy and the Anthropic API.
+
+<Steps>
+
+1.  **Set Up Anthropic API Access:**
+    *   Obtain an Anthropic API key and familiarize yourself with their API documentation, particularly the sections on "Tool Use" and "Computer Use (beta)".
+
+2.  **Build or Use a Reference Implementation:**
+    *   Anthropic provides a **reference implementation** (often a Docker setup) that includes a containerized environment, implementations of the computer use tools, an agent loop, and a web interface. This is the recommended starting point.
+    *   This environment will be where Claude's requested actions are actually performed.
+
+3.  **Configure the Computing Environment:**
+    *   Ensure the sandboxed environment has the necessary applications (e.g., specific browser, office suite) that tasks automated via Tallyfy will need to interact with.
+
+4.  **Develop the Intermediary Application/Service:**
+    *   This service will receive requests (e.g., via a webhook from Tallyfy or a Tallyfy-compatible middleware).
+    *   It will then construct the appropriate prompt and tool list for the Claude API based on the Tallyfy task instructions and input data.
+    *   It will manage the "agent loop," sending Claude's `tool_use` requests to your sandboxed environment for execution and returning `tool_result` back to Claude.
+    *   Once Claude indicates task completion, this service will relay the final output back to Tallyfy.
+
+5.  **Prompt Engineering:**
+    *   Craft clear and explicit prompts for Claude. Anthropic recommends:
+        *   Specifying simple, well-defined tasks.
+        *   Instructing Claude to verify outcomes with screenshots after each step.
+        *   Suggesting keyboard shortcuts for difficult UI elements.
+        *   Providing examples of successful interactions if possible.
+        *   Using XML tags like `<robot_credentials>` for sensitive data, while being mindful of prompt injection risks.
+
+</Steps>
+
+### How Tallyfy Integrates with Claude Computer Use (Example Scenario)
+
+**Tallyfy Task:** "Open `Product_Feedback.xlsx` from desktop, filter for 'Urgent' issues, and count them."
+
+*   **Inputs from Tallyfy [Form Fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/):**
+    *   `File Name`: `Product_Feedback.xlsx`
+    *   `Filter Column Name`: `Priority`
+    *   `Filter Value`: `Urgent`
+    *   `Output Field Name`: `Urgent Issue Count`
+*   **Integration Steps (Conceptual):**
+    1.  Tallyfy task starts, triggering your intermediary application via a webhook, passing the form field data.
+    2.  Your application constructs an initial prompt for Claude: "Open the Excel file named `Product_Feedback.xlsx` located on the desktop. This file contains columns including `Priority`. Filter the data to show only rows where the `Priority` column is 'Urgent'. Count the number of such rows and provide the total count."
+    3.  The application initiates a session with the Claude API, providing the `computer`, `text_editor` (if needed for scripts), and `bash` tools.
+    4.  **Agent Loop Begins:**
+        *   Claude might first request a `screenshot` to see the desktop.
+        *   Your app executes this in the sandbox, returns the image.
+        *   Claude identifies the Excel file icon, requests a `double_click` at its coordinates.
+        *   Your app executes, returns a new screenshot showing Excel open.
+        *   Claude identifies the filter controls (e.g., a 'Data' menu, then 'Filter'), requests clicks to apply the filter based on `Priority` = `Urgent`.
+        *   Your app executes, returns screenshots.
+        *   Claude identifies the number of visible rows (or a status bar count), then formulates a final text response: "The number of urgent issues is 15."
+    5.  Your intermediary application receives this final text response, parses the count (15), and updates the `Urgent Issue Count` form field in the Tallyfy task via Tallyfy's API.
+
+### Benefits
+
+*   **Automate UI Interactions for Diverse Applications:** Potentially interact with a wide array of desktop and web applications without needing application-specific APIs.
+*   **Leverage Claude's Reasoning:** Utilizes the advanced language understanding and reasoning of Claude models to interpret tasks and navigate UIs.
+*   **Structured Task Management by Tallyfy:** Tallyfy defines the "what" and "why" of the task, passes necessary inputs, and receives structured outputs, ensuring the AI's actions are part of a documented, trackable [process](/products/pro/tracking-and-tasks/processes/).
+
+### Potential Considerations
+
+Anthropic highlights these for its beta Computer Use feature:
+
+*   **Security Risks:** Computer use poses unique risks. Always run in a dedicated virtual machine or container with minimal privileges. Avoid giving the model access to sensitive data directly. Limit internet access if possible. Require human confirmation for impactful decisions.
+*   **Prompt Injection:** Claude might follow instructions found in on-screen content (e.g., on a webpage or in an image) even if they conflict with your primary instructions. Anthropic has classifiers to detect and flag potential prompt injections in screenshots, steering the model to ask for user confirmation, but caution is advised.
+*   **Latency:** Human-AI interaction latency might be slower than direct human action for some tasks. Best for non-time-critical tasks or background processing in trusted environments initially.
+*   **Accuracy and Reliability (Beta):** Claude may still make mistakes in interpreting screens or selecting actions (e.g., coordinate precision, tool selection). The "thinking" capability in Claude 3.7 Sonnet can help debug. Scrolling and complex spreadsheet interactions have known limitations, though improving.
+*   **Restricted Actions:** Anthropic limits Claude's ability to create accounts or generate content on social media and communication platforms to prevent impersonation.
+*   **Cost:** API calls, especially those involving image analysis (screenshots) and multiple tool interactions, will have associated costs. The use of Anthropic-defined tools adds to the token count.
+
+Always carefully review and verify Claude's computer use actions, especially in a production environment integrated with Tallyfy. Start with low-risk tasks and incorporate human review steps in Tallyfy where appropriate.
+
+## Related articles
+<CardGrid>
+  <LinkTitleCard header="Computer AI Agents > Overview" href="/products/pro/integrations/computer-ai-agents/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Twin.so" href="/products/pro/integrations/computer-ai-agents/vendors/twin/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Skyvern" href="/products/pro/integrations/computer-ai-agents/vendors/skyvern/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > Manus AI" href="/products/pro/integrations/computer-ai-agents/vendors/manus/" />
+  <LinkTitleCard header="Computer AI Agents > Vendors > OpenAI Operator" href="/products/pro/integrations/computer-ai-agents/vendors/openai-operator/" />
+</CardGrid> 
