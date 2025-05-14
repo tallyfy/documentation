@@ -55,9 +55,11 @@ def validate_mdx_file(file_path):
 
     # Check for the import statement
     import_statement = 'import { CardGrid, LinkTitleCard } from "~/components";'
+    import_statement_with_steps = 'import { CardGrid, LinkTitleCard, Steps } from "~/components";'
     if import_statement not in rest_content:
-        print("Missing required import statement.")
-        return False
+        if import_statement_with_steps not in rest_content:
+            print("Missing required import statement.")
+            return False
 
     # Check for the related articles section
     related_articles_pattern = r'## Related articles\s+<CardGrid>\s*(<LinkTitleCard[\s\S]*?)+</CardGrid>'
