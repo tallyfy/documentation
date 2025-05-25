@@ -43,7 +43,7 @@ def get_recommendations(article_id):
 			else:
 				article_url = article['url']
 			result.append({"header": header,
-						   "snippet": str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']'),
+						   "description": str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']'),
 						   "url": article_url})
 		return result
 	else:

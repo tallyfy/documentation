@@ -72,7 +72,7 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 			logger.error(f"Failed to generate snippet for: {file_path}")
 			return False
 
-		data['snippet'] = snippet
+		data['description'] = snippet
 		with open(file_path, "w", encoding='utf-8') as f:
 			f.write(frontmatter.dumps(data))
 

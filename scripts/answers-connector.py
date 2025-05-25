@@ -110,7 +110,7 @@ for file in en_files_list:
 		content.append(
 			{"title": data.metadata['title'], "url": url, "content": clean_content,
 			 "hierarchy": hierarchy,
-			 "uid": data.metadata['id'], "source": hierarchy["lvl0"], "snippet": data.metadata['snippet']})
+			 "uid": data.metadata['id'], "source": hierarchy["lvl0"], "snippet": data.metadata['description']})
 	except Exception as e:
 		print("Couldn't send article:", url, data.metadata['title'], "- Please fix manually.")
 
