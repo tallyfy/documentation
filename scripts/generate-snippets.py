@@ -112,8 +112,8 @@ def main():
 
 	success_count = 0
 	for file_name in files:
-		if not file_name.endswith('.mdx') or file_name in skip_list:
-			logger.debug(f"Skipping file: {file_name}")
+		if file_name.startswith("src/content/docs/pro/changelog") or not file_name.endswith('.mdx') or file_name in skip_list:
+			logger.warning(f"Skipping file: {file_name}")
 			continue
 
 		file_path = base_dir / file_name

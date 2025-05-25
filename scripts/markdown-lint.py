@@ -5,6 +5,7 @@ import argparse
 import os
 from pathlib import Path
 
+
 def validate_mdx_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -83,10 +84,14 @@ def main():
     dir_path = args.dir
     files_list = []
     skip_list = ["404.mdx"]
+    skip_dirs = ["src/content/docs/pro/changelog"]
     for path, subdirs, files in os.walk(dir_path):
-        for file in files:
-            if file.endswith('.mdx') and file not in skip_list:
-                files_list.append(path + '/' + file)
+        # Skip if path contains any directory from skip_dirs
+        if not any(skip_dir in path for skip_dir in skip_dirs):
+            for file in files:
+                if file.endswith('.mdx') and file not in skip_list:
+                    files_list.append(os.path.join(path, file))
+
     found_invalid_files = False
     for file in files_list:
         is_valid = validate_mdx_file(file)

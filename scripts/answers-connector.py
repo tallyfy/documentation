@@ -6,7 +6,6 @@ import requests
 import re
 
 
-
 def clean_markdown(content):
 	# Step 1: Remove code blocks (content within triple backticks)
 	# This regex matches triple backticks and everything between them
@@ -33,6 +32,8 @@ def clean_markdown(content):
 	content = content.split("## Related articles")[0].rstrip()
 
 	return content
+
+
 def generate_file_hierarchy(current_file, root_directory):
 	hierarchy = []
 
@@ -84,14 +85,15 @@ ANSWERS_API_KEY = args.answers_api_key
 
 print("Current dir:", dir_path)
 
-
-
 en_files_list = []
 skip_list = ["404.mdx"]
+skip_dirs = ["src/content/docs/pro/changelog"]
 for path, subdirs, files in os.walk(dir_path):
-	for file in files:
-		if file.endswith('.mdx') and file not in skip_list:
-			en_files_list.append(path + '/' + file)
+	# Skip if path contains any directory from skip_dirs
+	if not any(skip_dir in path for skip_dir in skip_dirs):
+		for file in files:
+			if file.endswith('.mdx') and file not in skip_list:
+				en_files_list.append(os.path.join(path, file))
 
 content = []
 for file in en_files_list:
@@ -114,7 +116,6 @@ for file in en_files_list:
 
 with open('data.json', 'w') as f:
 	json.dump(content, f)
-
 
 # Upload JSON file
 files = [

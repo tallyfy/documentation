@@ -27,7 +27,7 @@ dir_path = args.dir
 new_files = str(file_names).split('\n')
 skip_list = ["src/content/docs/404.mdx"]
 for new_file in new_files:
-	if new_file.endswith('.mdx') and new_file not in skip_list:
+	if not new_file.startswith("src/content/docs/pro/changelog") and new_file.endswith('.mdx') and new_file not in skip_list:
 		f = dir_path + '/' + new_file
 		data = frontmatter.load(f)
 		obj_id = generate_object_id(data.content)

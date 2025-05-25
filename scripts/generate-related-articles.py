@@ -56,10 +56,15 @@ EN_CONTENT_PATH = f"{dir_path}"
 
 en_files_list = []
 skip_list = ["404.mdx"]
+
+skip_dirs = ["src/content/docs/pro/changelog"]
 for path, subdirs, files in os.walk(EN_CONTENT_PATH):
-	for file in files:
-		if file.endswith('.mdx') and file not in skip_list:
-			en_files_list.append(path + '/' + file)
+	# Skip if path contains any directory from skip_dirs
+	if not any(skip_dir in path for skip_dir in skip_dirs):
+		for file in files:
+			if file.endswith('.mdx') and file not in skip_list:
+				en_files_list.append(os.path.join(path, file))
+
 
 for file in en_files_list:
 	if file.endswith('.mdx'):
