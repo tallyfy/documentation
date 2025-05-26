@@ -82,7 +82,7 @@ for file in en_files_list:
 			for article in result:
 				data.content += '<LinkTitleCard header="<b>' + article["header"] + '</b>" href="/products' + article[
 					"url"] + '" > ' + \
-								article["snippet"] + ' </LinkTitleCard>' + "\r\n"
+								article["description"] + ' </LinkTitleCard>' + "\r\n"
 			data.content += """</CardGrid>"""
 			data = frontmatter.dumps(data)
 			with open(file, "w") as f:
