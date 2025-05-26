@@ -1,0 +1,232 @@
+---
+description: Practical n8n workflow examples for Tallyfy integration including CRM synchronization automated onboarding document generation and multi-system data collection.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 2
+title: Common n8n workflow examples
+---
+
+## Practical n8n workflows for Tallyfy automation
+
+This guide provides ready-to-use n8n workflow examples that demonstrate common integration patterns with Tallyfy. Each example includes the workflow structure and key configuration details.
+
+### Example 1: CRM to Tallyfy process automation
+
+Automatically [launch](/products/pro/launching/) a customer onboarding [process](/products/pro/tracking-and-tasks/processes/) when a deal is marked as "Won" in your CRM.
+
+**Workflow components:**
+
+1. **Webhook node** (or CRM-specific trigger)
+   - Receives notification when deal status changes
+   - Filters for "Won" status only
+
+2. **HTTP Request node** - Get customer details
+   - Method: GET
+   - URL: Your CRM API endpoint for customer data
+
+3. **HTTP Request node** - Launch Tallyfy process
+   - Method: POST
+   - URL: `https://api.tallyfy.com/v1/runs`
+   - Body:
+   ```json
+   {
+     "blueprint_id": "customer_onboarding_template_id",
+     "name": "Onboarding - {{$json.customer_name}}",
+     "kickoff": {
+       "customer_name": "{{$json.customer_name}}",
+       "email": "{{$json.email}}",
+       "package": "{{$json.deal_type}}",
+       "account_manager": "{{$json.assigned_to}}"
+     }
+   }
+   ```
+
+4. **Slack node** (optional)
+   - Send notification to sales team about process launch
+
+### Example 2: Form submission to multi-system update
+
+When a Tallyfy [form](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) is submitted, update multiple systems with the data.
+
+**Workflow components:**
+
+1. **Webhook node**
+   - Configure in Tallyfy to trigger on task completion
+   - Filter for specific form-containing tasks
+
+2. **IF node** - Check task type
+   - Condition: `{{$json.task.blueprint_step_id}} == "form_step_id"`
+
+3. **Set node** - Extract form data
+   - Map Tallyfy form fields to standardized variables
+
+4. **HTTP Request node** - Update CRM
+   - Method: PUT
+   - URL: CRM contact endpoint
+   - Map form fields to CRM fields
+
+5. **Google Sheets node** - Log submission
+   - Append row with form data and timestamp
+
+6. **Email node** - Send confirmation
+   - To: Form submitter
+   - Include summary of submitted data
+
+### Example 3: Scheduled process launcher with data collection
+
+Launch weekly review processes with data gathered from multiple sources.
+
+**Workflow components:**
+
+1. **Schedule Trigger node**
+   - Cron expression: `0 9 * * 1` (Every Monday at 9 AM)
+
+2. **HTTP Request node** - Get sales data
+   - Connect to your analytics API
+   - Fetch last week's metrics
+
+3. **HTTP Request node** - Get support tickets
+   - Query helpdesk API for open tickets
+
+4. **Code node** - Process data
+   ```javascript
+   const salesTotal = items[0].json.total;
+   const openTickets = items[1].json.count;
+   const reviewData = {
+     week_ending: new Date().toISOString().split('T')[0],
+     sales_total: salesTotal,
+     support_tickets: openTickets,
+     review_priority: openTickets > 50 ? "High" : "Normal"
+   };
+   return [{json: reviewData}];
+   ```
+
+5. **HTTP Request node** - Launch Tallyfy process
+   - Method: POST
+   - URL: `https://api.tallyfy.com/v1/runs`
+   - Include collected data in kickoff fields
+
+### Example 4: Document generation from completed processes
+
+Generate PDF reports when specific Tallyfy processes complete.
+
+**Workflow components:**
+
+1. **Webhook node**
+   - Tallyfy webhook for process completion
+
+2. **HTTP Request node** - Get process details
+   - Method: GET
+   - URL: `https://api.tallyfy.com/v1/runs/{{$json.run_id}}`
+
+3. **HTTP Request node** - Get all task data
+   - Method: GET
+   - URL: `https://api.tallyfy.com/v1/tasks?run_id={{$json.run_id}}`
+
+4. **Code node** - Format report data
+   ```javascript
+   const tasks = $input.all();
+   const reportData = {
+     process_name: tasks[0].json.run.name,
+     completed_date: new Date().toISOString(),
+     task_summary: tasks[1].json.map(task => ({
+       name: task.name,
+       completed_by: task.completed_by_name,
+       form_data: task.form_fields
+     }))
+   };
+   return [{json: reportData}];
+   ```
+
+5. **HTML node** - Generate HTML template
+   - Create formatted report layout
+
+6. **Convert to PDF node** (or external service)
+   - Convert HTML to PDF
+
+7. **Upload to cloud storage**
+   - Store in Google Drive, Dropbox, or S3
+
+### Example 5: Intelligent task routing with AI
+
+Use AI to analyze form responses and route tasks to appropriate team members.
+
+**Workflow components:**
+
+1. **Webhook node**
+   - Trigger on Tallyfy form submission
+
+2. **OpenAI node** (or similar AI service)
+   - Analyze form content for urgency and category
+   - Prompt: "Categorize this request and assign priority"
+
+3. **Switch node** - Route based on AI analysis
+   - Branch for each category/priority combination
+
+4. **HTTP Request node** (multiple) - Update task assignment
+   - Method: PUT
+   - URL: `https://api.tallyfy.com/v1/tasks/{{$json.task_id}}`
+   - Assign to appropriate [member](/products/pro/documenting/members/) based on routing
+
+5. **Notification nodes**
+   - Alert assigned team member via preferred channel
+
+### Best practices for n8n + Tallyfy workflows
+
+1. **Error handling**: Always add error branches to handle API failures:
+   ```
+   On Error: Continue (Error Output)
+   → Log error details
+   → Send alert notification
+   → Store failed data for retry
+   ```
+
+2. **Rate limiting**: Add **Wait** nodes between bulk operations:
+   - Wait 1 second between API calls when processing many items
+
+3. **Data validation**: Use **IF** nodes to validate data before API calls:
+   - Check required fields exist
+   - Verify data formats match expectations
+
+4. **Workflow organization**: Use **Sticky Note** nodes to document:
+   - Workflow purpose and triggers
+   - Required credentials and configuration
+   - Expected data formats
+
+5. **Testing approach**:
+   - Use **Manual Trigger** for initial testing
+   - Add **Set** nodes with test data
+   - Use **Stop and Error** nodes for debugging
+
+### Debugging tips
+
+| Issue | Solution |
+|-------|----------|
+| **Workflow not triggering** | Check webhook is active in both n8n and Tallyfy |
+| **Data not mapping correctly** | Use expression editor's "Current Node" tab to see available data |
+| **API errors** | Add HTTP Request "Full Response" option to see detailed errors |
+| **Performance issues** | Split large workflows into sub-workflows |
+
+### Advanced patterns
+
+**Parallel processing**: Use **Split In Batches** node to process multiple items simultaneously while respecting rate limits.
+
+**Retry logic**: Implement custom retry with **Wait** and **IF** nodes:
+1. Set retry counter
+2. On error, increment counter
+3. Wait exponentially longer between retries
+4. Stop after max retries reached
+
+**Data enrichment**: Chain multiple API calls to gather comprehensive data before launching Tallyfy processes.
+
+These examples provide starting points for your own n8n + Tallyfy integrations. Modify them based on your specific business needs and systems.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>n8n > Connect n8n to Tallyfy</b>" href="/products/pro/integrations/middleware/n8n/connecting-n8n-to-tallyfy/" > Step-by-step guide to connect n8n with Tallyfy using HTTP Request nodes and API authentication for workflow automation. </LinkTitleCard>
+<LinkTitleCard header="<b>Middleware > n8n</b>" href="/products/pro/integrations/middleware/n8n/" > n8n is an open-source workflow automation platform that connects Tallyfy with hundreds of applications through visual workflows using HTTP requests and webhooks for powerful process automation without vendor lock-in. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Tallyfy's REST API enables developers to programmatically interact with workflows processes tasks and data using standard HTTP methods for building custom integrations and automating business operations. </LinkTitleCard>
+<LinkTitleCard header="<b>Launching > Triggers</b>" href="/products/pro/launching/triggers/" > Process triggers in Tallyfy enable automatic workflow initiation through multiple methods including email forwarding form submissions scheduled timing middleware connections webhooks and manual starts providing flexible automation options for different business scenarios. </LinkTitleCard>
+</CardGrid> 
