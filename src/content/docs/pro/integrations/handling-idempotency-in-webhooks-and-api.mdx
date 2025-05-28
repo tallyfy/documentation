@@ -1,0 +1,254 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 20
+snippet: Learn how to handle idempotency when integrating with Tallyfy's webhooks and API to prevent duplicate actions and ensure reliable system behavior when events fire multiple times.
+title: Handling idempotency in webhooks and API
+---
+
+## What is idempotency and why it matters
+
+When integrating with Tallyfy's [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/), you need to design your systems to handle events that might occur multiple times. *Idempotency* means that performing the same operation multiple times produces the same result as performing it once. This is essential for building reliable integrations.
+
+In Tallyfy, certain actions can trigger webhooks multiple times, and external systems might send duplicate API requests. Without proper idempotency handling, you could end up with duplicate records, incorrect data states, or failed operations.
+
+## Common scenarios requiring idempotency
+
+### Webhooks firing multiple times
+
+Webhooks in Tallyfy can fire more than once for the same event. Here's a common example:
+
+1. A user completes a [task](/products/pro/tracking-and-tasks/tasks/)
+2. Your webhook receives the "task completed" event
+3. The user reopens the same task
+4. The user completes it again
+5. Your webhook receives another "task completed" event for the same task
+
+Without idempotency handling, your system might:
+- Create duplicate records in your database
+- Send multiple notifications for the same event
+- Process payments or orders twice
+- Update inventory counts incorrectly
+
+### Process-level webhooks generating multiple events
+
+When you configure webhooks at the [process](/products/pro/tracking-and-tasks/processes/) level, they fire for every task completion within that process. This means:
+
+- A process with 10 tasks will generate 10 webhook events
+- If tasks are reopened and completed again, you'll receive additional events
+- Your receiving system needs to handle this volume efficiently
+
+### External systems sending duplicate events
+
+Your external systems might send duplicate events to Tallyfy through the API. For example:
+
+- A helpdesk system sends two webhook notifications for the same ticket update
+- Network issues cause a retry mechanism to send the same API request twice
+- A user accidentally triggers the same action multiple times in your integrated system
+
+## Implementing idempotency strategies
+
+### Use unique identifiers
+
+Every webhook payload from Tallyfy includes unique identifiers. Always use these to detect duplicates:
+
+```json
+{
+  "event": "task.completed",
+  "task_id": "abc123",
+  "process_id": "xyz789",
+  "completed_at": "2024-01-15T10:30:00Z",
+  "completed_by": "user@example.com"
+}
+```
+
+**Implementation approach:**
+1. Store the `task_id` and `completed_at` timestamp in your database
+2. Before processing a webhook, check if this combination already exists
+3. If it exists, skip processing or update the existing record
+4. If it's new, process the webhook normally
+
+### Implement event deduplication
+
+Create a deduplication table or cache to track processed events:
+
+```sql
+CREATE TABLE processed_events (
+  event_id VARCHAR(255) PRIMARY KEY,
+  event_type VARCHAR(100),
+  processed_at TIMESTAMP,
+  payload JSON
+);
+```
+
+When receiving a webhook:
+1. Generate a unique event ID combining `task_id + event_type + timestamp`
+2. Check if this event ID exists in your table
+3. If not, process the event and store the ID
+4. If it exists, log it and skip processing
+
+### Design for graceful failure
+
+When handling duplicate API requests from external systems:
+
+1. **Return success for duplicate requests**: If an external system tries to create the same record twice, return a success response with the existing record instead of an error
+
+2. **Use conditional updates**: When updating [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) via API, check the current value first:
+   - If the value is already what you want to set, skip the update
+   - If it's different, proceed with the update
+   - Add a comment noting the update for audit trails
+
+3. **Implement request IDs**: Require external systems to send a unique request ID with each API call:
+   ```
+   X-Request-ID: unique-request-identifier-123
+   ```
+   Store these IDs temporarily (e.g., for 24 hours) to detect retries
+
+## Best practices for specific integrations
+
+### Handling task completion webhooks
+
+When a task is completed and potentially reopened:
+
+1. Store the task's completion history:
+   ```json
+   {
+     "task_id": "abc123",
+     "completions": [
+       {"completed_at": "2024-01-15T10:30:00Z", "completed_by": "user1@example.com"},
+       {"completed_at": "2024-01-15T14:45:00Z", "completed_by": "user2@example.com"}
+     ]
+   }
+   ```
+
+2. Decide on your business logic:
+   - Process only the first completion
+   - Process all completions but track them separately
+   - Process the most recent completion only
+
+### Managing process-level webhook volume
+
+For processes with many tasks:
+
+1. **Batch processing**: Collect webhook events and process them in batches every few minutes
+2. **Use queues**: Implement a message queue to handle high volumes without overwhelming your system
+3. **Filter by task type**: Use the webhook payload to identify specific tasks you care about
+
+### Preventing duplicate API submissions
+
+When external systems integrate with Tallyfy:
+
+1. **Implement idempotency keys**: Generate a unique key for each operation:
+   ```
+   POST /api/v1/processes/launch
+   X-Idempotency-Key: ticket-12345-launch-attempt-1
+   ```
+
+2. **Use conditional requests**: Check if an action has already been performed:
+   - Query existing processes before launching a new one
+   - Check task status before attempting to complete it
+   - Verify form field values before updating them
+
+## Example implementation patterns
+
+### Pattern 1: Webhook processor with deduplication
+
+```javascript
+async function processWebhook(payload) {
+  // Generate unique event key
+  const eventKey = `${payload.task_id}-${payload.event}-${payload.timestamp}`;
+  
+  // Check if already processed
+  const existing = await db.query('SELECT * FROM processed_events WHERE event_key = ?', [eventKey]);
+  
+  if (existing.length > 0) {
+    console.log('Duplicate event detected, skipping:', eventKey);
+    return { status: 'duplicate', message: 'Event already processed' };
+  }
+  
+  // Process the event
+  await handleEvent(payload);
+  
+  // Mark as processed
+  await db.query('INSERT INTO processed_events (event_key, processed_at) VALUES (?, NOW())', [eventKey]);
+  
+  return { status: 'processed', message: 'Event processed successfully' };
+}
+```
+
+### Pattern 2: API integration with retry safety
+
+```javascript
+async function updateTaskField(taskId, fieldName, fieldValue, requestId) {
+  // Check if this request was already processed
+  const cachedResult = await cache.get(`request:${requestId}`);
+  if (cachedResult) {
+    return cachedResult;
+  }
+  
+  // Get current task state
+  const task = await tallyfyApi.getTask(taskId);
+  
+  // Check if update is needed
+  if (task.fields[fieldName] === fieldValue) {
+    const result = { status: 'unchanged', message: 'Field already has the desired value' };
+    await cache.set(`request:${requestId}`, result, 86400); // Cache for 24 hours
+    return result;
+  }
+  
+  // Perform update
+  const updatedTask = await tallyfyApi.updateTask(taskId, {
+    fields: { [fieldName]: fieldValue }
+  });
+  
+  // Add comment for audit trail
+  await tallyfyApi.addComment(taskId, 
+    `Field "${fieldName}" updated to "${fieldValue}" via API integration`
+  );
+  
+  const result = { status: 'updated', task: updatedTask };
+  await cache.set(`request:${requestId}`, result, 86400);
+  return result;
+}
+```
+
+## Testing your idempotency implementation
+
+To ensure your integration handles duplicates correctly:
+
+1. **Simulate duplicate webhooks**: Manually trigger the same webhook multiple times
+2. **Test network retries**: Use tools to simulate failed requests that retry automatically
+3. **Verify data consistency**: Check that your data remains correct after duplicate events
+4. **Monitor logs**: Look for patterns of duplicate events in production
+
+## Troubleshooting common issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Duplicate records in database | Not checking for existing records before insert | Implement unique constraints and check before insert |
+| Missing webhook events | Treating duplicates as errors | Log duplicates but don't fail the webhook response |
+| Inconsistent data state | Processing events out of order | Use timestamps to ensure correct ordering |
+| API rate limits from retries | Not caching successful responses | Implement response caching with appropriate TTL |
+
+:::warning[Important consideration]
+Always respond with a 2xx status code to webhook requests, even for duplicates. Returning error codes might cause Tallyfy to retry the webhook, creating more duplicates.
+:::
+
+## Next steps
+
+After implementing idempotency handling:
+
+1. Monitor your integration logs to identify patterns of duplicate events
+2. Adjust your deduplication window based on actual retry patterns
+3. Consider implementing more sophisticated event sourcing if you need full audit trails
+4. Review Tallyfy's [webhook documentation](/products/pro/integrations/webhooks/) for the latest payload formats
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Webhooks > Set up webhooks in Tallyfy</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Configure webhooks in Tallyfy to send real-time notifications to external systems when specific events occur in your processes and tasks. </LinkTitleCard>
+<LinkTitleCard header="<b>Open API > Integrate with Tallyfy using API</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Learn how to integrate external systems with Tallyfy using the REST API for creating processes launching workflows and managing tasks programmatically. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Middleware</b>" href="/products/pro/integrations/middleware/" > Connect Tallyfy with thousands of applications using middleware platforms like Zapier Make and Workato for automated workflows and data synchronization. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks > Use Tallyfy's webhooks feature</b>" href="/products/pro/integrations/webhooks/how-can-i-use-tallyfys-webhooks-feature/" > Webhooks enable real-time integration between Tallyfy and external systems by sending HTTP requests when specific events occur in your workflows. </LinkTitleCard>
+</CardGrid> 
