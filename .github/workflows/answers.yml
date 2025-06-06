@@ -27,47 +27,47 @@ jobs:
     outputs:
       validate-markdown-completed: ${{ steps.validate-markdown.outcome }}
 
-#  generate-snippets:
-#    needs: validate-markdown
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#        with:
-#          fetch-depth: 2
-#          ref: main
-#      - uses: actions/setup-python@v4
-#        with:
-#          python-version: '3.10'
-#      - name: Generate snippets script
-#        run: |
-#          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
-#          if [[ -n "$file_changes" ]]; then
-#            git pull
-#            python -m pip install --upgrade python-frontmatter requests
-#            python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
-#          else
-#            echo "No new files added. Skipping snippet generation."
-#          fi
-#        shell: bash
-#      - name: Commit and push articles with snippets
-#        run: |
-#          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
-#          if [[ -n "$file_changes" ]]; then
-#            git config --local user.email "action@github.com"
-#            git config --local user.name "GitHub Action"
-#            git pull
-#            git add .
-#            git commit -m "Push Articles With snippet(s)" -a
-#            git push
-#          else
-#            echo "No files changed. Skipping snippet generation."
-#          fi
-#    outputs:
-#      generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
+  generate-snippets:
+    needs: validate-markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          ref: main
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Generate snippets script
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git pull
+            python -m pip install --upgrade python-frontmatter requests
+            python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
+          else
+            echo "No new files added. Skipping snippet generation."
+          fi
+        shell: bash
+      - name: Commit and push articles with snippets
+        run: |
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
+          if [[ -n "$file_changes" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git pull
+            git add .
+            git commit -m "Push Articles With snippet(s)" -a
+            git push
+          else
+            echo "No files changed. Skipping snippet generation."
+          fi
+    outputs:
+      generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
 
   upload-to-tallyfy-answers:
-#    needs: generate-snippets
-    needs: validate-markdown
+    needs: generate-snippets
+#    needs: validate-markdown
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
