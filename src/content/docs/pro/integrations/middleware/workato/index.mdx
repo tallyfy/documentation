@@ -1,0 +1,308 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 5
+snippet: Workato enables enterprise-grade integration between Tallyfy and thousands of business applications through custom connectors and HTTP actions, supporting complex workflow automation and data synchronization without coding.
+title: Integrate Tallyfy with Workato
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Connect Tallyfy to Workato for enterprise automation
+
+Workato is an enterprise-grade integration and workflow automation platform designed for complex integrations at scale. While Workato doesn't currently offer a pre-built Tallyfy connector, you can easily integrate Tallyfy using Workato's HTTP connector or by building a custom connector.
+
+:::note[Alternative middleware options]
+While Workato is powerful for enterprise use cases, consider these alternatives based on your needs:
+- **Make.com** or **n8n** for cost-effective visual automation
+- **Microsoft Power Automate** if you're heavily invested in Microsoft 365
+- **Tallyfy's Open API** for maximum control with custom development
+:::
+
+## Why use Workato with Tallyfy?
+
+Workato excels at:
+- **Enterprise-scale integrations** with robust error handling and monitoring
+- **Complex data transformations** between systems
+- **Multi-step workflows** involving multiple applications
+- **Advanced security features** including encryption and compliance tools
+- **Recipe versioning and deployment** across environments
+
+Common integration scenarios include:
+- Synchronizing Tallyfy [processes](/products/pro/tracking-and-tasks/processes/) with enterprise ERP systems
+- Automating [task](/products/pro/tracking-and-tasks/tasks/) creation from CRM opportunities
+- Integrating Tallyfy with HR systems for employee onboarding
+- Connecting Tallyfy to financial systems for approval workflows
+
+## Method 1: Using Workato's HTTP connector (recommended)
+
+The HTTP connector is the fastest way to integrate Tallyfy with Workato, requiring no custom code.
+
+### Prerequisites
+
+Before starting, ensure you have:
+- A Workato account with access to HTTP connectors
+- A Tallyfy account with [API access](/products/pro/integrations/open-api/)
+- Your Tallyfy API token (obtained from **Settings > Integrations > REST API**)
+- Your Tallyfy Organization ID
+
+### Setting up the HTTP connection
+
+import { Steps } from '@astrojs/starlight/components';
+
+<Steps>
+1. In Workato, create a new recipe and add an HTTP connector
+2. Configure the connection with these settings:
+   - **Base URL**: `https://go.tallyfy.com/api/`
+   - **Authentication type**: API key
+   - **Authentication method**: Header authentication
+   - **Header name**: `Authorization`
+   - **Header value**: `Bearer YOUR_TALLYFY_API_TOKEN`
+3. Add a custom header:
+   - **Header name**: `X-Tallyfy-Client`
+   - **Header value**: `APIClient`
+4. Test the connection using a simple GET request to `/users/me`
+</Steps>
+
+### Common Tallyfy API operations in Workato
+
+Here are the most useful Tallyfy API endpoints for Workato recipes:
+
+#### Launching a process
+
+**HTTP Action Configuration:**
+- **Method**: POST
+- **Endpoint**: `/runs`
+- **Headers**: 
+  - `Content-Type: application/json`
+  - `X-Tallyfy-Client: APIClient`
+- **Body** (JSON):
+```json
+{
+  "blueprint_id": "YOUR_TEMPLATE_ID",
+  "title": "Process Title",
+  "owner_id": "USER_ID",
+  "prerun": {
+    "field_name": "field_value"
+  }
+}
+```
+
+#### Completing a task
+
+**HTTP Action Configuration:**
+- **Method**: PUT
+- **Endpoint**: `/tasks/{task_id}/complete`
+- **Headers**: 
+  - `Content-Type: application/json`
+  - `X-Tallyfy-Client: APIClient`
+- **Body** (JSON):
+```json
+{
+  "form_fields": {
+    "field_name": "field_value"
+  }
+}
+```
+
+#### Retrieving process information
+
+**HTTP Action Configuration:**
+- **Method**: GET
+- **Endpoint**: `/runs/{run_id}`
+- **Headers**: 
+  - `X-Tallyfy-Client: APIClient`
+
+#### Creating a task comment
+
+**HTTP Action Configuration:**
+- **Method**: POST
+- **Endpoint**: `/tasks/{task_id}/comments`
+- **Headers**: 
+  - `Content-Type: application/json`
+  - `X-Tallyfy-Client: APIClient`
+- **Body** (JSON):
+```json
+{
+  "comment": "Your comment text here"
+}
+```
+
+### Handling Tallyfy webhooks in Workato
+
+To receive real-time updates from Tallyfy:
+
+<Steps>
+1. Create a new Workato recipe with a **Webhook** trigger
+2. Copy the webhook URL provided by Workato
+3. In Tallyfy, configure the webhook in your template:
+   - Go to the template editor
+   - Add a webhook action to the relevant step
+   - Paste the Workato webhook URL
+   - Configure the payload data you want to send
+4. In Workato, parse the incoming webhook data and trigger subsequent actions
+</Steps>
+
+## Method 2: Building a custom Tallyfy connector
+
+For organizations requiring a reusable, managed connector, you can build a custom Tallyfy connector using Workato's Connector SDK.
+
+### Basic connector structure
+
+Here's a starter template for a Tallyfy custom connector:
+
+```ruby
+{
+  title: "Tallyfy",
+  
+  connection: {
+    fields: [
+      {
+        name: "api_token",
+        label: "API Token",
+        optional: false,
+        control_type: "password",
+        hint: "Found in Settings > Integrations > REST API"
+      },
+      {
+        name: "organization_id",
+        label: "Organization ID",
+        optional: false,
+        hint: "Your Tallyfy Organization ID"
+      }
+    ],
+    
+    authorization: {
+      type: "custom_auth",
+      
+      apply: lambda do |connection|
+        headers(
+          "Authorization": "Bearer #{connection['api_token']}",
+          "X-Tallyfy-Client": "APIClient",
+          "Content-Type": "application/json"
+        )
+      end
+    },
+    
+    base_uri: lambda do |connection|
+      "https://go.tallyfy.com/api"
+    end
+  },
+  
+  test: lambda do |connection|
+    get("/users/me")
+  end,
+  
+  actions: {
+    launch_process: {
+      title: "Launch a Process",
+      
+      input_fields: lambda do
+        [
+          { name: "blueprint_id", label: "Template ID", optional: false },
+          { name: "title", label: "Process Title", optional: false },
+          { name: "owner_id", label: "Owner User ID", optional: false }
+        ]
+      end,
+      
+      execute: lambda do |connection, input|
+        post("/runs", input)
+      end,
+      
+      output_fields: lambda do |object_definitions|
+        [
+          { name: "id", label: "Process ID" },
+          { name: "title", label: "Process Title" },
+          { name: "status", label: "Status" }
+        ]
+      end
+    }
+  }
+}
+```
+
+### Implementing common actions
+
+Add these actions to your custom connector for comprehensive Tallyfy integration:
+
+1. **List Templates** - Retrieve available templates
+2. **Get Process Details** - Fetch information about a specific process
+3. **Update Task** - Modify task data or complete tasks
+4. **Create Comment** - Add comments to tasks
+5. **Upload File** - Attach files to tasks
+
+## Best practices for Workato-Tallyfy integration
+
+### Error handling
+
+<Steps>
+1. Implement retry logic for transient failures
+2. Use Workato's error handling features to catch API errors
+3. Log failed requests for debugging
+4. Set up alerts for critical integration failures
+</Steps>
+
+### Performance optimization
+
+- **Batch operations** when possible to reduce API calls
+- **Cache frequently used data** like user IDs and template IDs
+- **Use webhooks** instead of polling for real-time updates
+- **Implement pagination** when retrieving large datasets
+
+### Security considerations
+
+- Store API tokens securely in Workato's connection management
+- Use Workato's role-based access control for recipe management
+- Regularly rotate API tokens
+- Monitor API usage to detect unusual patterns
+
+## Troubleshooting common issues
+
+### Authentication errors
+
+If you receive 401 errors:
+- Verify your API token is correct and active
+- Ensure the `X-Tallyfy-Client: APIClient` header is included
+- Check that your bearer token format is exactly `Bearer YOUR_TOKEN`
+
+### Rate limiting
+
+Tallyfy enforces rate limits of:
+- 100 requests per minute per organization
+- 1,000 requests per hour per organization
+
+To handle rate limits in Workato:
+- Implement exponential backoff
+- Use bulk operations where available
+- Monitor your API usage in recipe insights
+
+### Data mapping issues
+
+When mapping data between systems:
+- Be aware that Tallyfy's API uses different terminology than the UI
+- API "blueprints" = UI "templates"
+- API "runs" = UI "processes"
+- API "captures" = UI "form fields"
+
+## Next steps
+
+After setting up your integration:
+1. Test thoroughly with sample data
+2. Document your recipes for team members
+3. Set up monitoring and alerts
+4. Consider building a library of reusable recipes
+
+For additional support:
+- Review [Tallyfy's API documentation](https://go.tallyfy.com/api/)
+- Consult [Workato's HTTP connector guide](https://docs.workato.com/connectors/http.html)
+- Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) for API questions
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > The Tallyfy REST API enables developers to build custom integrations access core platform features and automate workflows through secure authentication methods while adhering to rate limits and technical requirements for making API requests. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Middleware</b>" href="/products/pro/integrations/middleware/" > Middleware platforms enable seamless integration between Tallyfy and other business applications through code-free automated connections that handle data transfers error management and workflow synchronization across multiple systems. </LinkTitleCard>
+<LinkTitleCard header="<b>Middleware > Why use an integration platform (middleware) with Tallyfy?</b>" href="/products/pro/integrations/middleware/why-should-i-use-an-integration-platform-with-tallyfy/" > Integration platforms provide pre-built connectors error handling data transformation and monitoring capabilities that eliminate the complexity of building and maintaining direct API integrations between Tallyfy and other business applications. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Webhooks</b>" href="/products/pro/integrations/webhooks/" > Webhooks enable real-time event notifications from Tallyfy to external systems when specific workflow events occur allowing automated integrations without constant API polling or manual data synchronization. </LinkTitleCard>
+</CardGrid> 

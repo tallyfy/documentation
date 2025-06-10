@@ -1,0 +1,206 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 1
+snippet: Step-by-step guide to automatically launch Tallyfy processes from Workato recipes using the HTTP connector, including authentication setup, data mapping, and error handling for seamless workflow automation.
+title: Launch Tallyfy processes from Workato
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Automatically launch Tallyfy processes from Workato recipes
+
+This guide shows you how to automatically start [Tallyfy processes](/products/pro/tracking-and-tasks/processes/) from your Workato recipes using the HTTP connector. This is useful when you want to trigger Tallyfy workflows based on events in other systems like your CRM, ERP, or support desk.
+
+### Prerequisites
+
+Before you begin, make sure you have:
+- A Workato account with HTTP connector access
+- A Tallyfy account with API access enabled
+- Your Tallyfy API token from **Settings > Integrations > REST API**
+- The template ID of the Tallyfy process you want to launch
+- The user ID who will own the launched processes
+
+### Step 1: Create the HTTP connection in Workato
+
+<Steps>
+1. In Workato, go to **Connections** and click **Create connection**
+2. Search for and select **HTTP**
+3. Name your connection (e.g., "Tallyfy API")
+4. Configure these settings:
+   - **Authentication type**: API key
+   - **How to apply**: Header
+   - **Authorization header format**: Custom
+   - **Custom authorization header**: `Bearer YOUR_API_TOKEN`
+   - **Other headers**: Click **Add header** and add:
+     - Name: `X-Tallyfy-Client`
+     - Value: `APIClient`
+5. Click **Connect** to save
+</Steps>
+
+### Step 2: Create a recipe to launch processes
+
+<Steps>
+1. Create a new recipe in Workato
+2. Choose your trigger (e.g., "New row in database", "New Salesforce opportunity", etc.)
+3. Add an **HTTP** action
+4. Select your Tallyfy HTTP connection
+5. Configure the HTTP request:
+   - **Request name**: Launch Tallyfy Process
+   - **Method**: POST
+   - **URL**: `https://go.tallyfy.com/api/runs`
+   - **Request headers**: Add `Content-Type` with value `application/json`
+</Steps>
+
+### Step 3: Configure the request body
+
+In the **Request body** field, you'll need to provide JSON data. Here's the structure:
+
+```json
+{
+  "blueprint_id": "YOUR_TEMPLATE_ID",
+  "title": "Process title from trigger data",
+  "owner_id": "USER_ID",
+  "organization_id": "YOUR_ORG_ID",
+  "prerun": {
+    "field1_name": "value from trigger",
+    "field2_name": "another value"
+  }
+}
+```
+
+#### Mapping dynamic data
+
+Instead of hardcoding values, map data from your trigger:
+
+1. Click the **Formula** mode toggle
+2. Build your JSON dynamically:
+
+```ruby
+{
+  "blueprint_id": "abc123",
+  "title": "Order " + trigger["order_number"] + " - " + trigger["customer_name"],
+  "owner_id": "user456",
+  "organization_id": "org789",
+  "prerun": {
+    "customer_name": trigger["customer_name"],
+    "order_value": trigger["total_amount"],
+    "priority": trigger["priority"]
+  }
+}
+```
+
+### Step 4: Handle kick-off form fields
+
+If your Tallyfy template has a [kick-off form](/products/pro/launching/triggers/via-kick-off-form/), you need to populate those fields in the `prerun` object:
+
+1. Identify all required kick-off form fields in your template
+2. Map each field in the `prerun` section
+3. Ensure data types match (text, number, date, etc.)
+
+Example with various field types:
+```json
+{
+  "blueprint_id": "template123",
+  "title": "New Employee: John Smith",
+  "owner_id": "hr_manager_id",
+  "prerun": {
+    "employee_name": "John Smith",
+    "start_date": "2024-03-15",
+    "department": "Engineering",
+    "salary": 75000,
+    "remote_worker": true,
+    "equipment_needed": ["Laptop", "Monitor", "Headset"]
+  }
+}
+```
+
+### Step 5: Process the response
+
+After launching, Tallyfy returns information about the new process:
+
+<Steps>
+1. Add a **Variable** action after your HTTP request
+2. Name it "Process Details"
+3. Map these useful fields from the HTTP response:
+   - `id` - The process ID
+   - `title` - The process title
+   - `status` - Current status
+   - `owner` - Process owner details
+   - `created_at` - When it was created
+</Steps>
+
+### Step 6: Add error handling
+
+<Steps>
+1. Click the HTTP action's error handler (⚠️ icon)
+2. Add actions for different error scenarios:
+   - **401 Unauthorized**: Check API token validity
+   - **404 Not Found**: Verify template ID exists
+   - **400 Bad Request**: Log the error details for debugging
+3. Consider adding email notifications for failures
+</Steps>
+
+### Common integration patterns
+
+#### Pattern 1: Launch from CRM opportunity
+
+When a Salesforce opportunity reaches "Closed Won":
+1. Trigger: Salesforce - Updated opportunity
+2. Condition: Status changed to "Closed Won"
+3. Action: Launch Tallyfy customer onboarding process
+4. Pass opportunity data to kick-off form
+
+#### Pattern 2: Launch from support ticket
+
+When a high-priority support ticket is created:
+1. Trigger: Zendesk - New ticket
+2. Condition: Priority = "Urgent"
+3. Action: Launch Tallyfy escalation process
+4. Assign to on-call manager
+
+#### Pattern 3: Scheduled launches
+
+For recurring processes:
+1. Trigger: Scheduler - Daily/Weekly/Monthly
+2. Action: Launch Tallyfy process
+3. Use date formulas for dynamic titles
+
+### Troubleshooting tips
+
+#### Process not launching?
+
+- Verify your API token is active and has proper permissions
+- Check that `X-Tallyfy-Client: APIClient` header is included
+- Ensure template ID is correct (not the template name)
+- Confirm user ID exists and is active
+
+#### Kick-off form data not appearing?
+
+- Field names in `prerun` must match exactly (case-sensitive)
+- Check data types match field expectations
+- Required fields must have values
+
+#### Rate limit errors?
+
+- Add delays between bulk launches
+- Implement exponential backoff for retries
+- Monitor your usage against Tallyfy's limits (100/minute)
+
+### Next steps
+
+After successfully launching processes:
+- Set up webhooks to get notified when tasks complete
+- Create recipes to update processes based on external events
+- Build dashboards to track launched processes
+- Implement two-way sync between systems
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Middleware > Integrate Tallyfy with Workato</b>" href="/products/pro/integrations/middleware/workato/" > Workato enables enterprise-grade integration between Tallyfy and thousands of business applications through custom connectors and HTTP actions supporting complex workflow automation and data synchronization without coding. </LinkTitleCard>
+<LinkTitleCard header="<b>Launching > Launch via middleware</b>" href="/products/pro/launching/triggers/via-middleware/" > Middleware platforms enable automated process launches in Tallyfy by connecting external software events to trigger specific workflows and transfer data between systems without coding requirements. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Variables</b>" href="/products/pro/documenting/templates/variables/" > Variables in Tallyfy templates enable dynamic content generation and data passing between process steps using system-defined and user-defined values that automatically populate during process execution. </LinkTitleCard>
+<LinkTitleCard header="<b>Triggers > Launch via a kick-off form</b>" href="/products/pro/launching/triggers/via-kick-off-form/" > Kick-off forms collect essential information before launching a process enabling dynamic data capture customized workflows and streamlined process initiation through web forms or shareable links. </LinkTitleCard>
+</CardGrid> 
