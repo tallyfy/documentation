@@ -1,0 +1,377 @@
+---
+description: Connect Tallyfy's MCP Server with ChatGPT to enable natural language workflow management through OpenAI's Deep Research feature using Model Context Protocol for secure AI-powered task automation and process management
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 10
+title: Using Tallyfy MCP Server with ChatGPT
+---
+
+import { Steps, CardGrid, LinkTitleCard } from "~/components";
+
+:::note[MCP Client Compatibility]
+An MCP server can be used by any MCP client that supports it. Although you can use Tallyfy's MCP server with common AI platforms like OpenAI, Claude or Microsoft Copilot Studio - the UI and ability to do useful work in real life is limited by many factors which are highlighted in this page. Tallyfy is developing its own fully-featured chat UI which will solve all the major problems of using MCP servers with mainstream text-chat AI providers. However, to start using MCP immediately - we recommend adding it to your AI subscription so that you can get the value and benefits immediately. You can additionally use the fully featured Tallyfy-specific AI interface when we launch it.
+:::
+
+## Overview
+
+OpenAI's ChatGPT now supports Model Context Protocol (MCP) servers through its Deep Research feature, enabling Enterprise, Team, and Education users to connect directly to organizational data sources. As of January 2025, this integration allows you to use ChatGPT to interact with your Tallyfy workflows using natural language commands.
+
+This guide walks through setting up Tallyfy's MCP server with ChatGPT, including authentication, practical demonstrations, and important limitations to consider.
+
+## ChatGPT MCP support status
+
+As of January 2025, ChatGPT's MCP implementation includes:
+
+- **Availability**: ChatGPT Enterprise, Team, and Education plans only
+- **Access method**: Through Deep Research feature and custom connectors
+- **Supported operations**: Search and document retrieval (read-only)
+- **Authentication**: API key-based authentication
+- **Security**: User-managed MCP server connections with security warnings
+
+**Note:** Individual ChatGPT Plus users cannot access MCP functionality at this time.
+
+## Prerequisites
+
+Before setting up the integration, ensure you have:
+
+- ChatGPT Enterprise, Team, or Education subscription
+- Tallyfy API key (available from your Tallyfy organization settings)
+- Access to create custom Deep Research connectors in ChatGPT
+- Basic understanding of API security best practices
+
+## Setting up Tallyfy MCP Server with ChatGPT
+
+<Steps>
+
+1. **Obtain your Tallyfy API key**
+   
+   Navigate to your Tallyfy organization settings and generate an API key. Store this securely as it provides full access to your Tallyfy data.
+
+2. **Access ChatGPT's Deep Research settings**
+   
+   In ChatGPT Enterprise/Team/Education, navigate to Settings → Deep Research → Custom Connectors.
+
+3. **Create a new MCP connector**
+   
+   Click "Add Custom Connector" and provide the following configuration:
+   
+   ```json
+   {
+     "name": "Tallyfy Workflow Assistant",
+     "description": "Access and manage Tallyfy workflows via natural language",
+     "mcp_server_url": "https://api.tallyfy.com/mcp/v1",
+     "authentication": {
+       "type": "api_key",
+       "header_name": "Authorization",
+       "key_prefix": "Bearer "
+     }
+   }
+   ```
+
+4. **Configure authentication**
+   
+   When prompted, enter your Tallyfy API key. ChatGPT will securely store this for future connections.
+   
+   **Security warning**: Only use API keys from accounts with appropriate permissions. Consider creating a dedicated service account with limited access for ChatGPT integration.
+
+5. **Set up connector instructions**
+   
+   Provide detailed instructions for ChatGPT to understand how to interact with Tallyfy:
+   
+   ```
+   You are connected to a Tallyfy organization's MCP server. Use this connection to:
+   - Search for tasks, processes, and templates
+   - Retrieve workflow information
+   - Analyze template health and suggest improvements
+   - Help users manage their work
+   
+   Always confirm destructive actions before executing.
+   Format responses clearly with relevant details.
+   ```
+
+6. **Test the connection**
+   
+   Start a new Deep Research session and test with a simple query:
+   ```
+   "Show me all active processes in Tallyfy"
+   ```
+   
+   ChatGPT should connect to the MCP server and retrieve your process data.
+
+7. **Publish to workspace (optional)**
+   
+   For team-wide access, publish the connector to your ChatGPT workspace, allowing all team members to use the Tallyfy integration.
+
+</Steps>
+
+## Practical demonstrations
+
+### Example 1: Finding overdue tasks
+
+**User prompt:**
+```
+Using Tallyfy, find all overdue tasks assigned to the marketing team and summarize them by priority.
+```
+
+**ChatGPT with MCP will:**
+1. Connect to Tallyfy MCP server
+2. Execute `search_for_tasks` with overdue filter
+3. Filter results by marketing team assignment
+4. Organize findings by priority
+5. Present a formatted summary
+
+### Example 2: Analyzing template health
+
+**User prompt:**
+```
+Analyze our "Customer Onboarding" template in Tallyfy and suggest improvements for efficiency.
+```
+
+**ChatGPT with MCP will:**
+1. Use `get_template` to retrieve template details
+2. Execute `assess_template_health` for comprehensive analysis
+3. Identify bottlenecks or redundant steps
+4. Suggest specific optimizations
+5. Provide actionable recommendations
+
+### Example 3: Creating workflow documentation
+
+**User prompt:**
+```
+Generate documentation for our "Invoice Processing" workflow in Tallyfy, including all steps and form fields.
+```
+
+**ChatGPT with MCP will:**
+1. Retrieve template structure using `get_template`
+2. List all steps with descriptions
+3. Document form fields for each step
+4. Include automation rules
+5. Format as readable documentation
+
+## Limitations of text-based UI
+
+While ChatGPT's MCP integration is powerful, the text-based interface presents several limitations when working with Tallyfy:
+
+### 1. Form field interactions
+
+**Challenge**: Dropdown fields, multi-select options, and complex form inputs are difficult to represent in plain text.
+
+**Example limitation:**
+- When a task has a dropdown with 20+ options, ChatGPT displays all options as plain text, making selection cumbersome
+- Date pickers and time selections require manual text entry instead of visual selection
+- File upload fields cannot be properly utilized through text interface
+
+### 2. Visual workflow representation
+
+**Challenge**: ChatGPT cannot display Tallyfy's visual process tracker or workflow diagrams.
+
+**Impact:**
+- Users cannot see the visual flow of steps in a template
+- Real-time process progress visualization is lost
+- Dependency relationships between steps are hard to understand in text format
+
+### 3. Bulk operations
+
+**Challenge**: Managing multiple items simultaneously is inefficient in a conversational interface.
+
+**Example scenarios:**
+- Reassigning 50 tasks requires individual commands or complex bulk instructions
+- Filtering and sorting large lists of processes becomes tedious
+- Batch updates to templates lack visual confirmation
+
+### 4. Real-time collaboration
+
+**Challenge**: ChatGPT's turn-based interaction model doesn't support real-time updates.
+
+**Limitations:**
+- Cannot see live updates when team members complete tasks
+- No real-time notifications for urgent items
+- Collaborative template editing is sequential, not simultaneous
+
+## Major blockers for full Tallyfy functionality
+
+Several Tallyfy features are significantly hampered or unusable through ChatGPT's text interface:
+
+### 1. Visual process tracker
+
+The **Tracker View** in Tallyfy provides a bird's-eye view of all running processes with visual progress indicators. This critical feature is completely absent in ChatGPT, making it difficult to:
+- Monitor overall process health at a glance
+- Identify bottlenecks across multiple workflows
+- Track SLA compliance visually
+- See process completion percentages
+
+### 2. Template builder interface
+
+Creating and editing [templates](/products/pro/documenting/templates/) through ChatGPT is extremely limited:
+- Cannot drag-and-drop to reorder steps
+- Difficult to visualize branching logic
+- Complex automation rules are hard to configure through text
+- No visual preview of the template structure
+
+### 3. Advanced filtering and views
+
+Tallyfy's powerful filtering capabilities in the Tasks and Tracker views are reduced to text-based queries:
+- Cannot save custom views
+- Multi-dimensional filtering requires complex natural language queries
+- No visual indicators for filter results
+- Sorting options are limited and cumbersome
+
+### 4. Interactive dashboards
+
+Analytics and reporting dashboards cannot be effectively represented:
+- No charts or graphs visualization
+- Trend analysis requires textual descriptions
+- Performance metrics lack visual context
+- Export functionality is limited
+
+## Ideal use cases for ChatGPT + Tallyfy MCP
+
+Despite limitations, ChatGPT excels at specific Tallyfy workflows:
+
+### 1. Natural language template search
+
+**Strength**: Finding relevant templates using conversational queries.
+
+**Example**:
+```
+"Find all templates related to employee onboarding that include background check steps"
+```
+
+ChatGPT can search across template names, descriptions, and step content to find matches.
+
+### 2. Automated field generation
+
+**Strength**: Creating form fields based on process descriptions.
+
+**Example**:
+```
+"Add appropriate form fields to collect customer feedback in our support process"
+```
+
+ChatGPT can analyze the context and suggest relevant fields with proper validation rules.
+
+### 3. What-if automation scenarios
+
+**Strength**: Testing automation logic before implementation.
+
+**Example**:
+```
+"If I set up an automation to assign tasks based on deal value, show me how it would route these 5 example deals"
+```
+
+ChatGPT can simulate automation outcomes without affecting live processes.
+
+### 4. Process documentation updates
+
+**Strength**: Updating templates based on document changes.
+
+**Example**:
+```
+"Here's our updated SOX compliance procedure. Update our audit template to match these new requirements, highlighting what changed"
+```
+
+ChatGPT can intelligently map document changes to template modifications.
+
+### 5. Template optimization from task patterns
+
+**Strength**: Identifying recurring ad-hoc tasks that should be formalized.
+
+**Example**:
+```
+"Analyze one-off tasks added to our hiring processes last month and suggest which should be added to the template"
+```
+
+ChatGPT can identify patterns and propose template improvements with user moderation.
+
+### 6. Complex query answering
+
+**Strength**: Answering specific questions about workflow data with citations.
+
+**Example**:
+```
+"Which step in our sales process has the longest average completion time, and which team members are fastest at completing it?"
+```
+
+ChatGPT can analyze data and provide detailed insights with references to specific [processes](/products/pro/tracking-and-tasks/processes/).
+
+## Security considerations
+
+When connecting ChatGPT to Tallyfy:
+
+1. **API key management**
+   - Use dedicated service accounts with minimal required permissions
+   - Rotate API keys regularly
+   - Monitor API usage for anomalies
+
+2. **Data sensitivity**
+   - Review which templates and processes contain sensitive information
+   - Consider creating ChatGPT-specific user roles with restricted access
+   - Audit data access logs regularly
+
+3. **Prompt injection risks**
+   - Be cautious of templates or data that might contain prompt-like text
+   - Verify unexpected ChatGPT behaviors
+   - Report suspicious activity to both OpenAI and Tallyfy support
+
+## Known issues and limitations (January 2025)
+
+Current known issues with ChatGPT's MCP implementation:
+
+1. **Read-only operations**: Cannot create or modify data directly through MCP
+2. **Session timeouts**: Long-running queries may timeout after 60 seconds
+3. **Context window limits**: Large template structures may exceed token limits
+4. **No real-time updates**: Changes made in Tallyfy aren't reflected until next query
+5. **Limited file handling**: Cannot process attachments or generate files
+6. **No webhook support**: Cannot trigger or respond to Tallyfy webhooks
+
+## Best practices
+
+To maximize the effectiveness of ChatGPT with Tallyfy:
+
+1. **Use specific queries**: Instead of "show me tasks," use "show me high-priority tasks assigned to John due this week"
+
+2. **Batch related requests**: Combine multiple related queries in a single prompt for efficiency
+
+3. **Leverage ChatGPT's analysis**: Ask for insights and patterns, not just data retrieval
+
+4. **Create query templates**: Save effective prompts for common workflows
+
+5. **Combine with native Tallyfy**: Use ChatGPT for analysis and planning, then execute in Tallyfy's visual interface
+
+## Future outlook
+
+As MCP technology evolves, we anticipate:
+
+- **Write capabilities**: Creating and modifying workflows through ChatGPT
+- **Richer UI elements**: Better representation of visual elements in text
+- **Real-time synchronization**: Live updates between ChatGPT and Tallyfy
+- **Enhanced security**: More granular permission controls
+- **Multimodal support**: Potential for image and diagram generation
+
+Stay tuned for updates as both OpenAI and Tallyfy expand their MCP capabilities.
+
+## Conclusion
+
+While ChatGPT's integration with Tallyfy MCP Server offers powerful natural language workflow management, it works best as a complement to Tallyfy's visual interface rather than a replacement. Use ChatGPT for:
+
+- Complex searches and analysis
+- Automation planning and testing
+- Bulk data queries and insights
+- Template optimization suggestions
+
+Continue using Tallyfy's native interface for:
+
+- Visual process tracking
+- Real-time collaboration
+- Template building and editing
+- Interactive form completion
+
+The combination of both tools provides the most comprehensive workflow management experience.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>MCP Server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server enables natural language interaction with workflows through AI assistants by providing tools for searching tasks and processes managing users and templates analyzing workflow health and creating automation rules without requiring API knowledge. </LinkTitleCard>
+<LinkTitleCard header="<b>Computer AI Agents</b>" href="/products/pro/integrations/computer-ai-agents/" > Computer AI agents represent the evolution from manual RPA to intelligent systems that can autonomously navigate interfaces understand context make decisions and complete complex tasks through natural interaction with software applications. </LinkTitleCard>
+<LinkTitleCard header="<b>API Integration Guide</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Learn how to integrate with Tallyfy's REST API to automate workflows manage processes handle authentication implement error handling track tasks and leverage webhooks for building powerful workflow automation solutions. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks</b>" href="/products/pro/integrations/webhooks/" > Webhooks enable real-time notifications from Tallyfy to external systems when workflow events occur allowing seamless integration with third-party applications automated responses and custom workflow extensions without constant polling. </LinkTitleCard>
+</CardGrid> 

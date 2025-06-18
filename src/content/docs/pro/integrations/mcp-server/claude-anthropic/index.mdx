@@ -1,0 +1,544 @@
+---
+description: Connect Tallyfy's MCP Server with Claude Desktop to enable natural language workflow management through Anthropic's native Model Context Protocol support for secure AI-powered task automation and direct file system integration
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 20
+title: Using Tallyfy MCP Server with Claude (Text Chat)
+---
+
+import { Steps, CardGrid, LinkTitleCard } from "~/components";
+
+:::note[MCP Client Compatibility]
+An MCP server can be used by any MCP client that supports it. Although you can use Tallyfy's MCP server with common AI platforms like OpenAI, Claude or Microsoft Copilot Studio - the UI and ability to do useful work in real life is limited by many factors which are highlighted in this page. Tallyfy is developing its own fully-featured chat UI which will solve all the major problems of using MCP servers with mainstream text-chat AI providers. However, to start using MCP immediately - we recommend adding it to your AI subscription so that you can get the value and benefits immediately. You can additionally use the fully featured Tallyfy-specific AI interface when we launch it.
+:::
+
+## Overview
+
+Claude Desktop, developed by Anthropic, was the first AI assistant to natively support Model Context Protocol (MCP). Launched alongside MCP in November 2024, Claude Desktop provides seamless integration with MCP servers, enabling direct access to your Tallyfy workflows, local files, and external tools through natural language commands.
+
+This guide demonstrates how to configure Tallyfy's MCP server with Claude Desktop, explore practical use cases, understand limitations, and leverage Claude's unique capabilities for workflow management.
+
+:::warning[Important: Claude Desktop vs Claude Computer Use]
+This article covers **Claude Desktop's text-chat interface with MCP integration** - where you interact with Claude through natural language to access Tallyfy data via MCP servers. This is different from [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/), which allows Claude to visually perceive and control computer interfaces (mouse, keyboard, screenshots).
+
+**Key differences:**
+- **Claude Desktop + MCP** (this article): Text-based chat that connects to data sources and APIs
+- **Claude Computer Use**: Visual perception and control of desktop applications through screenshots and mouse/keyboard actions
+
+Both can work with Tallyfy, but serve different purposes:
+- Use **Claude Desktop + MCP** for data queries, analysis, and API-based automation
+- Use **Claude Computer Use** for automating visual UI tasks that require seeing and clicking interface elements
+:::
+
+## Claude Desktop MCP support status
+
+As of January 2025, Claude Desktop's MCP implementation includes:
+
+- **Native support**: Built-in MCP client with full protocol support
+- **Transport methods**: Standard input/output (stdio) for local servers, HTTP/SSE for remote servers
+- **All Claude plans**: Available for all Claude.ai subscription tiers (Free, Pro, Team)
+- **Operating systems**: macOS and Windows (Linux support coming soon)
+- **Dynamic tool discovery**: Automatic detection and display of available MCP tools
+
+**Note:** Claude Desktop pioneered MCP support and remains the reference implementation for the protocol.
+
+## Prerequisites
+
+Before setting up the integration, ensure you have:
+
+- Claude Desktop app installed (latest version)
+- Tallyfy API key (available from your Tallyfy organization settings)
+- Node.js version 16 or higher (for running JavaScript-based MCP servers)
+- Basic familiarity with editing JSON configuration files
+
+## Setting up Tallyfy MCP Server with Claude Desktop
+
+<Steps>
+
+1. **Install Claude Desktop**
+   
+   Download Claude Desktop from [claude.ai/download](https://claude.ai/download) for your operating system (macOS or Windows).
+
+2. **Locate the configuration file**
+   
+   The MCP configuration file location varies by operating system:
+   
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   
+   If the file doesn't exist, Claude will create it when you first edit the configuration.
+
+3. **Create the Tallyfy MCP server**
+   
+   First, create a local directory for your MCP server:
+   ```bash
+   mkdir ~/tallyfy-mcp-server
+   cd ~/tallyfy-mcp-server
+   npm init -y
+   npm install @modelcontextprotocol/sdk axios
+   ```
+
+4. **Implement the server script**
+   
+   Create a file named `tallyfy-server.js`:
+   
+   ```javascript
+   const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
+   const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+   const axios = require('axios');
+   
+   // Initialize Tallyfy API client
+   const TALLYFY_API_KEY = process.env.TALLYFY_API_KEY;
+   const TALLYFY_API_URL = 'https://api.tallyfy.com/v1';
+   
+   const server = new Server({
+     name: 'tallyfy-mcp',
+     version: '1.0.0',
+   });
+   
+   // Tool to search for tasks
+   server.setRequestHandler('tools/call', async (request) => {
+     if (request.params.name === 'search_tasks') {
+       const { query, status } = request.params.arguments;
+       
+       const response = await axios.get(`${TALLYFY_API_URL}/tasks`, {
+         headers: { 'Authorization': `Bearer ${TALLYFY_API_KEY}` },
+         params: { q: query, status }
+       });
+       
+       return {
+         content: [{ 
+           type: 'text', 
+           text: JSON.stringify(response.data, null, 2) 
+         }]
+       };
+     }
+   });
+   
+   // List available tools
+   server.setRequestHandler('tools/list', async () => {
+     return {
+       tools: [{
+         name: 'search_tasks',
+         description: 'Search for tasks in Tallyfy',
+         inputSchema: {
+           type: 'object',
+           properties: {
+             query: { type: 'string', description: 'Search query' },
+             status: { type: 'string', enum: ['open', 'completed', 'all'] }
+           }
+         }
+       }]
+     };
+   });
+   
+   // Start the server
+   const transport = new StdioServerTransport();
+   server.connect(transport);
+   ```
+
+5. **Configure Claude Desktop**
+   
+   Edit your `claude_desktop_config.json` file:
+   
+   ```json
+   {
+     "mcpServers": {
+       "tallyfy": {
+         "command": "node",
+         "args": ["/Users/username/tallyfy-mcp-server/tallyfy-server.js"],
+         "env": {
+           "TALLYFY_API_KEY": "your-tallyfy-api-key-here"
+         }
+       }
+     }
+   }
+   ```
+   
+   Replace:
+   - `/Users/username/` with your actual home directory path
+   - `your-tallyfy-api-key-here` with your Tallyfy API key
+
+6. **Restart Claude Desktop**
+   
+   Completely quit Claude Desktop (Cmd+Q on macOS or close all windows on Windows) and relaunch it.
+
+7. **Verify the connection**
+   
+   Look for the tools icon (🔨) in the bottom of the Claude chat interface. Click it to see available Tallyfy tools.
+   
+   Test with a simple query:
+   ```
+   "Search for all open tasks in Tallyfy"
+   ```
+
+</Steps>
+
+## Practical demonstrations
+
+### Example 1: Task management workflow
+
+**User prompt:**
+```
+Find all tasks assigned to me that are due this week and create a summary report.
+```
+
+**Claude with MCP will:**
+1. Use the `search_tasks` tool to query Tallyfy
+2. Filter results for current user and date range
+3. Format findings into a structured report
+4. Optionally save the report locally using filesystem MCP
+
+### Example 2: Process automation
+
+**User prompt:**
+```
+Check if there are any stalled processes in our "Customer Onboarding" template and suggest next actions.
+```
+
+**Claude with MCP will:**
+1. Query for active processes using the template
+2. Identify tasks that haven't progressed recently
+3. Analyze blockers based on task data
+4. Provide specific recommendations
+
+### Example 3: Bulk operations
+
+**User prompt:**
+```
+Reassign all of John's open tasks to Sarah due to his vacation.
+```
+
+**Claude with MCP will:**
+1. Search for all tasks assigned to John
+2. Filter for open status
+3. Execute bulk reassignment to Sarah
+4. Provide a summary of changes made
+
+## Unique Claude Desktop features
+
+### 1. Projects for persistent context
+
+Claude Desktop's **Projects** feature allows you to maintain context across multiple conversations:
+
+- Create a project for each major workflow or client
+- Claude remembers previous task interactions
+- Upload relevant documents that persist across sessions
+- Perfect for ongoing process management
+
+### 2. Local file system integration
+
+Unlike web-based alternatives, Claude Desktop can directly access your local files through filesystem MCP:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/username/Documents/Tallyfy"
+      ]
+    }
+  }
+}
+```
+
+This enables workflows like:
+- Reading process documentation from local files
+- Exporting Tallyfy data to CSV files
+- Syncing local templates with Tallyfy
+
+### 3. Tool composition
+
+Claude Desktop excels at using multiple MCP servers together:
+
+**Example workflow:**
+1. Filesystem MCP reads a CSV of new employees
+2. Tallyfy MCP creates onboarding processes for each
+3. Slack MCP notifies the HR team
+4. GitHub MCP creates IT access tickets
+
+### 4. Developer-friendly interface
+
+The desktop app includes developer tools:
+- View MCP server logs in `~/Library/Logs/Claude/`
+- Debug tool calls in real-time
+- Test custom MCP servers during development
+
+## Limitations in Claude Desktop
+
+While Claude Desktop offers powerful MCP integration, certain limitations exist:
+
+### 1. Visual interface constraints
+
+**Challenge**: Claude Desktop is primarily text-based, making visual elements challenging.
+
+**Limitations:**
+- Cannot display Tallyfy's visual process tracker
+- No interactive diagrams or flowcharts
+- Progress bars and charts appear as text descriptions
+
+**Workaround**: Use Claude to generate reports that can be visualized in Tallyfy's web interface.
+
+### 2. Real-time updates
+
+**Challenge**: MCP operates on a request-response model.
+
+**Limitations:**
+- No live notifications for task changes
+- Must manually refresh to see updates
+- Cannot monitor real-time process progress
+
+**Workaround**: Set up periodic checks or use webhooks with a separate notification system.
+
+### 3. Complex form interactions
+
+**Challenge**: Rich form inputs don't translate well to text.
+
+**Example limitations:**
+- Multi-select dropdowns require listing all options
+- File uploads need separate handling
+- Date/time pickers become text input
+
+### 4. Authentication scope
+
+**Challenge**: Single API key authentication.
+
+**Limitations:**
+- Actions performed under one user context
+- Limited ability to impersonate other users
+- Audit trails show API key owner as actor
+
+## Ideal use cases for Claude Desktop + Tallyfy MCP
+
+### 1. Morning workflow review
+
+**Strength**: Quick status checks and prioritization.
+
+**Example routine:**
+```
+"Good morning! Show me all tasks due today, any overdue items, and processes that need my attention. Create a prioritized action list."
+```
+
+Claude can create a comprehensive morning briefing with actionable insights.
+
+### 2. Process analysis and optimization
+
+**Strength**: Deep analysis of workflow patterns.
+
+**Example:**
+```
+"Analyze the last 50 completed 'Customer Onboarding' processes. Identify the steps with longest completion times and suggest optimizations."
+```
+
+Claude can identify bottlenecks and provide data-driven recommendations.
+
+### 3. Documentation generation
+
+**Strength**: Creating comprehensive process documentation.
+
+**Example:**
+```
+"Generate a detailed SOP document for our 'Invoice Processing' template, including all steps, responsible parties, and average completion times."
+```
+
+Claude can create well-structured documentation combining Tallyfy data with best practices.
+
+### 4. Intelligent task routing
+
+**Strength**: Complex decision-making for task assignments.
+
+**Example:**
+```
+"Review the skills and current workload of team members, then suggest optimal task assignments for the next week's projects."
+```
+
+Claude can balance multiple factors to optimize team productivity.
+
+### 5. Compliance reporting
+
+**Strength**: Generating audit-ready reports.
+
+**Example:**
+```
+"Create a compliance report showing all 'Data Access Request' processes from last quarter, including completion times and any SLA violations."
+```
+
+Claude can compile detailed reports with analysis and recommendations.
+
+## Combining Claude MCP with Claude Computer Use
+
+While this article focuses on Claude's text-based MCP integration, you can create powerful automation workflows by combining it with [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/):
+
+### Complementary capabilities
+
+**Claude MCP excels at:**
+- Querying and analyzing Tallyfy data via API
+- Bulk operations across multiple records
+- Generating reports and insights
+- Making data-driven decisions
+
+**Claude Computer Use excels at:**
+- Interacting with visual interfaces
+- Filling forms in third-party applications
+- Navigating complex UI workflows
+- Handling applications without APIs
+
+### Example hybrid workflow
+
+**Scenario**: Monthly compliance reporting requiring both data analysis and visual form submission.
+
+**Step 1: Claude MCP**
+```
+"Analyze all completed audit processes this month, identify any non-compliance issues, and prepare a summary report with statistics."
+```
+
+**Step 2: Claude Computer Use**
+```
+"Open the government compliance portal in the browser, navigate to the monthly report section, and fill in the form with the statistics from the report."
+```
+
+### Best practices for hybrid automation
+
+1. **Use MCP for data operations**: Leverage API access for efficient data retrieval and processing
+2. **Use Computer Use for UI-only tasks**: Reserve visual automation for applications without API access
+3. **Pass data between modes**: Use files or clipboard to transfer data between MCP and Computer Use sessions
+4. **Monitor costs**: Computer Use with screenshots is more expensive than MCP API calls
+5. **Design for reliability**: MCP operations are more deterministic than visual UI automation
+
+### Implementation considerations
+
+When designing workflows that use both capabilities:
+
+- Start with MCP for data gathering and preparation
+- Switch to Computer Use only when visual interaction is required
+- Return to MCP for final data validation and storage
+- Document which parts of the workflow use which capability
+- Test failure points and implement appropriate fallbacks
+
+This hybrid approach maximizes efficiency while ensuring you can automate even the most complex workflows that span both API-accessible and UI-only systems.
+
+## Security considerations
+
+When using Claude Desktop with Tallyfy:
+
+1. **Local configuration security**
+   - Store API keys in environment variables, not plaintext
+   - Restrict file permissions on `claude_desktop_config.json`
+   - Use separate API keys for different environments
+
+2. **MCP server isolation**
+   - Run MCP servers with minimal permissions
+   - Implement request validation in your server code
+   - Log all API calls for audit purposes
+
+3. **Data handling**
+   - Be cautious about sensitive data in conversations
+   - Claude Desktop stores conversation history locally
+   - Consider data retention policies
+
+4. **Network security**
+   - Use HTTPS for all API communications
+   - Implement request rate limiting
+   - Monitor for unusual access patterns
+
+## Advanced configuration
+
+### Running multiple MCP servers
+
+Claude Desktop supports multiple simultaneous MCP connections:
+
+```json
+{
+  "mcpServers": {
+    "tallyfy": {
+      "command": "node",
+      "args": ["~/tallyfy-mcp-server/server.js"],
+      "env": { "TALLYFY_API_KEY": "key-1" }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "ghp_xxx" }
+    }
+  }
+}
+```
+
+### Custom server development tips
+
+1. **Use TypeScript for better type safety**
+   ```typescript
+   import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+   import { TallyfyClient } from './tallyfy-client';
+   ```
+
+2. **Implement comprehensive error handling**
+   ```javascript
+   try {
+     const result = await tallyfyApi.call();
+     return { content: [{ type: 'text', text: result }] };
+   } catch (error) {
+     return { 
+       error: { 
+         code: 'TALLYFY_API_ERROR', 
+         message: error.message 
+       } 
+     };
+   }
+   ```
+
+3. **Add request logging for debugging**
+   ```javascript
+   console.error(`[Tallyfy MCP] ${new Date().toISOString()} - ${request.method}`);
+   ```
+
+## Known issues and workarounds (January 2025)
+
+1. **Windows path handling**: Use forward slashes in paths or escaped backslashes
+2. **Large response truncation**: Paginate results for queries returning many items
+3. **Connection timeouts**: Implement retry logic for API calls
+4. **Memory usage**: Restart Claude Desktop periodically for long-running sessions
+
+## Best practices
+
+1. **Start simple**: Begin with read-only operations before implementing modifications
+2. **Test thoroughly**: Use a Tallyfy sandbox environment during development
+3. **Document your tools**: Provide clear descriptions for each MCP tool
+4. **Version your servers**: Include version numbers in your MCP server implementations
+5. **Monitor usage**: Track API calls to optimize performance and costs
+
+## Future outlook
+
+Claude Desktop's MCP implementation continues to evolve:
+
+- **Streaming responses**: Better handling of real-time data
+- **Visual previews**: Potential for rendering simple visualizations
+- **Plugin marketplace**: Community-driven MCP server repository
+- **Enhanced security**: OAuth flow support for user-specific authentication
+
+## Conclusion
+
+Claude Desktop's native MCP support makes it the ideal choice for integrating with Tallyfy workflows. While limitations exist around visual interfaces and real-time updates, Claude excels at:
+
+- Complex workflow analysis and optimization
+- Natural language task management
+- Automated reporting and documentation
+- Intelligent process orchestration
+
+The combination of Claude's advanced reasoning capabilities with Tallyfy's workflow engine creates a powerful system for modern business process management.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>MCP Server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server enables natural language interaction with workflows through AI assistants by providing tools for searching tasks and processes managing users and templates analyzing workflow health and creating automation rules without requiring API knowledge. </LinkTitleCard>
+<LinkTitleCard header="<b>Claude Computer Use</b>" href="/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/" > Anthropic's Claude can interact with computer desktop environments through API-driven tools to automate UI-based tasks by perceiving screens and executing actions like mouse clicks typing and keyboard shortcuts in a sandboxed environment. </LinkTitleCard>
+<LinkTitleCard header="<b>Computer AI Agents</b>" href="/products/pro/integrations/computer-ai-agents/" > Computer AI agents represent the evolution from manual RPA to intelligent systems that can autonomously navigate interfaces understand context make decisions and complete complex tasks through natural interaction with software applications. </LinkTitleCard>
+<LinkTitleCard header="<b>API Integration Guide</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Learn how to integrate with Tallyfy's REST API to automate workflows manage processes handle authentication implement error handling track tasks and leverage webhooks for building powerful workflow automation solutions. </LinkTitleCard>
+<LinkTitleCard header="<b>Using Tallyfy MCP Server with ChatGPT</b>" href="/products/pro/integrations/mcp-server/openai-chatgpt/" > Connect Tallyfy's MCP Server with ChatGPT to enable natural language workflow management through OpenAI's Deep Research feature using Model Context Protocol for secure AI-powered task automation and process management. </LinkTitleCard>
+</CardGrid> 
