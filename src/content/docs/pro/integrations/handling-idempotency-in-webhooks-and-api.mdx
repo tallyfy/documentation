@@ -10,9 +10,9 @@ title: Handling idempotency in webhooks and API
 
 ## What is idempotency and why it matters
 
-When integrating with Tallyfy's [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/), you need to design your systems to handle events that might occur multiple times. *Idempotency* means that performing the same operation multiple times produces the same result as performing it once. This is essential for building reliable integrations.
+When integrating with Tallyfy's [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/), you need to design your systems to handle events that might happen multiple times. *Idempotency* means that doing the same operation multiple times gives you the same result as doing it once. This is essential for building reliable integrations.
 
-In Tallyfy, certain actions can trigger webhooks multiple times, and external systems might send duplicate API requests. Without proper idempotency handling, you could end up with duplicate records, incorrect data states, or failed operations.
+In Tallyfy, certain actions can trigger webhooks multiple times, and external systems might send duplicate API requests. Without proper idempotency handling, you could end up with duplicate records, wrong data states, or failed operations.
 
 ## Common scenarios requiring idempotency
 
@@ -64,9 +64,9 @@ Every webhook payload from Tallyfy includes unique identifiers. Always use these
 }
 ```
 
-**Implementation approach:**
+**How to implement:**
 1. Store the `task_id` and `completed_at` timestamp in your database
-2. Before processing a webhook, check if this combination already exists
+2. Before processing a webhook, check if this combo already exists
 3. If it exists, skip processing or update the existing record
 4. If it's new, process the webhook normally
 
@@ -83,8 +83,8 @@ CREATE TABLE processed_events (
 );
 ```
 
-When receiving a webhook:
-1. Generate a unique event ID combining `task_id + event_type + timestamp`
+When you receive a webhook:
+1. Generate a unique event ID by combining `task_id + event_type + timestamp`
 2. Check if this event ID exists in your table
 3. If not, process the event and store the ID
 4. If it exists, log it and skip processing
@@ -100,11 +100,11 @@ When handling duplicate API requests from external systems:
    - If it's different, proceed with the update
    - Add a comment noting the update for audit trails
 
-3. **Implement request IDs**: Require external systems to send a unique request ID with each API call:
+3. **Use request IDs**: Require external systems to send a unique request ID with each API call:
    ```
    X-Request-ID: unique-request-identifier-123
    ```
-   Store these IDs temporarily (e.g., for 24 hours) to detect retries
+   Store these IDs temporarily (like for 24 hours) to detect retries
 
 ## Best practices for specific integrations
 
@@ -133,20 +133,20 @@ When a task is completed and potentially reopened:
 For processes with many tasks:
 
 1. **Batch processing**: Collect webhook events and process them in batches every few minutes
-2. **Use queues**: Implement a message queue to handle high volumes without overwhelming your system
+2. **Use queues**: Set up a message queue to handle high volumes without overwhelming your system
 3. **Filter by task type**: Use the webhook payload to identify specific tasks you care about
 
 ### Preventing duplicate API submissions
 
 When external systems integrate with Tallyfy:
 
-1. **Implement idempotency keys**: Generate a unique key for each operation:
+1. **Use idempotency keys**: Generate a unique key for each operation:
    ```
    POST /api/v1/processes/launch
    X-Idempotency-Key: ticket-12345-launch-attempt-1
    ```
 
-2. **Use conditional requests**: Check if an action has already been performed:
+2. **Use conditional requests**: Check if an action has already been done:
    - Query existing processes before launching a new one
    - Check task status before attempting to complete it
    - Verify form field values before updating them
@@ -216,12 +216,12 @@ async function updateTaskField(taskId, fieldName, fieldValue, requestId) {
 
 ## Testing your idempotency implementation
 
-To ensure your integration handles duplicates correctly:
+To make sure your integration handles duplicates correctly:
 
 1. **Simulate duplicate webhooks**: Manually trigger the same webhook multiple times
 2. **Test network retries**: Use tools to simulate failed requests that retry automatically
-3. **Verify data consistency**: Check that your data remains correct after duplicate events
-4. **Monitor logs**: Look for patterns of duplicate events in production
+3. **Check data consistency**: Make sure your data stays correct after duplicate events
+4. **Watch your logs**: Look for patterns of duplicate events in production
 
 ## Troubleshooting common issues
 
@@ -238,12 +238,12 @@ Always respond with a 2xx status code to webhook requests, even for duplicates. 
 
 ## Next steps
 
-After implementing idempotency handling:
+After setting up idempotency handling:
 
-1. Monitor your integration logs to identify patterns of duplicate events
+1. Watch your integration logs to spot patterns of duplicate events
 2. Adjust your deduplication window based on actual retry patterns
-3. Consider implementing more sophisticated event sourcing if you need full audit trails
-4. Review Tallyfy's [webhook documentation](/products/pro/integrations/webhooks/) for the latest payload formats
+3. Consider setting up more sophisticated event sourcing if you need full audit trails
+4. Check Tallyfy's [webhook documentation](/products/pro/integrations/webhooks/) for the latest payload formats
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
