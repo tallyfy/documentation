@@ -1,0 +1,206 @@
+---
+description: This automation example demonstrates how to set task deadlines that count backwards from important dates like meetings launches or events ensuring preparation tasks complete with appropriate lead time.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 9
+title: Countdown deadline automation
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This example shows how to automatically set [task](/products/pro/tracking-and-tasks/tasks/) deadlines that count backwards from important dates. Instead of setting deadlines after something happens, these automations ensure preparation tasks complete before critical dates.
+
+## What is the use case for countdown deadlines?
+
+Countdown deadlines are essential for:
+
+- **Meeting preparation**: Send reminders 1 day before scheduled meetings
+- **Event planning**: Complete setup tasks 2 weeks before the event date
+- **Launch coordination**: Finish marketing materials 1 week before product launch
+- **Contract renewals**: Start renewal discussions 30 days before expiration
+- **Compliance deadlines**: Submit reports 5 days before regulatory due dates
+
+The key is working backwards from a fixed future date to ensure everything is ready on time.
+
+## How do I create countdown deadline automations?
+
+<Steps>
+1. **Add a date field to capture the target date**
+   
+   In your kick-off form or early step, add a **Date** field to capture the important date:
+   - "Meeting date"
+   - "Event date"
+   - "Launch date"
+   - "Contract expiration date"
+   - "Regulatory deadline"
+
+2. **Create tasks that need to complete before that date**
+   
+   Add steps to your [template](/products/pro/documenting/templates/) for preparation activities:
+   - "Send meeting agenda"
+   - "Finalize event venue"
+   - "Complete marketing materials"
+   - "Prepare renewal proposal"
+
+3. **Set up deadline automation rules**
+   
+   Create automation rules that calculate deadlines backwards from your date field:
+   
+   **Example: Meeting reminder 1 day before**
+   ```
+   IF (Meeting Date field) is not empty
+   THEN Set deadline for "Send meeting reminder" 
+        to 1 day before (Meeting Date field)
+   ```
+   
+   **Example: Event preparation 2 weeks before**
+   ```
+   IF (Event Date field) is not empty
+   THEN Set deadline for "Finalize catering order" 
+        to 14 days before (Event Date field)
+   ```
+</Steps>
+
+## Real-world countdown examples
+
+### Sales funnel management
+
+**Scenario**: Schedule follow-up activities before a prospect meeting.
+
+**Kick-off form field**: "Scheduled meeting date"
+
+**Automation rules**:
+
+1. **Pre-meeting research deadline**:
+   ```
+   IF (Scheduled Meeting Date) exists
+   THEN Set deadline for "Complete prospect research" 
+        to 3 days before (Scheduled Meeting Date)
+   ```
+
+2. **Agenda preparation deadline**:
+   ```
+   IF (Scheduled Meeting Date) exists
+   THEN Set deadline for "Send meeting agenda" 
+        to 1 day before (Scheduled Meeting Date)
+   ```
+
+3. **Day-of reminder**:
+   ```
+   IF (Scheduled Meeting Date) exists
+   THEN Set deadline for "Meeting day checklist" 
+        to 2 hours before (Scheduled Meeting Date)
+   ```
+
+### Podcast publishing workflow
+
+**Scenario**: Coordinate all tasks leading up to a podcast launch.
+
+**Kick-off form field**: "Podcast launch date"
+
+**Automation rules**:
+
+1. **Audio file deadline**:
+   ```
+   IF (Launch Date) exists
+   THEN Set deadline for "Upload final audio" 
+        to 1 week before (Launch Date)
+   ```
+
+2. **Promotional content deadline**:
+   ```
+   IF (Launch Date) exists
+   THEN Set deadline for "Create social media posts" 
+        to 3 days before (Launch Date)
+   ```
+
+3. **Final review deadline**:
+   ```
+   IF (Launch Date) exists
+   THEN Set deadline for "Final quality check" 
+        to 1 day before (Launch Date)
+   ```
+
+### International shipping process
+
+**Scenario**: Ensure customs documentation is ready before shipment arrival.
+
+**Step 1 fields**: 
+- Location (dropdown): "Domestic" or "International"
+- Expected arrival date (date field)
+
+**Automation rules**:
+
+1. **Show customs check for international only**:
+   ```
+   IF (Location) is "International"
+   THEN Show "Verify customs documentation"
+   ```
+
+2. **Set customs deadline before arrival**:
+   ```
+   IF (Location) is "International"
+   THEN Set deadline for "Verify customs documentation"
+        to 1 week before (Expected Arrival Date)
+   ```
+
+This ensures international shipments have proper documentation well before arrival.
+
+## Advanced countdown patterns
+
+### Multiple countdown deadlines from one date
+
+Set several deadlines counting back from the same target date:
+
+```
+IF (Contract End Date) exists
+THEN:
+- Set "Initial renewal discussion" to 60 days before (Contract End Date)
+- Set "Prepare renewal proposal" to 45 days before (Contract End Date)
+- Set "Send renewal offer" to 30 days before (Contract End Date)
+- Set "Final negotiation" to 15 days before (Contract End Date)
+```
+
+### Conditional countdown deadlines
+
+Different lead times based on other factors:
+
+```
+IF (Event Type) is "Small Meeting" 
+AND (Event Date) exists
+THEN Set "Room setup" to 1 hour before (Event Date)
+
+IF (Event Type) is "Large Conference"
+AND (Event Date) exists  
+THEN Set "Room setup" to 1 day before (Event Date)
+```
+
+### Working hours consideration
+
+Tallyfy automatically adjusts deadlines to fall within working hours. If "1 day before meeting" calculates to a Sunday, the deadline moves to Friday (or the last working day).
+
+## Best practices
+
+- **Buffer time**: Add extra time for critical tasks (e.g., 2 days before instead of 1)
+- **Clear task names**: Include the timing in task names like "Send agenda (1 day before meeting)"
+- **Required date fields**: Make date fields required if countdown deadlines depend on them
+- **Fallback deadlines**: Set default deadlines in case date fields are empty
+- **Test calculations**: Verify deadlines calculate correctly, especially around weekends
+
+:::tip[Deadline calculation order]
+Tallyfy calculates countdown deadlines when:
+1. The process launches (if the date field is in kick-off form)
+2. A step containing the date field is completed
+3. The date field value changes
+
+This ensures deadlines update dynamically based on the most current information.
+:::
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Actions > Automate deadline shifts on tasks</b>" href="/products/pro/documenting/templates/automations/actions/deadline-actions/" > Deadline actions in Tallyfy automatically adjust task due dates based on specific conditions such as moving deadlines by set amounts linking them to other steps or connecting them to form field dates while respecting working days and hours. </LinkTitleCard>
+<LinkTitleCard header="<b>Examples > Combined visibility and deadline rules</b>" href="/products/pro/documenting/templates/automations/examples/combined-visibility-deadline-rules/" > This automation example demonstrates how to combine visibility and deadline rules to create conditional steps that only appear when needed and have dynamic due dates based on process data. </LinkTitleCard>
+<LinkTitleCard header="<b>Settings > How to adjust task deadlines to work week</b>" href="/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/" > Tallyfy automatically adjusts task deadlines to respect your configured work week ensuring deadlines only fall on business days and within working hours while skipping weekends based on organization-wide settings. </LinkTitleCard>
+</CardGrid> 

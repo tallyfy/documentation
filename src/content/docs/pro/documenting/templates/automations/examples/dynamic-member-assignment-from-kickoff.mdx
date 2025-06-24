@@ -1,0 +1,102 @@
+---
+description: This automation example demonstrates how to dynamically assign tasks to team members selected from a dropdown in the kick-off form enabling flexible delegation based on who launches the process.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 5
+title: Dynamic member assignment from kick-off forms
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This example shows how to automatically assign [tasks](/products/pro/tracking-and-tasks/tasks/) to specific team members based on selections made in the kick-off form. This is useful when the person launching the process needs to delegate work to different team members depending on the situation.
+
+## What is the use case for this automation?
+
+Consider these scenarios:
+
+- A project coordinator launches a client onboarding process and selects which account manager should handle the client
+- A manager initiates a new hire process and chooses which HR specialist should guide the onboarding
+- A requester starts a purchase approval process and nominates an assistant to help gather documentation
+
+The key is that task assignment isn't fixed in the template - it's decided when the process launches.
+
+## How do I set up dynamic member assignment?
+
+<Steps>
+1. **Add assignee picker fields to your kick-off form**
+   
+   Edit your template's kick-off form and add **Assignee Picker** fields for each role you want to assign dynamically. For example:
+   - "Select primary agent"
+   - "Choose project assistant (optional)"
+   - "Assign technical reviewer"
+   
+   Label these fields clearly so the person launching knows who they're selecting for each role.
+
+2. **Create automation rules for each assignment**
+   
+   For each assignee picker field, create an automation rule:
+   
+   **Example 1: Assign primary agent to multiple steps**
+   ```
+   IF (Primary Agent field) is not empty
+   THEN Replace assignee(s) for steps 1, 2, and 3 with (Primary Agent field)
+   ```
+   
+   **Example 2: Conditionally assign assistant to specific tasks**
+   ```
+   IF (Project Assistant field) is not empty
+   THEN Add assignee (Project Assistant field) to steps 4 through 10
+   ```
+
+3. **Consider using groups for fallback assignments**
+   
+   If someone might not be selected, ensure tasks still get assigned:
+   ```
+   IF (Technical Reviewer field) is empty
+   THEN Assign "Technical Review Team" group to step "Technical Review"
+   ```
+</Steps>
+
+## Advanced patterns
+
+### Combining member selection with other conditions
+
+You can create more sophisticated rules by combining the assignee picker with other conditions:
+
+```
+IF (Priority field) is "Urgent" 
+AND (Senior Manager field) is not empty
+THEN Replace assignee(s) for "Final Approval" with (Senior Manager field)
+```
+
+### Multiple assignee pickers working together
+
+Sometimes you need different people for different parts of the process:
+
+- **Initial stages**: Assigned to member selected in "Project Lead" field
+- **Middle stages**: Assigned to member selected in "Technical Expert" field  
+- **Final stages**: Assigned to member selected in "Quality Reviewer" field
+
+Each assignee picker field can control different sets of tasks, creating a fully customized workflow based on kick-off selections.
+
+:::tip[Best practices]
+- Make assignee picker fields required if tasks won't function without specific assignments
+- Use clear, descriptive labels so launchers know which role they're selecting
+- Consider adding help text to explain each person's responsibilities
+- Test your automations to ensure tasks get assigned correctly
+:::
+
+## Related concepts
+
+- [Assignee picker form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/#assignee-picker)
+- [Assignment actions](/products/pro/documenting/templates/automations/actions/asignment-actions/)
+- [Understanding assignment types](/products/pro/documenting/templates/edit-templates/understanding-assignment-types/)
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Examples > Automatically assign a step to the original process requestor</b>" href="/products/pro/documenting/templates/automations/examples/assign-step-to-requestor/" > This automation demonstrates how to capture the original process requestor using an assignee picker field and automatically assign them to receive final notifications or results through template automation rules that replace step assignees based on form field selections. </LinkTitleCard>
+<LinkTitleCard header="<b>Actions > Automate task assignments</b>" href="/products/pro/documenting/templates/automations/actions/asignment-actions/" > Assignment actions in Tallyfy automatically modify task assignments through three methods - adding assignees replacing all assignees or clearing assignments entirely - based on conditional logic that can target specific people groups or form field selections to streamline workflow management. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > What are form fields in Tallyfy?</b>" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > Form fields in Tallyfy enable systematic data collection within tasks through various field types including text inputs dropdowns file uploads and assignee pickers which can be validated referenced across processes and used to trigger automations. </LinkTitleCard>
+</CardGrid> 

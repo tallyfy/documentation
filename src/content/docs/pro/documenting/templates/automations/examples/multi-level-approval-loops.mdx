@@ -1,0 +1,148 @@
+---
+description: This automation example demonstrates how to create multi-level approval workflows where rejections at any level can reopen previous steps for corrections enabling sophisticated review processes with proper feedback loops.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 6
+title: Multi-level approval loops
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This example shows how to build approval workflows with multiple levels where rejections automatically reopen previous steps for corrections. This ensures quality control while maintaining process flow efficiency.
+
+## What is the use case for this automation?
+
+Multi-level approval loops are essential for:
+
+- **Financial approvals**: Purchase requests that need manager approval, then finance approval, then executive sign-off
+- **Content publishing**: Draft → Editor review → Legal review → Final approval
+- **Contract management**: Initial draft → Department head → Legal → CFO → CEO
+- **Quality control**: Product inspection → Supervisor check → Quality manager sign-off
+
+The key is that rejection at any level sends work back to the appropriate earlier step for correction.
+
+## How do I create a multi-level approval workflow?
+
+<Steps>
+1. **Set up your approval chain steps**
+   
+   Create your [template](/products/pro/documenting/templates/) with clear approval levels. Use **Approve/Reject** type steps:
+   - Step 1: "Create wire transfer request" (Regular task)
+   - Step 2: "Manager review" (Approve/Reject)
+   - Step 3: "Finance department approval" (Approve/Reject)
+   - Step 4: "COO final approval" (Approve/Reject)
+
+2. **Create re-open rules for each approval level**
+   
+   For each approval step that can reject, create a [status action](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
+   
+   **Rule 1: Manager rejection reopens creation**
+   ```
+   IF (Manager review) is Rejected
+   THEN Re-open task "Create wire transfer request"
+   ```
+   
+   **Rule 2: Finance rejection reopens creation**
+   ```
+   IF (Finance department approval) is Rejected
+   THEN Re-open task "Create wire transfer request"
+   ```
+   
+   **Rule 3: COO rejection can reopen multiple steps**
+   ```
+   IF (COO final approval) is Rejected
+   THEN Re-open task "Create wire transfer request"
+   AND Re-open task "Manager review"
+   ```
+
+3. **Add visibility rules to control flow**
+   
+   Ensure later approvals only show when earlier ones are approved:
+   ```
+   IF (Manager review) is Approved
+   THEN Show "Finance department approval"
+   ```
+   ```
+   IF (Finance department approval) is Approved
+   THEN Show "COO final approval"
+   ```
+</Steps>
+
+## Advanced approval patterns
+
+### Conditional approval routing
+
+Route to different approvers based on criteria:
+
+```
+IF (Purchase Amount) is greater than $50,000
+AND (Manager review) is Approved
+THEN Show "Board approval required"
+```
+
+### Parallel approvals with synchronization
+
+Sometimes multiple approvers need to review simultaneously:
+
+```
+IF (Initial review) is Completed
+THEN Show "Legal approval" 
+AND Show "Compliance approval"
+AND Show "Finance approval"
+```
+
+Then synchronize before proceeding:
+```
+IF (Legal approval) is Approved
+AND (Compliance approval) is Approved
+AND (Finance approval) is Approved
+THEN Show "Final implementation"
+```
+
+### Escalation paths
+
+Add time-based escalations for stuck approvals:
+
+1. Set the initial approval deadline
+2. Create an escalation step assigned to senior management
+3. Use deadline automation to trigger escalation
+
+## Best practices for approval loops
+
+- **Clear rejection reasons**: Include comment fields in approval steps so reviewers can explain why they're rejecting
+- **Notification setup**: Ensure email notifications are configured so people know when tasks are reopened
+- **Loop limits**: Consider adding a counter or limit to prevent infinite rejection loops
+- **Documentation**: Include clear instructions in each step about what needs correction
+- **Audit trail**: Tallyfy automatically maintains history of approvals and rejections
+
+:::note[Understanding re-open behavior]
+When a task is reopened:
+- Its status changes from "Completed" back to "Active"
+- Original assignees are notified
+- Any data entered previously remains intact
+- The task appears again in the assignee's active tasks
+:::
+
+## Real-world example: Property listing approval
+
+Here's how a real estate agency uses multi-level approvals:
+
+1. **Agent creates listing** - Enters property details and uploads photos
+2. **Office manager review** - Checks completeness and accuracy
+   - If rejected → Reopens step 1 for agent corrections
+3. **Marketing review** - Validates photos and descriptions
+   - If rejected → Reopens step 1 for photo/description updates
+4. **Compliance check** - Ensures legal requirements are met
+   - If rejected → Reopens steps 1 and 2 for corrections
+5. **Final publication** - Listing goes live
+
+This ensures every listing meets quality standards while providing clear feedback loops for improvements.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Actions > Automate changing the status of tasks</b>" href="/products/pro/documenting/templates/automations/actions/status-actions/" > Status actions automatically re-open completed tasks when specific conditions are met and are primarily used for approval workflows feedback loops and quality control processes where steps need to be revisited for corrections or revisions. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > What types of tasks can I create with Tallyfy?</b>" href="/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/" > Tallyfy offers five task types - standard tasks approve/reject decisions expiring optional tasks email drafts and auto-send emails - each with specific completion requirements and automation capabilities to match different workflow needs. </LinkTitleCard>
+<LinkTitleCard header="<b>Examples > Synchronization</b>" href="/products/pro/documenting/templates/automations/examples/synchronization/" > Tallyfy uses the AND operator to create synchronization points where processes wait for multiple conditions to be met simultaneously before proceeding such as requiring both HR and manager approval in employee onboarding workflows. </LinkTitleCard>
+</CardGrid> 
