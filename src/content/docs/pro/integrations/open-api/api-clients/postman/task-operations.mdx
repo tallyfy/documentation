@@ -1,0 +1,557 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 4
+title: Task operations and automation
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+To work with tasks in Postman, use the tasks endpoints to list, complete, and update task data including form fields and file attachments. Tasks are the individual work items within running processes that users complete.
+
+## Understanding task structure
+
+In Tallyfy's API:
+- **Tasks** = Individual work items in a running process
+- **Captures** = Form field data within tasks
+- **Assignments** = Who's responsible for completing the task
+
+## Listing tasks
+
+### Get your assigned tasks
+
+```
+GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/me/tasks
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+
+Query parameters:
+- status: active, completed
+- limit: 100
+- offset: 0
+```
+
+### Get all tasks in a process
+
+```
+GET {{TALLYFY_BASE_URL}}/runs/{{PROCESS_ID}}/tasks
+```
+
+### Filter tasks by various criteria
+
+```javascript
+// Advanced filtering in Tests tab
+const tasks = pm.response.json().data;
+
+// Overdue tasks
+const overdueTasks = tasks.filter(t => 
+    t.deadline && new Date(t.deadline) < new Date() && t.status === 'active'
+);
+
+// Tasks by specific assignee
+const userTasks = tasks.filter(t => 
+    t.assignees.some(a => a.email === 'john@company.com')
+);
+
+// High priority tasks (based on process name or custom logic)
+const urgentTasks = tasks.filter(t => 
+    t.run_name.includes('URGENT') || t.run_name.includes('Priority')
+);
+
+console.log(`Found ${overdueTasks.length} overdue tasks`);
+```
+
+## Completing tasks
+
+### Simple task completion
+
+```
+PUT {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}/complete
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+```
+
+### Complete with form data
+
+Most tasks have form fields that need values:
+
+```
+PUT {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}/complete
+
+Body:
+{
+  "captures": {
+    "field_abc123": "Approved",
+    "field_def456": 42.50,
+    "field_ghi789": "Task completed successfully with no issues",
+    "field_jkl012": true
+  }
+}
+```
+
+### Bulk task completion
+
+Complete multiple tasks efficiently:
+
+```javascript
+const taskIds = ["task_123", "task_456", "task_789"];
+const results = [];
+
+// Function to complete a single task
+function completeTask(taskId, captures = {}) {
+    return new Promise((resolve, reject) => {
+        pm.sendRequest({
+            url: `${pm.environment.get("TALLYFY_BASE_URL")}/tasks/${taskId}/complete`,
+            method: 'PUT',
+            header: {
+                'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+                'X-Tallyfy-Client': 'APIClient',
+                'Content-Type': 'application/json'
+            },
+            body: {
+                mode: 'raw',
+                raw: JSON.stringify({ captures })
+            }
+        }, (err, res) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve({ taskId, status: res.code });
+            }
+        });
+    });
+}
+
+// Complete tasks with delay to avoid rate limits
+async function completeTasks() {
+    for (let i = 0; i < taskIds.length; i++) {
+        try {
+            const result = await completeTask(taskIds[i], {
+                field_status: "Completed via API",
+                field_date: new Date().toISOString()
+            });
+            results.push(result);
+            console.log(`Completed task ${i + 1} of ${taskIds.length}`);
+            
+            // Add delay between requests
+            if (i < taskIds.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        } catch (error) {
+            console.error(`Failed to complete task ${taskIds[i]}:`, error);
+        }
+    }
+    
+    console.log('Bulk completion results:', results);
+}
+
+completeTasks();
+```
+
+## File attachments
+
+### Upload file to task
+
+File uploads require special handling in Postman. Here's the expert approach:
+
+<Steps>
+1. **Set up the request**
+   ```
+   POST {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}/files
+   
+   Headers:
+   Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+   X-Tallyfy-Client: APIClient
+   // DO NOT set Content-Type - let Postman handle it
+   ```
+
+2. **Configure body as form-data**
+   - Select **Body** → **form-data**
+   - Add key: `file` (type: File)
+   - Add key: `field_id` (type: Text, value: field_abc123)
+
+3. **Select file**
+   - Click **Select Files** for the file field
+   - Choose your file (max 5MB for team uploads)
+   - Send request
+</Steps>
+
+**Critical insights from Postman experts**:
+
+- **Never set Content-Type manually**: Postman automatically sets `multipart/form-data` with proper boundary fields. Manual setting causes "Missing start boundary" errors
+- **Boundary field importance**: The boundary separates form parts - Postman generates cryptographically secure boundaries automatically
+- **File size considerations**: Individual files can't exceed 5MB for shared team collections
+- **Variable file paths**: Use environment variables for dynamic file selection:
+  ```javascript
+  // In pre-request script
+  const filePath = pm.environment.get("UPLOAD_FILE_PATH");
+  pm.request.body.formdata.add({
+      key: "file",
+      src: filePath,
+      type: "file"
+  });
+  ```
+
+**Advanced file upload patterns**:
+
+```javascript
+// Dynamic file selection based on task type
+const taskType = pm.environment.get("CURRENT_TASK_TYPE");
+const fileMapping = {
+    "approval": "approval_document.pdf",
+    "review": "review_checklist.xlsx", 
+    "signature": "contract_template.docx"
+};
+
+const fileName = fileMapping[taskType] || "default_file.txt";
+pm.environment.set("UPLOAD_FILENAME", fileName);
+```
+
+**Common mistake**: Using raw JSON body instead of form-data. Files must use multipart/form-data with proper boundary handling.
+
+### Download file from task
+
+```
+GET {{TALLYFY_BASE_URL}}/files/{{FILE_ID}}/download
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+```
+
+Save response using Postman's "Save Response" → "Save to a file" option.
+
+## Task assignment patterns
+
+### Reassign task
+
+```
+PUT {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}
+
+Body:
+{
+  "assignees": ["member_123", "member_456"]
+}
+```
+
+### Dynamic assignment based on workload
+
+Assign to least busy team member:
+
+```javascript
+// First, get all team members and their task counts
+async function assignToLeastBusy(taskId) {
+    // Get all members
+    const membersResponse = await pm.sendRequest({
+        url: `${pm.environment.get("TALLYFY_BASE_URL")}/organizations/${pm.environment.get("TALLYFY_ORG_ID")}/members`,
+        method: 'GET',
+        header: {
+            'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+            'X-Tallyfy-Client': 'APIClient'
+        }
+    });
+    
+    const members = membersResponse.json().data;
+    
+    // Get task counts for each member
+    const taskCounts = await Promise.all(members.map(async (member) => {
+        const tasksResponse = await pm.sendRequest({
+            url: `${pm.environment.get("TALLYFY_BASE_URL")}/organizations/${pm.environment.get("TALLYFY_ORG_ID")}/members/${member.id}/tasks?status=active`,
+            method: 'GET',
+            header: {
+                'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+                'X-Tallyfy-Client': 'APIClient'
+            }
+        });
+        
+        return {
+            memberId: member.id,
+            name: member.name,
+            taskCount: tasksResponse.json().data.length
+        };
+    }));
+    
+    // Find member with least tasks
+    const leastBusy = taskCounts.reduce((prev, current) => 
+        prev.taskCount < current.taskCount ? prev : current
+    );
+    
+    console.log(`Assigning to ${leastBusy.name} (${leastBusy.taskCount} active tasks)`);
+    
+    // Assign the task
+    return pm.sendRequest({
+        url: `${pm.environment.get("TALLYFY_BASE_URL")}/tasks/${taskId}`,
+        method: 'PUT',
+        header: {
+            'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+            'X-Tallyfy-Client': 'APIClient',
+            'Content-Type': 'application/json'
+        },
+        body: {
+            mode: 'raw',
+            raw: JSON.stringify({
+                assignees: [leastBusy.memberId]
+            })
+        }
+    });
+}
+```
+
+## Task automation patterns
+
+### Auto-complete approval tasks
+
+Automatically approve tasks based on conditions:
+
+```javascript
+// Check task data and auto-approve if conditions met
+const task = pm.response.json();
+
+if (task.name.includes("Auto-Approval") && task.run_name.includes("Low Risk")) {
+    pm.sendRequest({
+        url: `${pm.environment.get("TALLYFY_BASE_URL")}/tasks/${task.id}/complete`,
+        method: 'PUT',
+        header: {
+            'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+            'X-Tallyfy-Client': 'APIClient',
+            'Content-Type': 'application/json'
+        },
+        body: {
+            mode: 'raw',
+            raw: JSON.stringify({
+                captures: {
+                    field_approval: "Auto-approved",
+                    field_notes: "Automatically approved based on low risk criteria",
+                    field_timestamp: new Date().toISOString()
+                }
+            })
+        }
+    }, (err, res) => {
+        if (!err) {
+            console.log("Task auto-approved successfully");
+        }
+    });
+}
+```
+
+### Task escalation for overdue items
+
+Find and escalate overdue tasks:
+
+```javascript
+// Get all active tasks
+const tasks = pm.response.json().data;
+const now = new Date();
+
+const overdueTasks = tasks.filter(t => {
+    if (!t.deadline || t.status !== 'active') return false;
+    return new Date(t.deadline) < now;
+});
+
+// Escalate each overdue task
+overdueTasks.forEach(task => {
+    const hoursOverdue = Math.floor((now - new Date(task.deadline)) / (1000 * 60 * 60));
+    
+    // Add comment about escalation
+    pm.sendRequest({
+        url: `${pm.environment.get("TALLYFY_BASE_URL")}/tasks/${task.id}/comments`,
+        method: 'POST',
+        header: {
+            'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+            'X-Tallyfy-Client': 'APIClient',
+            'Content-Type': 'application/json'
+        },
+        body: {
+            mode: 'raw',
+            raw: JSON.stringify({
+                content: `⚠️ ESCALATION: This task is ${hoursOverdue} hours overdue. Manager notified.`
+            })
+        }
+    });
+    
+    // Could also reassign to manager or send notifications
+});
+```
+
+## Working with task comments
+
+### Add comment to task
+
+```
+POST {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}/comments
+
+Body:
+{
+  "content": "Please review the attached documents before approving."
+}
+```
+
+### Get task activity feed
+
+```
+GET {{TALLYFY_BASE_URL}}/tasks/{{TASK_ID}}/comments
+```
+
+## Common task patterns
+
+### Conditional task completion
+
+Complete tasks differently based on previous task data:
+
+```javascript
+// Get process data first
+const process = pm.response.json();
+
+// Find specific task data
+const approvalTask = process.tasks.find(t => t.name.includes("Manager Approval"));
+const approvalStatus = approvalTask?.captures?.field_approval_status;
+
+// Complete next task based on approval
+const nextTask = process.tasks.find(t => t.name.includes("Next Step") && t.status === 'active');
+
+if (nextTask) {
+    const captures = {};
+    
+    if (approvalStatus === "Approved") {
+        captures.field_action = "Proceed";
+        captures.field_notes = "Approved by manager";
+    } else {
+        captures.field_action = "Revise";
+        captures.field_notes = "Requires revision per manager feedback";
+    }
+    
+    // Complete with appropriate data
+    pm.sendRequest({
+        url: `${pm.environment.get("TALLYFY_BASE_URL")}/tasks/${nextTask.id}/complete`,
+        method: 'PUT',
+        header: {
+            'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
+            'X-Tallyfy-Client': 'APIClient',
+            'Content-Type': 'application/json'
+        },
+        body: {
+            mode: 'raw',
+            raw: JSON.stringify({ captures })
+        }
+    });
+}
+```
+
+## Troubleshooting task operations
+
+### "Cannot complete task" errors
+
+Common causes:
+- Task already completed
+- Not assigned to you
+- Required fields missing
+- Previous dependencies not complete
+
+### File upload issues
+
+- Maximum file size: 25MB typically
+- Supported formats: Most common formats
+- Use form-data, not JSON
+- Include field_id if required
+
+### Form field validation
+
+Tallyfy's form validation follows strict patterns. Here's what actually works:
+
+**Data type matching**:
+```javascript
+// Common validation patterns
+const fieldValidation = {
+    // String fields - any text
+    "field_notes": "Any text value",
+    
+    // Number fields - must be numeric, not string
+    "field_amount": 1500.50, // ✅ Correct
+    "field_count": "25",      // ❌ Wrong - string
+    
+    // Boolean fields - actual boolean
+    "field_approved": true,     // ✅ Correct  
+    "field_complete": "true",  // ❌ Wrong - string
+    
+    // Date fields - ISO format
+    "field_deadline": "2024-03-15",           // ✅ Correct
+    "field_due_date": "March 15, 2024",       // ❌ Wrong
+    "field_timestamp": "2024-03-15T10:30:00Z" // ✅ Also correct
+};
+```
+
+**Select field validation**:
+```javascript
+// Get valid options first
+const task = pm.response.json();
+const priorityField = task.fields.find(f => f.id === "field_priority");
+console.log("Valid options:", priorityField.options);
+
+// Then use exact match
+const captures = {
+    "field_priority": "High" // Must match exactly
+};
+```
+
+**Advanced validation script**:
+```javascript
+// Pre-request validation
+const captures = JSON.parse(pm.request.body.raw).captures;
+const validationErrors = [];
+
+// Type checking
+Object.entries(captures).forEach(([fieldId, value]) => {
+    if (fieldId.includes("amount") && typeof value !== "number") {
+        validationErrors.push(`${fieldId} must be numeric, got ${typeof value}`);
+    }
+    if (fieldId.includes("approved") && typeof value !== "boolean") {
+        validationErrors.push(`${fieldId} must be boolean, got ${typeof value}`);
+    }
+});
+
+if (validationErrors.length > 0) {
+    console.error("Validation errors:", validationErrors);
+    throw new Error("Form validation failed");
+}
+```
+
+**Required field detection**:
+```javascript
+// Auto-detect required fields from task schema
+const task = pm.response.json();
+const requiredFields = task.fields
+    .filter(f => f.required)
+    .map(f => f.id);
+
+console.log("Required fields:", requiredFields);
+
+// Validate all required fields are present
+const captures = pm.variables.get("taskCaptures");
+const missingRequired = requiredFields.filter(fieldId => 
+    !captures.hasOwnProperty(fieldId) || captures[fieldId] === null
+);
+
+if (missingRequired.length > 0) {
+    console.error("Missing required fields:", missingRequired);
+}
+```
+
+## Next steps
+
+With task automation mastered:
+- [Explore advanced patterns](../advanced-patterns/)
+- [Set up monitoring](../advanced-patterns/#performance-monitoring)
+- [Integrate with CI/CD](../advanced-patterns/#cicd-integration)
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Complete or reopen tasks</b>" href="/products/pro/tracking-and-tasks/tasks/how-can-i-complete-or-reopen-tasks-in-tallyfy/" > Complete Tallyfy tasks by clicking the Complete button after filling required form fields then reopen completed tasks when needed by clicking Reopen which maintains the full task history and allows updates to previously entered information. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Form fields explained</b>" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > Form fields in Tallyfy collect structured data within tasks using 13 different field types including text short answer paragraph numbers dates files tables and more enabling standardized information capture validation rules conditional logic and seamless data flow throughout workflows. </LinkTitleCard>
+<LinkTitleCard header="<b>API Code Samples > Complete a task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/complete-task/" > Complete tasks via Tallyfy API by sending a PUT request to the task endpoint with optional form field data enabling programmatic task completion and workflow progression from external systems. </LinkTitleCard>
+</CardGrid>

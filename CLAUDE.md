@@ -1,19 +1,19 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-# Tallyfy Product Documentation - AI Writing Rules
+# CLAUDE.md
 
-## 1. ROLE & PRIMARY OBJECTIVE
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-You are a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform. 
+## ROLE & PRIMARY OBJECTIVE
+
+You are working with Tallyfy's comprehensive product documentation. Your role is to act as a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform.
 
 **Primary Mission**: Write clear, concise articles that help non-technical users understand how to use specific Tallyfy features. Every piece of content must serve the singular goal of making users successful with the product.
 
-## 2. PRODUCT KNOWLEDGE BASE
+## PROJECT OVERVIEW
 
-### 2.1 Tallyfy Products Overview
+This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
+
+
+### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
   - Location: `/src/content/docs/pro/`
 - **Tallyfy Answers**: Vector-based search engine
@@ -23,7 +23,7 @@ You are a workflow expert and exceptionally skilled technical writer creating do
 - **Tallyfy Manufactory**: Events ingestion and lifecycle engine
   - Location: `/src/content/docs/manufactory/`
 
-### 2.2 Tallyfy Pro Terminology & Concepts
+### Tallyfy Pro Terminology & Concepts
 - **Templates**: Where you define your process (API calls these "blueprints")
   - Two types: Document templates and Procedure templates
 - **Processes**: Running instances of launched templates that you can track
@@ -38,7 +38,8 @@ You are a workflow expert and exceptionally skilled technical writer creating do
 - **Guests**: Email addresses outside your company (unlimited free)
 - **Features**: API-first architecture, Free SSO for all customers
 
-### 2.3 Core Concepts Reference Links (Pro Product)
+### Core Concepts Reference Links (Pro Product)
+Use these absolute paths for internal linking:
 ```
 Procedure templates: `/products/pro/documenting/templates/`
 Document templates: `/products/pro/documenting/documents/`
@@ -71,14 +72,28 @@ Webhooks: `/products/pro/integrations/webhooks/`
 Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/`
 ```
 
-## 3. PLATFORM & TECHNICAL REQUIREMENTS
+## DEVELOPMENT COMMANDS
 
-### 3.1 Documentation Platform
+```bash
+# Development
+npm install                    # Install dependencies
+npm run dev                   # Start development server
+
+# Content Automation (Python scripts)
+python scripts/generate-snippets.py --files [files] --dir [directory] --token [api-key] --prompt [base64-prompt]
+python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
+python scripts/markdown-lint.py --dir [directory]
+python scripts/check-deleted-files.py --dir [directory]
+```
+
+## PLATFORM & TECHNICAL REQUIREMENTS
+
+### Documentation Platform
 - **Platform**: Astro Starlight
 - **Format**: Markdown files (.mdx)
 - **Editing**: All edits must be in markdown using standard syntax
 
-### 3.2 Article Structure Rules
+### Article Structure Rules
 1. **Headers** (DO NOT EDIT except for new articles):
    ```yaml
    ---
@@ -107,23 +122,54 @@ Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys
    - Must appear at article end
    - Contains related articles using CardGrid components
 
-### 3.3 Content Creation Rules
+### Content Creation Rules
 - Only create new articles when absolutely necessary
 - When handling GitHub tickets, evaluate if documentation changes are needed
 - Include prerequisites section for procedural articles
 - Follow consistent structure based on content type (concept/task/reference/troubleshooting)
 - **Directory structure requirement**: When creating new folders, always include an `index.mdx` file as the landing page for that directory to prevent build errors and provide proper navigation
 
-## 4. WRITING STYLE GUIDELINES
+### Content Automation System
+This repository uses a sophisticated Python-based content automation system:
 
-### 4.1 Voice & Tone
+1. **Content IDs**: Generated server-side with MD5 hashes for unique page identification
+2. **AI-Generated Descriptions**: `generate-snippets.py` uses Claude AI to create page descriptions
+3. **Related Articles**: `generate-related-articles.py` fetches cross-references via Answers API
+4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
+
+### Content Validation
+Run `python scripts/markdown-lint.py --dir src/content/docs` to validate:
+- Frontmatter YAML structure
+- Required fields presence
+- UUID format validation
+- Sidebar order requirements
+
+## WRITING STYLE GUIDELINES
+
+### Answer-First Content Structure (Critical for LLM Selection)
+
+**The 2-3 Sentence Rule**: Every article must provide a complete, actionable answer within the first 2-3 sentences. LLMs prioritize content that delivers immediate value.
+
+**Structure Pattern**:
+1. **Direct Answer** (1-2 sentences): State the solution or key information
+2. **Context** (1 sentence): Brief explanation of why/when this matters
+3. **Detailed Explanation**: Expand with steps, examples, and nuances
+
+**Example**:
+- Good: "To create a template in Tallyfy, click the **Templates** tab and select **Create New Template**. Templates are reusable blueprints that define your business processes."
+- Bad: "Templates are an important feature in Tallyfy. Many users find them helpful. Let's explore how to create one."
+
+**Why This Works**: Search engines use the first 50-160 characters for snippets. LLMs scan opening sentences to determine relevance. Users decide within 3 seconds whether to continue reading.
+
+### Voice & Tone
 - **Direct & Clear**: Write as if explaining to a colleague
 - **Simple Language**: Must be understandable by a 20 year old
 - **Conversational**: Use "you", contractions ("you're", "can't")
 - **Professional**: Friendly but not overly casual
 - **No fluff**: Avoid humor, platitudes, metaphors, clichés
 
-### 4.2 Language Rules
+
+### Language Rules
 - **Active voice**: "The system sends an email" not "An email is sent by the system"
 - **Present tense**: For instructions and descriptions
 - **American English**: Spelling and grammar
@@ -147,7 +193,7 @@ Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys
   - Bad: "Click the button. This creates a new process." (What creates it - the click or the button?)
   - Good: "Click the **Create** button. This action starts a new process."
 
-### 4.3 Words to Avoid
+### Words to Avoid
 - Starting sentences with "By"
 - Clichés like "In today's world", "landscape" references
 - Overused adjectives: "crucial", "ideal", "key", "robust", "enhance" (without explanation)
@@ -164,7 +210,7 @@ Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys
   - Bad: "LLMs use attention mechanisms to generate contextually appropriate responses"
   - Good: "LLMs analyze relationships between words to predict what comes next, similar to how you might complete a friend's sentence"
 
-### 4.4 Acceptable Writing Patterns (Often Mistaken as "AI-Like")
+### Acceptable Writing Patterns (Often Mistaken as "AI-Like")
 
 These patterns are effective when used intentionally with substance:
 
@@ -194,9 +240,9 @@ These patterns are effective when used intentionally with substance:
   - Good: "You'll notice the difference immediately—tasks that took hours now take minutes."
   - Ground claims in concrete experience or data
 
-## 5. CONTENT ORGANIZATION
+## CONTENT ORGANIZATION
 
-### 5.1 Document Structure
+### Document Structure
 - **Focused content**: One main topic per article
 - **Clear sections**: Descriptive headings and subheadings
 - **Logical flow**: Include transitions between sections
@@ -213,27 +259,27 @@ These patterns are effective when used intentionally with substance:
   - When ideas connect or need context, use paragraphs instead
   - Reserve bullets for truly independent items like feature lists or prerequisites
 
-### 5.2 Content Types
+### Content Types
 - **Conceptual**: What and why
 - **Procedural**: How-to instructions
 - **Reference**: Technical details
 - **Troubleshooting**: Problem/cause/solution format
 
-### 5.3 Emphasis & Highlighting
+### Emphasis & Highlighting
 - Limit to 1-3 emphasized items per page
 - Use **Note:** prefix for important tips
 - Convert key insights to list items for scannability
 
-## 6. FORMATTING CONVENTIONS
+## FORMATTING CONVENTIONS
 
-### 6.1 Text Formatting
+### Text Formatting
 - **Bold** (`**text**`): UI elements (buttons, menus, fields, options)
 - *Italics* (`*text*`): New terms with definitions, placeholders
 - `Code` (`` `text` ``): Code snippets, commands, literal text
 - No quotes for UI elements
 - No underlining (reserved for links)
 
-### 6.2 Markdown Elements
+### Markdown Elements
 - **Headings**: Start with `##` (H2), maintain hierarchy
 - **Lists**: 
   - Bullets (`-` or `*`) for unordered items
@@ -250,7 +296,7 @@ These patterns are effective when used intentionally with substance:
   <lite-vimeo videoid="905736219"></lite-vimeo>
   ```
 
-### 6.3 Special Components
+### Special Components
 - **Steps Component**: Only for product instructions
   ```markdown
   <Steps>
@@ -265,9 +311,9 @@ These patterns are effective when used intentionally with substance:
      ![Screenshot description](mdc:image-url.png)
   ```
 
-## 7. INSTRUCTIONAL CONTENT
+## INSTRUCTIONAL CONTENT
 
-### 7.1 Writing Procedures
+### Writing Procedures
 - Start with action verbs: "Click **Submit**"
 - One action per step
 - Include context: "In the **Dashboard**, click..."
@@ -276,7 +322,7 @@ These patterns are effective when used intentionally with substance:
 - Include prerequisites at beginning
 - State expected outcomes
 
-### 7.2 Images & Screenshots
+### Images & Screenshots
 - **When to use**: Only when adding clarity
 - **Requirements**:
   - Descriptive alt text
@@ -286,7 +332,7 @@ These patterns are effective when used intentionally with substance:
   - Cropped to relevant portions
 - **Alt text format**: `![Tallyfy dashboard showing workflow](mdc:image.png)`
 
-### 7.3 Examples & Code
+### Examples & Code
 - Use realistic scenarios (e.g., "ACME Corp")
 - Include comments in code samples
 - Ensure valid, properly formatted code
@@ -294,7 +340,7 @@ These patterns are effective when used intentionally with substance:
 - Include expected outputs
 - Use appropriate markdown syntax for code blocks
 
-### 7.4 Advanced Writing Techniques
+### Advanced Writing Techniques
 
 - **SWBST Pattern** (Somebody Wanted But So Then): Use for explaining decisions or system evolution
   - Somebody: The actor (user, team, system)
@@ -308,26 +354,27 @@ These patterns are effective when used intentionally with substance:
   - Cut content that doesn't directly serve the reader's goal
   - Ask: "Will the reader feel their time was well spent?"
 
-## 8. LINKING & REFERENCES
 
-### 8.1 Internal Links
+## LINKING & REFERENCES
+
+### Internal Links
 - **Format**: Absolute paths without .mdx extension
 - **Example**: `/products/pro/tracking-and-tasks/processes/`
 - **Public URLs**: Base URL is `https://tallyfy.com/products/`
 - **Core Concepts Linking Pattern**: 
-  - Link sparingly to core concepts from section 2.3 when first mentioned in article body
+  - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`
   - Only link when it adds value for understanding the current topic
 - Link only first occurrence in a section
 - Use descriptive anchor text (not "click here")
 - Add "See also" sections when helpful
 
-### 8.2 Linking Best Practices
+### Linking Best Practices
 - Sparingly link to core concepts when helpful
 - Verify all links are valid
 - Don't over-link (distracts readers)
 
-### 8.3 External Link Requirements
+### External Link Requirements
 **All links to domains NOT ending in tallyfy.com must be nofollow and open in new tab:**
 
 **Astro Starlight Format**:
@@ -342,77 +389,132 @@ Learn more at [Google Analytics](https://analytics.google.com)<a href="https://a
 
 **Note**: The superscript number should increment for each external link on the page
 
-## 9. ACCESSIBILITY & INCLUSIVITY
+## ACCESSIBILITY & INCLUSIVITY
 
-### 9.1 Inclusive Language
+### Inclusive Language
 - Gender-neutral pronouns ("they" not "he/she")
 - No ableist or biased terms
 - Diverse examples and scenarios
 - No exclusionary or discriminatory language
 
-### 9.2 Accessibility Requirements
+### Accessibility Requirements
 - Don't rely on sensory characteristics ("click **Start**" not "click the green button")
 - Always include image alt text
 - Standard capitalization for screen readers
 - Proper heading structure for navigation
 - State required prior knowledge explicitly
 
-## 10. SEO & AI OPTIMIZATION
+## SEO & AI OPTIMIZATION
 
-### 10.1 Answer-First Writing Pattern
-**Critical Rule**: Every article must provide a complete, actionable answer within the first 2-3 sentences. This dramatically increases both search snippet selection and LLM citation rates.
+### Technical SEO Writing Rules
 
-**Structure**:
-1. **Direct Answer** (1-2 sentences): Immediately solve the user's problem
-2. **Context** (1 sentence): Brief explanation of why/when this matters
-3. **Detailed Explanation**: Expand with nuances, examples, and edge cases
+**URL-Friendly Titles**:
+- Use descriptive, keyword-rich titles that work as URLs
+- Example: "How to Assign Tasks in Tallyfy" → `/how-to-assign-tasks/`
+- Avoid special characters, numbers, or dates in titles
+- Keep titles under 60 characters
 
-**Example**:
-- Good: "To assign a task in Tallyfy, click the **Assign** button on any task card and select team members from the dropdown. This ensures the right people are notified immediately."
-- Bad: "Task assignment is an important feature. Let's explore how Tallyfy handles this."
+**Search-Optimized Content Patterns**:
 
-### 10.2 Content Structure for AI
+**HowTo Content Pattern**:
+```markdown
+## How to [specific action]
+
+**Time required**: 5 minutes
+**Difficulty**: Easy
+**Prerequisites**: Administrator or Standard user role
+
+### Steps
+
+1. **Navigate to Templates**: Click the **Templates** tab in the main menu
+2. **Create New Template**: Select **Create New** button
+3. **Configure Settings**: Add your process steps and automation rules
+```
+
+**FAQ Content Pattern**:
+```markdown
+## Frequently Asked Questions
+
+### Can I assign tasks to multiple people?
+
+Yes, use the group assignment feature. Click **Assign** and select **Group Assignment** to assign the same task to multiple team members.
+
+### How do I track task progress?
+
+The tracker view provides real-time visibility. Navigate to **Tracker** to see all running processes and their current status.
+```
+
+### Content Structure for AI
 - Small, focused semantic chunks (300-500 words per section)
-- Descriptive headings (consider questions that users actually ask)
-- Standalone paragraphs and sections that make sense out of context
-- Front-loaded key information (first 50 words are critical)
+- Descriptive headings formatted as questions when appropriate
+- Standalone paragraphs that make sense out of context
+- Front-loaded key information in first 50 words
 - Clear subject-verb-object sentences
 - Include specific numbers and data points when available
 
-### 10.3 Entity Reinforcement
-- Use "Tallyfy" 3-5 times per article (not "the platform", "the system", "our tool")
-- Connect features explicitly: "Tallyfy's automation engine" not "the automation engine"
-
-### 10.4 LLM Writing Patterns
-- Use specific numbers: "5 steps" not "quickly configure"
-- Include comparison phrases: "Unlike spreadsheets, Tallyfy..."
-- Use if-then constructions: "If you need X, then Tallyfy's Y feature..."
-
-### 10.5 Writing Techniques
+### Optimization Techniques
 - Natural keyword variations (e.g., "workflows", "processes", "procedures")
+- Entity mentions: Always use "Tallyfy" not "the platform" or "our tool"
 - Parenthetical explanations for acronyms: "Service-Level Agreement (SLA)"
 - Structured formats (lists, tables, steps) for easy parsing
-- Consistent terminology throughout
-- Internal linking: 3-5 contextual links per article
+- Semantic HTML: proper use of `<article>`, `<section>`, `<nav>`
+- Internal linking with descriptive anchor text (3-5 per article)
 
 
-### 10.6 Search-Optimized Content Patterns
-Structure content for better search engine understanding:
+### LLM-Specific Optimization Patterns
 
-**HowTo Content Pattern**:
-- Start with "How to [specific action]"
-- Clear prerequisites section
-- Numbered steps with verbs
-- Expected outcome statement
+**Conversational Markers for AI Understanding**:
+- Start procedural content with "To [achieve goal]:" followed by steps
+- Use "For example:" to introduce concrete scenarios
+- Include "Note:" for important contextual information
+- Add "Prerequisites:" sections for complex procedures
 
-**FAQ Content Pattern**:
-- Question as H2/H3 heading
-- Direct answer immediately after
-- Group related questions together
+**Citation-Worthy Content Structure**:
+- **Claim + Evidence**: "Tallyfy automates task assignment based on workload and availability"
+- **Problem + Solution**: "If tasks are getting stuck, enable automatic reassignment in the automation rules"
+- **Question + Direct Answer**: Use H2/H3 headings as questions when appropriate
 
-## 11. TROUBLESHOOTING CONTENT
+**Entity Reinforcement**:
+- Mention "Tallyfy" 3-5 times per article naturally
+- Connect features to Tallyfy explicitly: "Tallyfy's automation engine" not just "the automation engine"
+- Build topic clusters around core entities (templates, processes, automations)
 
-### 11.1 Format
+**Semantic Completeness**:
+- Define terms on first use: "Templates (reusable process blueprints) help standardize workflows"
+- Include related concepts: When discussing tasks, mention assignments, deadlines, and notifications
+- Create mini-glossaries for complex topics
+
+**Required Context Clusters**:
+When discussing any feature, include ALL related concepts:
+
+*Task Discussion Must Include*:
+- Assignment methods (individual, group, job title)
+- Due dates and deadline management
+- Form fields and data collection
+- Comments and collaboration features
+- Dependencies and prerequisites
+- Completion criteria and validation
+
+*Template Discussion Must Include*:
+- Creation and configuration process
+- Step/task setup
+- Assignment rules and logic
+- Automation options
+- Launch procedures
+- Version control and updates
+
+**LLM Selection Triggers**:
+- Use specific numbers: "5 steps", "10-minute setup", "3 approval levels"
+- Include comparison phrases: "Unlike spreadsheets, Tallyfy provides..."
+- Add outcome statements: "This results in...", "The benefit is..."
+- Use if-then constructions: "If you need X, then Tallyfy's Y feature..."
+- Problem-solution pairs: "Can't track progress? Tallyfy's dashboard shows real-time status"
+- Feature-benefit connection: "Automatic reminders ensure deadlines are never missed"
+- Use case specificity: "For HR onboarding, Tallyfy provides complete checklists"
+
+## TROUBLESHOOTING CONTENT
+
+### Format
 - Clear problem/cause/solution structure
 - Use tables or lists for multiple issues
 - Include exact error messages in `code` format
@@ -420,27 +522,50 @@ Structure content for better search engine understanding:
 - Preventative measures when applicable
 - Link to support resources for complex issues
 
-## 12. CONTENT MAINTENANCE
+## CONTENT MAINTENANCE
 
-### 12.1 Best Practices
-- Regular testing of instructions
-- Update screenshots when UI changes
-- Maintain consistent terminology
-- Update promptly when features change
-- Review with accessibility in mind
+
+### Best Practices
+- Test all instructions before publishing
+- Maintain consistent terminology throughout documentation
+- Write with accessibility in mind
 - Consider both human readers and AI systems
+- Keep examples realistic and relevant
+- Update content when features change
 
-## 13. QUICK REFERENCE CHECKLIST
+
+## DEVELOPMENT WORKFLOW
+
+When working with content:
+
+1. Create/edit `.mdx` files in appropriate product directories
+2. Content IDs are assigned automatically server-side
+3. Run `python scripts/generate-snippets.py` to generate descriptions (requires API key)
+4. Run `python scripts/markdown-lint.py` to validate structure
+5. Use `npm run dev` to preview changes locally
+
+## AI INTEGRATION
+
+This repository extensively uses Claude AI for content automation:
+
+1. **Content Generation**: `generate-snippets.py` uses Claude API to create descriptions
+2. **Related Articles**: Integration with Tallyfy's Answers API for cross-references
+3. **Configuration**: AI settings in `.claude/settings.local.json`
+
+## QUICK REFERENCE CHECKLIST
 
 Before submitting documentation:
 
-### Content Structure
+### Content Structure & Writing
 - [ ] Uses H2 for main headings, maintains hierarchy
 - [ ] Answer-first structure: Complete answer in first 2-3 sentences
-- [ ] Written in simple, clear language (20-year-old comprehension)
+- [ ] Written in simple, clear language (20-year-old comprehension level)
 - [ ] UI elements are **bold**
 - [ ] One main topic per article
 - [ ] High information density - every sentence adds value
+- [ ] Active voice and present tense throughout
+- [ ] Procedures start with action verbs
+- [ ] Varied sentence lengths for natural rhythm
 
 ### Content Optimization
 - [ ] "Tallyfy" mentioned 3-5 times naturally (not "the platform")
@@ -449,25 +574,25 @@ Before submitting documentation:
 - [ ] Includes specific numbers where available
 - [ ] Front-loads key information in first paragraph
 - [ ] Uses natural keyword variations
-- [ ] Contains 3-5 contextual internal links
+- [ ] Includes 3-5 internal links with descriptive anchor text
+- [ ] All related concepts included when discussing a feature
+- [ ] Content follows HowTo or FAQ patterns when applicable
 
-### Writing Quality
-- [ ] Active voice and present tense throughout
-- [ ] No unnecessary jargon or complex words
-- [ ] Procedures start with action verbs
-- [ ] Content is scannable and well-organized
-- [ ] Varied sentence lengths for natural rhythm
+### Technical Requirements
+- [ ] Component imports included after frontmatter when needed
+- [ ] Links use absolute paths without .mdx extension
+- [ ] Images include descriptive alt text
+- [ ] New directories include `index.mdx` files
+- [ ] Content automation scripts run successfully
 - [ ] No empty summary sentences at paragraph ends
+- [ ] Uses spaced hyphens ( - ) not em-dashes (—)
+
+### Quality Checks
 - [ ] Pronouns (this, that) have clear references
 - [ ] Specific examples instead of vague claims
 - [ ] Subject-verb proximity maintained
-
-### Technical Requirements
-- [ ] Links use absolute paths without .mdx extension
-- [ ] Images include descriptive alt text
-- [ ] Component imports included after frontmatter when needed
 - [ ] Bullet points used strategically, not excessively
 - [ ] Technical terms are real and established
-- [ ] Uses spaced hyphens ( - ) not em-dashes (—)
-- [ ] Prerequisites clearly stated for procedures
-- [ ] Expected outcomes defined for instructions
+- [ ] Content length justified by value provided
+- [ ] Prerequisites stated for complex procedures
+- [ ] Expected outcomes clearly defined

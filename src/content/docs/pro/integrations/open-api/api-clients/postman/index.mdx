@@ -1,0 +1,116 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 1
+title: Getting started with Postman for Tallyfy API
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+To test Tallyfy's API with Postman, first set up authentication with your API credentials, then import our collection to explore endpoints for templates, processes, and tasks. This guide walks you through complete setup and provides real examples.
+
+## What is Postman and why use it with Tallyfy?
+
+Postman helps you test API endpoints without writing code. For Tallyfy, this means you can quickly:
+- Launch processes programmatically
+- Update task statuses in bulk
+- Export workflow data
+- Test integrations before building them
+
+Think of Postman as your API playground - perfect for exploring what's possible before committing to code.
+
+## Prerequisites
+
+Before starting, you need:
+- A Tallyfy account with API access enabled
+- Postman desktop app or web version (free at [postman.com](https://www.postman.com)<a href="https://www.postman.com" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>)
+- Your Tallyfy API credentials (found in Settings > API)
+
+## Quick setup
+
+<Steps>
+1. **Get your Tallyfy API credentials**
+   
+   Navigate to **Settings > API** in Tallyfy and copy your:
+   - Client ID
+   - Client Secret
+   - Organization ID
+
+2. **Create a Postman environment**
+   
+   In Postman, click **Environments** > **Create Environment**. Add these variables:
+   ```
+   TALLYFY_CLIENT_ID = [your client id]
+   TALLYFY_CLIENT_SECRET = [your client secret]
+   TALLYFY_ORG_ID = [your organization id]
+   TALLYFY_BASE_URL = https://api.tallyfy.com
+   ```
+
+3. **Set up authentication**
+   
+   Create a new request in Postman:
+   - Method: `POST`
+   - URL: `{{TALLYFY_BASE_URL}}/oauth/token`
+   - Body (x-www-form-urlencoded):
+     ```
+     grant_type = client_credentials
+     client_id = {{TALLYFY_CLIENT_ID}}
+     client_secret = {{TALLYFY_CLIENT_SECRET}}
+     ```
+
+4. **Test your first API call**
+   
+   After getting your access token, try listing templates:
+   - Method: `GET`
+   - URL: `{{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/templates`
+   - Authorization: Bearer Token (paste your access token)
+</Steps>
+
+## Common Tallyfy API operations
+
+Here are the most useful endpoints for workflow automation:
+
+### Launch a process from template
+```
+POST /organizations/{{TALLYFY_ORG_ID}}/templates/{{TEMPLATE_ID}}/launch
+```
+
+### Complete a task
+```
+PUT /tasks/{{TASK_ID}}/complete
+```
+
+### List all active processes
+```
+GET /organizations/{{TALLYFY_ORG_ID}}/processes?status=active
+```
+
+### Upload file to task
+```
+POST /tasks/{{TASK_ID}}/files
+```
+
+## What will I find in this guide?
+
+This comprehensive Postman guide is organized into focused sections:
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+<CardGrid>
+  <LinkTitleCard header="<b>Authentication setup</b>" href="./authentication-setup/" >Master Tallyfy's OAuth flow, handle token refresh, and avoid common authentication pitfalls.</LinkTitleCard>
+  <LinkTitleCard header="<b>Working with templates and processes</b>" href="./templates-processes/" >Launch processes, pre-fill forms, and manage template operations through the API.</LinkTitleCard>
+  <LinkTitleCard header="<b>Task operations and automation</b>" href="./task-operations/" >Complete tasks, bulk operations, file uploads, and assignment automation patterns.</LinkTitleCard>
+  <LinkTitleCard header="<b>Advanced patterns and testing</b>" href="./advanced-patterns/" >Multi-org testing, performance monitoring, mock servers, and CI/CD integration.</LinkTitleCard>
+  <LinkTitleCard header="<b>Troubleshooting guide</b>" href="./troubleshooting/" >Fix common errors, handle rate limiting, and debug authentication issues.</LinkTitleCard>
+  <LinkTitleCard header="<b>Collection organization</b>" href="./collection-organization/" >Best practices for structuring, sharing, and maintaining Postman collections.</LinkTitleCard>
+</CardGrid>
+
+## Quick troubleshooting
+
+**401 Unauthorized errors**: Your access token expired. Tokens last 1 hour - request a new one.
+
+**404 Not Found**: Double-check your organization ID and that the resource exists.
+
+**Missing X-Tallyfy-Client header**: Every request needs `X-Tallyfy-Client: APIClient`
+
+Need help? Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) with your specific use case.
