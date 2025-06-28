@@ -12,7 +12,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Webhook Configuration Guide
 
-Webhooks are automated messages sent from Tallyfy to external systems when specific events occur. They transmit JSON data packets to predefined URLs, enabling real-time integration with other applications without manual intervention. This guide explains how to configure and implement webhooks in Tallyfy.
+Webhooks are automated messages sent from Tallyfy to external systems when specific events occur. They transmit JSON data packets to predefined URLs, enabling real-time integration with other applications without manual intervention. This guide explains how to configure and implement webhooks in Tallyfy (and avoid the common pitfalls that trip people up).
 
 ### Understanding webhook types
 
@@ -20,7 +20,7 @@ Tallyfy offers two webhook configuration levels:
 
 #### Template-level webhooks
 
-Template-level webhooks trigger when **any step** within a process is completed. They also trigger when a process is initially launched, before any tasks are even completed. They transmit the complete process data, including all form fields and step statuses.
+Template-level webhooks trigger when **any step** within a process is completed. They also trigger when a process is initially launched, before any tasks are even completed. They transmit the complete process data, including all form fields and step statuses. Think of these as the "firehose" option - you get everything.
 
 **Use cases:**
 - Track overall process progress in external systems
@@ -30,7 +30,7 @@ Template-level webhooks trigger when **any step** within a process is completed.
 
 #### Step-level webhooks
 
-Step-level webhooks trigger when a **specific step** is completed. They provide targeted integration for individual tasks within a process.
+Step-level webhooks trigger when a **specific step** is completed. They provide targeted integration for individual tasks within a process. These are more surgical - only fire when that particular step is done.
 
 **Use cases:**
 - Send notifications at critical process milestones
@@ -72,7 +72,7 @@ This example demonstrates how to send automated notifications to a Slack channel
 - Slack workspace with administrative access
 
 :::note[Considering Integration Alternatives]
-While Zapier can be useful for simple connections, we generally recommend more capable and cost-effective middleware solutions like **n8n**, **Make**, or **Microsoft Power Automate** for serious integrations.
+While Zapier can be useful for simple connections, we generally recommend more capable and cost-effective middleware solutions like **n8n**, **Make**, or **Microsoft Power Automate** for serious integrations (Zapier gets expensive fast).
 
 For maximum control and flexibility, especially if you have development resources, consider using Tallyfy's [Open API](/products/pro/integrations/open-api/) to build custom integrations, potentially leveraging AI to generate code for serverless functions.
 :::
@@ -136,21 +136,22 @@ For maximum control and flexibility, especially if you have development resource
 
 ### Security considerations
 
-For webhook security, Tallyfy includes the `X-Tallyfy-OrgID` header in all webhook requests. You can use this header to verify that incoming webhooks are legitimate by checking against your organization's ID.
+For webhook security, Tallyfy includes the `X-Tallyfy-OrgID` header in all webhook requests. You can use this header to verify that incoming webhooks are legitimate by checking against your organization's ID (because you definitely don't want to process random webhook spam).
 
 ![Security Header](https://screenshots.tallyfy.com/file-g5qdMzYyEK.png)
 
 :::warning[Important: Handle duplicate webhook events]
-Webhooks can fire multiple times for the same event. For example, when a task is completed and then reopened and completed again, you'll receive multiple webhook notifications. Always implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent duplicate actions in your integrated systems.
+Webhooks can fire multiple times for the same event. For example, when a task is completed and then reopened and completed again, you'll receive multiple webhook notifications. Always implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent duplicate actions in your integrated systems. Trust us on this one - handling duplicates from the start is way easier than debugging why things ran twice later.
 :::
 
 ### Best practices
 
-- Use HTTPS URLs for webhook destinations
+- Use HTTPS URLs for webhook destinations (HTTP is asking for trouble)
 - Implement webhook authentication in your receiving system
-- Test webhooks thoroughly before relying on them in production
+- Test webhooks thoroughly before relying on them in production (seriously, test them)
 - Monitor webhook delivery using your middleware platform's logging tools
 - Consider implementing retry logic for failed webhook deliveries
+- Always validate the payload structure - external systems change without warning
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
