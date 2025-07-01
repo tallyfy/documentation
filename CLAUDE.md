@@ -552,6 +552,107 @@ This repository extensively uses Claude AI for content automation:
 2. **Related Articles**: Integration with Tallyfy's Answers API for cross-references
 3. **Configuration**: AI settings in `.claude/settings.local.json`
 
+## CLAUDE CODE AUTOMATION PHILOSOPHY
+
+### Overview
+
+This codebase supports automated documentation workflows using Claude Code's non-interactive mode. Break large documentation tasks into atomic units that can be executed sequentially via command line, enabling systematic content updates without manual intervention.
+
+### Non-Interactive Command Pattern
+
+Execute specific documentation tasks using:
+```bash
+claude -p "YOUR_PROMPT_HERE" --dangerously-skip-permissions
+```
+
+This command runs Claude with a specific prompt, completes the task, and exits - perfect for scripting and automation.
+
+### Task Queue Pattern
+
+For large documentation projects, use a file-based task queue:
+
+1. **Create prompt files**: Each `.prompt` file contains one specific documentation task
+2. **Process sequentially**: Scripts read and execute prompts one by one
+3. **Track progress**: Completed tasks are deleted or moved, making workflows resumable
+
+Example directory structure:
+```
+doc_automation_queue/
+├── 001_analyze_missing_docs.prompt
+├── 002_create_api_reference.prompt
+├── 003_update_changelog.prompt
+└── completed/
+```
+
+### Example Automation Scripts
+
+#### 1. Bulk Documentation Updates
+```bash
+#!/bin/bash
+# process_doc_queue.sh
+
+for prompt_file in doc_automation_queue/*.prompt; do
+    echo "Processing: $prompt_file"
+    
+    # Read prompt and execute
+    prompt=$(cat "$prompt_file")
+    claude -p "$prompt" --dangerously-skip-permissions
+    
+    # Move completed
+    mv "$prompt_file" doc_automation_queue/completed/
+done
+```
+
+#### 2. Generate Missing Documentation
+```python
+#!/usr/bin/env python3
+# generate_missing_docs.py
+
+import subprocess
+import os
+from pathlib import Path
+
+def generate_doc_for_feature(feature_path):
+    prompt = f"""
+    Create documentation for {feature_path} following the style guidelines in CLAUDE.md.
+    Include: overview, prerequisites, step-by-step instructions, and troubleshooting.
+    """
+    
+    subprocess.run([
+        "claude", "-p", prompt, "--dangerously-skip-permissions"
+    ])
+
+# Process all features needing documentation
+features = Path("src/content/docs/pro").glob("**/*.mdx")
+for feature in features:
+    if "TODO" in feature.read_text():
+        generate_doc_for_feature(feature)
+```
+
+### Best Practices for Documentation Automation
+
+1. **Atomic Tasks**: Each prompt should create/update one article or section
+2. **Clear Context**: Reference specific files and follow CLAUDE.md guidelines
+3. **Validation Steps**: Include prompts to validate generated content
+4. **Incremental Updates**: Work on small batches to maintain quality
+
+Example atomic prompts:
+```
+# Good: Specific and bounded
+"Update the API authentication article at /products/pro/integrations/open-api/oauth-authorization-flow.mdx to include the new OAuth 2.0 flow changes from changelog 2025-03-31"
+
+# Bad: Too broad
+"Update all API documentation"
+```
+
+### Common Documentation Automation Patterns
+
+1. **Changelog-Driven Updates**: Automatically update docs based on changelog entries
+2. **Screenshot Updates**: Generate prompts to update screenshots when UI changes
+3. **Cross-Reference Validation**: Verify all internal links remain valid
+4. **Style Compliance**: Check and fix articles not following guidelines
+5. **Missing Content Detection**: Identify and create stub articles for new features
+
 ## QUICK REFERENCE CHECKLIST
 
 Before submitting documentation:

@@ -104,6 +104,10 @@ Once you submit a pull request:
 
 If you're unsure about a contribution or need help, please open an issue to discuss your proposed changes before creating a pull request.
 
+## Automation & AI Support
+
+This documentation repository supports AI-driven automation for large-scale documentation tasks. We use Claude Code to break down complex documentation projects into manageable, automated workflows. This approach helps maintain consistency and quality across our extensive documentation while reducing manual effort.
+
 ## License
 
 By contributing to this repository, you agree that your contributions will be licensed under the same license as the project.
