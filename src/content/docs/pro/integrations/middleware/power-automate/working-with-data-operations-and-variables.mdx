@@ -61,10 +61,26 @@ JSON is common for data exchange. Tallyfy [webhooks](/products/pro/integrations/
     2.  **Content:** Provide the JSON string from Tallyfy.
     3.  **Schema:** A definition of the Tallyfy JSON structure. Generate this by clicking **Generate from sample** and pasting a sample JSON output from your Tallyfy webhook or API call.
 
+:::caution[Field mapping limitations]
+When working with Tallyfy form field data in Power Automate:
+- Complex field types (dropdowns, checkboxes) return structured JSON objects, not simple values
+- Dropdown fields return objects with properties like `id`, `text`, and `value`
+- To access the display text of a dropdown, use expressions like `body('Parse_JSON')?['fieldName']?['text']`
+- Table fields return arrays that require loops or indexing to access individual rows
+- Always use Parse JSON action first to properly structure Tallyfy data before mapping
+:::
+
 
 
 **Tallyfy example:**
 When a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) is launched, a [webhook](/products/pro/integrations/webhooks/) can send a JSON payload to a Power Automate HTTP-triggered flow. This payload might contain Tallyfy Process Name, Initiator's Email, and Launch Form data. Using "Parse JSON" on this Tallyfy webhook body lets you extract these pieces of information for other actions.
+
+**Handling Tallyfy field types in Power Automate:**
+- **Text fields**: Can be mapped directly as strings
+- **Dropdown fields**: Access the selected text using `item()?['fieldName']?['text']` after parsing
+- **Checkbox fields**: Returns an array of selected options - use Apply to Each or specific index
+- **Table fields**: Returns an array of row objects - requires looping to process each row
+- **Date fields**: Returns ISO format string - use `formatDateTime()` for display formatting
 
 ## Data transformation for Tallyfy data: Create CSV Table and Create HTML Table
 

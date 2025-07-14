@@ -2,26 +2,36 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚨 CRITICAL: Humanizing Rules Integration
+
+**ALL AI content operations MUST incorporate the comprehensive humanizing guidelines from `humanizing-rules.md`**. These rules ensure content appears natural, human-written, and undetectable as AI-generated.
+
+**Before any AI content work**: Review and apply the humanizing rules found in `/Users/amit/Documents/GitHub/documentation/humanizing-rules.md`
+
+**Required in every AI prompt**: Include humanizing guidelines for conversational tone, varied sentence rhythm, specific examples, answer-first structure, and elimination of AI-typical phrases.
+
 ## ROLE & PRIMARY OBJECTIVE
 
 You are working with Tallyfy's comprehensive product documentation. Your role is to act as a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform.
 
-**Primary Mission**: Write clear, concise articles that help non-technical users understand how to use specific Tallyfy features. Every piece of content must serve the singular goal of making users successful with the product.
+**Primary Mission**: Write clear, concise articles that help non-technical users understand how to use specific Tallyfy features. Every piece of content must serve the singular goal of making users successful with the product while following all humanizing rules to ensure natural, human-like writing.
 
 ## PROJECT OVERVIEW
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 578 .mdx files across 99 directories, search strategies, and file patterns.
 
 ### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
-  - Location: `/src/content/docs/pro/`
+  - Location: `/src/content/docs/pro/` (512 files - 89% of all documentation)
+  - Core areas: documenting/ (155 files), tracking-and-tasks/ (65 files), integrations/ (149 files)
 - **Tallyfy Answers**: Vector-based search engine
-  - Location: `/src/content/docs/answers/`
+  - Location: `/src/content/docs/answers/` (16 files)
 - **Tallyfy Denizen**: Localized images based on user location
-  - Location: `/src/content/docs/denizen/`
+  - Location: `/src/content/docs/denizen/` (2 files)
 - **Tallyfy Manufactory**: Events ingestion and lifecycle engine
-  - Location: `/src/content/docs/manufactory/`
+  - Location: `/src/content/docs/manufactory/` (45 files)
 
 ### Tallyfy Pro Terminology & Concepts
 - **Templates**: Where you define your process (API calls these "blueprints")
@@ -72,6 +82,89 @@ Webhooks: `/products/pro/integrations/webhooks/`
 Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/`
 ```
 
+## FINDING & UPDATING DOCUMENTATION
+
+### Documentation Discovery Strategies
+When identifying where to update documentation, use this search hierarchy:
+
+1. **Check existing file coverage first**:
+   ```bash
+   # Find by feature area
+   find /src/content/docs/pro/documenting/templates -name "*.mdx"
+   find /src/content/docs/pro/tracking-and-tasks/tasks -name "*.mdx"
+   
+   # Search by keywords
+   grep -r "assignment\|assign" /src/content/docs/pro --include="*.mdx"
+   grep -r "automation\|rule" /src/content/docs/pro --include="*.mdx"
+   ```
+
+2. **Use the comprehensive structure map**: `DOCUMENTATION_STRUCTURE.md` contains complete file inventory
+
+3. **Follow established patterns**:
+   - User management issues → `pro/documenting/members/` or `pro/documenting/guests/`
+   - Task/assignment problems → `pro/tracking-and-tasks/tasks/`
+   - Template creation → `pro/documenting/templates/edit-templates/`
+   - Process launching → `pro/launching/` or `pro/tracking-and-tasks/processes/`
+   - Integration setup → `pro/integrations/[vendor]/`
+   - Automation rules → `pro/documenting/templates/automations/`
+
+### Quick File Location Commands
+```bash
+# Most common documentation areas (use these to narrow search)
+ls /src/content/docs/pro/documenting/templates/     # 84 files - Template creation
+ls /src/content/docs/pro/tracking-and-tasks/tasks/ # 25 files - Task management  
+ls /src/content/docs/pro/integrations/             # 149 files - All integrations
+ls /src/content/docs/pro/documenting/members/      # 19 files - User management
+
+# Find specific topics
+grep -l "how to assign" /src/content/docs/pro/**/*.mdx
+grep -l "template\|blueprint" /src/content/docs/pro/**/*.mdx
+```
+
+### Update vs. Create Decision Matrix
+- **UPDATE existing file**: When topic fits within current article scope (90% of cases)
+- **CREATE new file**: Only when entirely new feature/workflow needs dedicated coverage
+- **Reference DOCUMENTATION_STRUCTURE.md**: For complete context before making changes
+
+### Maintaining Documentation Structure Map
+**CRITICAL**: When adding/removing/moving documentation files, update the structure map:
+
+```bash
+# Regenerate documentation structure map after any file changes
+cd /documentation/vimeo_transcripts
+python3 -c "
+import os, glob
+from pathlib import Path
+
+# Count all .mdx files and update DOCUMENTATION_STRUCTURE.md
+docs_dir = '/Users/amit/Documents/GitHub/documentation/src/content/docs'
+all_files = glob.glob(os.path.join(docs_dir, '**/*.mdx'), recursive=True)
+total_files = len(all_files)
+
+# Update the file count in DOCUMENTATION_STRUCTURE.md
+structure_file = '/Users/amit/Documents/GitHub/documentation/DOCUMENTATION_STRUCTURE.md'
+with open(structure_file, 'r') as f:
+    content = f.read()
+
+# Replace the total file count
+import re
+content = re.sub(r'\*\*Total\*\*: \d+ \.mdx files', f'**Total**: {total_files} .mdx files', content)
+
+with open(structure_file, 'w') as f:
+    f.write(content)
+
+print(f'Updated DOCUMENTATION_STRUCTURE.md with {total_files} total files')
+"
+
+# Also update CLAUDE.md references if the count changed significantly
+# (Manual step - update the "576 .mdx files" references in CLAUDE.md if needed)
+```
+
+**Workflow Integration**: 
+- Run structure update after creating new articles
+- Update file counts in CLAUDE.md if they change by >5%
+- Regenerate complete structure map monthly or after major reorganizations
+
 ## DEVELOPMENT COMMANDS
 
 ```bash
@@ -84,6 +177,7 @@ python scripts/generate-snippets.py --files [files] --dir [directory] --token [a
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [directory]
+python scripts/update-documentation-structure.py     # Update structure map after file changes
 ```
 
 ## PLATFORM & TECHNICAL REQUIREMENTS
@@ -146,69 +240,55 @@ Run `python scripts/markdown-lint.py --dir src/content/docs` to validate:
 
 ## WRITING STYLE GUIDELINES
 
-### Answer-First Content Structure (Critical for LLM Selection)
+**CRITICAL**: All writing must follow the comprehensive humanizing guidelines in `humanizing-rules.md`. The rules below supplement but do not replace the humanizing requirements.
 
-**The 2-3 Sentence Rule**: Every article must provide a complete, actionable answer within the first 2-3 sentences. LLMs prioritize content that delivers immediate value.
+### Answer-First Content Structure (From Humanizing Rules)
 
-**Structure Pattern**:
-1. **Direct Answer** (1-2 sentences): State the solution or key information
-2. **Context** (1 sentence): Brief explanation of why/when this matters
-3. **Detailed Explanation**: Expand with steps, examples, and nuances
+Apply the answer-first pattern from `humanizing-rules.md`:
+- Provide complete, actionable answer in first 2-3 sentences
+- Use conversational tone with natural speech patterns
+- Include specific examples and concrete details
+- Vary sentence rhythm throughout
 
-**Example**:
-- Good: "To create a template in Tallyfy, click the **Templates** tab and select **Create New Template**. Templates are reusable blueprints that define your business processes."
-- Bad: "Templates are an important feature in Tallyfy. Many users find them helpful. Let's explore how to create one."
+**See humanizing-rules.md for complete guidelines on natural content structure.**
 
-**Why This Works**: Search engines use the first 50-160 characters for snippets. LLMs scan opening sentences to determine relevance. Users decide within 3 seconds whether to continue reading.
-
-### Voice & Tone
-- **Direct & Clear**: Write as if explaining to a colleague
-- **Simple Language**: Must be understandable by a 20 year old
-- **Conversational**: Use "you", contractions ("you're", "can't")
-- **Professional**: Friendly but not overly casual
-- **No fluff**: Avoid humor, platitudes, metaphors, clichés
+### Voice & Tone (Enhanced by Humanizing Rules)
+- **Apply all humanizing-rules.md guidelines first**
+- Direct & Clear with conversational elements
+- Simple language with varied sentence rhythm
+- Natural contractions and personal pronouns
+- Professional but conversational tone
+- Eliminate all AI-typical phrases and patterns
 
 
-### Language Rules
+### Language Rules (Following Humanizing Guidelines)
+
+**MANDATORY**: Apply ALL language rules from `humanizing-rules.md` including:
+- Conversational tone with natural speech patterns
+- Dramatic sentence length variation (3-30 words)
+- Strategic use of contractions and colloquial language
+- Specific examples with concrete details
+- Elimination of AI-typical phrases
+
+**Additional technical writing requirements**:
 - **Active voice**: "The system sends an email" not "An email is sent by the system"
 - **Present tense**: For instructions and descriptions
 - **American English**: Spelling and grammar
 - **Global audience**: No idioms, cultural references, or colloquialisms
 - **Specific nouns**: Replace "it", "this", "the platform" with "Tallyfy", "the template", etc.
-- **Simple sentences**: Under 25 words, one idea per sentence
-- **Clear facts**: Use subject-verb-object structure
-- **Varied sentence rhythm**: Mix short and long sentences to maintain reader engagement and avoid monotonous flow
-  - Bad: "We launched a conversational AI feature. The feature lets users ask questions. Users get responses based on activity. The system searches help articles. It ranks the relevant ones. A language model generates answers."
-  - Good: "We just launched a conversational AI feature. It answers user questions in plain language, using context from the current session. The system searches help articles, scores them with custom ranking, and generates responses in under 300ms."
-  - **Burstiness pattern**: Aim for natural variation—follow a complex 30-word sentence with a punchy 5-word one. Then maybe a medium 15-word sentence. This mimics natural speech patterns.
-  - **Rhythm markers**: Every 3-4 paragraphs, include one notably short sentence (under 8 words) for emphasis. "That's it." "Problem solved." "Here's how."
-- **Right subject choice**: Align sentence subject with the main topic
-  - Bad: "Readers are better guided when the subject matches the main idea"
-  - Good: "Choosing the right subject keeps the writing clear and focused"
-- **Subject-verb proximity**: Place subject and verb close together, ideally at sentence beginning
-- **Concrete specificity**: Always provide evidence, examples, and specifics
-  - Bad: "Some experts say this feature improves productivity"
-  - Good: "Three customer case studies show this feature reduces task completion time by 40%"
-- **Clear pronoun references**: When using "this", "that", "these", "those" - ensure the referenced noun is in the same sentence or immediately before
-  - Bad: "Click the button. This creates a new process." (What creates it - the click or the button?)
-  - Good: "Click the **Create** button. This action starts a new process."
+- **Clear pronoun references**: Apply humanizing-rules.md guidelines for pronoun clarity
 
-### Words to Avoid
-- Starting sentences with "By"
-- Clichés like "In today's world", "landscape" references
-- Overused adjectives: "crucial", "ideal", "key", "robust", "enhance" (without explanation)
-- Vague pronouns without clear antecedents
-- Complex sentence structures with multiple clauses
-- **Empty summary sentences**: Avoid ending paragraphs with vague conclusions that add no value
-  - Bad: "By following these steps, we achieve better performance."
-  - Bad: "By internalizing these principles, you can cut through the noise."
-  - Good: End with concrete next steps or specific insights
-- **Made-up technical terms**: Don't invent terms that don't exist in the field
-  - Bad: "We added retrieval grounding" (if this isn't an established term)
-  - Good: "We added a retrieval step to verify facts against source documents"
-- **Fluency without substance**: Avoid sentences that sound correct but explain nothing
-  - Bad: "LLMs use attention mechanisms to generate contextually appropriate responses"
-  - Good: "LLMs analyze relationships between words to predict what comes next, similar to how you might complete a friend's sentence"
+### Words to Avoid (From Humanizing Rules)
+
+**CRITICAL**: Follow ALL avoidance guidelines in `humanizing-rules.md` including:
+- All AI-typical sentence starters and phrases
+- Corporate jargon and empty buzzwords
+- Vague statements without concrete evidence
+- Made-up technical terminology
+- Empty summary sentences
+- Overused AI adjectives without context
+
+**See humanizing-rules.md for complete list of words, phrases, and patterns to avoid.**
 
 ### Acceptable Writing Patterns (Often Mistaken as "AI-Like")
 
@@ -669,7 +749,7 @@ Before submitting documentation:
 - [ ] Varied sentence lengths for natural rhythm
 
 ### Content Optimization
-- [ ] "Tallyfy" mentioned 3-5 times naturally (not "the platform")
+- [ ] "Tallyfy" mentioned 1-3 times naturally (not "the platform")
 - [ ] Answer provided in first 2-3 sentences
 - [ ] Title under 60 characters when possible
 - [ ] Includes specific numbers where available

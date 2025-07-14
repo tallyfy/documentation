@@ -1,0 +1,161 @@
+---
+description: Learn how to automatically notify the original process requestor when a workflow completes by capturing their identity at launch and using automations to send completion notifications with results or confirmations.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 10
+title: Notify the requestor when process completes
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Automatically notify the process requestor upon completion
+
+Send automatic notifications to the person who originally launched a process when it reaches completion. This ensures requestors receive confirmations, results, or final documentation without manual intervention.
+
+### Common use cases
+
+This automation pattern works well for:
+- **Service requests**: Notify employees when their IT, HR, or facilities requests are complete
+- **Approval workflows**: Inform requestors of final approval decisions
+- **Order processing**: Send confirmation when orders are fulfilled
+- **Document processing**: Deliver completed documents to the original submitter
+- **Onboarding**: Confirm when new employee setup is complete
+
+### Prerequisites
+
+- Administrator or Standard user role to edit templates
+- Understanding of [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)
+- Basic knowledge of [automations](/products/pro/documenting/templates/automations/)
+
+### Setting up requestor notification
+
+<Steps>
+1. **Capture the requestor identity**
+   
+   Add an **Assignee Picker** field to your kick-off form:
+   - Label it clearly (e.g., "Select your name" or "Who is requesting this?")
+   - Make the field required
+   - Position it prominently in the kick-off form
+   
+   :::tip[Auto-populate option]
+   Consider pre-selecting "Person who launches this process" as the default value to save users a step.
+   :::
+
+2. **Create the notification task**
+   
+   Add a final task in your template for the completion notification:
+   - **Task type**: Choose "Email - Auto Send" for automatic delivery
+   - **Task name**: "Notify Requestor of Completion"
+   - **Content**: Include relevant completion details and any attachments
+   - **Timing**: Set to trigger after the last operational task completes
+
+3. **Configure the automation rule**
+   
+   In the template's **Automations** tab:
+   - Click **Add Automation**
+   - Name it "Assign completion notification to requestor"
+   - **IF condition**: Select your assignee picker field and "is not empty"
+   - **THEN action**: Choose "Replace assignee(s)"
+   - **Target**: Select your notification task
+   - **Replace with**: Select the same assignee picker field
+
+4. **Add completion details using variables**
+   
+   Enhance your notification email with process data:
+   ```
+   Hello {{kick_off_form_requestor_name}},
+   
+   Your request submitted on {{process_launched_date}} has been completed.
+   
+   Summary:
+   - Request type: {{kick_off_form_request_type}}
+   - Completed by: {{step_5_completed_by}}
+   - Completion date: {{current_date}}
+   
+   Attached files: {{step_4_uploaded_documents}}
+   ```
+</Steps>
+
+### Alternative approaches
+
+#### Using multiple notification recipients
+
+To notify both the requestor and others:
+1. Add multiple assignee picker fields (e.g., "Requestor" and "CC Recipients")
+2. Create separate notification tasks for each audience
+3. Use automation rules to assign each notification appropriately
+
+#### Conditional notifications based on outcomes
+
+Send different notifications based on process results:
+1. Add a selection field for process outcome (e.g., "Approved", "Rejected", "Pending")
+2. Create multiple notification tasks with outcome-specific content
+3. Use conditional visibility to show only the relevant notification
+
+#### Using webhooks for advanced notifications
+
+For complex notification requirements:
+1. Set up a webhook on the final task completion
+2. Use middleware (Zapier, Make, Power Automate) to:
+   - Send formatted HTML emails
+   - Include attachments from external systems
+   - Send SMS or Slack notifications
+   - Update external systems
+
+### Best practices
+
+- **Clear labeling**: Name your assignee picker field clearly so users understand its purpose
+- **Test thoroughly**: Launch test processes to verify notifications work correctly
+- **Include context**: Add process details using variables so recipients have full context
+- **Set appropriate timing**: Consider adding a delay if final data needs processing time
+- **Provide next steps**: Include what the requestor should do after receiving the notification
+
+### Troubleshooting
+
+**Notification not sending**:
+- Verify the assignee picker field has a value
+- Check that the automation rule is active
+- Ensure the task type is set to "Email - Auto Send"
+- Confirm the task deadline has passed (for auto-send emails)
+
+**Wrong recipient**:
+- Verify the correct field is selected in the automation rule
+- Check that users are selecting the right person in the assignee picker
+- Consider making the field read-only after initial selection
+
+**Missing process data**:
+- Ensure variables reference the correct fields
+- Check that referenced fields are completed before the notification task
+- Test with sample data to verify variable substitution
+
+### Example: IT service request completion
+
+Here's a complete example for an IT service request process:
+
+1. **Kick-off form** includes:
+   - Assignee picker: "Select your name"
+   - Request type dropdown
+   - Description field
+
+2. **Process steps**:
+   - IT reviews request
+   - IT completes work
+   - IT uploads completion documentation
+
+3. **Final notification task**:
+   - Type: Email - Auto Send
+   - Timing: 30 minutes after "Upload documentation" completes
+   - Content includes request details and attached documentation
+   - Automation assigns to original requestor
+
+This pattern ensures every service request closes the loop with the person who initiated it.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Examples > Assign step to requestor</b>" href="/products/pro/documenting/templates/automations/examples/assign-step-to-requestor/" > This automation demonstrates how to capture the original process requestor using an assignee picker field and automatically assign them to receive final notifications or results through template automation rules that replace step assignees based on form field selections. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks > Send emails using webhooks</b>" href="/products/pro/integrations/webhooks/how-can-i-send-emails-using-webhooks-in-tallyfy/" > The system enables automatic custom email notifications through webhooks by connecting Tallyfy with middleware tools to trigger emails based on specific task completions or events within processes. </LinkTitleCard>
+<LinkTitleCard header="<b>Variables > Using variables in templates</b>" href="/products/pro/documenting/templates/variables/how-can-i-use-insert-variables-in-tallyfy/" > Variables in Tallyfy enable dynamic content insertion throughout templates by referencing form field data member information and process details using double curly bracket syntax to personalize workflows and automate information flow between steps. </LinkTitleCard>
+<LinkTitleCard header="<b>Task Types > Email auto-send tasks</b>" href="/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/" > Tallyfy offers multiple task types including forms for data collection approvals for decision points emails for automated notifications and integrations that connect to external systems enabling diverse workflow automation scenarios. </LinkTitleCard>
+</CardGrid>

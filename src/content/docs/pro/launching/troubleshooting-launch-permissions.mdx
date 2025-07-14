@@ -1,0 +1,123 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 10
+description: Troubleshoot common issues with launching processes in Tallyfy including permission errors for Standard members group assignment behaviors Magic Link limitations with required fields and API integration challenges.
+title: Troubleshooting launch permission issues
+---
+
+## How to resolve common process launch problems
+
+When launching processes in Tallyfy, you may encounter permission errors or unexpected behaviors. This guide helps you troubleshoot and resolve the most common launch-related issues.
+
+Standard members need explicit LAUNCH permission from an Administrator to start processes from templates. Group assignments behave differently when combined with automatic launcher assignment settings. Understanding these behaviors prevents confusion and ensures smooth process launches.
+
+### Why can't a Standard member launch a process?
+
+**Problem**: A Standard member sees a template but gets an error when trying to launch it.
+
+**Cause**: Standard members don't automatically have permission to launch processes. Unlike Administrators who can launch any template, Standard members need explicit LAUNCH permission.
+
+**Solution**: 
+1. Have an Administrator edit the template
+2. Go to **Config** > **Permissions**
+3. Enable LAUNCH permission for the specific Standard member or "All Members"
+4. Save the template
+
+**Prevention**: When creating new templates, immediately set appropriate launch permissions based on who should start processes from that template.
+
+### Why is the process launcher being added to group assignments?
+
+**Problem**: When a process is launched with steps assigned to groups, the launcher appears as an additional assignee alongside the group.
+
+**Cause**: The "Assign launcher automatically" setting is enabled in the Advanced tab of those steps. This setting adds the launcher to any unassigned or group-assigned tasks.
+
+**Solution**:
+1. Edit the template
+2. For each step assigned to a group, click the **Advanced** tab
+3. Turn OFF "Assign launcher automatically"
+4. Save the template
+
+**Alternative approaches**:
+- Use specific member assignments instead of groups for steps where you don't want the launcher involved
+- Use automation rules to dynamically control assignments based on process data
+- Create a separate "Process Owner" role using job titles if you need the launcher involved in specific steps only
+
+### Why do Magic Links fail with kick-off forms?
+
+**Problem**: Magic Links don't work when trying to launch processes that have kick-off forms with required fields.
+
+**Cause**: Magic Links attempt to launch processes directly without displaying the kick-off form interface. If the form has required fields, the launch fails because those fields aren't provided.
+
+**Solutions**:
+1. **Make fields optional**: If appropriate, change required fields to optional in the kick-off form
+2. **Use API with complete data**: Make API calls that include all required field values in the request
+3. **Use public forms**: Share public kick-off form links for external users to fill out manually
+4. **Use middleware**: Configure Power Automate, Zapier, or other middleware to provide all required values programmatically
+
+### Why can't I map dropdown fields correctly in Power Automate?
+
+**Problem**: Dropdown field values from Tallyfy don't map correctly to other systems in Power Automate.
+
+**Cause**: Tallyfy dropdown fields return JSON objects with multiple properties (`id`, `text`, `value`), not simple text values.
+
+**Solution**:
+1. Add a **Parse JSON** action after getting Tallyfy data
+2. Use expressions to access the specific property you need:
+   - For display text: `body('Parse_JSON')?['fieldName']?['text']`
+   - For the ID: `body('Parse_JSON')?['fieldName']?['id']`
+3. Handle null values with conditional expressions
+
+**Example Power Automate expression**:
+```
+if(empty(body('Parse_JSON')?['dropdownField']), '', body('Parse_JSON')?['dropdownField']?['text'])
+```
+
+### How do I handle permission errors in API integrations?
+
+**Problem**: API calls to launch processes return permission errors even with valid credentials.
+
+**Cause**: The API user (associated with the API key) must have permission to launch the specific template.
+
+**Solutions**:
+1. **Use Administrator API keys**: Generate API keys from an Administrator account for full access
+2. **Grant specific permissions**: If using a Standard member's API key, ensure they have LAUNCH permission for the template
+3. **Check template permissions**: Verify the template isn't restricted to specific members only
+4. **Test with user credentials**: Try launching the process manually with the same user account to verify permissions
+
+### Best practices for avoiding launch issues
+
+**Template configuration**:
+- Document which roles should launch each template
+- Set permissions immediately when creating templates
+- Test launch permissions with different user roles before deployment
+- Use descriptive names for job titles to avoid confusion during launch
+
+**Group assignments**:
+- Decide whether launchers should be included in group tasks
+- Configure "Assign launcher automatically" consistently across similar templates
+- Consider using automation rules for complex assignment logic
+
+**Integration setup**:
+- Test Magic Links with sample data before widespread use
+- Document field mapping requirements for middleware integrations
+- Use Parse JSON actions in Power Automate for all Tallyfy data
+- Maintain a test template for verifying integration permissions
+
+**Communication**:
+- Train Standard members on which templates they can launch
+- Document any special launch procedures or requirements
+- Create a permissions matrix showing who can launch what
+- Establish a process for requesting launch permissions
+
+These practices help prevent common issues and ensure smooth process launches across your organization.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Templates > Configure your template</b>" href="/products/pro/documenting/templates/config/" > Template settings can be configured through the Settings button to customize how templates work control access permissions organize content and manage general actions like copying archiving and printing. </LinkTitleCard>
+<LinkTitleCard header="<b>Members > Manage member permissions</b>" href="/products/pro/documenting/members/how-do-i-manage-member-permissions-in-tallyfy/" > Administrators can control what Standard members can do in Tallyfy by managing five key permission areas including template editing viewing starting processes accessing running processes and inviting new members through template-specific Config settings or process-specific Settings panels. </LinkTitleCard>
+<LinkTitleCard header="<b>Edit Templates > Assign steps in the Tallyfy template builder</b>" href="/products/pro/documenting/templates/edit-templates/assign-steps-in-the-tallyfy-template-builder/" > Tallyfy enables step assignment through multiple methods including specific members groups job titles guests or leaving steps unassigned with options for automation rules to dynamically adjust assignments based on process conditions and workflow requirements. </LinkTitleCard>
+<LinkTitleCard header="<b>Triggers > Launch via a magic link</b>" href="/products/pro/launching/triggers/magic-links/" > Magic links are special URLs that automatically perform Tallyfy actions like creating tasks launching processes or completing workflows when clicked by logged-in users enabling seamless automation across emails websites and other tools. </LinkTitleCard>
+</CardGrid>

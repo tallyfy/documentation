@@ -110,7 +110,7 @@ This documentation repository supports AI-driven automation for large-scale docu
 
 ## License
 
-By contributing to this repository, you agree that your contributions will be licensed under the same license as the project.
+By contributing to this repository, you agree that your contributions will be owned by Tallyfy.
 
 ---
 
