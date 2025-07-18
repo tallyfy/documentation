@@ -57,7 +57,7 @@ EN_CONTENT_PATH = f"{dir_path}"
 en_files_list = []
 skip_list = ["404.mdx"]
 
-skip_dirs = ["src/content/docs/pro/changelog"]
+skip_dirs = ["src/content/docs/pro/changelog", "src/content/docs/changelog"]
 for path, subdirs, files in os.walk(EN_CONTENT_PATH):
 	# Skip if path contains any directory from skip_dirs
 	if not any(skip_dir in path for skip_dir in skip_dirs):
