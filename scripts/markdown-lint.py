@@ -85,7 +85,7 @@ def main():
     dir_path = args.dir
     files_list = []
     skip_list = ["404.mdx"]
-    skip_dirs = ["src/content/docs/pro/changelog"]
+    skip_dirs = ["src/content/docs/pro/changelog", "src/content/docs/changelog"]
     for path, subdirs, files in os.walk(dir_path):
         # Skip if path contains any directory from skip_dirs
         if not any(skip_dir in path for skip_dir in skip_dirs):
