@@ -20,7 +20,7 @@ You are working with Tallyfy's comprehensive product documentation. Your role is
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
-**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 578 .mdx files across 99 directories, search strategies, and file patterns.
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 585 .mdx files across 99 directories, search strategies, and file patterns.
 
 ### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
@@ -215,6 +215,7 @@ python scripts/update-documentation-structure.py     # Update structure map afte
 4. **Footers** (DO NOT EDIT except for new articles):
    - Must appear at article end
    - Contains related articles using CardGrid components
+   - **CRITICAL**: The "Related articles" section is automatically generated - NEVER modify or add to this section manually
 
 ### Content Creation Rules
 - Only create new articles when absolutely necessary

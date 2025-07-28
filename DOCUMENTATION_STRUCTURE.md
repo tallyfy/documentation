@@ -1,4 +1,4 @@
-<!-- Last updated: 2025-07-08 15:40:15 -->
+<!-- Last updated: 2025-07-15 17:19:50 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -13,7 +13,7 @@ This file provides a comprehensive overview of the documentation organization to
 └── pro/             (512 files) - Tallyfy Pro main product documentation (89% of all content)
 ```
 
-**Total**: 578 .mdx files across 99 directories
+**Total**: 585 .mdx files across 99 directories
 
 ## 🎯 Tallyfy Pro Structure (Primary Focus)
 
