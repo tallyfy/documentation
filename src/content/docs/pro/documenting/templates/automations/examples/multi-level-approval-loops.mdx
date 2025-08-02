@@ -11,33 +11,33 @@ title: Multi-level approval loops
 
 import { Steps } from '@astrojs/starlight/components';
 
-This Tallyfy example shows how to build approval workflows with multiple levels where rejections automatically reopen previous steps for corrections. This ensures quality control while maintaining process flow efficiency.
+Want approval workflows where rejections send work back for fixes? Here's how. You'll build multi-level approvals that automatically reopen previous steps when someone hits reject - keeping quality high without grinding everything to a halt.
 
 ## What is the use case for this automation?
 
-Multi-level approval loops are essential for:
+You know those approvals that need multiple sign-offs? Multi-level loops handle them perfectly:
 
 - **Financial approvals**: Purchase requests that need manager approval, then finance approval, then executive sign-off
 - **Content publishing**: Draft → Editor review → Legal review → Final approval
-- **Contract management**: Initial draft → Department head → Legal → CFO → CEO
+- **Contract management**: Initial draft → Department head → Legal → CFO → CEO  
 - **Quality control**: Product inspection → Supervisor check → Quality manager sign-off
 
-The key is that rejection at any level sends work back to the appropriate earlier step for correction.
+Here's the magic - when someone rejects at any level, the work automatically bounces back to whoever needs to fix it. No chasing people down.
 
 ## How do I create a multi-level approval workflow?
 
 <Steps>
 1. **Set up your approval chain steps**
    
-   Create your [template](/products/pro/documenting/templates/) with clear approval levels. Use **Approve/Reject** type steps:
+   Start with your [template](/products/pro/documenting/templates/) and map out who approves what. You'll use **Approve/Reject** type steps:
    - Step 1: "Create wire transfer request" (Regular task)
    - Step 2: "Manager review" (Approve/Reject)
-   - Step 3: "Finance department approval" (Approve/Reject)
+   - Step 3: "Finance department approval" (Approve/Reject)  
    - Step 4: "COO final approval" (Approve/Reject)
 
 2. **Create re-open rules for each approval level**
    
-   For each approval step that can reject, create a [status action](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
+   Next, set up what happens when someone hits reject. For each approval step, create a [status action](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
    
    **Rule 1: Manager rejection reopens creation**
    ```
@@ -60,7 +60,7 @@ The key is that rejection at any level sends work back to the appropriate earlie
 
 3. **Add visibility rules to control flow**
    
-   Ensure later approvals only show when earlier ones are approved:
+   Don't show later approvals until earlier ones pass. Simple:
    ```
    IF (Manager review) is Approved
    THEN Show "Finance department approval"
@@ -75,7 +75,7 @@ The key is that rejection at any level sends work back to the appropriate earlie
 
 ### Conditional approval routing
 
-Route to different approvers based on criteria:
+Need different approvers for different amounts? You can route based on any criteria:
 
 ```
 IF (Purchase Amount) is greater than $50,000
@@ -85,7 +85,7 @@ THEN Show "Board approval required"
 
 ### Parallel approvals with synchronization
 
-Sometimes multiple approvers need to review simultaneously:
+What if legal, compliance, and finance all need to review at the same time? Easy:
 
 ```
 IF (Initial review) is Completed
@@ -94,7 +94,7 @@ AND Show "Compliance approval"
 AND Show "Finance approval"
 ```
 
-Then synchronize before proceeding:
+Wait for everyone to approve before moving on:
 ```
 IF (Legal approval) is Approved
 AND (Compliance approval) is Approved
@@ -104,19 +104,23 @@ THEN Show "Final implementation"
 
 ### Escalation paths
 
-Add time-based escalations for stuck approvals:
+Approvals getting stuck? Here's your fix:
 
 1. Set the initial approval deadline
-2. Create an escalation step assigned to senior management
+2. Create an escalation step assigned to senior management  
 3. Use deadline automation to trigger escalation
+
+When time's up, Tallyfy bumps it to the boss. Done.
 
 ## Best practices for approval loops
 
-- **Clear rejection reasons**: Include comment fields in approval steps so reviewers can explain why they're rejecting
-- **Notification setup**: Ensure email notifications are configured so people know when tasks are reopened
-- **Loop limits**: Consider adding a counter or limit to prevent infinite rejection loops
-- **Documentation**: Include clear instructions in each step about what needs correction
-- **Audit trail**: Tallyfy automatically maintains history of approvals and rejections
+Want your approval loops to actually work? Follow these:
+
+- **Clear rejection reasons**: Add comment fields so reviewers explain what needs fixing. Nobody likes guessing why their work got rejected
+- **Notification setup**: Turn on email notifications - people need to know when tasks bounce back to them
+- **Loop limits**: Think about adding a counter. After 3 rejections, maybe it's time for a meeting instead
+- **Documentation**: Put clear instructions in each step. Tell people exactly what you're looking for
+- **Audit trail**: Good news - Tallyfy tracks every approval and rejection automatically. CYA built right in
 
 :::note[Understanding re-open behavior]
 When a task is reopened in Tallyfy:
@@ -128,18 +132,18 @@ When a task is reopened in Tallyfy:
 
 ## Real-world example: Property listing approval
 
-Here's how a real estate agency uses multi-level approvals:
+Let me show you how a real estate agency nailed their listing approvals:
 
 1. **Agent creates listing** - Enters property details and uploads photos
-2. **Office manager review** - Checks completeness and accuracy
-   - If rejected → Reopens step 1 for agent corrections
-3. **Marketing review** - Validates photos and descriptions
-   - If rejected → Reopens step 1 for photo/description updates
-4. **Compliance check** - Ensures legal requirements are met
-   - If rejected → Reopens steps 1 and 2 for corrections
+2. **Office manager review** - Checks everything's complete and accurate
+   - Rejected? Goes right back to the agent for fixes
+3. **Marketing review** - Makes sure photos look good and descriptions sell
+   - Not quite right? Back to step 1 for better photos or copy
+4. **Compliance check** - Verifies all the legal stuff is covered
+   - Issues found? Reopens both steps 1 and 2 (agent and manager both get notified)
 5. **Final publication** - Listing goes live
 
-This ensures every listing meets quality standards while providing clear feedback loops for improvements.
+Every listing hits the market looking perfect. Agents know exactly what to fix when something's off. No more "please see me" sticky notes.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

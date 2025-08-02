@@ -12,23 +12,22 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Understanding conditional visibility in Tallyfy
 
-Conditional visibility allows you to create dynamic workflows where tasks appear or disappear based on user inputs. This powerful feature helps you build adaptive processes that show only relevant tasks to users, reducing confusion and streamlining workflows.
+You can show or hide tasks in Tallyfy based on what users select in form fields - this is conditional visibility. It creates dynamic workflows where only relevant tasks appear. Simple.
 
 **Key concept**: Conditional visibility in Tallyfy works at the task level - you can show or hide entire tasks, but not individual fields within a form.
 
 ## How conditional visibility works
 
 ### The basics
-- Conditions are evaluated when form fields are completed
-- Tasks show or hide based on IF-THEN rules you define
-- Multiple conditions can be combined with AND/OR logic
-- Once shown, tasks remain visible unless manually hidden
+Here's what happens: someone fills out a form field, Tallyfy checks your IF-THEN rules, and tasks appear (or stay hidden). You can combine multiple conditions with AND/OR logic. 
+
+One catch - once a task appears, it stays visible unless someone manually hides it.
 
 ### Important limitations
-- **No field-level conditions**: You cannot show/hide individual form fields within a task
+- **No field-level conditions**: You can't show/hide individual form fields within a task (just whole tasks)
 - **Tasks only**: Conditions apply to complete tasks, not sections or fields
-- **One-way visibility**: Tasks shown by conditions don't automatically hide if conditions change
-- **Hidden steps cannot be completed**: Hidden steps remain incomplete indefinitely and cannot trigger completion-based automations
+- **One-way visibility**: Tasks shown by conditions won't automatically hide if conditions change - they stick around
+- **Hidden steps cannot be completed**: Hidden steps remain incomplete indefinitely and can't trigger completion-based automations
 
 ## Setting up conditional visibility
 
@@ -58,7 +57,7 @@ Conditional visibility allows you to create dynamic workflows where tasks appear
 
 ### Example 1: Simple Yes/No branching
 
-**Scenario**: Show additional documentation tasks only if user selects "International Shipping"
+**Scenario**: You need to show additional documentation tasks only if someone selects "International Shipping"
 
 **Setup**:
 ```
@@ -95,7 +94,7 @@ Rules:
 
 ### Example 2: Multiple AND conditions
 
-**Scenario**: Show manager approval only for purchases over $5,000 from new vendors
+**Scenario**: You want manager approval only for purchases over $5,000 from new vendors
 
 **Setup**:
 ```
@@ -109,7 +108,7 @@ Rule: IF "Purchase Amount" is greater than 5000
       THEN show this task
 ```
 
-**Common mistake**: Setting up separate rules instead of using AND
+**Common mistake**: People often set up separate rules instead of using AND. Don't do that!
 - Wrong: Two separate rules (one for amount, one for vendor)
 - Right: One rule with both conditions connected by AND
 
@@ -135,7 +134,7 @@ Rule: IF "Document Type" equals "Contract"
 
 **Problem**: User selects "Corporation", sees corporate tasks, then changes to "LLC" but corporate tasks remain visible.
 
-**Why it happens**: Tallyfy doesn't automatically hide previously shown tasks when conditions change.
+**Why it happens**: Tallyfy doesn't automatically hide previously shown tasks when conditions change. I know, this can be frustrating.
 
 **Solutions**:
 1. **Design approach**: Use "Previous task complete" as an additional condition
@@ -154,27 +153,27 @@ Rule: IF "Document Type" equals "Contract"
 **Problem**: Tasks don't appear even when conditions are met.
 
 **Common causes and fixes**:
-- **Timing**: Ensure the form field is completed before the conditional task's position
-- **Field references**: Verify you're referencing the correct field name
-- **Logic errors**: Check AND vs OR usage - AND requires all conditions true
-- **Data types**: Ensure number comparisons use number fields, not text fields
+- **Timing**: Make sure the form field is completed before the conditional task's position in the workflow
+- **Field references**: Double-check you're referencing the correct field name (case matters!)
+- **Logic errors**: Check AND vs OR usage - remember, AND requires all conditions to be true
+- **Data types**: Number comparisons need number fields, not text fields
 
 ### Issue 3: Hidden steps and completion conditions
 
 **Problem**: Automation rules checking "if step is complete" never trigger for hidden steps.
 
-**Why it happens**: Hidden steps cannot be interacted with by users and therefore can never be marked as complete. Any automation condition checking for their completion will never be satisfied.
+**Why it happens**: Here's the thing - hidden steps can't be seen or completed by users. That means any automation waiting for them to be complete will wait forever.
 
 **Key points**:
 - Hidden steps remain incomplete indefinitely
-- Users cannot see or complete hidden steps
+- Users can't see or complete hidden steps
 - Conditions like "IF Step X is complete" will never trigger if Step X is hidden
-- The only exception is if Step X has another rule that makes it visible first
+- The only exception? If Step X has another rule that makes it visible first
 
 **Solutions**:
 1. **Avoid dependencies on hidden step completion** - Design your workflow so completion checks only apply to visible steps
-2. **Use visibility rules first** - Ensure steps become visible before any completion-based automations depend on them
-3. **Alternative conditions** - Instead of checking completion, check the original condition that would have shown the step
+2. **Use visibility rules first** - Make steps visible before any completion-based automations depend on them
+3. **Alternative conditions** - Check the original condition that would have shown the step, not its completion
 
 ### Issue 4: Too many conditions to manage
 
@@ -188,34 +187,24 @@ Rule: IF "Document Type" equals "Contract"
 ## Best practices for conditional workflows
 
 ### 1. Plan before building
-- Map out all possible paths on paper first
-- Identify which tasks are always needed vs conditional
-- Group related conditional tasks together
+Map out all possible paths on paper first. Seriously - grab a pen. Then identify which tasks are always needed versus conditional ones, and group related conditional tasks together.
 
 ### 2. Name strategically
-- Use clear task names indicating their conditional nature
-- Example: "Corporate Filing Tasks (if Corporation selected)"
-- Add notes in task descriptions about when they appear
+Your task names should hint at their conditional nature. Instead of "Corporate Filing", try "Corporate Filing Tasks (if Corporation selected)". Add notes in task descriptions about when they appear - your future self will thank you.
 
 ### 3. Test comprehensively
-- Create test scenarios for every possible path
-- Verify tasks appear in the correct order
-- Check that parallel conditions don't conflict
+Create test scenarios for every possible path. All of them. Then verify tasks appear in the correct order and check that parallel conditions don't conflict.
 
 ### 4. Document for users
-- Add instructions in your kick-off form about how selections affect the workflow
-- Include notes in conditional tasks explaining why they appeared
-- Train users on manually hiding irrelevant tasks if needed
+Add instructions in your kick-off form about how selections affect the workflow. Include notes in conditional tasks explaining why they appeared. And don't forget - train users on manually hiding irrelevant tasks if needed.
 
 ### 5. Maintain simplicity
-- Limit condition depth (avoid conditions on conditional tasks)
-- Use clear, binary choices when possible
-- Consider if separate templates would be clearer
+Here's my rule: limit condition depth (avoid conditions on conditional tasks). Use clear, binary choices when possible. Sometimes multiple simple templates work better than one complex monster.
 
 ## Advanced patterns
 
 ### Sequential conditional tasks
-When you need conditional tasks to appear one at a time:
+Want conditional tasks to appear one at a time instead of all at once? Here's how:
 
 ```
 Task A: "Select Option"
@@ -223,7 +212,7 @@ Task B: Shows if Option = X AND Task A is complete
 Task C: Shows if Task B is complete AND [additional condition]
 ```
 
-This prevents all conditional tasks from appearing at once.
+This keeps your workflow tidy - tasks only appear when they're actually needed.
 
 ### Conditional task groups
 Group related tasks that share the same condition:
@@ -240,12 +229,12 @@ Set the same condition on all related tasks for consistency.
 
 ### Enterprise playbook filtering
 
-**Scenario**: Global services company needs to filter playbooks based on multiple criteria:
+**Scenario**: You're running a global services company and need to filter playbooks based on multiple criteria:
 - Delivery model (agency vs. principal)
 - Service type (fleet, workplace, on-the-go)
 - Geographic requirements (North America, Europe, Asia)
 
-**Challenge**: Managing 12-14 variations without creating separate templates
+**Challenge**: Managing 12-14 variations without creating separate templates. Yes, it gets complex fast.
 
 **Solution approach**:
 <Steps>
@@ -277,10 +266,10 @@ Set the same condition on all related tasks for consistency.
 - Group related tasks under section headers
 - Create a visibility matrix document for reference
 - Consider using [snippets](/products/pro/documenting/templates/snippets/) for content that appears in multiple variations
-- Train users on the filtering logic to set expectations
+- Train users on the filtering logic - they need to understand what's happening
 
 ### Default paths
-Always include a default path for when no conditions are met:
+Always include a default path for when no conditions are met. Trust me on this one.
 
 ```
 If Type = A: Show Task Set A
@@ -290,24 +279,24 @@ If Type = anything else: Show Task Set C (default)
 
 ## When to avoid conditional visibility
 
-Consider alternatives when:
+Sometimes conditional visibility isn't the answer. Consider alternatives when:
 - You have more than 5-6 major conditional branches
-- Conditions depend on multiple previous selections
+- Conditions depend on multiple previous selections  
 - Users frequently change their initial selections
 - Different teams handle different branches
 
-In these cases, consider:
-- Multiple specialized templates
+What works better? Try these instead:
+- Multiple specialized templates (cleaner, easier to maintain)
 - Using the API to launch appropriate sub-processes
 - Webhook integrations to external routing logic
 
 ## Future enhancement - Slides with conditional logic
 
 :::note[Coming Soon - Q2 2025]
-Tallyfy is developing a slides feature that will make complex conditional workflows even easier to manage. Instead of showing/hiding individual tasks, you'll be able to create slide-based playbooks where entire slides appear based on user selections.
+We're building something exciting: a slides feature that makes complex conditional workflows much easier to manage. Instead of showing/hiding individual tasks, you'll create slide-based playbooks where entire slides appear based on user selections. Game-changer.
 
 **How it will work**:
-- Create slides with your content (similar to PowerPoint)
+- Create slides with your content (think PowerPoint, but smarter)
 - Set IF-THEN rules at the slide level
 - Users answer questions at the start
 - Only relevant slides appear in their customized playbook
@@ -316,7 +305,7 @@ Tallyfy is developing a slides feature that will make complex conditional workfl
 - Enterprise playbooks with many variations
 - Training materials that adapt to roles
 - Compliance procedures that vary by region
-- Any workflow where you currently maintain multiple document versions
+- Any workflow where you currently maintain multiple document versions (we've all been there)
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";

@@ -12,16 +12,18 @@ import { Steps } from "@astrojs/starlight/components";
 
 ## Automatically notify the process requestor upon completion
 
-Send automatic notifications to the person who originally launched a process when it reaches completion. This ensures requestors receive confirmations, results, or final documentation without manual intervention.
+To notify someone when their process completes, capture who launched it using an assignee picker field, then use automation rules to send them the final notification. That's it.
+
+This keeps everyone in the loop - the person who started a process always knows when it's done, what happened, and gets any deliverables automatically. No more chasing people down for status updates.
 
 ### Common use cases
 
-This automation pattern works well for:
-- **Service requests**: Notify employees when their IT, HR, or facilities requests are complete
-- **Approval workflows**: Inform requestors of final approval decisions
-- **Order processing**: Send confirmation when orders are fulfilled
-- **Document processing**: Deliver completed documents to the original submitter
-- **Onboarding**: Confirm when new employee setup is complete
+You'll want this for:
+- **Service requests**: Let employees know their IT, HR, or facilities requests are done
+- **Approval workflows**: Tell requestors whether they got approved or rejected
+- **Order processing**: Send order confirmations when everything's shipped
+- **Document processing**: Deliver finished documents right to whoever submitted them
+- **Onboarding**: Confirm new employee setup is complete
 
 ### Prerequisites
 
@@ -35,35 +37,35 @@ This automation pattern works well for:
 1. **Capture the requestor identity**
    
    Add an **Assignee Picker** field to your kick-off form:
-   - Label it clearly (e.g., "Select your name" or "Who is requesting this?")
+   - Label it something obvious like "Select your name" or "Who's requesting this?"
    - Make the field required
-   - Position it prominently in the kick-off form
+   - Put it right at the top where people can't miss it
    
    :::tip[Auto-populate option]
-   Consider pre-selecting "Person who launches this process" as the default value to save users a step.
+   Here's a time-saver: pre-select "Person who launches this process" as the default. Most folks are requesting things for themselves anyway.
    :::
 
 2. **Create the notification task**
    
    Add a final task in your template for the completion notification:
-   - **Task type**: Choose "Email - Auto Send" for automatic delivery
-   - **Task name**: "Notify Requestor of Completion"
-   - **Content**: Include relevant completion details and any attachments
-   - **Timing**: Set to trigger after the last operational task completes
+   - **Task type**: Pick "Email - Auto Send" (this sends automatically)
+   - **Task name**: Something like "Notify Requestor of Completion"
+   - **Content**: Include everything they need - completion details, attachments, the works
+   - **Timing**: Set it to fire after your last real task wraps up
 
 3. **Configure the automation rule**
    
-   In the template's **Automations** tab:
+   Head to the template's **Automations** tab:
    - Click **Add Automation**
-   - Name it "Assign completion notification to requestor"
-   - **IF condition**: Select your assignee picker field and "is not empty"
+   - Name it something descriptive like "Assign completion notification to requestor"
+   - **IF condition**: Pick your assignee picker field and "is not empty"
    - **THEN action**: Choose "Replace assignee(s)"
    - **Target**: Select your notification task
-   - **Replace with**: Select the same assignee picker field
+   - **Replace with**: Select that same assignee picker field again
 
 4. **Add completion details using variables**
    
-   Enhance your notification email with process data:
+   Make your notification actually useful with process data:
    ```
    Hello `{{kick_off_form_requestor_name}}`,
    
@@ -82,75 +84,77 @@ This automation pattern works well for:
 
 #### Using multiple notification recipients
 
-To notify both the requestor and others:
-1. Add multiple assignee picker fields (e.g., "Requestor" and "CC Recipients")
-2. Create separate notification tasks for each audience
-3. Use automation rules to assign each notification appropriately
+Need to notify the requestor plus other people? Here's how:
+1. Add multiple assignee picker fields ("Requestor" and "CC Recipients" work well)
+2. Create separate notification tasks for each group
+3. Set up automation rules to route each notification to the right people
 
 #### Conditional notifications based on outcomes
 
-Send different notifications based on process results:
-1. Add a selection field for process outcome (e.g., "Approved", "Rejected", "Pending")
-2. Create multiple notification tasks with outcome-specific content
-3. Use conditional visibility to show only the relevant notification
+Sometimes you need different messages for different results. Set it up like this:
+1. Add a selection field for process outcome ("Approved", "Rejected", "Pending")
+2. Create multiple notification tasks - one for each possible outcome
+3. Use conditional visibility so only the right notification shows up
 
 #### Using webhooks for advanced notifications
 
-For complex notification requirements:
+Got complex notification needs? Webhooks are your friend:
 1. Set up a webhook on the final task completion
-2. Use middleware (Zapier, Make, Power Automate) to:
-   - Send formatted HTML emails
-   - Include attachments from external systems
-   - Send SMS or Slack notifications
+2. Connect it to middleware (Zapier, Make, Power Automate) and you can:
+   - Send fancy HTML emails
+   - Pull in attachments from other systems
+   - Fire off SMS or Slack messages
    - Update external systems
 
 ### Best practices
 
-- **Clear labeling**: Name your assignee picker field clearly so users understand its purpose
-- **Test thoroughly**: Launch test processes to verify notifications work correctly
-- **Include context**: Add process details using variables so recipients have full context
-- **Set appropriate timing**: Consider adding a delay if final data needs processing time
-- **Provide next steps**: Include what the requestor should do after receiving the notification
+- **Clear labeling**: Name your assignee picker field something obvious - people shouldn't have to guess what it's for
+- **Test thoroughly**: Always run a test process before going live. Trust me on this one.
+- **Include context**: Pack your notifications with details using variables. Recipients hate vague emails.
+- **Set appropriate timing**: If your final data needs processing time, add a delay (30 minutes usually does it)
+- **Provide next steps**: Tell people what to do next - don't leave them hanging
 
 ### Troubleshooting
 
-**Notification not sending**:
-- Verify the assignee picker field has a value
-- Check that the automation rule is active
-- Ensure the task type is set to "Email - Auto Send"
-- Confirm the task deadline has passed (for auto-send emails)
+**Notification not sending?**
+- Check if the assignee picker field actually has someone selected
+- Make sure your automation rule is switched on (easy to forget!)
+- Verify the task type is "Email - Auto Send" not just a regular task
+- For auto-send emails, the deadline needs to pass first - that's what triggers them
 
-**Wrong recipient**:
-- Verify the correct field is selected in the automation rule
-- Check that users are selecting the right person in the assignee picker
-- Consider making the field read-only after initial selection
+**Wrong person getting notified?**
+- Double-check you picked the right field in your automation rule
+- Watch what users are actually selecting - they might be picking the wrong person
+- Pro tip: make the field read-only after someone picks their name
 
-**Missing process data**:
-- Ensure variables reference the correct fields
-- Check that referenced fields are completed before the notification task
-- Test with sample data to verify variable substitution
+**Missing data in the notification?**
+- Your variables might be pointing to the wrong fields
+- The fields you're referencing need to be filled out before the notification fires
+- Run a test with real data - that usually reveals the problem
 
 ### Example: IT service request completion
 
-Here's a complete example for an IT service request process:
+Let me show you how this works with a real IT service request:
 
-1. **Kick-off form** includes:
+1. **Kick-off form** has three fields:
    - Assignee picker: "Select your name"
    - Request type dropdown
    - Description field
 
-2. **Process steps**:
-   - IT reviews request
-   - IT completes work
-   - IT uploads completion documentation
+2. **Process steps** are simple:
+   - IT reviews the request
+   - IT does the work
+   - IT uploads any documentation
 
-3. **Final notification task**:
+3. **Final notification task** brings it all together:
    - Type: Email - Auto Send
    - Timing: 30 minutes after "Upload documentation" completes
-   - Content includes request details and attached documentation
-   - Automation assigns to original requestor
+   - Content includes all the request details plus attached docs
+   - Automation assigns it to whoever started this whole thing
 
-This pattern ensures every service request closes the loop with the person who initiated it.
+Simple.
+
+Every service request closes the loop automatically - the person who asked for help knows exactly when it's done and gets everything they need.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

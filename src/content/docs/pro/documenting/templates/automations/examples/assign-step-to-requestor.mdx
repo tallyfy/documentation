@@ -11,59 +11,60 @@ title: Automatically assign a step to the original process requestor
 
 import { Steps } from "@astrojs/starlight/components";
 
-This Tallyfy automation example demonstrates how you can ensure the person who initially requested or launched a process is automatically assigned to a specific step later on, such as receiving a final notification email with attached proof or results.
+Need to automatically notify the person who started a process? Here's how to make Tallyfy remember who kicked things off and loop back to them with results - like sending payment confirmations or completed documents straight to the original requestor.
 
 ## What is the use case for this automation?
 
-Imagine a purchase request process:
+Let's say you're running a purchase request process. Here's the typical flow:
 
-1.  An employee (the requestor) submits a purchase request via a kick-off form.
-2.  The request goes through approvals and payment processing.
-3.  An accountant uploads proof of payment.
-4.  You want to automatically email the original requestor with the proof of payment once the process is complete.
+1.  Sarah from marketing submits a request for new software (she's the requestor).
+2.  The request bounces through approvals and finance.
+3.  Your accountant uploads the payment proof.
+4.  You want Sarah to automatically get that proof - without anyone having to remember who started this whole thing.
 
-To achieve this, you need to capture who the requestor is at the start and then use an automation to assign the final notification step to them.
+That's the challenge, right? How do you capture Sarah's identity at the beginning and make sure she gets notified at the end? Simple.
 
 ## What are the prerequisites?
 
-*   You need an existing [procedure template](/products/pro/documenting/templates/) where you want to implement this logic.
-*   You should understand how [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) work, particularly the *Assignee Picker* field type.
-*   Familiarity with [template automations](/products/pro/documenting/templates/automations/) is helpful.
+*   You'll need an existing [procedure template](/products/pro/documenting/templates/) ready to go.
+*   Get comfortable with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) - especially the *Assignee Picker* field type (it's the star of this show).
+*   A basic grasp of [template automations](/products/pro/documenting/templates/automations/) helps, but you'll pick it up as we go.
 
 ## How do I set up this automation?
 
 <Steps>
 1.  **Capture the requestor on the kick-off form or in any other step**
 
-    Edit your template's kick-off form and add an **Assignee Picker** form field (e.g., label it "Who is making this request?" or "Please pick your name"). This field allows the person launching the process to select themselves or another member. Make this field required if necessary.
+    First things first - edit your template's kick-off form. Add an **Assignee Picker** form field and label it something like "Who is making this request?" or "Please pick your name". This lets whoever's launching the process select themselves (or someone else if they're submitting on behalf of a colleague). Make it required if you don't want anyone slipping through the cracks.
 
 2.  **Set up the step to be assigned**
 
-    Identify or create the step you want to assign to the requestor (e.g., the final notification step). If it's a notification email, set the step type to **Email - Auto Send** to ensure it sends automatically at its deadline. Configure the step's content, using [variables](/products/pro/documenting/templates/variables/) like `{{step_4_upload_field}}` to include data from earlier steps if needed. Set the step's timing appropriately (e.g., 1 hour after the previous step "Upload Proof of Payment" is completed).
+    Find the step where you want to notify the requestor - usually it's near the end of your process. Creating a new one? Perfect. If you're sending an email notification, set the step type to **Email - Auto Send**. Trust me, you want it automated. Configure what the email says, and here's where it gets cool - use [variables](/products/pro/documenting/templates/variables/) like `{{step_4_upload_field}}` to pull in that payment proof or whatever data you collected earlier. Set the timing too (maybe 1 hour after "Upload Proof of Payment" completes).
 
 3.  **Create the automation rule**
 
-    Go to the **Automations** tab in your template editor and click **Add Automation**. Give it a descriptive name like "Assign final notification to requestor". Configure the **IF** condition: select the **Assignee Picker** field created in Step 1 (e.g., "Who is making this request?") and choose the condition **is not empty**. Configure the **THEN** action: select **Assignment Action**, choose **Replace assignee(s)**, select the target step (e.g., "Step 5: Notify Requestor via Email"), and for "Replace with...", select the **Assignee Picker** field again. **Save** the automation rule.
+    Head to the **Automations** tab in your template editor. Click **Add Automation**. Name it something clear - "Assign final notification to requestor" works great. Here's the magic: For the **IF** condition, pick that assignee picker field from Step 1 and set it to **is not empty**. For the **THEN** action, choose **Assignment Action** → **Replace assignee(s)**. Select your notification step (like "Step 5: Notify Requestor via Email"). For "Replace with...", pick that same assignee picker field again. Hit **Save**. Done.
 </Steps>
 
 ## How does this automation work?
 
-When a process is launched:
-1.  The user launching fills out the kick-off form, selecting a member in the "Who is making this request?" assignee picker field.
-2.  The process runs through its steps.
-3.  When the process reaches the point where the automation rule is evaluated, Tallyfy checks if the "Who is making this request?" field was filled (i.e., is not empty).
-4.  If it's not empty, the automation rule triggers.
-5.  The "Replace Assignee" action assigns the final notification email step directly to the member selected in the assignee picker field.
-6.  Because the step is an "Email - Auto Send" type, Tallyfy automatically sends the email (potentially containing variables like uploaded files from previous steps) to the original requestor at the scheduled time.
+Here's what happens behind the scenes when someone launches your process:
 
-This ensures the loop is closed, and the person who initiated the request is automatically informed upon completion, without manual intervention.
+1.  Sarah (or whoever) fills out the kick-off form and selects herself in the "Who is making this request?" field. Takes 2 seconds.
+2.  The process chugs along through all its steps - approvals, processing, the works.
+3.  When Tallyfy hits your automation rule, it checks: Did someone actually fill in that assignee picker field?
+4.  If yes (it's not empty), boom - the automation fires.
+5.  The "Replace Assignee" action swaps whoever was originally assigned to that final email step with Sarah's name from the picker field.
+6.  Since you set the step type to "Email - Auto Send", Tallyfy sends the email automatically at the scheduled time. No manual work needed.
+
+The beauty? Sarah gets her payment proof (or whatever you're sending) without anyone having to remember she started this process three days ago. The loop closes itself.
 
 ## What are the related concepts?
 
-*   [Assignee picker form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/#assignee-picker)
-*   [Automation Actions: Assignment](/products/pro/documenting/templates/automations/actions/#assignment-actions)
-*   [Using variables](/products/pro/documenting/templates/variables/)
-*   [Email step types](/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/#email-types)
+*   [Assignee picker form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/#assignee-picker) - The field type that makes this whole thing work
+*   [Automation Actions: Assignment](/products/pro/documenting/templates/automations/actions/#assignment-actions) - Other ways to manipulate task assignments
+*   [Using variables](/products/pro/documenting/templates/variables/) - Pull data from earlier steps into your notifications
+*   [Email step types](/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/#email-types) - Different email options in Tallyfy
 
 ---
 

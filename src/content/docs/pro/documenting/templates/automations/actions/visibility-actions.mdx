@@ -13,59 +13,61 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Visibility actions explained
 
-Visibility actions in Tallyfy automatically **Show** or **Hide** specific steps based on conditions in your process. This ensures that every step is considered each time a process runs, so nothing is missed. By intelligently showing only relevant steps when needed, you prevent problems later while maintaining complete process integrity.
+Visibility actions in Tallyfy let you **Show** or **Hide** specific steps based on conditions. Think of them as smart switches - they make sure users see exactly what they need, when they need it. Nothing gets missed.
 
 ### Examples of visibility actions
 
-**Example 1:** Show an extra approval step for large amounts to ensure nothing is missed
+**Example 1:** Need CFO approval for big purchases?
 ```
 IF (Purchase Amount field) is ">$10,000"
 THEN SHOW step "Approval by CFO"
 ```
-Result: CFO approval step appears for purchases over $10k, ensuring critical oversight isn't missed which could cause problems later.
+Result: The CFO approval step pops up automatically for purchases over $10k. No more chasing signatures or wondering if you missed something.
 
-**Example 2:** Hide steps not relevant to certain customers while ensuring all necessary steps are considered
+**Example 2:** Small business customers don't need enterprise-level reviews
 ```
 IF (Customer Type field) is "Small Business"
 THEN HIDE step "Enterprise Security Review"
 ```
-Result: Enterprise review step gets hidden for small business customers who don't need it, but the process still ensures every required step for that customer type is considered.
+Result: Your small business customers skip the enterprise security review - it's hidden because they simply don't need it. The process stays clean and relevant.
 
-**Example 3:** Show different steps based on user input to modify the flow intelligently
+**Example 3:** Let the process adapt to what users tell you
 ```
 IF (Application Type field) is "Mortgage"
 THEN SHOW steps "Credit Check", "Property Valuation", and "Underwriting"
 ```
-Result: Smart processes ask for user input (application type) and modify the flow to show mortgage-specific steps, ensuring nothing is missed.
+Result: When someone selects "Mortgage", boom - all the mortgage-specific steps appear. Credit checks, property valuation, underwriting. Everything they need.
 
-Let's look at another example:
+Here's what it looks like in action:
 
 ![Visibility example](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-task-completion-example-automations.png)
 
-This example shows a rule where completing one step triggers step 2 to become visible.
+See how completing one step makes the next one appear? That's visibility automation at work.
 
 :::note[How visibility works]
 - Steps are **visible by default** unless you hide them.
-- You can hide a step initially when building the [template](/products/pro/documenting/templates/) (using its settings).
-- You can use a **Hide** visibility action in an automation rule to hide a step based on a condition.
-- You can use a **Show** visibility action in an automation rule to make a hidden step appear when a condition is met.
+- You can hide a step initially when building the [template](/products/pro/documenting/templates/) (just toggle it in the settings).
+- Use a **Hide** visibility action to make steps disappear based on conditions.
+- Use a **Show** visibility action to reveal hidden steps when the time is right.
 
-This smart approach ensures every step is considered for each process run - either by showing it when relevant or deliberately hiding it when not needed. Nothing is missed, preventing problems later.
+The beauty of this approach? Every step gets considered - it's either shown when needed or deliberately hidden when it's not. Simple.
 :::
 
 :::warning[Hidden steps and completion]
-Hidden steps cannot be completed by users and will remain incomplete indefinitely. Any automation conditions checking "if step is complete" will never trigger for hidden steps unless the step has another rule that makes it visible first. Only design completion-based automations for steps that users can actually see and complete. As manual workaround you can hide or show steps manually via the "three dots" menu on a task within a process.
+Here's the catch: hidden steps can't be completed. They'll sit there, incomplete, forever. If you've got an automation checking "if step is complete" on a hidden step - it won't trigger. Ever. (Unless another rule makes that step visible first.)
+
+The fix? Only create completion-based automations for steps users can actually see. Need a quick workaround? You can manually show or hide steps using the "three dots" menu on any task.
 :::
 
 :::note[Steps and parallel execution]
-All steps always show and are available to work on in parallel by default, unless they are hidden by default using an automation.
+Tallyfy shows all steps at once by default. People can work on them in any order - true parallel processing.
 
-If you want a step to be hidden by default, you need to create an automation that **shows** that step - this approach ensures the step is considered by the smart process and shown only when the automation condition is met.
+Want a step hidden from the start? Hide it by default, then create an automation to **show** it when conditions are right. This way, the step only appears when it's actually needed.
 :::
 
 ### Hiding tasks by default in a template
 
-When designing a [procedure template](/products/pro/documenting/templates/), tasks are visible by default when processes launch. To control visibility through automations, you need to hide the task by default first.
+When you're building a [procedure template](/products/pro/documenting/templates/), all tasks show up automatically when someone launches the process. But what if you want certain tasks to stay hidden until the right moment? You'll need to hide them first.
 
 <Steps>
 1.  Open your procedure template in the editor.
@@ -74,13 +76,13 @@ When designing a [procedure template](/products/pro/documenting/templates/), tas
 4.  Save the changes to your step.
 </Steps>
 
-Hidden steps stay invisible until a **Show** automation rule makes them appear.
+That's it. Hidden steps stay out of sight until a **Show** automation brings them back.
 
 ### Enforcing sequential task order
 
-By default, launching a [process](/products/pro/tracking-and-tasks/processes/) makes all visible tasks available immediately. People can work on them in any order - essentially parallel execution.
+Remember how Tallyfy shows all tasks at once? Sometimes that's not what you want. Maybe Task B shouldn't start until Task A is done. Or Task C needs to wait for Task B.
 
-To ensure every step is considered in the proper order (preventing problems from missed dependencies), you can enforce a specific sequence for tasks. For example, ensuring Task B can only be started after Task A is completed, and Task C only after Task B. Use a combination of hiding tasks by default and **Show** visibility actions in your [automations](/products/pro/documenting/templates/automations/).
+Here's the thing - you can force tasks to appear in sequence. It's like creating a relay race where each runner waits for the baton. You'll use a mix of hidden tasks and **Show** visibility actions in your [automations](/products/pro/documenting/templates/automations/).
 
 Here's how to set up a simple sequence:
 
@@ -96,12 +98,12 @@ Here's how to set up a simple sequence:
     *   **THEN** `(Visibility)` **SHOW** `Task C`
 </Steps>
 
-With this setup:
-- When the process starts, only Task A is visible.
-- Once Task A is completed, Task B becomes visible.
-- Once Task B is completed, Task C becomes visible.
+Here's what happens:
+- Process starts → only Task A shows up
+- Complete Task A → Task B appears  
+- Complete Task B → Task C appears
 
-This method ensures every step is considered in the right order, preventing problems that could occur if steps were done out of sequence. You can extend this pattern for as many sequential tasks as needed to maintain process integrity.
+Perfect sequence. No jumping ahead, no confusion. You can chain as many tasks as you need this way - 5, 10, even 20 steps in perfect order.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

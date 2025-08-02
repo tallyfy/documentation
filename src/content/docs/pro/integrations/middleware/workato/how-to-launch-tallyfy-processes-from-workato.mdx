@@ -16,7 +16,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Automatically launch Tallyfy processes from Workato recipes
 
-This guide shows you how to automatically start [Tallyfy processes](/products/pro/tracking-and-tasks/processes/) from your Workato recipes using the HTTP connector. This integration is valuable when you want to trigger Tallyfy workflows based on events in other systems like your CRM, ERP, or support desk.
+Want to launch Tallyfy workflows when something happens in Salesforce? Or maybe when a support ticket comes in? You can connect Workato to Tallyfy using the HTTP connector to automatically start [processes](/products/pro/tracking-and-tasks/processes/) based on events in your other business systems - whether that's your CRM, ERP, or help desk.
 
 ### Prerequisites
 
@@ -60,7 +60,7 @@ Before you begin, make sure you have:
 
 ### Step 3: Configure the request body
 
-In the **Request body** field, you'll need to provide JSON data. Here's the structure:
+Here's where you tell Tallyfy what process to launch and with what data. You'll need JSON in the **Request body** field:
 
 ```json
 {
@@ -77,7 +77,7 @@ In the **Request body** field, you'll need to provide JSON data. Here's the stru
 
 #### Mapping dynamic data
 
-Instead of hardcoding values, map data from your trigger:
+Real power comes from using data from your trigger. Instead of hardcoding values:
 
 1. Click the **Formula** mode toggle
 2. Build your JSON dynamically:
@@ -98,13 +98,13 @@ Instead of hardcoding values, map data from your trigger:
 
 ### Step 4: Handle kick-off form fields
 
-If your Tallyfy template includes a [kick-off form](/products/pro/launching/triggers/kick-off-forms/), you'll need to populate those fields in the `prerun` object:
+Got a [kick-off form](/products/pro/launching/triggers/kick-off-forms/) in your template? You'll populate those fields through the `prerun` object. It's straightforward:
 
 1. Identify all required kick-off form fields in your template
 2. Map each field in the `prerun` section
 3. Ensure data types match (text, number, date, etc.)
 
-Example with various field types:
+Here's an example with different field types:
 ```json
 {
   "blueprint_id": "template123",
@@ -123,7 +123,7 @@ Example with various field types:
 
 ### Step 5: Process the Tallyfy response
 
-After launching, Tallyfy returns information about the new process:
+Once Tallyfy launches your process, it sends back details you can use:
 
 <Steps>
 1. Add a **Variable** action after your HTTP request
@@ -151,7 +151,7 @@ After launching, Tallyfy returns information about the new process:
 
 #### Pattern 1: Launch from CRM opportunity
 
-When a Salesforce opportunity reaches "Closed Won":
+Picture this - a Salesforce opportunity hits "Closed Won" and your onboarding kicks off automatically:
 1. Trigger: Salesforce - Updated opportunity
 2. Condition: Status changed to "Closed Won"
 3. Action: Launch Tallyfy customer onboarding process
@@ -159,7 +159,7 @@ When a Salesforce opportunity reaches "Closed Won":
 
 #### Pattern 2: Launch from support ticket
 
-When a high-priority support ticket is created:
+When urgent tickets need immediate attention:
 1. Trigger: Zendesk - New ticket
 2. Condition: Priority = "Urgent"
 3. Action: Launch Tallyfy escalation process
@@ -167,7 +167,7 @@ When a high-priority support ticket is created:
 
 #### Pattern 3: Scheduled launches
 
-For recurring processes:
+Perfect for monthly reports or weekly reviews:
 1. Trigger: Scheduler - Daily/Weekly/Monthly
 2. Action: Launch Tallyfy process
 3. Use date formulas for dynamic titles
@@ -176,6 +176,7 @@ For recurring processes:
 
 #### Tallyfy process not launching?
 
+Here's what to check:
 - Verify your Tallyfy API token is active and has proper permissions
 - Check that `X-Tallyfy-Client: APIClient` header is included
 - Ensure the Tallyfy template ID is correct (not the template name)
@@ -183,20 +184,22 @@ For recurring processes:
 
 #### Kick-off form data not appearing?
 
+The usual suspects:
 - Field names in `prerun` must match exactly (case-sensitive)
 - Check data types match field expectations
 - Required fields must have values
 
 #### Rate limit errors?
 
+You're hitting Tallyfy's API limits (100 requests per minute). Try these fixes:
 - Add delays between bulk launches
 - Implement exponential backoff for retries
-- Monitor your usage against Tallyfy's limits (100/minute)
+- Space out your requests over time
 
 ### Next steps
 
-After successfully launching Tallyfy processes:
-- Set up webhooks to get notified when Tallyfy tasks complete
+Got your integration working? Time to level up:
+- Set up webhooks to get notified when tasks complete
 - Create recipes to update processes based on external events
 - Build dashboards to track launched processes
 - Implement two-way sync between systems

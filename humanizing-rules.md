@@ -152,7 +152,10 @@ Example:
 ### 6. Avoiding AI Detection Patterns
 
 #### Words and Phrases to Eliminate
-- **Sentence starters to avoid**: Never begin with "By [verb]ing"
+- **Sentence starters to avoid**: 
+  - Never begin with "By [verb]ing"
+  - Avoid starting sentences with "So," or "Now," in prose content
+  - **Table Content Exclusion**: These sentence starter rules DO NOT apply to content within markdown tables (between `|` characters). Table headers and data should remain unchanged.
 - **Overused AI adjectives**: Eliminate "crucial", "ideal", "key", "robust" without specific context
 - **Empty summary sentences**: Never end paragraphs with meaningless conclusions
   - Bad: "By following these steps, we achieve better performance"

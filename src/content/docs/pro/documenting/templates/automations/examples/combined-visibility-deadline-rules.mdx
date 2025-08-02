@@ -11,18 +11,18 @@ title: Combined visibility and deadline rules
 
 import { Steps } from '@astrojs/starlight/components';
 
-This Tallyfy example shows how to use multiple automation rules together - specifically combining visibility rules with deadline rules to create smart, context-aware workflows. Steps only appear when relevant AND have appropriate deadlines based on the specific situation.
+You can combine visibility rules with deadline rules in Tallyfy to make workflows that adapt to different situations. Here's the magic: steps appear only when you need them AND they automatically get the right deadlines based on what's happening.
 
 ## What is the use case for this automation?
 
-Combining visibility and deadline rules is powerful for:
+Think about processes that change based on circumstances. You need this combination when:
 
-- **Shipping processes**: International shipments need customs checks with deadlines based on arrival dates
-- **Contract renewals**: Different contract types have different review requirements and timelines
-- **Event planning**: Optional services need completion by specific dates relative to the event
-- **Customer onboarding**: Premium customers see expedited steps with tighter deadlines
+- **Shipping processes**: International shipments need customs checks - but domestic ones don't. When that customs step appears, it needs a deadline tied to the arrival date.
+- **Contract renewals**: A custom enterprise contract needs legal review 30 days before expiration. Standard contracts? They skip it entirely.
+- **Event planning**: Ordered catering? The catering arrangement task shows up with a 2-week deadline before your event.
+- **Customer onboarding**: Premium customers get expedited setup steps with 24-hour turnarounds instead of the standard 5-day timeline.
 
-The key is that steps are both conditionally shown AND have deadlines that adapt to the context.
+See the pattern? Steps appear only when relevant, and when they do appear, they come with smart deadlines.
 
 ## How do I combine visibility and deadline automations?
 
@@ -62,7 +62,7 @@ The key is that steps are both conditionally shown AND have deadlines that adapt
 
 ### Example 1: Contract renewal with type-specific deadlines
 
-Different contract types need different review times:
+Not all contracts are created equal. Custom enterprise deals need extra attention:
 
 **Step**: "Legal review for special terms"
 
@@ -78,11 +78,11 @@ IF (Contract Type field) is "Custom Enterprise"
 THEN Set deadline to 30 days before (Contract End Date field)
 ```
 
-Result: Custom enterprise contracts get a legal review step that appears 30 days before expiration. Standard contracts skip this step entirely.
+What happens? Custom enterprise contracts trigger a legal review 30 days before they expire. Standard contracts breeze right past this step. Simple.
 
 ### Example 2: Event planning with optional services
 
-Events may include optional elements with specific timing requirements:
+Running an event? Only show tasks for services people actually want:
 
 **Step**: "Arrange catering service"
 
@@ -98,11 +98,11 @@ IF (Services Requested field) contains "Catering"
 THEN Set deadline to 14 days before (Event Date field)
 ```
 
-Result: The catering task only appears if catering was requested, with a deadline 2 weeks before the event.
+No catering requested? No task appears. Catering needed? The task shows up with a 14-day countdown to event day. Your team focuses only on what matters.
 
 ### Example 3: Customer support escalation
 
-High-priority issues need faster response times:
+When a critical issue hits and first-line support can't fix it, you need rapid escalation:
 
 **Step**: "Senior engineer review"
 
@@ -119,13 +119,13 @@ IF (Issue Priority field) is "Critical"
 THEN Set deadline to 2 hours after (Escalation Time field)
 ```
 
-Result: Critical issues that couldn't be resolved initially get escalated with a tight 2-hour deadline.
+Here's what happens: Regular issues follow normal flow. But a critical issue that stumps support? It instantly escalates to senior engineers with a 2-hour SLA. That's how you keep customers happy.
 
 ## Advanced patterns
 
 ### Multiple conditions affecting the same step
 
-You can layer multiple rules for sophisticated logic:
+Want to get fancy? Layer multiple rules to handle complex scenarios:
 
 ```
 // Visibility depends on amount AND region
@@ -133,18 +133,18 @@ IF (Purchase Amount field) is greater than $10,000
 AND (Region field) is "International"
 THEN Show "Export compliance check"
 
-// Deadline depends on shipping method
+// Express shipping? Tight deadline
 IF (Shipping Method field) is "Express"
 THEN Set deadline for "Export compliance check" to 1 day after process launch
 
-// Different deadline for standard shipping
+// Standard shipping gets more time
 IF (Shipping Method field) is "Standard"
 THEN Set deadline for "Export compliance check" to 3 days after process launch
 ```
 
 ### Cascading deadline adjustments
 
-Make deadlines relative to other conditional steps:
+Sometimes one deadline depends on another. Here's how you chain them together:
 
 ```
 // First conditional step
@@ -160,11 +160,13 @@ AND Set deadline to 1 day after "Quality inspection" deadline
 
 ## Best practices
 
-- **Keep conditions aligned**: Use the same condition trigger for both visibility and deadline rules to ensure consistency
-- **Consider hidden step defaults**: Set reasonable default deadlines even for hidden steps in case they're shown
-- **Document the logic**: Add clear descriptions explaining when steps appear and why deadlines are set
-- **Test edge cases**: Verify behavior when date fields are empty or conditions change
-- **Use meaningful step names**: Since steps appear conditionally, names should clearly indicate their purpose
+After helping hundreds of companies set up these automations, here's what works:
+
+- **Keep conditions aligned**: Match your visibility and deadline triggers. If a step shows for "International" shipments, its deadline should trigger on the same condition.
+- **Plan for surprises**: Give hidden steps reasonable default deadlines. You never know when someone might manually show a step.
+- **Document everything**: Your future self (and your team) will thank you. Explain why steps appear and how deadlines work.
+- **Test the weird stuff**: What happens if someone leaves a date field empty? Or changes a condition mid-process? Find out before your users do.
+- **Name steps clearly**: "Premium setup verification" beats "Step 3" every time - especially when steps appear conditionally.
 
 :::tip[Rule evaluation order]
 Tallyfy evaluates all applicable rules when conditions change. Visibility rules determine if a step appears, then deadline rules set appropriate due dates. Both types can reference the same form fields and conditions in your automation setup.
