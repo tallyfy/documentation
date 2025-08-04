@@ -12,10 +12,12 @@ title: Index multiple objects
 
 This endpoint allows you to efficiently index multiple objects into Tallyfy Answers in a single API call. It significantly outperforms making multiple individual object creation requests, especially for large datasets or initial data loading.
 
+Large batch imports are processed in the background, allowing you to monitor progress and cancel operations if needed using the [Tasks](/products/answers/tasks/) endpoints.
+
 ### API endpoint
 
 ```
-POST /v1/collections/{collection_name}/objects/import
+POST /collections/{collection_name}/batch
 ```
 
 ### Request parameters
@@ -24,23 +26,37 @@ POST /v1/collections/{collection_name}/objects/import
 |-----------|------|----------|-------------|
 | `collection_name` | path | Yes | Name of the collection to import objects into |
 
-### Request body format: JSONLines
+### Request body format: JSON Array
 
-The request body must use the [JSONLines format](https://jsonlines.org/) (also known as newline-delimited JSON). This format consists of multiple JSON objects, with each object on a separate line and no commas between objects.
+The request body must be a JSON array containing multiple document objects. Each object should include the required fields for your collection schema.
 
-Example JSONLines format for three objects:
+Example JSON array format for three objects:
 
-```
-{"id": "product-123", "name": "Wireless Headphones", "price": 79.99}
-{"id": "product-456", "name": "Bluetooth Speaker", "price": 129.99}
-{"id": "product-789", "name": "Smart Watch", "price": 199.99}
+```json
+[
+  {
+    "uid": "article-123",
+    "title": "Getting Started Guide",
+    "content": "Complete guide to getting started...",
+    "url": "https://example.com/guide",
+    "source": "Documentation",
+    "snippet": "Quick start guide for new users"
+  },
+  {
+    "uid": "article-456", 
+    "title": "Advanced Features",
+    "content": "Advanced functionality overview...",
+    "url": "https://example.com/advanced",
+    "source": "Documentation",
+    "snippet": "Deep dive into advanced capabilities"
+  }
+]
 ```
 
 ### Content-Type header
 
-Set the `Content-Type` header to either:
-- `application/x-ndjson` (preferred)
-- `text/plain`
+Set the `Content-Type` header to:
+- `application/json`
 
 ### Response
 
@@ -81,10 +97,19 @@ If some objects fail to import while others succeed, you'll receive a `207 Multi
 ### Example request using curl
 
 ```bash
-curl -X POST https://go.tallyfy.com/api/collections/products/objects/import \
-  -H "X-Answers-API-Key: <your_api_key>" \
-  -H "Content-Type: application/x-ndjson" \
-  --data-binary @products.ndjson
+curl -X POST "https://answers.tallyfy.com/collections/docs/batch" \
+  -H "Authorization: Bearer your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "uid": "guide-123",
+      "title": "Getting Started",
+      "content": "Complete guide to getting started with our platform...",
+      "url": "https://example.com/guide",
+      "source": "Documentation",
+      "snippet": "Quick start guide for new users"
+    }
+  ]'
 ```
 
 ### Best practices for batch imports
