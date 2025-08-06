@@ -1,0 +1,749 @@
+---
+description: Learn how to create processes in Tallyfy without requiring a template, perfect for AI assistants and automation scenarios that need ad-hoc task bundling
+id: launch-process-without-template
+sidebar:
+  order: 45
+title: Launch Processes Without Templates
+---
+
+import { LinkTitleCard } from "/src/components/LinkTitleCard/LinkTitleCard"
+import { Aside, Card, TabItem, Tabs } from "@astrojs/starlight/components"
+
+# Launch Processes Without Templates
+
+Create processes in Tallyfy without requiring a predefined template. This powerful feature enables AI assistants, automation tools, and integrations to create ad-hoc collections of tasks that are tracked together as a single process.
+
+<Aside type="tip">
+  This feature is perfect for scenarios where you need to create dynamic, one-time processes programmatically, such as bulk task assignments or AI-driven workflows.
+</Aside>
+
+## Overview
+
+Tallyfy's API supports creating processes without templates through a special parameter in the task creation endpoint. When you set `separate_task_for_each_assignee: true`, the system automatically:
+
+1. Creates an empty process (using the internal MISC system checklist)
+2. Creates individual tasks for each assignee
+3. Links all tasks to the same process for unified tracking
+
+This eliminates the need to create templates for one-time or dynamic processes, making it ideal for automation and AI assistant integrations.
+
+## API Endpoint
+
+```
+POST /api/organizations/{orgId}/tasks
+```
+
+### Required Headers
+
+```http
+Authorization: Bearer {access_token}
+Content-Type: application/json
+```
+
+## Key Parameter
+
+The magic happens with this single parameter:
+
+```json
+{
+  "separate_task_for_each_assignee": true
+}
+```
+
+When set to `true`, this parameter triggers the creation of an empty process container that holds all the tasks.
+
+## Request Schema
+
+### Complete Request Body
+
+```json
+{
+  "title": "Task title",
+  "summary": "Optional task description",
+  "owners": {
+    "users": ["userId1", "userId2", "userId3"],
+    "guests": ["guestId1"],
+    "groups": ["groupId1"]
+  },
+  "separate_task_for_each_assignee": true,
+  "status": "not-started",
+  "task_type": "task",
+  "deadline": "2024-12-31 17:00:00",
+  "everyone_must_complete": false,
+  "is_soft_start_date": true
+}
+```
+
+### Parameter Details
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `title` | string | Yes | Title for the process and all tasks |
+| `summary` | string | No | Description or instructions for the tasks |
+| `owners` | object | Yes | Contains arrays of users, guests, and/or groups |
+| `separate_task_for_each_assignee` | boolean | Yes | Must be `true` to create process without template |
+| `status` | string | No | Initial status (default: "not-started") |
+| `task_type` | string | No | Type of task (default: "task") |
+| `deadline` | string | No | Deadline in "YYYY-MM-DD HH:MM:SS" format |
+| `everyone_must_complete` | boolean | No | Set to `false` for independent task completion |
+| `is_soft_start_date` | boolean | No | Whether the start date is flexible |
+
+## Implementation Examples
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+async function createProcessWithoutTemplate(orgId, accessToken, taskData) {
+  const response = await fetch(
+    `https://api.tallyfy.com/api/organizations/${orgId}/tasks`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: taskData.title,
+        summary: taskData.description || '',
+        owners: {
+          users: taskData.userIds || []
+        },
+        separate_task_for_each_assignee: true, // Critical parameter
+        status: 'not-started',
+        task_type: 'task',
+        deadline: taskData.deadline || getDefaultDeadline(),
+        everyone_must_complete: false,
+        is_soft_start_date: true
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to create process: ${response.status}`);
+  }
+
+  const result = await response.json();
+  
+  // Extract process information
+  const processId = result.data?.run?.id;
+  const processUrl = result.data?.run?.permalink;
+  
+  console.log(`Created process ${processId}: ${processUrl}`);
+  return result;
+}
+
+// Example: Create a process for multiple timesheet submissions
+async function createTimesheetProcess() {
+  const taskData = {
+    title: 'Submit Weekly Timesheet',
+    description: 'Please submit your timesheet for this week by Friday 5pm',
+    userIds: ['user_123', 'user_456', 'user_789'],
+    deadline: '2024-12-13 17:00:00'
+  };
+  
+  await createProcessWithoutTemplate('your-org-id', 'your-token', taskData);
+}
+
+function getDefaultDeadline() {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+```
+</TabItem>
+
+<TabItem label="Python">
+```python
+import requests
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional
+
+class TallyfyProcessCreator:
+    def __init__(self, org_id: str, access_token: str):
+        self.org_id = org_id
+        self.access_token = access_token
+        self.api_base = "https://api.tallyfy.com/api"
+        
+    def create_process_without_template(
+        self,
+        title: str,
+        user_ids: List[str],
+        description: str = "",
+        deadline: Optional[datetime] = None
+    ) -> Dict:
+        """
+        Create a process without requiring a template
+        
+        Args:
+            title: Title for the process and tasks
+            user_ids: List of user IDs to assign tasks to
+            description: Optional description for the tasks
+            deadline: Optional deadline for all tasks
+        
+        Returns:
+            API response containing process and task information
+        """
+        if deadline is None:
+            deadline = datetime.now() + timedelta(days=7)
+            
+        deadline_str = deadline.strftime("%Y-%m-%d %H:%M:%S")
+        
+        payload = {
+            "title": title,
+            "summary": description,
+            "owners": {
+                "users": user_ids
+            },
+            "separate_task_for_each_assignee": True,  # Key parameter
+            "status": "not-started",
+            "task_type": "task",
+            "deadline": deadline_str,
+            "everyone_must_complete": False,
+            "is_soft_start_date": True
+        }
+        
+        response = requests.post(
+            f"{self.api_base}/organizations/{self.org_id}/tasks",
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            },
+            json=payload
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        # Extract process information
+        if "data" in result and "run" in result["data"]:
+            process_info = result["data"]["run"]
+            print(f"Created process {process_info['id']}: {process_info['permalink']}")
+            
+        return result
+
+# Example usage
+def main():
+    creator = TallyfyProcessCreator(
+        org_id="your-org-id",
+        access_token="your-access-token"
+    )
+    
+    # Create a process for document reviews
+    result = creator.create_process_without_template(
+        title="Review Q4 Financial Report",
+        user_ids=["user_123", "user_456", "user_789"],
+        description="Please review and provide feedback on the Q4 financial report",
+        deadline=datetime(2024, 12, 15, 17, 0)  # Dec 15, 5pm
+    )
+    
+    # The system creates:
+    # - 1 empty process named "Review Q4 Financial Report"
+    # - 3 individual tasks (one per user)
+    # - All tasks linked to the same process for tracking
+```
+</TabItem>
+
+<TabItem label="PHP">
+```php
+<?php
+
+class TallyfyProcessCreator {
+    private $orgId;
+    private $accessToken;
+    private $apiBase = 'https://api.tallyfy.com/api';
+    
+    public function __construct($orgId, $accessToken) {
+        $this->orgId = $orgId;
+        $this->accessToken = $accessToken;
+    }
+    
+    public function createProcessWithoutTemplate($title, $userIds, $description = '', $deadline = null) {
+        if ($deadline === null) {
+            $deadline = date('Y-m-d H:i:s', strtotime('+7 days'));
+        }
+        
+        $payload = [
+            'title' => $title,
+            'summary' => $description,
+            'owners' => [
+                'users' => $userIds
+            ],
+            'separate_task_for_each_assignee' => true, // Key parameter
+            'status' => 'not-started',
+            'task_type' => 'task',
+            'deadline' => $deadline,
+            'everyone_must_complete' => false,
+            'is_soft_start_date' => true
+        ];
+        
+        $ch = curl_init("{$this->apiBase}/organizations/{$this->orgId}/tasks");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $this->accessToken,
+            'Content-Type: application/json'
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200 && $httpCode !== 201) {
+            throw new Exception("Failed to create process: HTTP $httpCode");
+        }
+        
+        $result = json_decode($response, true);
+        
+        // Extract process information
+        if (isset($result['data']['run'])) {
+            $processInfo = $result['data']['run'];
+            echo "Created process {$processInfo['id']}: {$processInfo['permalink']}\n";
+        }
+        
+        return $result;
+    }
+}
+
+// Example usage
+$creator = new TallyfyProcessCreator('your-org-id', 'your-access-token');
+
+// Create a process for compliance checks
+$result = $creator->createProcessWithoutTemplate(
+    'Complete Compliance Checklist',
+    ['user_123', 'user_456'],
+    'Please complete your assigned compliance checklist items',
+    '2024-12-20 17:00:00'
+);
+```
+</TabItem>
+
+<TabItem label="Ruby">
+```ruby
+require 'net/http'
+require 'json'
+require 'uri'
+
+class TallyfyProcessCreator
+  def initialize(org_id, access_token)
+    @org_id = org_id
+    @access_token = access_token
+    @api_base = 'https://api.tallyfy.com/api'
+  end
+  
+  def create_process_without_template(title, user_ids, description = '', deadline = nil)
+    deadline ||= (Time.now + 7 * 24 * 60 * 60).strftime('%Y-%m-%d %H:%M:%S')
+    
+    payload = {
+      title: title,
+      summary: description,
+      owners: {
+        users: user_ids
+      },
+      separate_task_for_each_assignee: true, # Key parameter
+      status: 'not-started',
+      task_type: 'task',
+      deadline: deadline,
+      everyone_must_complete: false,
+      is_soft_start_date: true
+    }
+    
+    uri = URI("#{@api_base}/organizations/#{@org_id}/tasks")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    
+    request = Net::HTTP::Post.new(uri)
+    request['Authorization'] = "Bearer #{@access_token}"
+    request['Content-Type'] = 'application/json'
+    request.body = payload.to_json
+    
+    response = http.request(request)
+    
+    unless response.code.to_i == 200 || response.code.to_i == 201
+      raise "Failed to create process: HTTP #{response.code}"
+    end
+    
+    result = JSON.parse(response.body)
+    
+    # Extract process information
+    if result['data'] && result['data']['run']
+      process_info = result['data']['run']
+      puts "Created process #{process_info['id']}: #{process_info['permalink']}"
+    end
+    
+    result
+  end
+end
+
+# Example usage
+creator = TallyfyProcessCreator.new('your-org-id', 'your-access-token')
+
+# Create a process for training completion
+result = creator.create_process_without_template(
+  'Complete Security Training',
+  ['user_123', 'user_456', 'user_789'],
+  'Please complete the mandatory security training module',
+  '2024-12-31 17:00:00'
+)
+```
+</TabItem>
+</Tabs>
+
+## Advanced Usage
+
+### Creating Multi-Stage Processes
+
+For processes that require different tasks with unique titles and descriptions, use a two-stage approach:
+
+1. **Stage 1**: Create the first task with `separate_task_for_each_assignee: true` to establish the process
+2. **Stage 2**: Add additional tasks to the same process using the `run_id` from Stage 1
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+async function createMultiStageProcess(orgId, accessToken, tasks) {
+  // Stage 1: Create process with first task
+  const firstTask = tasks[0];
+  const processResponse = await fetch(
+    `https://api.tallyfy.com/api/organizations/${orgId}/tasks`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: firstTask.title,
+        summary: firstTask.description,
+        owners: { users: firstTask.userIds },
+        separate_task_for_each_assignee: true,
+        status: 'not-started',
+        task_type: 'task',
+        deadline: firstTask.deadline
+      })
+    }
+  );
+  
+  const processResult = await processResponse.json();
+  const processId = processResult.data?.run?.id;
+  
+  if (!processId) {
+    throw new Error('Failed to create process');
+  }
+  
+  // Stage 2: Add remaining tasks to the process
+  for (let i = 1; i < tasks.length; i++) {
+    const task = tasks[i];
+    await fetch(
+      `https://api.tallyfy.com/api/organizations/${orgId}/tasks`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: task.title,
+          summary: task.description,
+          owners: { users: task.userIds },
+          run_id: processId,  // Attach to existing process
+          status: 'not-started',
+          task_type: 'task',
+          deadline: task.deadline,
+          position: i + 1
+        })
+      }
+    );
+  }
+  
+  return processId;
+}
+
+// Example: Create a multi-stage approval process
+const approvalTasks = [
+  {
+    title: 'Prepare Budget Proposal',
+    description: 'Draft the Q1 budget proposal document',
+    userIds: ['user_123'],
+    deadline: '2024-12-10 17:00:00'
+  },
+  {
+    title: 'Review Budget Proposal',
+    description: 'Review and provide feedback on the proposal',
+    userIds: ['user_456'],
+    deadline: '2024-12-12 17:00:00'
+  },
+  {
+    title: 'Approve Budget Proposal',
+    description: 'Final approval of the Q1 budget',
+    userIds: ['user_789'],
+    deadline: '2024-12-15 17:00:00'
+  }
+];
+
+const processId = await createMultiStageProcess('org-id', 'token', approvalTasks);
+```
+</TabItem>
+
+<TabItem label="Python">
+```python
+def create_multi_stage_process(self, tasks: List[Dict]) -> str:
+    """
+    Create a process with different task types
+    
+    Args:
+        tasks: List of task definitions with title, userIds, description, deadline
+    
+    Returns:
+        Process ID
+    """
+    if not tasks:
+        raise ValueError("No tasks provided")
+    
+    # Stage 1: Create process with first task
+    first_task = tasks[0]
+    process_result = self.create_process_without_template(
+        title=first_task['title'],
+        user_ids=first_task['userIds'],
+        description=first_task.get('description', ''),
+        deadline=first_task.get('deadline')
+    )
+    
+    # Extract process ID
+    process_id = process_result['data']['run']['id']
+    
+    # Stage 2: Add remaining tasks
+    for i, task in enumerate(tasks[1:], start=2):
+        payload = {
+            "title": task['title'],
+            "summary": task.get('description', ''),
+            "owners": {
+                "users": task['userIds']
+            },
+            "run_id": process_id,  # Attach to existing process
+            "status": "not-started",
+            "task_type": "task",
+            "deadline": task.get('deadline', self._get_default_deadline()),
+            "position": i
+        }
+        
+        response = requests.post(
+            f"{self.api_base}/organizations/{self.org_id}/tasks",
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            },
+            json=payload
+        )
+        response.raise_for_status()
+    
+    return process_id
+
+# Example usage
+tasks = [
+    {
+        'title': 'Collect Requirements',
+        'userIds': ['user_123'],
+        'description': 'Gather project requirements from stakeholders',
+        'deadline': '2024-12-10 17:00:00'
+    },
+    {
+        'title': 'Design Solution',
+        'userIds': ['user_456'],
+        'description': 'Create technical design document',
+        'deadline': '2024-12-15 17:00:00'
+    },
+    {
+        'title': 'Implement Solution',
+        'userIds': ['user_789', 'user_012'],
+        'description': 'Build the solution according to design',
+        'deadline': '2024-12-20 17:00:00'
+    }
+]
+
+process_id = creator.create_multi_stage_process(tasks)
+print(f"Created multi-stage process: {process_id}")
+```
+</TabItem>
+</Tabs>
+
+## Use Cases
+
+### 1. AI Assistant Bulk Operations
+
+Perfect for AI assistants that need to create tasks for multiple users:
+
+```javascript
+// AI Assistant: "Ask 6 people to submit timesheets by Friday 5pm"
+const timesheetRequest = {
+  title: "Submit Weekly Timesheet",
+  userIds: ["user1", "user2", "user3", "user4", "user5", "user6"],
+  description: "Please submit your timesheet for this week",
+  deadline: "2024-12-13 17:00:00"
+};
+
+await createProcessWithoutTemplate(orgId, token, timesheetRequest);
+// Creates 1 process with 6 individual tasks, each trackable separately
+```
+
+### 2. Dynamic Approval Workflows
+
+Create approval chains without predefined templates:
+
+```python
+# Dynamic approval chain based on document type
+approval_chain = determine_approval_chain(document_type)  # Returns user IDs
+
+creator.create_process_without_template(
+    title=f"Approve {document_type}",
+    user_ids=approval_chain,
+    description=f"Please review and approve the {document_type}",
+    deadline=datetime.now() + timedelta(days=3)
+)
+```
+
+### 3. Event-Driven Task Creation
+
+Respond to external events by creating processes:
+
+```javascript
+// Webhook receives new customer signup
+async function onNewCustomer(customerData) {
+  const onboardingTasks = {
+    title: `Onboard ${customerData.company}`,
+    userIds: [
+      salesRepId,      // Welcome call
+      supportRepId,    // Setup assistance
+      successManagerId // Success planning
+    ],
+    description: `Complete onboarding for new customer: ${customerData.company}`,
+    deadline: getDeadline(7)  // 7 days from now
+  };
+  
+  await createProcessWithoutTemplate(orgId, token, onboardingTasks);
+}
+```
+
+### 4. Batch Processing from Spreadsheets
+
+Import tasks from external sources:
+
+```python
+import pandas as pd
+
+# Read tasks from CSV
+df = pd.read_csv('monthly_tasks.csv')
+
+for _, row in df.iterrows():
+    creator.create_process_without_template(
+        title=row['task_title'],
+        user_ids=row['assignees'].split(','),
+        description=row['description'],
+        deadline=datetime.strptime(row['due_date'], '%Y-%m-%d')
+    )
+```
+
+## Important Considerations
+
+<Card title="Process Ownership" icon="user">
+  The user creating the process becomes the process owner automatically but is **not** assigned to the individual tasks unless explicitly included in the assignee list.
+</Card>
+
+<Card title="Task Independence" icon="check">
+  When `everyone_must_complete` is set to `false` (recommended), each assignee can complete their task independently, allowing for better progress tracking.
+</Card>
+
+<Card title="MISC System Checklist" icon="cog">
+  Behind the scenes, Tallyfy uses a special "MISC" system checklist that exists in every organization. This is transparent to API users and requires no configuration.
+</Card>
+
+<Card title="Rate Limiting" icon="warning">
+  When creating processes in bulk, implement appropriate rate limiting to avoid hitting API limits. Consider adding delays between requests for large batches.
+</Card>
+
+## Error Handling
+
+Always implement proper error handling for production use:
+
+```javascript
+try {
+  const result = await createProcessWithoutTemplate(orgId, token, taskData);
+  
+  // Log success
+  console.log(`Process created: ${result.data.run.id}`);
+  
+  // Store process ID for tracking
+  await storeProcessId(result.data.run.id);
+  
+} catch (error) {
+  // Handle specific error types
+  if (error.status === 401) {
+    // Token expired, refresh and retry
+    await refreshToken();
+    return retry();
+  } else if (error.status === 422) {
+    // Validation error
+    console.error('Invalid task data:', error.response.errors);
+  } else if (error.status === 429) {
+    // Rate limited, wait and retry
+    await sleep(60000);
+    return retry();
+  } else {
+    // Log unexpected errors
+    console.error('Unexpected error:', error);
+    throw error;
+  }
+}
+```
+
+## Testing Your Implementation
+
+Use our test script to verify your implementation:
+
+```bash
+# Download test script
+curl -O https://docs.tallyfy.com/examples/test_process_without_template.py
+
+# Set environment variables
+export TALLYFY_ORG_ID="your-org-id"
+export TALLYFY_CLIENT_ID="your-client-id"
+export TALLYFY_CLIENT_SECRET="your-client-secret"
+
+# Run tests
+python3 test_process_without_template.py
+```
+
+## Best Practices
+
+1. **Use Descriptive Titles**: Since these processes don't have templates, make titles clear and actionable
+2. **Include Context in Descriptions**: Provide sufficient context in the `summary` field
+3. **Set Realistic Deadlines**: Consider timezone differences and working hours
+4. **Track Process IDs**: Store returned process IDs for monitoring and reporting
+5. **Implement Retry Logic**: Handle transient failures gracefully
+6. **Log All Operations**: Maintain audit trails for compliance and debugging
+
+## Related Articles
+
+<LinkTitleCard
+  title="API Authentication"
+  href="/products/pro/integrations/open-api/code-samples/authentication/client-credentials-flow"
+  description="Learn how to authenticate with the Tallyfy API"
+/>
+
+<LinkTitleCard
+  title="Create One-off Tasks"
+  href="/products/pro/integrations/open-api/endpoints/one-off-tasks"
+  description="Complete documentation for the one-off tasks endpoint"
+/>
+
+<LinkTitleCard
+  title="Process Management"
+  href="/products/pro/integrations/open-api/endpoints/processes"
+  description="Managing and tracking processes via API"
+/>
+
+<LinkTitleCard
+  title="Webhook Events"
+  href="/products/pro/integrations/webhooks"
+  description="React to process and task events with webhooks"
+/>
