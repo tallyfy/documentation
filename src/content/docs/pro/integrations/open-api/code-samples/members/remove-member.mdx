@@ -14,7 +14,16 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DELETE /organizations/{org_id}/users/{user_id}`
 
-This endpoint removes a member from your Tallyfy organization. This is typically a "soft delete" - the user account may still exist globally but is removed from this specific organization. Their assigned tasks might become unassigned or require reassignment.
+This endpoint removes a member from your Tallyfy organization. The user is removed from this specific organization but their global account may remain. Their assigned tasks might become unassigned or require reassignment.
+
+### Two-step deletion process
+
+**Important**: Tallyfy uses a two-step deletion process for safety. Members must be **disabled first** before permanent deletion:
+
+1. **Step 1 - Disable**: `DELETE /organizations/{org_id}/users/{user_id}/disable`
+2. **Step 2 - Delete**: `DELETE /organizations/{org_id}/users/{user_id}/delete`
+
+If you attempt to delete an active member directly, you'll receive an error: `"Please disable the user before deletion"`
 
 ## Request
 
@@ -467,7 +476,55 @@ public class TallyfyMemberRemover
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data`
+A successful request returns a `200 OK` status code and a JSON object containing the removed member's data.
+
+### Common error responses
+
+#### 400 Bad Request
+```json
+{
+  "error": "Please disable the user before deletion"
+}
+```
+**Solution**: Use the disable endpoint first, then attempt deletion.
+
+#### 403 Forbidden
+```json
+{
+  "error": "Cannot modify the default administrator"
+}
+```
+**Solution**: Transfer the default administrator role to another user first.
+
+```json
+{
+  "error": "Cannot disable the last administrator"
+}
+```
+**Solution**: Promote another member to administrator role before removal.
+
+#### 404 Not Found
+```json
+{
+  "error": "User not found"
+}
+```
+**Solution**: Verify the user ID is correct and the member exists in this organization.
+
+### Success response example
+
+```json
+{
+  "data": {
+    "id": 12345,
+    "email": "john.doe@example.com.deleted.12345",
+    "first_name": "John",
+    "last_name": "Doe (Deleted)",
+    "role": "standard",
+    "status": "deleted",
+    "deleted_at": "2025-01-15T10:30:00Z"
+  }
+}
 
 ## Related articles
 <CardGrid>
