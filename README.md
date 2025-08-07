@@ -91,6 +91,62 @@ git push origin improve-docs-topic-name
 - Follow American English spelling
 - Bold UI elements using `**text**`
 
+#### Using Mermaid Diagrams
+
+We use Mermaid diagrams to visualize workflows, API interactions, and system architectures. Mermaid enables you to create diagrams using simple text-based syntax.
+
+##### Quick Example
+
+Add a diagram to any documentation page using a code block with the `mermaid` language identifier:
+
+````markdown
+```mermaid
+flowchart TD
+    Start([User Action]) --> Process[Process Step]
+    Process --> Complete([Complete])
+    
+    style Start fill:#E8F4FF
+    style Complete fill:#D4EDDA
+```
+````
+
+##### When to Use Diagrams
+
+- **API Flows**: OAuth, REST endpoints, webhooks (use `sequenceDiagram`)
+- **Process Workflows**: Triggers, automations, decision trees (use `flowchart`)
+- **System Architecture**: Components, data pipelines (use `graph`)
+- **State Machines**: Process lifecycle, states (use `stateDiagram-v2`)
+
+##### Tallyfy-Specific Example
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Tallyfy API
+    
+    C->>A: POST /api/v1/processes
+    Note over A: Validate token
+    A->>C: 201 Created
+    
+    loop Process Tasks
+        C->>A: GET /api/v1/tasks
+        A->>C: Task data
+    end
+```
+
+##### Best Practices
+
+1. **Keep diagrams simple** - One concept per diagram
+2. **Use Tallyfy colors**:
+   - Primary: `#0066CC` (Tallyfy Blue)
+   - Success: `#00AA55` or `fill:#D4EDDA`
+   - Error: `#DC3545` or `fill:#F8D7DA`
+3. **Mobile-friendly** - Test on small screens
+4. **Add context** - Include descriptive text before/after diagrams
+5. **Accessibility** - Provide text descriptions
+
+For comprehensive Mermaid documentation, see the [Mermaid Official Docs](https://mermaid.js.org/) or test your diagrams in the [Mermaid Live Editor](https://mermaid.live/).
+
 ### Review Process
 
 Once you submit a pull request:

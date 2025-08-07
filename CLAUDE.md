@@ -758,6 +758,341 @@ Example atomic prompts:
 4. **Style Compliance**: Check and fix articles not following guidelines
 5. **Missing Content Detection**: Identify and create stub articles for new features
 
+## 📊 Mermaid Diagram Auto-Generation for Tallyfy Documentation
+
+### Automatic Diagram Insertion Triggers
+When creating or editing documentation, automatically generate Mermaid diagrams for:
+
+1. **API Documentation** (`/pro/integrations/open-api/`)
+   - OAuth flows → sequence diagram
+   - Request/response cycles → sequence diagram
+   - Error handling flows → flowchart
+
+2. **Webhook Documentation** (`/pro/integrations/webhooks/`)
+   - Event triggers → flowchart
+   - Webhook delivery → sequence diagram
+   - Retry mechanisms → sequence diagram with notes
+
+3. **Process Documentation** (`/pro/launching/`, `/pro/tracking-and-tasks/`)
+   - Process triggers → flowchart with decision nodes
+   - Process lifecycle → state diagram
+   - Task dependencies → graph diagram
+
+4. **Automation Logic** (`/pro/documenting/templates/automations/`)
+   - IF-THEN conditions → flowchart with diamonds
+   - AND/OR logic → decision tree
+   - Action sequences → flowchart
+
+5. **Integration Patterns** (`/pro/integrations/`)
+   - Zapier/n8n/Power Automate flows → sequence diagram
+   - Data transformation → graph LR
+   - Authentication flows → sequence diagram
+
+6. **Manufactory Documentation** (`/manufactory/`)
+   - Event pipeline → graph diagram
+   - WebSocket connections → state diagram
+   - Collector architecture → graph with subgraphs
+
+### Content-Specific Diagram Templates
+
+#### For OAuth Documentation
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    participant App as Your App
+    participant Auth as Tallyfy Auth
+    participant API as Tallyfy API
+    
+    Note over App,API: OAuth 2.0 Authorization Code Flow
+    
+    App->>Auth: GET /oauth/authorize<br/>client_id, redirect_uri, scope
+    Auth->>App: Show login page
+    App->>Auth: User credentials
+    Auth->>App: Redirect with code
+    App->>Auth: POST /oauth/token<br/>code, client_secret
+    Auth->>App: Access token + Refresh token
+    
+    loop API Usage
+        App->>API: API request + Bearer token
+        API->>App: Response data
+    end
+    
+    Note over App,Auth: Token expired
+    App->>Auth: POST /oauth/refresh<br/>refresh_token
+    Auth->>App: New access token
+```
+
+#### For Process Triggers
+```mermaid
+%%{init: {'theme':'forest'}}%%
+flowchart TD
+    Start([Process Trigger]) --> Check{Which Trigger?}
+    
+    Check -->|Manual| M[User clicks Run]
+    Check -->|API| A[POST /api/v1/processes/run]
+    Check -->|Schedule| S[Cron expression matches]
+    Check -->|Email| E[Email to process@]
+    Check -->|Form| F[Public form submitted]
+    Check -->|Webhook| W[External webhook received]
+    Check -->|Process| P[Parent process triggers]
+    
+    M --> Validate{Has Permission?}
+    A --> Auth{Valid Token?}
+    S --> Time{Is Active?}
+    E --> Parse[Parse Email]
+    F --> Data[Collect Form Data]
+    W --> Verify{Valid Signature?}
+    P --> Check2{Conditions Met?}
+    
+    Validate -->|Yes| Launch
+    Validate -->|No| Deny[Access Denied]
+    Auth -->|Yes| Launch
+    Auth -->|No| Deny
+    Time -->|Yes| Launch
+    Time -->|No| Skip[Skip This Run]
+    Parse --> Launch
+    Data --> Launch
+    Verify -->|Yes| Launch
+    Verify -->|No| Reject[Reject Webhook]
+    Check2 -->|Yes| Launch
+    Check2 -->|No| Skip
+    
+    Launch([Launch Process])
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style Launch fill:#D4EDDA,stroke:#00AA55
+    style Deny fill:#F8D7DA,stroke:#DC3545
+    style Reject fill:#F8D7DA,stroke:#DC3545
+    style Skip fill:#FFF3CD,stroke:#FFC107
+```
+
+#### For Webhook Events
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    participant S as Step
+    participant T as Tallyfy
+    participant Q as Queue
+    participant W as Webhook Service
+    participant E as External System
+    
+    S->>T: Complete step
+    T->>T: Check webhook config
+    
+    alt Template-level webhook
+        T->>Q: Queue template webhook
+    else Step-level webhook
+        T->>Q: Queue step webhook
+    end
+    
+    Q->>W: Process webhook
+    
+    loop Max 3 attempts
+        W->>E: POST {webhook_url}
+        Note over W,E: Timeout: 30 seconds
+        
+        alt Success (2xx)
+            E-->>W: Success response
+            W->>T: Mark delivered
+            Note over T: Log success
+        else Failure
+            E-->>W: Error or timeout
+            W->>W: Wait (backoff)
+            Note over W: 1st: 1min<br/>2nd: 5min<br/>3rd: 15min
+        end
+    end
+    
+    alt All attempts failed
+        W->>T: Mark failed
+        Note over T: Send failure notification
+    end
+```
+
+#### For Automation Logic
+```mermaid
+%%{init: {'theme':'forest'}}%%
+flowchart TD
+    Start([Automation Triggered]) --> GetData[Gather Field Values]
+    
+    GetData --> IF1{IF Condition 1}
+    
+    IF1 -->|True| AND{AND Condition?}
+    IF1 -->|False| CheckOR{OR Condition?}
+    
+    AND -->|True| IF2{IF Condition 2}
+    AND -->|False| CheckOR
+    
+    IF2 -->|True| Action1[Execute Action Set 1]
+    IF2 -->|False| CheckOR
+    
+    CheckOR -->|Yes| IF3{IF Condition 3}
+    CheckOR -->|No| Default[Default Action]
+    
+    IF3 -->|True| Action2[Execute Action Set 2]
+    IF3 -->|False| Default
+    
+    Action1 --> Log[Log Execution]
+    Action2 --> Log
+    Default --> Log
+    
+    Log --> End([Complete])
+    
+    style Start fill:#E8F4FF
+    style End fill:#D4EDDA
+    style Action1 fill:#D4EDDA
+    style Action2 fill:#D4EDDA
+    style Default fill:#FFF3CD
+```
+
+### Auto-Generation Rules
+
+#### When You See These Patterns → Generate Diagrams
+
+1. **Multiple Steps with Arrows** (→, then, after, next)
+   - Generate: flowchart
+   - Direction: TD or LR based on step count
+
+2. **API Calls with Responses** (POST, GET, returns, responds)
+   - Generate: sequenceDiagram
+   - Include: Request/response pairs
+
+3. **Conditional Logic** (if, when, unless, either/or)
+   - Generate: flowchart with diamond decision nodes
+   - Include: All branches and outcomes
+
+4. **State Transitions** (pending → active → complete)
+   - Generate: stateDiagram-v2
+   - Include: All states and transitions
+
+5. **System Components** (connects to, sends to, receives from)
+   - Generate: graph diagram
+   - Include: All components and data flows
+
+### Diagram Placement Guidelines
+
+#### Where to Insert Diagrams
+1. **After introductory paragraph** - Overview diagrams
+2. **Before detailed steps** - Process flow diagrams
+3. **Within API sections** - Request/response sequences
+4. **After configuration** - Show resulting behavior
+5. **In troubleshooting** - Decision trees for debugging
+
+#### Where NOT to Insert Diagrams
+- Inside code blocks
+- Within tables
+- In FAQ sections (unless specifically about flow)
+- For single-step processes
+- When an existing screenshot is clearer
+
+### AI Prompt Engineering for Diagrams
+
+#### Effective Patterns
+```markdown
+"Create a Mermaid sequence diagram showing how Tallyfy processes webhooks with retry logic"
+
+"Generate a flowchart for the decision tree when a process trigger is evaluated"
+
+"Visualize the OAuth token refresh flow as a sequence diagram"
+
+"Show the data flow from form submission to process launch as a graph"
+```
+
+#### Include in Prompts
+- Specific Tallyfy entities (Process, Step, Task, Template)
+- Error conditions and edge cases
+- Timing information (timeouts, delays)
+- Security checks (auth, validation)
+- User roles when relevant
+
+### Quality Checks Before Insertion
+
+1. **Relevance Check**
+   - Does diagram clarify the text?
+   - Is it the right diagram type?
+   - Does it show Tallyfy-specific concepts?
+
+2. **Completeness Check**
+   - Are all paths shown?
+   - Are error states included?
+   - Is timing information present?
+
+3. **Clarity Check**
+   - Mobile readable?
+   - Proper labels?
+   - Logical flow direction?
+
+4. **Brand Check**
+   - Tallyfy colors used?
+   - Consistent styling?
+   - Professional appearance?
+
+### Common Tallyfy Entities for Diagrams
+
+#### Process Entities
+- Template → Blueprint for processes
+- Process → Running instance
+- Step → Individual task
+- Task → Assigned work item
+- Form → Data collection
+
+#### User Entities
+- Owner → Process owner
+- Member → Organization member
+- Guest → External user
+- Admin → System administrator
+
+#### Integration Entities
+- Webhook → Outbound HTTP call
+- API → REST endpoints
+- WebSocket → Real-time connection
+- Email → Inbound/outbound messages
+
+### Performance Guidelines
+- Maximum 50 nodes per diagram
+- Avoid deep nesting (max 3 levels)
+- Split complex flows into multiple diagrams
+- Use references between related diagrams
+
+### Accessibility in Generated Diagrams
+Always include:
+1. Text description before diagram
+2. Alt text summary after diagram
+3. High contrast colors
+4. Readable font sizes
+5. Clear connection lines
+
+### Example: Full Documentation Section with Diagram
+
+```markdown
+## Setting Up OAuth Authentication
+
+Tallyfy uses OAuth 2.0 for secure API authentication. This allows your application to access Tallyfy resources on behalf of users without handling their passwords directly.
+
+### OAuth Flow Overview
+
+The following diagram shows the complete OAuth authorization flow:
+
+[MERMAID DIAGRAM HERE - OAuth sequence]
+
+This flow ensures that:
+- User credentials are never shared with third-party apps
+- Access can be revoked at any time
+- Tokens expire and refresh automatically
+
+### Implementation Steps
+1. Register your application...
+2. Request authorization...
+3. Exchange code for token...
+```
+
+### Maintenance and Updates
+When updating documentation:
+1. Check if existing diagrams need updates
+2. Verify diagram syntax still works
+3. Test in both themes
+4. Update diagram if API/flow changes
+5. Keep diagrams in sync with text
+
 ## QUICK REFERENCE CHECKLIST
 
 Before submitting documentation:
