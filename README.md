@@ -93,7 +93,9 @@ git push origin improve-docs-topic-name
 
 #### Using Mermaid Diagrams
 
-We use Mermaid diagrams to visualize workflows, API interactions, and system architectures. Mermaid enables you to create diagrams using simple text-based syntax.
+We use Mermaid diagrams to visualize complex workflows, API interactions, and system architectures. Mermaid enables you to create diagrams using simple text-based syntax.
+
+> **Important**: Only use diagrams where they add clear value. Simple processes with 3 steps or fewer usually don't need diagrams.
 
 ##### Quick Example
 
@@ -112,38 +114,141 @@ flowchart TD
 
 ##### When to Use Diagrams
 
-- **API Flows**: OAuth, REST endpoints, webhooks (use `sequenceDiagram`)
-- **Process Workflows**: Triggers, automations, decision trees (use `flowchart`)
-- **System Architecture**: Components, data pipelines (use `graph`)
-- **State Machines**: Process lifecycle, states (use `stateDiagram-v2`)
+✅ **Good candidates for diagrams:**
+- Multi-step processes where sequence matters
+- Conditional logic with multiple branches
+- System interactions between Tallyfy and external services
+- User-system collaboration (e.g., SSO setup)
+- Complex automation rules with multiple conditions
+- API request/response flows with authentication
+- Webhook event flows with retry logic
 
-##### Tallyfy-Specific Example
+❌ **Avoid diagrams for:**
+- Simple linear processes (3 steps or fewer)
+- Single API calls without complex flow
+- Basic CRUD operations
+- Content better explained with text
+- UI navigation (use screenshots instead)
+
+##### Diagram Types by Documentation Area
+
+| Documentation Area | Diagram Type | Key Elements |
+|---|---|---|
+| **API Documentation** | `sequenceDiagram` | Request/response, authentication, error handling |
+| **Webhook Documentation** | `sequenceDiagram` | Event triggers, retry logic, queue processing |
+| **Process Workflows** | `flowchart TD` | Decision nodes, branches, outcomes |
+| **Automation Logic** | `flowchart TD` | Sequential rules, AND/OR logic, actions |
+| **SSO/Authentication** | `sequenceDiagram` | User + admin actions, token flow |
+| **System Architecture** | `graph LR` | Components, data flow, connections |
+
+##### Real-World Examples
+
+###### Automation Rule Evaluation (Reflects Actual System)
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+flowchart TD
+    Start([Event Triggers]) --> Load[Load Rules by Position]
+    Load --> Rule1{Rule 1 Met?}
+    
+    Rule1 -->|Yes| Op1{Next Rule Logic?}
+    Rule1 -->|No| Op1
+    
+    Op1 -->|AND| Rule2AND{Rule 2 Met?}
+    Op1 -->|OR| Rule2OR{Rule 2 Met?}
+    
+    Rule2AND -->|Yes + Prev Yes| Actions[Execute Actions]
+    Rule2AND -->|No| Skip[Skip Actions]
+    
+    Rule2OR -->|Yes| Actions
+    Rule2OR -->|No + Prev No| Skip
+    
+    Actions --> Log[Log Execution]
+    Skip --> Log
+    
+    style Start fill:#E8F4FF
+    style Actions fill:#D4EDDA
+    style Skip fill:#FFF3CD
+```
+
+###### Webhook with Retry Logic
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as Tallyfy API
+    participant T as Tallyfy
+    participant Q as Queue
+    participant E as External System
     
-    C->>A: POST /api/v1/processes
-    Note over A: Validate token
-    A->>C: 201 Created
+    T->>Q: Queue webhook event
+    Q->>E: POST webhook_url
     
-    loop Process Tasks
-        C->>A: GET /api/v1/tasks
-        A->>C: Task data
+    alt Success (2xx)
+        E-->>Q: Success
+        Q->>T: Mark delivered
+    else Failure
+        E-->>Q: Error/Timeout
+        loop Retry 3 times
+            Q->>Q: Wait (1min, 5min, 15min)
+            Q->>E: POST webhook_url
+            alt Success
+                E-->>Q: Success
+                Q->>T: Mark delivered
+            end
+        end
     end
 ```
 
+###### SSO Setup (User + Admin Collaboration)
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant T as Tallyfy
+    participant I as Identity Provider
+    participant U as User
+    
+    Note over A,I: Setup Phase
+    A->>T: Configure SSO
+    T->>I: Register SP
+    I-->>T: Metadata
+    T-->>A: Ready
+    
+    Note over U,I: Login Phase
+    U->>T: Access Tallyfy
+    T->>I: Redirect to IdP
+    U->>I: Credentials
+    I->>T: SAML assertion
+    T-->>U: Access granted
+```
+
+##### Terminology Guidelines
+
+**For API/Technical Docs** - Use technical terms:
+- `POST /api/v1/processes`
+- `Bearer token`
+- `HTTP 201 Created`
+- `webhook_url`
+- Database field names
+
+**For User-Facing Docs** - Use business terms:
+- "Launch a process"
+- "Complete a task"
+- "Assign to team"
+- "Automation triggers"
+- UI labels and button names
+
 ##### Best Practices
 
-1. **Keep diagrams simple** - One concept per diagram
-2. **Use Tallyfy colors**:
-   - Primary: `#0066CC` (Tallyfy Blue)
-   - Success: `#00AA55` or `fill:#D4EDDA`
-   - Error: `#DC3545` or `fill:#F8D7DA`
-3. **Mobile-friendly** - Test on small screens
+1. **Keep diagrams focused** - One concept per diagram
+2. **Use consistent styling**:
+   - Start nodes: `fill:#E8F4FF`
+   - Success: `fill:#D4EDDA`
+   - Error: `fill:#F8D7DA`
+   - Warning/Skip: `fill:#FFF3CD`
+3. **Mobile-friendly** - Test readability on small screens
 4. **Add context** - Include descriptive text before/after diagrams
-5. **Accessibility** - Provide text descriptions
+5. **Match audience** - API terms for developers, business terms for users
+6. **Show error paths** - Include failure scenarios and retry logic
 
 For comprehensive Mermaid documentation, see the [Mermaid Official Docs](https://mermaid.js.org/) or test your diagrams in the [Mermaid Live Editor](https://mermaid.live/).
 
