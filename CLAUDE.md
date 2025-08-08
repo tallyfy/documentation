@@ -768,25 +768,43 @@ Example atomic prompts:
 
 ## 📊 Mermaid Diagram Guidelines for Tallyfy Documentation
 
-### When to Use Visual Diagrams
+### When to Use Visual Diagrams - ULTRATHINKING Required
 
-**CRITICAL RULE**: Only add Mermaid diagrams where they provide clear value for understanding complex flows or interactions. Don't overuse visuals - most documentation is better with clear text.
+**CRITICAL RULE**: Only add Mermaid diagrams where they provide clear value for understanding complex flows or interactions. Based on extensive analysis, only **10-15% of documentation articles** should have diagrams. Most documentation is better with clear text.
 
-#### ✅ Good Candidates for Diagrams
-1. **Multi-step processes** where sequence and timing matter
-2. **Conditional logic** with multiple decision branches  
-3. **System interactions** between Tallyfy and external services
-4. **Collaborative workflows** (e.g., SSO setup requiring both admin and user actions)
-5. **Complex automation rules** with sequential evaluation
-6. **API authentication flows** (OAuth, token refresh)
-7. **Webhook event processing** with retry logic and error handling
+**ULTRATHINKING APPROACH**: Before adding any diagram, you must:
+1. Read the ENTIRE article to understand full context
+2. Think from three perspectives: beginner, intermediate, expert
+3. Ask: "Is the cognitive effort to understand a diagram LESS than understanding the text alone?"
+4. Apply the "lagom" principle - not too much, not too little
+5. Consider if visual learners specifically benefit
+6. Evaluate long-term maintenance burden
 
-#### ❌ Poor Candidates for Diagrams
-- Simple linear processes (≤3 steps)
-- Single API calls without complex flow
+#### ✅ Good Candidates for Diagrams (High Value Patterns)
+1. **OAuth/API Authorization Flows** → Use `sequenceDiagram`
+   - Multi-actor sequences with token exchanges
+2. **Automation Logic with AND/OR Conditions** → Use `flowchart`
+   - Complex conditional evaluation paths
+3. **Webhook Event Processing** → Use `sequenceDiagram`
+   - Async flows with queues, retries, callbacks
+4. **Process Launch Triggers** → Use `flowchart`
+   - Multiple trigger paths converging to single action
+5. **Master Template vs Process Relationships** → Use `graph` or `erDiagram`
+   - One-to-many spawning patterns
+6. **Integration Flows** → Use `sequenceDiagram` or `flowchart`
+   - Data moving between Tallyfy and external systems
+7. **State Machines** → Use `stateDiagram-v2`
+   - Process/task lifecycle transitions
+
+#### ❌ Poor Candidates for Diagrams (Skip These)
+- Simple linear processes (≤3 steps) - Use `<Steps>` component instead
+- Single API calls without complex flow - Code blocks are clearer
 - Basic CRUD operations
-- UI navigation (use screenshots instead)
+- UI navigation - Screenshots are better
 - Content easily explained with bullet points
+- Troubleshooting checklists - Bullet points work best
+- Feature lists or changelogs - Text lists are appropriate
+- Simple two-state toggles - Text description is sufficient
 
 ### Documentation Areas and Diagram Types
 
@@ -1125,20 +1143,66 @@ sequenceDiagram
    - Show both user and system actions
    - Include token/session management
 
-### Diagram Placement & Quality Control
+### Diagram Placement & Article Structure
 
-#### Optimal Placement
-1. **After introductory paragraph** - High-level overview diagrams
-2. **Before step-by-step instructions** - Process flow context
-3. **Within technical sections** - API sequences, webhook flows
-4. **In troubleshooting sections** - Decision trees for debugging
+#### Recommended Article Structure with Diagrams
+When including a Mermaid diagram, follow this proven structure:
+1. **H2 heading** for the concept
+2. **One-sentence "What this shows" line** - Brief context
+3. **Mermaid code fence** - The diagram itself
+4. **3 bullets titled "What to notice"** - Call out key insights
+5. **Optional links** to deeper concepts embedded in the diagram
+
+#### Placement Golden Rules
+1. **For feature overviews**: Place diagram IMMEDIATELY after overview paragraph
+2. **For troubleshooting**: Put at TOP before wall-of-text steps
+3. **For concepts**: After the intro, before deep details  
+4. **For quick starts**: At the very beginning for 5-second path understanding
+5. **For complex flows**: Chapter with anchors and link between sections
+
+#### Visual Best Practices
+- **One idea per diagram** - Split if >30 nodes
+- **Labels**: ≤5 words per node; edges are verbs ("sends", "approves")
+- **Flow direction**: 
+  - LR (left-right) for features and processes
+  - TD (top-down) for troubleshooting and decision trees
+- **Decisions**: Always use diamonds with at least two labeled exits
+- **Swimlanes**: Use `subgraph` with recognizable titles ("Your Workspace", "Tallyfy Cloud")
+- **Consistency**: Reuse node names across pages ("Task", "Approval")
 
 #### Quality Checklist
 - **Clarity**: Is the diagram easier to understand than text?
 - **Completeness**: Are all paths and error states shown?
 - **Accuracy**: Does it reflect the actual system behavior?
-- **Simplicity**: One concept per diagram, <50 nodes max
+- **Simplicity**: One concept per diagram, <30 nodes ideal, 50 max
 - **Mobile-friendly**: Readable on small screens
+- **Value-add**: Would removing the diagram hurt understanding?
+- **Maintenance**: Will this need frequent updates?
+
+### Hyperlinks in Mermaid Diagrams
+
+#### Making Diagrams Interactive Navigation Hubs
+Transform diagrams into clickable navigation tools using the `click` syntax:
+
+```mermaid
+flowchart LR
+  A[Create Template] --> B[Add Approval]
+  click A "/products/pro/documenting/templates/" "Templates overview"
+  click B "/products/pro/documenting/templates/automations/" "Automation rules"
+  click A "#template-section" "Jump to template section on this page"
+```
+
+#### Hyperlink Support by Diagram Type
+- ✅ **Full support**: `flowchart`, `classDiagram`, `stateDiagram-v2`
+- ❌ **No support**: `sequenceDiagram`, `erDiagram`, `journey`, `timeline`, `gantt`, `pie`, `gitGraph`
+- **Note**: Edges/lines cannot be made clickable in any diagram type
+
+#### Link Patterns
+1. **Internal docs**: `click NodeA "/products/pro/path/" "Tooltip"`
+2. **Same-page anchors**: `click NodeB "#section-id" "Jump to section"`
+3. **External sites**: `click NodeC "https://api.tallyfy.com" "API docs"`
+
+**Best Practice**: Add at least 2 `click` links per diagram to make it a navigation hub.
 
 ### Practical Mermaid Implementation
 
@@ -1153,6 +1217,32 @@ Include these details:
 - Error conditions and fallback paths
 - Timing information (timeouts, retry delays)
 - User roles and permissions
+- Hyperlinks to related documentation
+
+#### Golden Nuggets for Specific Diagram Types
+
+**Sequence Diagrams**:
+- Always add `autonumber` so support can reference "step 3" in tickets
+- Use `Note` for explaining the "why" behind critical steps
+- Show retry logic with loops and exponential backoff times
+
+**Flowcharts**:
+- Put verbs on edges ("sends", "approves", "triggers")
+- Use `classDef` to highlight exceptions:
+  ```
+  classDef danger fill:#fee2e2,stroke:#ef4444
+  class ErrorNode danger
+  ```
+- Create "hub" nodes for grouping related navigation links
+
+**State Diagrams**:
+- Add SLAs or timing on transitions: `Under_Review --> Approved: SLA 4h`
+- Show triggers on state changes: `Draft --> Submitted: user clicks Submit`
+
+**All Diagrams**:
+- Title subgraphs with familiar boundaries ("Your Workspace", "Tallyfy Cloud")
+- Keep to "lagom" - not too much, not too little
+- Consider adding a "What to notice" bullet list after the diagram
 
 #### Common Tallyfy Entities
 **Core**: Template, Process, Step, Task, Form
@@ -1160,23 +1250,78 @@ Include these details:
 **Integration**: Webhook, API, WebSocket, Email trigger
 
 #### Technical Constraints
-- Maximum 50 nodes per diagram (performance)
+- Maximum 30 nodes ideal, 50 absolute max (performance)
 - Avoid nesting beyond 3 levels
 - Split complex flows into multiple focused diagrams
 - Ensure text remains readable on mobile devices
+- One idea per diagram - chapter large flows with anchors
+
+### Mermaid Diagram Maintenance Rules
+
+**CRITICAL**: When updating ANY article that contains Mermaid diagrams, you MUST:
+
+1. **Review Existing Diagrams**: Check if the content changes affect the diagram's accuracy
+2. **Update Diagram Content**: If the article changes modify any process, flow, or relationship shown in the diagram, update the Mermaid notation accordingly
+3. **Maintain Consistency**: Ensure terminology in the diagram matches the updated article text
+4. **Verify Links**: If the diagram contains `click` statements, verify all linked paths remain valid
+5. **Apply ULTRATHINKING**: Re-evaluate if the diagram still adds value after the content update
+   - If the process simplified to ≤3 steps, consider removing the diagram
+   - If complexity increased, consider if a diagram is now needed
+6. **Follow All Guidelines**: Apply the complete Mermaid guidelines when making updates:
+   - Keep to <30 nodes ideal
+   - Maintain appropriate diagram type for content
+   - Update labels to ≤5 words
+   - Ensure mobile readability
+   - Add/update "What to notice" bullets if needed
+
+**Examples of Required Updates**:
+- Article changes API endpoint → Update sequence diagram to show new endpoint
+- Process step removed → Remove corresponding node from flowchart
+- New conditional logic added → Add decision diamond to flowchart
+- State transition timing changed → Update SLA notation in state diagram
+- Feature renamed → Update all node labels using that feature name
+- Integration deprecated → Remove or mark as deprecated in diagram
+
+**Remember**: An outdated diagram is worse than no diagram. Always keep diagrams in sync with article content.
 
 ### Mermaid Configuration in Astro Starlight
 
-For technical implementation details of Mermaid in our documentation platform:
-- **Theme**: Forest theme with Tallyfy brand colors
-- **Rendering**: Client-side via `astro-mermaid` integration
-- **Dark Mode**: Automatic theme switching supported
+#### Supported Diagram Types (Mermaid v11.8.1)
+All 17 diagram types are technically supported, but use these based on content needs:
+
+**PRIMARY (Use frequently)**:
+- `flowchart` - Processes, workflows, decision trees (30+ shape types)
+- `sequenceDiagram` - API calls, webhooks, multi-system interactions
+- `stateDiagram-v2` - Object lifecycles, status transitions
+
+**SECONDARY (Use when appropriate)**:
+- `erDiagram` - Database schemas, entity relationships
+- `journey` - User experience flows
+- `gantt` - Project timelines (use Timeline for long periods)
+- `gitGraph` - Version control, branching strategies
+- `mindmap` - Hierarchical concept breakdown
+- `timeline` - Historical events, feature evolution
+
+**RARELY (Only if perfect fit)**:
+- `classDiagram` - Object-oriented structures
+- `pie` - Simple percentages (include sample size in text)
+- `quadrantChart` - 2x2 analysis matrices
+- `requirementDiagram` - Formal specifications
+- `C4Context/C4Container` - System architecture
+- `sankey` - Flow volumes
+- `block` - Beta feature
+
+#### Platform Configuration
+- **Version**: Mermaid v11.8.1
+- **Theme**: Neutral (works with light/dark modes)
+- **Rendering**: Client-side via rehype-mermaid plugin
 - **Font**: Inter Variable (matches documentation font)
 - **Colors**: 
   - Primary: `#0066CC` (Tallyfy Blue)
   - Success: `#00AA55` / `fill:#D4EDDA`
   - Error: `#DC3545` / `fill:#F8D7DA`
   - Info: `fill:#E8F4FF`
+  - Warning: `fill:#FFF3CD`
 
 ## QUICK REFERENCE CHECKLIST
 
@@ -1192,6 +1337,17 @@ Before submitting documentation:
 - [ ] Active voice and present tense throughout
 - [ ] Procedures start with action verbs
 - [ ] Varied sentence lengths for natural rhythm
+
+### Mermaid Diagrams (If Applicable)
+- [ ] ULTRATHINKING applied - diagram truly adds value (10-15% of articles)
+- [ ] Diagram type matches content (sequence for APIs, flowchart for logic)
+- [ ] One idea per diagram, <30 nodes ideal
+- [ ] Labels ≤5 words, verbs on edges
+- [ ] At least 2 `click` links added for navigation
+- [ ] Placed appropriately (after overview, before steps, etc.)
+- [ ] Includes "What to notice" bullets after diagram
+- [ ] Mobile-friendly and readable on small screens
+- [ ] Uses appropriate flow direction (LR for features, TD for troubleshooting)
 
 ### Content Optimization
 - [ ] "Tallyfy" mentioned 1-3 times naturally (not "the platform")
