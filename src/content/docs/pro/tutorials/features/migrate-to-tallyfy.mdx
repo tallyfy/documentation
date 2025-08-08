@@ -1,0 +1,159 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 9
+title: Migrate to Tallyfy
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## How do I migrate data from other platforms to Tallyfy?
+
+You can move from many popular workflow and form tools into Tallyfy using our open-source migrator scripts. Start with a dry run, review the report, then run the full migration when you're ready. The code lives here: [Tallyfy Migrator on GitHub](https://github.com/tallyfy/migrator)<a href="https://github.com/tallyfy/migrator" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>.
+
+:::note[Important]
+We provide these scripts as-is under the MIT license. Test with `--dry-run`, understand the caveats per vendor, and validate results before production use.
+:::
+
+### What does the migrator do?
+
+The migrator runs a five-phase flow that matches how data moves from a source vendor into Tallyfy:
+
+- **Discovery**: Connects to the source, catalogs available data, and gathers counts.
+- **Mapping**: Translates vendor concepts to Tallyfy concepts (for example, project → template, task → step/task, custom field → form field).
+- **Transformation**: Converts structures to Tallyfy format and prepares users, fields, and metadata.
+- **Migration**: Creates data in Tallyfy. Supports dry-run and checkpoint resume.
+- **Validation**: Verifies integrity and outputs a report you can keep.
+
+## How to run a migration (recommended path)
+
+<Steps>
+1. **Clone and install.**
+
+   ```bash
+   git clone https://github.com/tallyfy/migrator.git
+   cd migrator
+   pip install -r requirements.txt
+   ```
+
+2. **Configure environment variables.**
+
+   ```bash
+   cp .env.template .env
+   # Edit .env with: TALLYFY_API_KEY, TALLYFY_ORGANIZATION, and the source vendor's API keys
+   ```
+
+3. **Run a dry run first.**
+
+   ```bash
+   # Example: Asana
+   cd asana/src
+   python main.py --dry-run --verbose
+   ```
+
+4. **Review the report.** Confirm mappings, spot errors, and check rate-limiting notes. Adjust batch sizes or delays if needed.
+
+5. **Run the actual migration.**
+
+   ```bash
+   python main.py
+   ```
+
+6. **Validate and spot-check.** Use the generated report and sample records in Tallyfy. If anything fails mid-way, use `--resume`.
+
+7. *(Optional)* **Enable AI-assisted mapping.** Add `AI_ENABLED=true` and an AI API key in `.env` to improve field and structure mapping for complex vendors.
+</Steps>
+
+## Vendor-by-vendor notes and caveats
+
+Each folder below links directly to the open-source code for that vendor, with a quick summary of scope and common considerations.
+
+- **Asana**: [Folder](https://github.com/tallyfy/migrator/tree/main/asana)<a href="https://github.com/tallyfy/migrator/tree/main/asana" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>
+  - **Scope**: Projects, tasks/subtasks, sections, custom fields → map to Tallyfy templates, steps, and form fields.
+  - **Caveats**: Dependencies and sections may flatten or translate into conditional steps. Tags often become metadata. Respect API rate limits.
+
+- **Basecamp**: [Folder](https://github.com/tallyfy/migrator/tree/main/basecamp)<a href="https://github.com/tallyfy/migrator/tree/main/basecamp" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a>
+  - **Scope**: To-dos and lists → procedure templates and steps; message docs are typically referenced via links.
+  - **Caveats**: Threads/comments are not 1:1 with Tallyfy task comments; attachments may be copied by URL.
+
+- **ClickUp**: [Folder](https://github.com/tallyfy/migrator/tree/main/clickup)<a href="https://github.com/tallyfy/migrator/tree/main/clickup" rel="nofollow noopener noreferrer" target="_blank"><sup>[4]</sup></a>
+  - **Scope**: Lists/folders/spaces, tasks, custom fields.
+  - **Caveats**: Deep hierarchy is flattened into templates and steps. Use rules-based flattening; consider AI mapping for complex setups.
+
+- **Cognito Forms**: [Folder](https://github.com/tallyfy/migrator/tree/main/cognito-forms)<a href="https://github.com/tallyfy/migrator/tree/main/cognito-forms" rel="nofollow noopener noreferrer" target="_blank"><sup>[5]</sup></a>
+  - **Scope**: Forms and submissions → kick-off forms and variables.
+  - **Caveats**: Field validation and conditional logic translate to Tallyfy where possible; verify complex branching.
+
+- **Google Forms**: [Folder](https://github.com/tallyfy/migrator/tree/main/google-forms)<a href="https://github.com/tallyfy/migrator/tree/main/google-forms" rel="nofollow noopener noreferrer" target="_blank"><sup>[6]</sup></a>
+  - **Scope**: Questions and responses.
+  - **Caveats**: Simple structure migrates well; logic jumps may require manual checks. Low complexity.
+
+- **Jotform**: [Folder](https://github.com/tallyfy/migrator/tree/main/jotform)<a href="https://github.com/tallyfy/migrator/tree/main/jotform" rel="nofollow noopener noreferrer" target="_blank"><sup>[7]</sup></a>
+  - **Scope**: Forms, fields, and submissions.
+  - **Caveats**: Rich widgets may need custom mapping. Watch for attachment handling and rate limits.
+
+- **Kissflow**: [Folder](https://github.com/tallyfy/migrator/tree/main/kissflow)<a href="https://github.com/tallyfy/migrator/tree/main/kissflow" rel="nofollow noopener noreferrer" target="_blank"><sup>[8]</sup></a>
+  - **Scope**: Workflows and forms.
+  - **Caveats**: Some constructs (like advanced states) may map to conditional steps or automations; review validation results carefully.
+
+- **Monday.com**: [Folder](https://github.com/tallyfy/migrator/tree/main/monday)<a href="https://github.com/tallyfy/migrator/tree/main/monday" rel="nofollow noopener noreferrer" target="_blank"><sup>[9]</sup></a>
+  - **Scope**: Boards, groups, items, column types.
+  - **Caveats**: 30+ field types via GraphQL. Use AI for field mapping where possible. High complexity; test thoroughly.
+
+- **Next Matter**: [Folder](https://github.com/tallyfy/migrator/tree/main/nextmatter)<a href="https://github.com/tallyfy/migrator/tree/main/nextmatter" rel="nofollow noopener noreferrer" target="_blank"><sup>[10]</sup></a>
+  - **Scope**: Processes and tasks.
+  - **Caveats**: Step logic and automations may need manual review. Confirm user-role mapping.
+
+- **Pipefy**: [Folder](https://github.com/tallyfy/migrator/tree/main/pipefy)<a href="https://github.com/tallyfy/migrator/tree/main/pipefy" rel="nofollow noopener noreferrer" target="_blank"><sup>[11]</sup></a>
+  - **Scope**: Pipes, phases, fields.
+  - **Caveats**: Paradigm shift from card/connection model to templates/steps. Use AI for workflow conversion. High complexity.
+
+- **Process Street**: [Folder](https://github.com/tallyfy/migrator/tree/main/process-street)<a href="https://github.com/tallyfy/migrator/tree/main/process-street" rel="nofollow noopener noreferrer" target="_blank"><sup>[12]</sup></a>
+  - **Scope**: Checklists, tasks, conditional logic.
+  - **Caveats**: Complex conditions translate to Tallyfy automations. Medium complexity; validate branching.
+
+- **Rocketlane**: [Folder](https://github.com/tallyfy/migrator/tree/main/rocketlane)<a href="https://github.com/tallyfy/migrator/tree/main/rocketlane" rel="nofollow noopener noreferrer" target="_blank"><sup>[13]</sup></a>
+  - **Scope**: Project templates and tasks.
+  - **Caveats**: Timeline and resource views do not directly map; focus on steps and assignments.
+
+- **Trello**: [Folder](https://github.com/tallyfy/migrator/tree/main/trello)<a href="https://github.com/tallyfy/migrator/tree/main/trello" rel="nofollow noopener noreferrer" target="_blank"><sup>[14]</sup></a>
+  - **Scope**: Boards, lists, cards → templates and steps.
+  - **Caveats**: Checklists and labels map to steps/metadata. Butler automations require manual recreation.
+
+- **Typeform**: [Folder](https://github.com/tallyfy/migrator/tree/main/typeform)<a href="https://github.com/tallyfy/migrator/tree/main/typeform" rel="nofollow noopener noreferrer" target="_blank"><sup>[15]</sup></a>
+  - **Scope**: Forms and responses.
+  - **Caveats**: Logic jumps translate where feasible. Low complexity overall.
+
+- **Wrike**: [Folder](https://github.com/tallyfy/migrator/tree/main/wrike)<a href="https://github.com/tallyfy/migrator/tree/main/wrike" rel="nofollow noopener noreferrer" target="_blank"><sup>[16]</sup></a>
+  - **Scope**: Projects/folders, tasks, custom fields.
+  - **Caveats**: Folder/project distinctions flatten into template/process structure. Validate dependencies and custom field mappings.
+
+## Prerequisites
+
+- Python 3.10+ and `pip` installed
+- Tallyfy credentials: `TALLYFY_API_KEY` and `TALLYFY_ORGANIZATION`
+- Source vendor API credentials
+- Sufficient disk space for logs and reports
+
+## Tips, validation, and troubleshooting
+
+- **Always dry-run first.** Review the migration report. Fix obvious mapping gaps before moving on.
+- **Mind rate limits.** Tune `MIGRATION_RATE_LIMIT_DELAY` and batch sizes for large datasets.
+- **Use checkpoints.** For long runs, `--resume` saves time after transient failures.
+- **AI assistance helps.** For complex vendors (Monday.com, Pipefy), enable AI mapping to improve field translations.
+- **Verify outcomes.** Spot-check templates, steps, users, and sample processes in Tallyfy after migration.
+
+## Where this lands in Tallyfy
+
+Migrated structures typically become Tallyfy [templates](/products/pro/documenting/templates/), then you [launch processes](/products/pro/launching/) you can track as live [processes](/products/pro/tracking-and-tasks/processes/) with individual [tasks](/products/pro/tracking-and-tasks/tasks/). Use [automations](/products/pro/documenting/templates/automations/) to recreate conditional behavior from the source system.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Pro > Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Use Tallyfy's API to script post-migration adjustments or connect external systems for data syncs and validations. </LinkTitleCard>
+<LinkTitleCard header="<b>Documenting > Templates</b>" href="/products/pro/documenting/templates/" > Templates define reusable workflows in Tallyfy; migrated structures usually become templates with steps and form fields. </LinkTitleCard>
+<LinkTitleCard header="<b>Tracking and Tasks > Processes</b>" href="/products/pro/tracking-and-tasks/processes/" > After migration, launch processes to run and track workflows end-to-end. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Automations</b>" href="/products/pro/documenting/templates/automations/" > Recreate conditional logic from your previous tool with simple IF-THEN rules in Tallyfy. </LinkTitleCard>
+</CardGrid>
+
+
