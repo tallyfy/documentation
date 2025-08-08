@@ -1194,6 +1194,14 @@ A successful `PUT` request returns `200 OK` and the updated Task or Checklist ob
 }
 ```
 
+:::note[Common mistakes and troubleshooting]
+- **Do not use invalid routes**: `/assets/{id}/dl` does not exist. To download, use `GET /organizations/{org_id}/file/{file_id}/dl`. To view inline, use `GET /organizations/{org_id}/file/{file_id}`.
+- **Attach after upload**: Uploading creates an Asset, but it is not attached to a field until you update the Task using `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}` with the asset placed under the field’s Capture ID inside `taskdata` as an array.
+- **Send the entire asset object**: Place the full object from the upload response’s `data[0]` inside the array for the file field in `taskdata`.
+- **Verify upload context fields** (Task uploads): `uploaded_from` must be the field’s Capture ID; `subject_type` must be `Run`; `subject_id` must be the `run_id`; include both `checklist_id` and `step_id`.
+- **Verify upload context fields** (Kick-off uploads): `uploaded_from` must be `ko_field`; `subject_type` must be `Checklist`; `subject_id` must be the `checklist_id`.
+:::
+
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
