@@ -33,6 +33,17 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 - **Tallyfy Manufactory**: Events ingestion and lifecycle engine
   - Location: `/src/content/docs/manufactory/` (45 files)
 
+### Product Name Capitalization
+**CRITICAL**: When referring to our products, always capitalize product names properly:
+- Use "Pro", "Answers", "Changelog", "Manufactory", "Denizen" (capitalized)
+- Never use lowercase versions like "pro", "answers", "changelog", etc.
+- Examples:
+  - ✅ CORRECT: "Tallyfy Pro provides workflow automation"
+  - ❌ INCORRECT: "Tallyfy pro provides workflow automation"
+  - ✅ CORRECT: "Using Answers for vector search"
+  - ❌ INCORRECT: "Using answers for vector search"
+- This applies to all documentation, articles, and content where our product names appear
+
 ### Tallyfy Pro Terminology & Concepts
 - **Templates**: Where you define your process (API calls these "blueprints")
   - Two types: Document templates and Procedure templates
@@ -201,6 +212,10 @@ python scripts/update-documentation-structure.py     # Update structure map afte
    - New articles must use ID: `0000000000000000000000000000000000`
    - **description** field is generated server-side
    - **sidebar.order**: Use sequential numbers (1, 2, 3...) for articles within a section to control display order
+   - **title**: Must be short, practical, and in sentence case with only first letter capitalized unless proper nouns
+   - **CRITICAL Title vs. Heading Rule**: The frontmatter title MUST be different from the main H2 heading
+     - Title: Short and practical (e.g., "Create a table of contents")
+     - H2 Heading: Slightly different, clarifying context (e.g., "Using table of contents in Tallyfy")
 
 2. **Component Imports**:
    - **Required placement**: Immediately after the frontmatter YAML, before any content
@@ -224,6 +239,7 @@ python scripts/update-documentation-structure.py     # Update structure map afte
    - Start with H2 (`##`), never H1
    - Don't skip heading levels (H2 → H3 → H4)
    - All headings use sentence case (lowercase except proper nouns)
+   - **Remove trademark symbols**: Never use Tallyfy<sup>®</sup> - always just "Tallyfy" without any trademark notation
 
 4. **Related Articles Section** (CRITICAL RULES):
    
@@ -255,6 +271,11 @@ python scripts/update-documentation-structure.py     # Update structure map afte
 - Include prerequisites section for procedural articles
 - Follow consistent structure based on content type (concept/task/reference/troubleshooting)
 - **Directory structure requirement**: When creating new folders, always include an `index.mdx` file as the landing page for that directory to prevent build errors and provide proper navigation
+- **Title formatting requirements**:
+  - Use sentence case: Only capitalize first letter and proper nouns
+  - Examples: "Create a table of contents" not "Create a Table of Contents"
+  - Keep titles short and practical (under 60 characters when possible)
+  - Make titles different from main H2 headings
 
 ### Content Automation System
 This repository uses a sophisticated Python-based content automation system:
@@ -284,6 +305,65 @@ Apply the answer-first pattern from `humanizing-rules.md`:
 - Vary sentence rhythm throughout
 
 **See humanizing-rules.md for complete guidelines on natural content structure.**
+
+### Critical Content Quality Rules - NO FLUFF ALLOWED
+
+**MANDATORY**: Every article must follow these anti-fluff guidelines:
+
+#### Title Guidelines
+- **NO "Complete guide to..."** - Just use clear, descriptive titles
+- **NO "How to master..."** - Use direct action phrases
+- **Keep titles under 60 characters** when possible
+- **Examples**:
+  - Bad: "Complete guide to task assignment options"
+  - Good: "Task assignment options"
+  - Bad: "How to master workflow automation"
+  - Good: "Workflow automation"
+
+#### Heading Guidelines  
+- **Use varied, meaningful headings** that add context
+- **Avoid repetitive question patterns** like "How do I..." for every section
+- **Make headings actionable and clear**
+- **Examples**:
+  - Bad: "How do I master task assignment options in Tallyfy?"
+  - Good: "Options for assigning tasks"
+  - Bad: "What are the benefits of using Tallyfy?"
+  - Good: "Key benefits"
+
+#### Content Elimination Rules
+**IMMEDIATELY DELETE these types of sentences**:
+- Empty benefit statements without evidence
+  - Delete: "Good task assignment makes a huge difference for team productivity and getting work done efficiently."
+  - Delete: "This feature will transform how your team works."
+  - Delete: "Proper configuration is crucial for success."
+  
+- Vague promises without specifics
+  - Delete: "This guide covers everything you need to know."
+  - Delete: "Master these concepts to become more productive."
+  - Delete: "Understanding this is key to getting the most out of Tallyfy."
+
+- Unnecessary meta-commentary
+  - Delete: "Let's explore how this works."
+  - Delete: "In this section, we'll cover..."
+  - Delete: "Now let's dive into..."
+
+#### What to Keep
+**ONLY include sentences that**:
+- Provide specific instructions or steps
+- State concrete facts or numbers
+- Explain actual functionality
+- Give real examples
+- Solve specific problems
+- Answer direct questions
+
+#### Practical Meaningfulness Test
+Before including ANY sentence, ask:
+1. Does this sentence help the user complete a task?
+2. Does it provide specific, actionable information?
+3. Would removing it make the article less useful?
+4. Is there evidence or specificity backing any claims?
+
+If the answer to ANY of these is "no", DELETE THE SENTENCE.
 
 ### Voice & Tone (Enhanced by Humanizing Rules)
 - **Apply all humanizing-rules.md guidelines first**
