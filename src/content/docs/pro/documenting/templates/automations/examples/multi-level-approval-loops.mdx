@@ -30,26 +30,15 @@ Here's how your multi-level approval workflow flows with automatic rejection han
 
 ```mermaid
 flowchart TD
-    Start([New Request]) --> Create[Step 1: Create wire<br/>transfer request]
-    Create --> ManagerReady{Manager<br/>Ready?}
+    Create[Create Request] --> Manager{Manager<br/>Approval}
+    Manager -->|✅| Finance{Finance<br/>Approval}
+    Manager -->|❌| Create
     
-    ManagerReady --> Manager{Step 2: Manager<br/>Review}
-    Manager -->|✅ Approved| FinanceShow[Show Finance<br/>Approval]
-    Manager -->|❌ Rejected| ReOpen1[Re-open Step 1:<br/>Create request]
+    Finance -->|✅| COO{COO<br/>Approval}
+    Finance -->|❌| Create
     
-    FinanceShow --> Finance{Step 3: Finance<br/>Department Approval}
-    Finance -->|✅ Approved| COOShow[Show COO<br/>Approval]
-    Finance -->|❌ Rejected| ReOpen2[Re-open Step 1:<br/>Create request]
-    
-    COOShow --> COO{Step 4: COO<br/>Final Approval}
-    COO -->|✅ Approved| Complete([✅ Request<br/>Approved])
-    COO -->|❌ Rejected| ReOpen3[Re-open Step 1 +<br/>Step 2 Manager]
-    
-    ReOpen1 --> Create
-    ReOpen2 --> Create
-    ReOpen3 --> Create
-    ReOpen3 -.->|Also reopens| ManagerReady
-    
+    COO -->|✅| Complete([Approved])
+    COO -->|❌| Create
     
     click Manager "/products/pro/documenting/templates/automations/actions/status-actions/" "Learn about status actions for re-opening tasks"
     click Finance "/products/pro/documenting/templates/automations/actions/visibility-actions/" "Learn about visibility rules for approval flow"
@@ -124,28 +113,15 @@ What if legal, compliance, and finance all need to review at the same time? Here
 
 ```mermaid
 flowchart TD
-    Initial[Initial<br/>Review] --> Split{Trigger<br/>Parallel}
+    Initial[Initial Review] --> Legal{Legal}
+    Initial --> Compliance{Compliance}
+    Initial --> Finance{Finance}
     
-    Split --> Legal{Legal<br/>Approval}
-    Split --> Compliance{Compliance<br/>Approval}
-    Split --> Finance{Finance<br/>Approval}
-    
-    Legal -->|✅| Sync{All<br/>Approved?}
-    Legal -->|❌| RejectPath[Re-open<br/>Initial Review]
-    
-    Compliance -->|✅| Sync
-    Compliance -->|❌| RejectPath
-    
-    Finance -->|✅| Sync
-    Finance -->|❌| RejectPath
-    
-    Sync -->|Yes| Final[Final<br/>Implementation]
-    Sync -->|Waiting| Wait[Wait for<br/>Others]
-    
-    RejectPath --> Initial
+    Legal & Compliance & Finance -->|All ✅| Final[Final Implementation]
+    Legal & Compliance & Finance -->|Any ❌| Initial
     
     click Legal "/products/pro/documenting/templates/automations/actions/visibility-actions/" "Learn about parallel visibility rules"
-    click Sync "/products/pro/documenting/templates/automations/conditions/" "Learn about AND conditions for synchronization"
+    click Final "/products/pro/documenting/templates/automations/conditions/" "Learn about AND conditions for synchronization"
 ```
 
 **What to notice:**
@@ -204,23 +180,15 @@ Let me show you how a real estate agency nailed their listing approvals:
 
 ```mermaid
 flowchart TD
-    Start([New Listing]) --> Agent[1. Agent creates<br/>listing + photos]
-    Agent --> Manager{2. Office Manager<br/>Review}
+    Agent[Create Listing] --> Manager{Manager<br/>Review}
+    Manager -->|✅| Marketing{Marketing<br/>Review}
+    Manager -->|❌| Agent
     
-    Manager -->|✅ Complete| Marketing{3. Marketing<br/>Review}
-    Manager -->|❌ Incomplete| ReOpen1[Fix: Missing<br/>info/docs]
+    Marketing -->|✅| Compliance{Compliance<br/>Check}
+    Marketing -->|❌| Agent
     
-    Marketing -->|✅ Looks good| Compliance{4. Compliance<br/>Check}
-    Marketing -->|❌ Needs work| ReOpen2[Fix: Better<br/>photos/copy]
-    
-    Compliance -->|✅ Legal OK| Publish([5. Published<br/>to MLS])
-    Compliance -->|❌ Issues| ReOpen3[Fix: Legal<br/>requirements]
-    
-    ReOpen1 --> Agent
-    ReOpen2 --> Agent
-    ReOpen3 --> Agent
-    ReOpen3 -.->|Notify| Manager
-    
+    Compliance -->|✅| Publish([Published<br/>to MLS])
+    Compliance -->|❌| Agent
     
     click Compliance "/products/pro/documenting/templates/automations/actions/status-actions/" "Learn how rejections trigger re-opens"
     click Manager "/products/pro/documenting/templates/automations/actions/visibility-actions/" "See how visibility rules control flow"
