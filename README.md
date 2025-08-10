@@ -142,7 +142,7 @@ flowchart TD
 | **Process Workflows** | `flowchart TD` | Decision nodes, branches, outcomes |
 | **Automation Logic** | `flowchart TD` | Sequential rules, AND/OR logic, actions |
 | **SSO/Authentication** | `sequenceDiagram` | User + admin actions, token flow |
-| **System Architecture** | `graph LR` | Components, data flow, connections |
+| **System Architecture** | `graph TD` | Components, data flow, connections |
 
 ##### Real-World Examples
 

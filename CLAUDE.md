@@ -1265,7 +1265,7 @@ When including a Mermaid diagram, follow this proven structure:
 Transform diagrams into clickable navigation tools using the `click` syntax:
 
 ```mermaid
-flowchart LR
+flowchart TD
   A[Create Template] --> B[Add Approval]
   click A "/products/pro/documenting/templates/" "Templates overview"
   click B "/products/pro/documenting/templates/automations/" "Automation rules"
@@ -1349,7 +1349,7 @@ Include these details:
 
 2. **When to Use Each Layout**:
    - `TD` (Top-Down): Process flows, decision trees, hierarchies (PREFERRED)
-   - `LR` (Left-Right): Only for simple 2-3 step flows or timelines
+   - `LR` (Left-Right): Only for simple 2-3 step flows or timelines (avoid for mobile compatibility)
    - `BT` (Bottom-Top): Rarely - only for reverse hierarchies
    - `RL` (Right-Left): Avoid - counterintuitive reading direction
 
