@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 
 def clean_markdown(markdown_content: str) -> str:
 	"""
-    Clean markdown content by removing code blocks, components, and formatting.
+    Clean markdown content by removing Mermaid diagrams, code blocks, components, and formatting.
 
     Args:
         markdown_content: Raw markdown content to clean
 
     Returns:
-        Cleaned markdown content as string
+        Cleaned markdown content as string with Mermaid diagram syntax removed
     """
 	if not isinstance(markdown_content, str):
 		logger.warning(f"Expected string for markdown content, got {type(markdown_content)}")
@@ -46,18 +46,22 @@ def clean_markdown(markdown_content: str) -> str:
 	content = markdown_content
 
 	try:
-		# Step 1: Remove code blocks (content within triple backticks)
+		# Step 1: Remove Mermaid diagram blocks specifically (before general code block removal)
+		mermaid_pattern = r'```mermaid[\s\S]*?```'
+		content = re.sub(mermaid_pattern, '', content, flags=re.MULTILINE)
+
+		# Step 2: Remove other code blocks (content within triple backticks)
 		content = re.sub(r'```[^`]*```', '', content, flags=re.DOTALL)
 
-		# Step 2: Remove TabItem blocks and their content
+		# Step 3: Remove TabItem blocks and their content
 		tab_item_pattern = re.compile(r'<TabItem\s+label=[^>]*>(.*?)</TabItem>', re.DOTALL)
 		content = re.sub(tab_item_pattern, '', content)
 
-		# Step 3: Remove Tabs component if it exists
+		# Step 4: Remove Tabs component if it exists
 		tabs_pattern = re.compile(r'<Tabs>(.*?)</Tabs>', re.DOTALL)
 		content = re.sub(tabs_pattern, '', content)
 
-		# Step 4: Clean up import statements (including Astro imports)
+		# Step 5: Clean up import statements (including Astro imports)
 		# Pattern 1: import { ... } from "...";
 		import_pattern1 = re.compile(r'import\s+{[^}]*}\s+from\s+[\'"][^\'"]*[\'"];?', re.DOTALL)
 		content = re.sub(import_pattern1, '', content)
@@ -74,19 +78,19 @@ def clean_markdown(markdown_content: str) -> str:
 		import_pattern4 = re.compile(r'import\s+.*\s+from\s+[\'"][~@/][^\'"]*[\'"];?', re.DOTALL)
 		content = re.sub(import_pattern4, '', content)
 
-		# Step 5: Clean up any leftover triple backticks
+		# Step 6: Clean up any leftover triple backticks
 		content = re.sub(r'```.*', '', content)
 
-		# Step 6: Remove HTML-style comments
+		# Step 7: Remove HTML-style comments
 		content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
 
-		# Step 7: Clean up consecutive empty lines
+		# Step 8: Clean up consecutive empty lines (including extra newlines from Mermaid removal)
 		content = re.sub(r'\n{3,}', '\n\n', content)
 
-		# Step 8: Remove "Related articles" section
+		# Step 9: Remove "Related articles" section
 		content = content.split("## Related articles")[0].rstrip()
 
-		# Step 9: Additional cleanup
+		# Step 10: Additional cleanup
 		content = content.replace("\n", " ").replace("#", "")
 		content = ' '.join(content.split())  # Normalize whitespace
 
