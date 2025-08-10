@@ -61,6 +61,54 @@ This approach ensures alerts are:
 *   **Actionable:** A rapidly burning error budget for a Manufactory process signifies a real or imminent problem impacting your defined objectives.
 *   **User-focused:** Alerts are tied directly to the reliability targets you've set for workflows involving Tallyfy Manufactory.
 
+## SLO alerting flow visualization
+
+This diagram shows how SLI measurements flow through error budget calculations to trigger different alert severities based on burn rates.
+
+```mermaid
+flowchart TD
+    Start([Event Data from<br/>Manufactory]) --> SLI[Calculate SLI<br/>e.g., Success Rate]
+    
+    SLI --> Compare{Compare to<br/>SLO Target}
+    
+    Compare -->|Below Target| Consume[Consume Error Budget]
+    Compare -->|Meets Target| OK[Within Budget]
+    
+    Consume --> BurnCalc[Calculate Burn Rate<br/>over Time Windows]
+    
+    BurnCalc --> FastBurn{Fast Burn?<br/>Budget gone in 4h}
+    BurnCalc --> SlowBurn{Slow Burn?<br/>Budget gone in 24h}
+    
+    FastBurn -->|Yes| Critical[🚨 Critical Alert<br/>Page On-Call]
+    FastBurn -->|No| CheckSlow
+    
+    SlowBurn -->|Yes| Warning[⚠️ Warning Alert<br/>Notify Team]
+    SlowBurn -->|No| Monitor[Continue Monitoring]
+    
+    CheckSlow[Check Slower Burns] --> SlowBurn
+    
+    Critical --> Investigate[Investigate Actor/<br/>Event Issues]
+    Warning --> Investigate
+    
+    Investigate --> Fix[Fix Root Cause]
+    Fix --> Start
+    
+    OK --> Monitor
+    Monitor --> Start
+    
+    style Critical fill:#F8D7DA,stroke:#DC3545
+    style Warning fill:#FFF3CD,stroke:#FFC107
+    style OK fill:#D4EDDA,stroke:#00AA55
+    
+    click SLI "/products/manufactory/best-practices/what-is-observability/" "Learn about observability"
+    click Investigate "/products/manufactory/actors/" "Understanding Manufactory actors"
+```
+
+**What to notice:**
+- **Two-tier alerting:** Fast burns (4h) trigger critical pages while slower burns (24h) generate warnings, balancing urgency with noise reduction
+- **Feedback loop:** Alerts lead to investigation and fixes that feed back into the system, creating continuous improvement
+- **Budget-based decisions:** The system only alerts when your error budget is actually being consumed at concerning rates, not on arbitrary thresholds
+
 ## How Tallyfy Manufactory data supports SLOs and alerting
 
 Event data processed by or originating from Tallyfy Manufactory is key to implementing SLO-based alerting:

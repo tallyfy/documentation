@@ -82,6 +82,41 @@ As mentioned elsewhere, Zapier is fine for simple links. For more robust connect
 
 ![Example of Tallyfy embedded in Salesforce](https://screenshots.tallyfy.com/tallyfy-salesforce-widget.png)
 
+## Integration flow visualization
+
+This diagram shows how data flows between your CRM/ERP and Tallyfy through middleware connections.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant CRM as CRM/ERP
+    participant MW as Middleware
+    participant T as Tallyfy
+    
+    Note over U,T: CRM to Tallyfy Flow (Magic Link)
+    U->>CRM: Click magic link button
+    CRM->>T: Launch process with data<br/>(name, company, deal ID)
+    T->>T: Create process<br/>Pre-fill forms
+    T-->>U: Show assigned tasks
+    
+    Note over U,T: Tallyfy to CRM Flow (Webhook)
+    U->>T: Complete form/task
+    T->>MW: Trigger webhook<br/>Send form data
+    MW->>MW: Process data<br/>Map fields
+    MW->>CRM: Update record<br/>Using saved ID
+    CRM-->>MW: Confirmation
+    
+    Note over CRM,T: Bidirectional Integration Complete
+```
+
+### What to notice
+
+- **Record ID preservation**: The CRM record ID passes through the entire flow - first from CRM to Tallyfy (step 3), then back from Tallyfy to CRM (step 9) - ensuring updates hit the correct record
+- **Middleware as the bridge**: Notice how middleware (steps 7-9) handles the complex data transformation and routing between Tallyfy's webhook format and your CRM's API requirements
+- **Two distinct flows**: The diagram clearly separates launching Tallyfy processes from your CRM (steps 1-4) versus updating CRM records from Tallyfy (steps 6-10) - you can implement either or both based on your needs
+
 Here's how information flows between systems:
 
 #### 1. Start Tallyfy processes FROM your CRM/ERP

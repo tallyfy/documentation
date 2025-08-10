@@ -157,6 +157,50 @@ Here's how it works for your users:
 - Already have a Tallyfy account? They'll log in automatically
 - Don't have an account yet? Tallyfy creates one on their first login
 
+### SSO authentication flow
+
+This shows the complete authentication process from setup to user access.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin
+    participant O as Okta
+    participant T as Tallyfy
+    participant S as Support
+    participant U as User
+    
+    Note over A,S: SSO Setup Process
+    
+    A->>O: Create SAML app<br/>Configure SP values
+    O-->>A: Provide IdP metadata<br/>(SSO URL, Issuer, X.509)
+    A->>S: Send IdP configuration
+    S->>T: Configure SAML settings
+    S-->>A: Confirm setup complete
+    A->>T: Enable SAML toggle
+    
+    Note over U,T: User Authentication Flow
+    
+    U->>O: Access Tallyfy SSO URL
+    O->>U: Show Okta login
+    U->>O: Enter credentials
+    O->>O: Authenticate user
+    O->>T: SAML assertion<br/>(email, FirstName, LastName)
+    
+    alt Existing user
+        T->>T: Match email, login user
+    else New user
+        T->>T: Create account<br/>Set name from attributes
+    end
+    
+    T->>U: Grant access to Tallyfy
+```
+
+**What to notice:**
+- Steps 1-6 show the one-time setup collaboration between your Admin and Tallyfy Support
+- Steps 7-12 demonstrate the actual user authentication flow that happens every login
+- Tallyfy automatically creates accounts for new users (step 14) using the email and name attributes from Okta
+
 ### Troubleshooting
 
 Can't log in? Check these things first:

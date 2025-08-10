@@ -18,6 +18,58 @@ import { Steps } from '@astrojs/starlight/components';
 
 Want to launch Tallyfy workflows when something happens in Salesforce? Or maybe when a support ticket comes in? You can connect Workato to Tallyfy using the HTTP connector to automatically start [processes](/products/pro/tracking-and-tasks/processes/) based on events in your other business systems - whether that's your CRM, ERP, or help desk.
 
+### Integration flow overview
+
+This diagram shows how external triggers flow through Workato to launch Tallyfy processes automatically.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant ES as External System<br/>(Salesforce/Zendesk)
+    participant W as Workato Recipe
+    participant HTTP as HTTP Connector
+    participant T as Tallyfy API
+    
+    Note over ES,T: Integration Flow: External Event → Tallyfy Process Launch
+    
+    ES->>W: Trigger Event<br/>(New opportunity, ticket, etc.)
+    W->>W: Extract trigger data
+    W->>HTTP: Configure request
+    
+    Note over HTTP: Authentication:<br/>Bearer token +<br/>X-Tallyfy-Client header
+    
+    HTTP->>T: POST /api/runs<br/>with JSON body
+    Note right of T: Body includes:<br/>- blueprint_id<br/>- owner_id<br/>- prerun data
+    
+    alt Success
+        T-->>HTTP: 200 OK<br/>Process details
+        HTTP-->>W: Process ID, title, status
+        W->>W: Store process details
+        Note over W: Process launched successfully
+    else 401 Unauthorized
+        T-->>HTTP: 401 Error
+        HTTP-->>W: Invalid token
+        W->>W: Check API token validity
+    else 404 Not Found
+        T-->>HTTP: 404 Error
+        HTTP-->>W: Template not found
+        W->>W: Verify template ID
+    else 400 Bad Request
+        T-->>HTTP: 400 Error
+        HTTP-->>W: Invalid data
+        W->>W: Log error for debugging
+    else Rate Limit
+        T-->>HTTP: 429 Too Many Requests
+        HTTP-->>W: Rate limit exceeded
+        W->>W: Implement exponential backoff
+    end
+```
+
+**What to notice:**
+- The authentication setup (step 4) requires both a Bearer token and the X-Tallyfy-Client header - missing either will cause a 401 error
+- Workato transforms trigger data into the prerun object that populates your kick-off form fields automatically
+- Error handling paths show exactly what to check when processes don't launch - authentication, template ID, data format, or rate limits
+
 ### Prerequisites
 
 Before you begin, make sure you have:

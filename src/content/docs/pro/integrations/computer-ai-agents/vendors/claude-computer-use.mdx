@@ -54,6 +54,63 @@ Key aspects of Claude's Computer Use include:
     2.  Claude decides if a tool can help and responds with a `tool_use` request, specifying the tool and its inputs.
     3.  Your application (the client) is responsible for **executing** this tool request in a secure, sandboxed computing environment and then sending the `tool_result` (screenshot, command output, success/failure) back to Claude in a new user message.
     4.  Claude analyzes the result and decides on the next action - either another tool call or a final response. This loop continues until the task is completed.
+
+### How the Claude Computer Use Agent Loop Works
+
+This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy
+    participant I as Intermediary App
+    participant C as Claude API
+    participant S as Sandbox Environment<br/>(Docker Container)
+    
+    Note over T,S: Claude Computer Use Integration Flow
+    
+    T->>I: Webhook trigger<br/>Task + Form data
+    Note right of I: Extract: file name,<br/>filter criteria,<br/>output field
+    I->>I: Construct prompt<br/>+ tool list
+    I->>C: Initial prompt<br/>+ tools (computer,<br/>text_editor, bash)
+    
+    loop Agent Loop - Until Task Complete
+        C->>C: Analyze context<br/>Decide action
+        C->>I: tool_use request<br/>(e.g., screenshot)
+        I->>S: Execute tool<br/>in sandbox
+        
+        alt Screenshot Request
+            S->>S: Capture desktop<br/>X11 display
+            S-->>I: Image data
+        else Mouse/Keyboard Action
+            S->>S: Perform UI action<br/>(click/type/drag)
+            S-->>I: Success + new screenshot
+        else Bash Command
+            S->>S: Execute command
+            S-->>I: Command output
+        end
+        
+        I->>C: Send tool_result<br/>+ context
+        
+        alt Task Incomplete
+            C->>C: Process result<br/>Plan next action
+            Note right of C: Extended thinking<br/>(Claude 4 feature)
+        else Task Complete
+            C->>I: Final response<br/>"Task done: Result"
+        end
+    end
+    
+    I->>I: Parse final result<br/>Extract value
+    I->>T: Update form field<br/>via Tallyfy API
+    
+    Note over T,S: Task completed with tracked results
+```
+
+**What to notice:**
+- **Steps 1-4:** Tallyfy initiates the process with structured task data that the intermediary app transforms into Claude-ready prompts
+- **Steps 5-15:** The iterative agent loop shows how Claude repeatedly requests tools, receives results, and decides next actions - this may cycle dozens of times for complex UI tasks
+- **Steps 7-13:** Different tool types (screenshot, UI actions, bash) are executed in the isolated sandbox environment, ensuring security while giving Claude the perception and control it needs
 *   **Sandboxed Computing Environment:** Safety first - this environment (often a Docker container) typically includes:
     *   A virtual X11 display server (like Xvfb) for rendering the desktop.
     *   A lightweight Linux desktop environment (Mutter window manager, Tint2 panel).
@@ -119,6 +176,78 @@ Let's walk through a real example. **Tallyfy Task:** "Open `Product_Feedback.xls
     *   `Filter Column Name`: `Priority`
     *   `Filter Value`: `Urgent`
     *   `Output Field Name`: `Urgent Issue Count`
+
+### Excel Filtering Example: Step-by-Step Execution Flow
+
+This sequence shows the actual tool calls and responses for a real Excel filtering task, demonstrating how Claude Computer Use handles UI automation through iterative perception and action.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy Task
+    participant I as Intermediary
+    participant C as Claude API
+    participant E as Excel in Sandbox
+    
+    Note over T,E: Example: Count Urgent Issues in Excel
+    
+    T->>I: Webhook data<br/>File: Product_Feedback.xlsx<br/>Filter: Priority = Urgent
+    
+    I->>C: "Open Product_Feedback.xlsx,<br/>filter Priority column for 'Urgent',<br/>count rows"
+    
+    rect rgb(245, 245, 245)
+        Note right of C: Step 1: See Desktop
+        C->>I: tool_use: screenshot
+        I->>E: Capture desktop
+        E-->>I: Desktop image with<br/>Excel file icon
+        I->>C: tool_result: screenshot.png
+    end
+    
+    rect rgb(240, 248, 255)
+        Note right of C: Step 2: Open Excel
+        C->>I: tool_use: double_click<br/>at (x:150, y:200)
+        I->>E: Double-click Excel icon
+        E->>E: Launch Excel,<br/>open file
+        E-->>I: Excel window opened
+        I->>C: tool_result: success +<br/>new screenshot
+    end
+    
+    rect rgb(255, 245, 240)
+        Note right of C: Step 3: Apply Filter
+        C->>I: tool_use: click<br/>Priority column header
+        I->>E: Click column header
+        E-->>I: Filter menu visible
+        I->>C: tool_result: screenshot
+        
+        C->>I: tool_use: click<br/>"Filter" dropdown
+        I->>E: Open filter options
+        E-->>I: Filter options shown
+        I->>C: tool_result: screenshot
+        
+        C->>I: tool_use: type<br/>"Urgent" + Enter
+        I->>E: Apply filter value
+        E->>E: Filter data,<br/>show 15 rows
+        E-->>I: Filtered view
+        I->>C: tool_result: screenshot
+    end
+    
+    rect rgb(245, 255, 245)
+        Note right of C: Step 4: Count & Report
+        C->>C: Analyze status bar<br/>or count visible rows
+        C->>I: "Found 15 urgent issues"
+    end
+    
+    I->>T: Update form field<br/>Urgent Issue Count = 15
+    
+    Note over T,E: Task complete: Result tracked in Tallyfy
+```
+
+**What to notice:**
+- **Steps 3-8:** Claude starts by taking a screenshot to perceive the desktop environment before taking any action
+- **Steps 9-14:** Each UI interaction (clicking, typing) generates a new screenshot for Claude to verify the action succeeded
+- **Steps 15-29:** Complex operations like filtering require multiple coordinated actions, with Claude verifying each step through visual feedback
+
 *   **Integration Steps (Conceptual):**
     1.  Tallyfy task starts, triggering your intermediary application via a webhook, passing the form field data.
     2.  Your application constructs an initial prompt for Claude: "Open the Excel file named `Product_Feedback.xlsx` located on the desktop. This file contains columns including `Priority`. Filter the data to show only rows where the `Priority` column is 'Urgent'. Count the number of such rows and provide the total count."

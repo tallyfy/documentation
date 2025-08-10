@@ -69,6 +69,45 @@ For third-party applications or dedicated Tallyfy integrations requiring client 
 2. Receive your application's **Client ID** and **Client Secret**
 3. Implement the OAuth 2.0 flow to obtain and refresh access tokens
 
+## OAuth authentication flow
+
+This diagram shows the complete OAuth authentication flow for both user-based and application-based authentication methods.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Your Application
+    participant Auth as Tallyfy OAuth
+    participant API as Tallyfy API
+    
+    Note over App,API: OAuth Authentication Flow
+    
+    alt Password Grant (User Context)
+        App->>Auth: POST /oauth/token<br/>grant_type=password<br/>client_id, client_secret<br/>username, password
+        Auth->>App: access_token + refresh_token<br/>expires_in: 3600
+    else Client Credentials Grant (App Context)
+        App->>Auth: POST /oauth/token<br/>grant_type=client_credentials<br/>client_id, client_secret
+        Auth->>App: access_token (limited scope)<br/>expires_in: 3600
+    end
+    
+    App->>API: API Request<br/>Authorization: Bearer {token}<br/>X-Tallyfy-Client: APIClient
+    
+    alt Token Valid
+        API->>App: 200 OK + Response Data
+    else Token Expired
+        API->>App: 401 Unauthenticated
+        App->>Auth: POST /oauth/token<br/>grant_type=refresh_token<br/>refresh_token={token}
+        Auth->>App: New access_token
+        App->>API: Retry with new token
+        API->>App: 200 OK + Response Data
+    end
+```
+
+**What to notice:**
+- Step 1-4 show the initial authentication - choose password grant for user context or client credentials for app-only access
+- Step 5 demonstrates required headers for all API requests - both Authorization and X-Tallyfy-Client headers are mandatory
+- Steps 6-10 illustrate automatic token refresh when a 401 error occurs - your application should implement this retry logic
+
 ### Best practices for token management
 
 To ensure stable API integrations, follow these token management best practices:

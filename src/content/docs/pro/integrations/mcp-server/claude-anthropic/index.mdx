@@ -22,6 +22,48 @@ Claude Desktop pioneered MCP support back in November 2024. It's the first AI as
 
 We'll walk you through setting up Tallyfy's MCP server with Claude Desktop, show you what works (and what doesn't), and help you get the most out of this integration.
 
+## MCP architecture flow
+
+This diagram shows how Claude Desktop connects to Tallyfy through the MCP server middleware layer.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant User
+    participant Claude as Claude Desktop
+    participant Config as Config File
+    participant MCP as MCP Server<br/>(tallyfy-server.js)
+    participant API as Tallyfy API
+    
+    Note over User,API: Initialization Phase
+    
+    User->>Claude: Launch Claude Desktop
+    Claude->>Config: Read claude_desktop_config.json
+    Config-->>Claude: MCP server configuration
+    Claude->>MCP: Start server via stdio
+    MCP->>MCP: Load TALLYFY_API_KEY from env
+    MCP-->>Claude: Server ready
+    
+    Claude->>MCP: Request tools/list
+    MCP-->>Claude: Available tools<br/>(search_tasks, etc.)
+    Claude->>Claude: Display tools in UI (🔨)
+    
+    Note over User,API: Usage Phase
+    
+    User->>Claude: "Search for open tasks"
+    Claude->>MCP: tools/call: search_tasks<br/>{query: "", status: "open"}
+    MCP->>API: GET /tasks<br/>Bearer: [API_KEY]
+    API-->>MCP: Task data (JSON)
+    MCP-->>Claude: Formatted results
+    Claude-->>User: Display task summary
+```
+
+**What to notice:**
+- The MCP server runs locally on your machine and uses stdio (standard input/output) for communication - not network protocols
+- API authentication happens once when the server starts, using the Bearer token from your environment variable
+- Claude automatically discovers available tools from the MCP server and displays them in the UI with the 🔨 icon
+
 :::warning[Important: Claude Desktop vs Claude Computer Use]
 This article covers **Claude Desktop's text-chat interface with MCP integration** - where you interact with Claude through natural language to access Tallyfy data via MCP servers. This is different from [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/), which allows Claude to visually perceive and control computer interfaces (mouse, keyboard, screenshots).
 

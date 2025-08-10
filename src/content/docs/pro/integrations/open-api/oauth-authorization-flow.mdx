@@ -26,6 +26,41 @@ The OAuth authorization flow is only available to paid organizations. Contact Ta
 
 ### Standard OAuth flow implementation
 
+The following diagram shows the complete OAuth 2.0 implicit flow for authenticating third-party applications with Tallyfy.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant App as Third-party App
+    participant Auth as Tallyfy Auth<br/>(account.tallyfy.com)
+    participant API as Tallyfy API
+    
+    Note over User,API: OAuth 2.0 Implicit Flow
+    
+    User->>App: Initiates login
+    App->>User: Redirect to Tallyfy
+    User->>Auth: GET /oauth/authorize<br/>client_id=YOUR_CLIENT_ID<br/>redirect_uri=YOUR_REDIRECT_URL
+    Auth->>User: Show login page
+    User->>Auth: Enter credentials
+    Auth->>Auth: Validate credentials
+    Auth->>User: Redirect with token
+    User->>App: YOUR_REDIRECT_URL<br/>#access_token=TOKEN<br/>&expires_in=840
+    App->>App: Extract token from URL
+    
+    Note over App,API: Using the Access Token
+    
+    App->>API: API Request<br/>Authorization: Bearer TOKEN<br/>X-Tallyfy-Client: APIClient
+    API->>App: Response data
+    
+    Note over App: Token expires after<br/>specified seconds
+```
+
+**What to notice:**
+- The access token is returned in the URL fragment (after #) for security - fragments are not sent to servers
+- Authentication happens entirely on Tallyfy's domain, your app never sees user credentials
+- The `X-Tallyfy-Client` header is required for all API calls after authentication
+
 #### Step 1: Redirect users to Tallyfy authorization page
 
 Direct your users to the Tallyfy authorization endpoint:

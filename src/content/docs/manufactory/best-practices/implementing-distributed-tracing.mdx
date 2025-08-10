@@ -78,6 +78,48 @@ Let's imagine a new customer completes a signup form on your application:
 
 If the customer later reports not receiving a welcome email, this distributed trace would immediately show whether Manufactory received the initial event, if it triggered the `WelcomeEmailActor`, and potentially if that actor encountered an error. This significantly speeds up troubleshooting.
 
+### Visualizing the trace flow
+
+This diagram shows how trace context propagates through the entire event processing pipeline.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant UAS as UserAccountService<br/>(Span A)
+    participant M as Manufactory<br/>Ingestion<br/>(Span B)
+    participant P as Manufactory<br/>Project<br/>(Span C)
+    participant WE as WelcomeEmail<br/>Actor<br/>(Span D)
+    participant PT as ProvisionTrial<br/>Actor<br/>(Span E)
+    
+    User->>UAS: Signup Request
+    Note over UAS: Create Span A (Root)<br/>Trace ID: xyz123
+    UAS->>UAS: Create User Account
+    UAS->>M: UserSignedUp Event<br/>+ Trace Context<br/>(TraceID: xyz123, ParentID: A)
+    
+    Note over M: Create Span B<br/>Parent: Span A
+    M->>P: Route to Onboarding Project<br/>(TraceID: xyz123, ParentID: B)
+    
+    Note over P: Create Span C<br/>Parent: Span B
+    
+    par Parallel Actor Execution
+        P->>WE: Trigger WelcomeEmailActor<br/>(TraceID: xyz123, ParentID: C)
+        Note over WE: Create Span D<br/>Parent: Span C
+        WE->>WE: Send Email
+    and
+        P->>PT: Trigger ProvisionTrialActor<br/>(TraceID: xyz123, ParentID: C)
+        Note over PT: Create Span E<br/>Parent: Span C
+        PT->>PT: Grant Access
+    end
+    
+    Note over User,PT: Complete Trace: Spans A→B→C→(D,E)
+```
+
+**What to notice:**
+- **Trace ID propagation** - The same Trace ID (xyz123) flows through all services, linking every operation to the original request
+- **Parent-child relationships** - Each span references its parent, creating a clear hierarchy: A spawns B, B spawns C, and C spawns both D and E in parallel
+- **Parallel execution visibility** - The diagram clearly shows how Manufactory can trigger multiple actors simultaneously, with both operations tracked as separate child spans
+
 ## Tools and considerations
 
 It's important to note that while Tallyfy Manufactory processes events that are part of a distributed trace, it isn't typically a distributed tracing backend itself. You would generally use a dedicated tracing system (open source options like Jaeger or Zipkin, or various commercial observability platforms) to collect, store, and visualize these traces.

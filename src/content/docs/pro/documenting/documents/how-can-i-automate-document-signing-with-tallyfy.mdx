@@ -36,6 +36,43 @@ If you haven't used middleware before, check our [guide on connecting Tallyfy to
 5. Test everything and turn on the [automation](/products/pro/documenting/templates/automations/).
 </Steps>
 
+### Document signing automation flow
+
+This shows the complete automation pathway from workflow completion to signed document tracking.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant User
+    participant T as Tallyfy Process
+    participant M as Middleware<br/>(Zapier/Make)
+    participant E as E-Signature<br/>(DocuSign/HelloSign)
+    participant S as Signer
+    
+    Note over User,S: Automated Document Signing Flow
+    
+    User->>T: Completes workflow step
+    T->>T: Collects form data<br/>(name, email, terms)
+    T->>M: POST webhook with data
+    Note right of M: Webhook URL configured<br/>in Tallyfy step
+    
+    M->>M: Maps Tallyfy fields to<br/>document template fields
+    M->>E: Create signature request<br/>from template
+    E->>S: Send document for signature
+    S->>E: Signs document
+    
+    Note over M,T: Optional Return Path
+    E->>M: Document signed notification
+    M->>T: POST /api/v1/tasks/{id}/complete
+    Note right of T: Updates task status<br/>automatically
+```
+
+**What to notice:**
+- **Steps 3-4**: The webhook fires instantly when someone completes a Tallyfy step - no delays or manual triggers needed
+- **Steps 5-6**: Middleware handles all the field mapping automatically - you set it up once and it works every time
+- **Steps 10-11**: The optional return path creates a complete loop - Tallyfy knows when documents get signed without you checking
+
 ### Step 1: Create a listening point (webhook) in your middleware
 
 Here's how this works in Zapier:

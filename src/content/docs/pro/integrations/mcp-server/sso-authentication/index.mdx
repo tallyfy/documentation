@@ -48,6 +48,42 @@ SSO integration with MCP uses standardized OAuth 2.1 flows. These flows delegate
 4. **Token exchange**: Identity provider returns authorization code, which MCP server exchanges for access token
 5. **Secure API access**: MCP server uses resulting token to access target service APIs
 
+The following diagram illustrates how SSO authentication flows between your users, AI agents, MCP servers, and enterprise identity providers.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant AI as AI Agent
+    participant MCP as MCP Server
+    participant IdP as Identity Provider<br/>(Azure AD/Okta)
+    participant API as Target Service API
+    
+    Note over U,API: SSO-MCP Authentication Flow
+    
+    U->>AI: Request access to tool
+    AI->>MCP: Forward request
+    MCP->>U: Redirect to IdP login
+    U->>IdP: Corporate credentials + MFA
+    IdP->>IdP: Validate identity<br/>Apply policies
+    IdP->>U: Authorization code
+    U->>MCP: Return with auth code
+    MCP->>IdP: Exchange code for tokens
+    IdP->>MCP: Access token + Refresh token
+    MCP->>API: API request with Bearer token
+    API->>MCP: Protected data
+    MCP->>AI: Process response
+    AI->>U: Display results
+    
+    Note over MCP,IdP: Token lifecycle managed<br/>by MCP server
+```
+
+**What to notice:**
+- **Step 4-5**: The identity provider validates corporate credentials including MFA and conditional access policies before issuing tokens
+- **Step 8-9**: The MCP server handles token exchange automatically - users never see or manage raw tokens
+- **Steps 10-13**: Once authenticated, the MCP server can make multiple API calls on behalf of the user without additional prompts
+
 ### Bearer token acceptance
 
 Want to skip the extra steps? Advanced implementations let MCP servers accept existing SSO tokens directly:

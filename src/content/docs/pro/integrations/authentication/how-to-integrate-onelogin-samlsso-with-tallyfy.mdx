@@ -31,6 +31,61 @@ Here's what you'll do:
 2. Configure SAML settings in both systems
 3. Enable and test the SSO integration
 
+## SAML Integration Flow
+
+This diagram shows the complete OneLogin-Tallyfy SAML setup and authentication flow.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Admin
+    participant OneLogin
+    participant TSupport as Tallyfy Support
+    participant Tallyfy
+    participant User
+    
+    Note over Admin,Tallyfy: Setup Phase
+    
+    Admin->>OneLogin: Create SAML Test Connector app
+    Admin->>OneLogin: Name it "Tallyfy"
+    
+    Admin->>TSupport: Request SAML configuration values
+    TSupport->>Admin: Provide SP ACS URL, SP Entity ID
+    
+    Admin->>OneLogin: Configure with Tallyfy values<br/>- ACS URL<br/>- Entity ID<br/>- Parameters (Email, FirstName, LastName)
+    
+    Admin->>OneLogin: Assign users/roles to app
+    
+    OneLogin->>Admin: Provide SAML metadata<br/>- SAML 2.0 Endpoint<br/>- Issuer URL<br/>- X.509 Certificate
+    
+    Admin->>TSupport: Send OneLogin metadata
+    TSupport->>Tallyfy: Configure SAML settings
+    TSupport->>Admin: Confirm configuration complete
+    
+    Admin->>Tallyfy: Enable SAML toggle
+    Tallyfy->>Admin: Provide SSO login URL
+    
+    Note over User,Tallyfy: Runtime Authentication Flow
+    
+    User->>Tallyfy: Access via SSO URL
+    Tallyfy->>OneLogin: Redirect for authentication
+    User->>OneLogin: Enter credentials
+    OneLogin->>OneLogin: Validate user
+    OneLogin->>Tallyfy: SAML assertion with user attributes
+    
+    alt Existing Tallyfy user
+        Tallyfy->>User: Grant immediate access
+    else New user
+        Tallyfy->>Tallyfy: Auto-provision account
+        Tallyfy->>User: Grant access to new account
+    end
+```
+
+### What to notice:
+- Configuration requires exchanging metadata between OneLogin and Tallyfy Support
+- Users access through a special SSO URL after setup is complete
+- New users are automatically provisioned on first login
+
 ### Phase 1: Create OneLogin SAML application
 
 #### Step 1: Access application management

@@ -34,6 +34,52 @@ Here's what you'll do:
 2. Configure SAML settings in both systems
 3. Enable and test the SSO connection
 
+## SSO configuration flow
+
+This diagram shows how Azure AD, Tallyfy Support, and your admin work together to set up single sign-on.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant Admin as Azure Admin
+    participant Azure as Azure AD
+    participant Support as Tallyfy Support
+    participant Tallyfy as Tallyfy Platform
+    participant User as End User
+    
+    Note over Admin,Support: SSO Setup Process
+    
+    Admin->>Support: Submit support ticket for SSO
+    Support->>Admin: Provide Tallyfy SAML values<br/>(SP ACS URL, SP Entity ID)
+    
+    Admin->>Azure: Create Enterprise Application
+    Admin->>Azure: Configure SAML settings<br/>with Tallyfy values
+    Admin->>Azure: Map user attributes<br/>(FirstName, LastName, Email)
+    
+    Azure->>Admin: Provide Azure SAML info<br/>(Login URL, Azure ID, Certificate)
+    Admin->>Support: Send Azure SAML configuration
+    
+    Support->>Tallyfy: Configure SAML settings
+    Support->>Admin: Confirm setup complete
+    Admin->>Tallyfy: Enable SAML toggle
+    
+    Note over User,Tallyfy: User Authentication Flow
+    
+    User->>Tallyfy: Access SSO URL
+    Tallyfy->>Azure: Redirect to Azure AD
+    User->>Azure: Enter credentials
+    Azure->>Azure: Authenticate user
+    Azure->>Tallyfy: SAML assertion
+    Tallyfy->>Tallyfy: Provision/authenticate user
+    Tallyfy->>User: Grant access
+```
+
+**What to notice:**
+- Steps 1-10 show the one-time setup collaboration between your Azure Admin and Tallyfy Support
+- Steps 12-18 demonstrate the user authentication flow that happens every time someone logs in
+- The coordination requirement (step 1) is essential - you can't skip the support ticket
+
 ### Phase 1: Create Azure AD enterprise application
 
 #### Step 1: Access enterprise applications

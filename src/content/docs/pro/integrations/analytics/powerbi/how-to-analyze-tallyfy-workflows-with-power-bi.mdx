@@ -22,6 +22,45 @@ Connect Power BI to Tallyfy Analytics and you'll unlock powerful workflow visual
 - **Automated Reporting** - Schedule weekly reports that land in stakeholders' inboxes automatically
 - **Centralized Data** - Merge Tallyfy data with your CRM, ERP, or other business systems
 
+## Connection Architecture
+
+This diagram shows how Power BI connects to your Tallyfy data through Amazon Athena.
+
+```mermaid
+flowchart TD
+    Start([Power BI Desktop]) --> GetData[Get Data → ODBC]
+    GetData --> CheckAuth{Authentication<br/>Method?}
+    
+    CheckAuth -->|Recommended| AccessKey[Access Key +<br/>Secret Access Key]
+    CheckAuth -->|Not Recommended| IAM[IAM Username/<br/>Password]
+    
+    AccessKey --> ODBC[Configure ODBC<br/>Data Source]
+    IAM --> Error[❌ Security Token<br/>Invalid Error]
+    
+    ODBC --> Settings[Settings:<br/>• Region: us-west-2<br/>• Workgroup: Org ID<br/>• Catalog: AwsDataCatalog]
+    
+    Settings --> Athena[Amazon Athena<br/>Connection]
+    
+    Athena --> Data[(Tallyfy Analytics Data)]
+    
+    Data --> Tables[Available Tables:<br/>• processes<br/>• steps<br/>• form_fields<br/>• users]
+    
+    Tables --> Dashboard[Create Power BI<br/>Dashboards]
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style Dashboard fill:#D4EDDA,stroke:#00AA55
+    style Error fill:#F8D7DA,stroke:#DC3545
+    style AccessKey fill:#D4EDDA,stroke:#00AA55
+    
+    click ODBC "/products/pro/integrations/analytics/" "Analytics overview"
+    click Athena "https://aws.amazon.com/athena/" "Learn about Amazon Athena"
+```
+
+**What to notice:**
+- The recommended authentication path (Access Key/Secret) leads directly to a successful connection
+- IAM credentials will cause authentication errors - avoid this path entirely
+- All connections must go through the us-west-2 region - no other regions will work
+
 ## Authentication Methods
 
 Amazon Athena hosts your Tallyfy data. You have two ways to authenticate:

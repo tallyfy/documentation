@@ -37,6 +37,63 @@ Step-level webhooks trigger when a **specific step** is completed. They provide 
 - Trigger follow-up actions in other systems
 - Export specific form field data collected at a particular step
 
+### How webhook events flow
+
+This diagram shows how Tallyfy sends webhook data to external systems when events occur in your workflows.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as Process/Step
+    participant T as Tallyfy
+    participant Q as Queue
+    participant W as Webhook Service
+    participant M as Middleware<br/>(Zapier/Make/n8n)
+    participant E as External System<br/>(Slack/CRM/etc)
+    
+    Note over P,E: Webhook Event Flow
+    
+    P->>T: Complete step/Launch process
+    T->>T: Check webhook config
+    
+    alt Template-level webhook
+        Note over T: Fires on ANY step or launch
+        T->>Q: Queue template webhook<br/>with ALL process data
+    else Step-level webhook  
+        Note over T: Fires on SPECIFIC step only
+        T->>Q: Queue step webhook<br/>with step data
+    end
+    
+    Q->>W: Process webhook event
+    
+    loop Max 3 attempts
+        W->>M: POST webhook_url<br/>X-Tallyfy-OrgID: [org_id]<br/>JSON payload
+        Note over W,M: Timeout: 30 seconds
+        
+        alt Success (2xx)
+            M-->>W: Success response
+            W->>T: Mark delivered
+            M->>M: Validate X-Tallyfy-OrgID
+            M->>E: Trigger action<br/>(Send Slack message)
+            E-->>M: Action confirmed
+        else Failure
+            M-->>W: Error/Timeout
+            W->>W: Exponential backoff
+            Note over W: Retry: 1min, 5min, 15min
+        end
+    end
+    
+    alt All attempts failed
+        W->>T: Mark failed
+        Note over T: Log failure for debugging
+    end
+```
+
+**What to notice:**
+- **Two trigger types**: Template-level webhooks fire on ANY step completion or process launch, while step-level webhooks only fire for specific steps
+- **Retry mechanism**: Failed webhook deliveries automatically retry up to 3 times with exponential backoff (1 minute, 5 minutes, 15 minutes) to handle temporary network issues
+- **Security validation**: The X-Tallyfy-OrgID header authenticates webhook requests - always validate this in your middleware to prevent processing unauthorized webhooks
+
 ### Configuring template-level webhooks
 
 <Steps>
