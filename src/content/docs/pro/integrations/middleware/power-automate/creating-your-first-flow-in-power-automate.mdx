@@ -31,6 +31,52 @@ Here's what we're building: a flow that watches your Outlook inbox for emails wi
 
 No more copying and pasting from emails. No forgotten leads. The flow catches every qualified email and turns it into an actionable [task](/products/pro/tracking-and-tasks/tasks/) in your [procedure template](/products/pro/documenting/templates/) - complete with the email subject and body content. It just works.
 
+## How the email-to-task automation flow works
+
+This diagram shows the complete automation flow from email arrival to task creation in Tallyfy.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant E as Email Sender
+    participant O as Outlook Inbox
+    participant PA as Power Automate
+    participant T as Tallyfy API
+    participant TP as Tallyfy Process
+    
+    Note over E,TP: Automated Email-to-Task Flow
+    
+    E->>O: Sends email with<br/>"New Sales Lead Received"
+    O->>O: Email arrives in Inbox
+    
+    O->>PA: Trigger: New email detected
+    PA->>PA: Check subject filter
+    
+    alt Subject matches filter
+        PA->>PA: Extract email data<br/>(Subject, Body, Sender)
+        
+        PA->>T: POST Create Task<br/>Auth: API Key/Secret
+        Note right of PA: Blueprint ID: Lead Follow-Up<br/>Task Name: Email Subject<br/>Description: Email Body<br/>Deadline: +1 day
+        
+        T->>T: Validate request
+        T->>TP: Create task in process
+        TP-->>T: Task created (ID: xxx)
+        T-->>PA: 200 OK - Task created
+        
+        PA->>PA: Log success
+    else Subject doesn't match
+        PA->>PA: Skip (no action)
+    end
+    
+    Note over PA,TP: Task now trackable in Tallyfy
+```
+
+### What to notice
+
+- **Step 4** shows the subject filter check - only emails with "New Sales Lead Received" trigger the flow, preventing accidental task creation from every email
+- **Steps 6-7** demonstrate the API authentication using your Organization ID, API Key, and API Secret to securely connect Power Automate to Tallyfy
+- **Step 10** confirms task creation in Tallyfy - the email content becomes a trackable task with automatic deadline setting (+1 day)
+
 ## Steps to create your first automated flow for Tallyfy
 
 <Steps>

@@ -59,6 +59,54 @@ Building a full RPA flow takes work. Here's a conceptual outline for updating an
 
 **The scenario:** A Tallyfy "Client Information Update" [task](/products/pro/tracking-and-tasks/tasks/) is completed. You've got client details (like a new phone number) captured in its [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). These need to go into a legacy desktop CRM with no API.
 
+## RPA integration flow
+
+This diagram shows how data flows from Tallyfy through Power Automate's cloud and desktop components to update legacy systems.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant Tallyfy
+    participant CloudFlow as Power Automate<br/>Cloud Flow
+    participant Gateway as On-Premises<br/>Gateway
+    participant DesktopFlow as Power Automate<br/>Desktop Flow
+    participant LegacyCRM as Legacy Desktop<br/>CRM
+
+    Note over User,LegacyCRM: RPA Integration Pattern:<br/>Bridging Tallyfy with Legacy Systems
+    
+    User->>Tallyfy: Complete "Client Info Update" task
+    Tallyfy-->>CloudFlow: Trigger: Task completed event
+    
+    CloudFlow->>Tallyfy: Get task details<br/>(form field data)
+    Tallyfy-->>CloudFlow: Return client data<br/>(phone, ID, etc.)
+    
+    CloudFlow->>Gateway: Run desktop flow<br/>with input variables
+    Gateway->>DesktopFlow: Start RPA bot<br/>(attended/unattended)
+    
+    Note over DesktopFlow,LegacyCRM: UI Automation Sequence
+    DesktopFlow->>LegacyCRM: Launch application
+    DesktopFlow->>LegacyCRM: Click "Search Client"
+    DesktopFlow->>LegacyCRM: Enter client ID
+    DesktopFlow->>LegacyCRM: Click "Search"
+    LegacyCRM-->>DesktopFlow: Display client record
+    DesktopFlow->>LegacyCRM: Update phone field
+    DesktopFlow->>LegacyCRM: Click "Save Changes"
+    DesktopFlow->>LegacyCRM: Close application
+    
+    DesktopFlow-->>Gateway: Execution complete
+    Gateway-->>CloudFlow: Success/failure status
+    
+    opt Update Tallyfy
+        CloudFlow->>Tallyfy: Update process status<br/>(optional)
+    end
+```
+
+**What to notice:**
+- **Cloud-desktop separation** - Steps 1-4 happen in the cloud, while steps 7-15 execute on your local machine or server
+- **Data handoff at step 5** - The gateway bridges cloud flows with desktop automation, passing Tallyfy form data as input variables
+- **UI automation sequence** - Steps 8-15 show the RPA bot mimicking human interactions with the legacy CRM interface
+
 **1. Cloud Flow (Power Automate):**
 
 <Steps>

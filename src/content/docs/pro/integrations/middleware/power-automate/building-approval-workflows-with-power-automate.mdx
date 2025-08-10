@@ -39,6 +39,45 @@ Let's build something real. We'll create a flow where completing a Tallyfy [task
 
 **The scenario:** Your team member wraps up a "Submit Budget Proposal" [task](/products/pro/tracking-and-tasks/tasks/) in Tallyfy. The task has a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) for "Proposed Amount." Anything over $5,000? That needs manager approval through Power Automate. Then we update the Tallyfy task with whatever happens.
 
+### Approval workflow visualization
+
+This diagram shows how the budget approval flow routes between Tallyfy and Power Automate based on the amount threshold.
+
+```mermaid
+flowchart TD
+    Start([Tallyfy Task Completed:<br/>Submit Budget Proposal]) --> GetDetails[Get Task Details<br/>including Form Fields]
+    GetDetails --> CheckAmount{Proposed Amount<br/>> $5,000?}
+    
+    CheckAmount -->|No| End1([Process Continues<br/>No Approval Needed])
+    CheckAmount -->|Yes| GetManager[Get Manager<br/>from Office 365]
+    
+    GetManager --> SendApproval[Send Approval Request<br/>to Manager]
+    SendApproval --> WaitResponse[Wait for<br/>Manager Response]
+    
+    WaitResponse --> CheckOutcome{Approval<br/>Outcome?}
+    
+    CheckOutcome -->|Approved| UpdateApproved[Update Tallyfy Task:<br/>'Budget approved by manager']
+    CheckOutcome -->|Rejected| UpdateRejected[Update Tallyfy Task:<br/>'Budget rejected']
+    
+    UpdateRejected --> EmailSubmitter[Optional: Email<br/>Original Submitter]
+    
+    UpdateApproved --> End2([Process Continues])
+    EmailSubmitter --> End3([Process Halted])
+
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style End1 fill:#D4EDDA,stroke:#00AA55
+    style End2 fill:#D4EDDA,stroke:#00AA55
+    style End3 fill:#F8D7DA,stroke:#DC3545
+    
+    click GetDetails "/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" "Learn about form fields"
+    click SendApproval "/products/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams/" "Teams integration"
+```
+
+**What to notice:**
+- The $5,000 threshold creates two distinct paths - amounts below bypass approval entirely while higher amounts trigger the full approval flow
+- Manager approval happens outside Tallyfy in Power Automate, but the result always updates back to the original Tallyfy task for complete visibility
+- The rejection path includes an optional email notification, showing how you can add custom actions based on approval outcomes
+
 <Steps>
 
 1.  **Trigger: Tallyfy - "When a task is completed".**

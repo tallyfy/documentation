@@ -26,6 +26,49 @@ Here's the magic - when someone rejects at any level, the work automatically bou
 
 ## How do I create a multi-level approval workflow?
 
+Here's how your multi-level approval workflow flows with automatic rejection handling:
+
+```mermaid
+flowchart TD
+    Start([New Request]) --> Create[Step 1: Create wire<br/>transfer request]
+    Create --> ManagerReady{Manager<br/>Ready?}
+    
+    ManagerReady --> Manager{Step 2: Manager<br/>Review}
+    Manager -->|✅ Approved| FinanceShow[Show Finance<br/>Approval]
+    Manager -->|❌ Rejected| ReOpen1[Re-open Step 1:<br/>Create request]
+    
+    FinanceShow --> Finance{Step 3: Finance<br/>Department Approval}
+    Finance -->|✅ Approved| COOShow[Show COO<br/>Approval]
+    Finance -->|❌ Rejected| ReOpen2[Re-open Step 1:<br/>Create request]
+    
+    COOShow --> COO{Step 4: COO<br/>Final Approval}
+    COO -->|✅ Approved| Complete([✅ Request<br/>Approved])
+    COO -->|❌ Rejected| ReOpen3[Re-open Step 1 +<br/>Step 2 Manager]
+    
+    ReOpen1 --> Create
+    ReOpen2 --> Create
+    ReOpen3 --> Create
+    ReOpen3 -.->|Also reopens| ManagerReady
+    
+    style Create fill:#E8F4FF
+    style Manager fill:#FFF3CD
+    style Finance fill:#FFF3CD
+    style COO fill:#FFF3CD
+    style Complete fill:#D4EDDA
+    style ReOpen1 fill:#F8D7DA
+    style ReOpen2 fill:#F8D7DA
+    style ReOpen3 fill:#F8D7DA
+    
+    click Manager "/products/pro/documenting/templates/automations/actions/status-actions/" "Learn about status actions for re-opening tasks"
+    click Finance "/products/pro/documenting/templates/automations/actions/visibility-actions/" "Learn about visibility rules for approval flow"
+    click COO "/products/pro/tutorials/how-to/track-and-run-complex-approval-workflows/" "See complex approval workflow patterns"
+```
+
+**What to notice:**
+- 🔄 Every rejection automatically re-opens the creation task - no manual tracking needed
+- 🎯 Later approvals only show after earlier ones pass (visibility rules control this)  
+- 💡 COO rejection can re-open multiple steps simultaneously for faster corrections
+
 <Steps>
 1. **Set up your approval chain steps**
    
@@ -85,7 +128,48 @@ THEN Show "Board approval required"
 
 ### Parallel approvals with synchronization
 
-What if legal, compliance, and finance all need to review at the same time? Easy:
+What if legal, compliance, and finance all need to review at the same time? Here's how parallel approvals work:
+
+```mermaid
+flowchart LR
+    Initial[Initial Review] --> Split{Trigger<br/>Parallel}
+    
+    Split --> Legal{Legal<br/>Approval}
+    Split --> Compliance{Compliance<br/>Approval}
+    Split --> Finance{Finance<br/>Approval}
+    
+    Legal -->|✅| Sync{All<br/>Approved?}
+    Legal -->|❌| RejectPath[Re-open<br/>Initial Review]
+    
+    Compliance -->|✅| Sync
+    Compliance -->|❌| RejectPath
+    
+    Finance -->|✅| Sync
+    Finance -->|❌| RejectPath
+    
+    Sync -->|Yes| Final[Final<br/>Implementation]
+    Sync -->|Waiting| Wait[Wait for<br/>Others]
+    
+    RejectPath --> Initial
+    
+    style Initial fill:#E8F4FF
+    style Legal fill:#FFF3CD
+    style Compliance fill:#FFF3CD  
+    style Finance fill:#FFF3CD
+    style Final fill:#D4EDDA
+    style RejectPath fill:#F8D7DA
+    style Wait fill:#F0F0F0
+    
+    click Legal "/products/pro/documenting/templates/automations/actions/visibility-actions/" "Learn about parallel visibility rules"
+    click Sync "/products/pro/documenting/templates/automations/conditions/" "Learn about AND conditions for synchronization"
+```
+
+**What to notice:**
+- 🚀 All three approvals trigger simultaneously after initial review
+- ⏸️ Final step waits until ALL parallel approvals complete
+- ❌ Any rejection sends the whole thing back to start
+
+Easy setup with visibility rules:
 
 ```
 IF (Initial review) is Completed
@@ -134,14 +218,42 @@ When a task is reopened in Tallyfy:
 
 Let me show you how a real estate agency nailed their listing approvals:
 
-1. **Agent creates listing** - Enters property details and uploads photos
-2. **Office manager review** - Checks everything's complete and accurate
-   - Rejected? Goes right back to the agent for fixes
-3. **Marketing review** - Makes sure photos look good and descriptions sell
-   - Not quite right? Back to step 1 for better photos or copy
-4. **Compliance check** - Verifies all the legal stuff is covered
-   - Issues found? Reopens both steps 1 and 2 (agent and manager both get notified)
-5. **Final publication** - Listing goes live
+```mermaid
+flowchart TD
+    Start([New Listing]) --> Agent[1. Agent creates<br/>listing + photos]
+    Agent --> Manager{2. Office Manager<br/>Review}
+    
+    Manager -->|✅ Complete| Marketing{3. Marketing<br/>Review}
+    Manager -->|❌ Incomplete| ReOpen1[Fix: Missing<br/>info/docs]
+    
+    Marketing -->|✅ Looks good| Compliance{4. Compliance<br/>Check}
+    Marketing -->|❌ Needs work| ReOpen2[Fix: Better<br/>photos/copy]
+    
+    Compliance -->|✅ Legal OK| Publish([5. Published<br/>to MLS])
+    Compliance -->|❌ Issues| ReOpen3[Fix: Legal<br/>requirements]
+    
+    ReOpen1 --> Agent
+    ReOpen2 --> Agent
+    ReOpen3 --> Agent
+    ReOpen3 -.->|Notify| Manager
+    
+    style Agent fill:#E8F4FF
+    style Manager fill:#FFF3CD
+    style Marketing fill:#FFE6E6
+    style Compliance fill:#FFF3CD
+    style Publish fill:#D4EDDA
+    style ReOpen1 fill:#F8D7DA
+    style ReOpen2 fill:#F8D7DA
+    style ReOpen3 fill:#F8D7DA
+    
+    click Compliance "/products/pro/documenting/templates/automations/actions/status-actions/" "Learn how rejections trigger re-opens"
+    click Manager "/products/pro/documenting/templates/automations/actions/visibility-actions/" "See how visibility rules control flow"
+```
+
+**The magic here:**
+- 📸 Marketing rejection = agent gets specific feedback on photos
+- 📋 Compliance issues = both agent AND manager get notified
+- ✅ Every listing hits the market looking perfect
 
 Every listing hits the market looking perfect. Agents know exactly what to fix when something's off. No more "please see me" sticky notes.
 

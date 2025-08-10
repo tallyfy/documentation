@@ -17,6 +17,47 @@ Connecting n8n to Tallyfy takes about 5 minutes now that we have a dedicated con
 
 The dedicated connector covers 95% of use cases, while HTTP Request nodes give you complete control for advanced integrations.
 
+### Integration architecture overview
+
+This diagram shows the two connection methods and the bidirectional flow between n8n and Tallyfy.
+
+```mermaid
+flowchart TD
+    Start([Connect n8n to Tallyfy]) --> Method{Choose Method}
+    
+    Method -->|Quick Setup| Node[Tallyfy Node<br/>95% use cases]
+    Method -->|Custom| HTTP[HTTP Request<br/>Maximum flexibility]
+    
+    Node --> Creds[Configure Credentials<br/>API Token + Org ID]
+    HTTP --> HTTPCreds[Configure HTTP Auth<br/>Bearer Token]
+    
+    Creds --> Test[Test Connection<br/>/me endpoint]
+    HTTPCreds --> Test
+    
+    Test -->|Success| Ops[60+ Operations Available<br/>10 Resources]
+    Test -->|Failed| Debug[Check Token & Permissions]
+    
+    Ops --> Launch[Launch Processes]
+    Ops --> Tasks[Manage Tasks]
+    Ops --> Webhook[Setup Webhooks]
+    
+    Webhook --> Events[Real-time Events<br/>15+ event types]
+    Events --> n8n[n8n Workflow Triggered]
+    
+    click Node "/products/pro/integrations/middleware/n8n/" "n8n integration overview"
+    click Ops "/products/pro/integrations/open-api/" "Tallyfy API documentation"
+    click Webhook "/products/pro/integrations/webhooks/" "Webhook configuration"
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style Ops fill:#D4EDDA,stroke:#00AA55
+    style Debug fill:#F8D7DA,stroke:#DC3545
+```
+
+**What to notice:**
+- The Tallyfy node provides instant setup for 95% of use cases, while HTTP Request nodes offer complete flexibility for custom integrations
+- Both methods converge at the authentication test - if this fails, check your API token and permissions before proceeding
+- After successful connection, you gain access to 60+ operations across 10 resources, with webhook support for real-time event handling
+
 ### Prerequisites
 
 Before starting, you'll need:
@@ -205,6 +246,58 @@ Treat your API key like a password. Never share it publicly or commit it to vers
   }
 }
 ```
+
+### Webhook event flow
+
+This sequence diagram illustrates how Tallyfy sends real-time events to n8n with retry logic.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant S as Step/Task
+    participant T as Tallyfy
+    participant Q as Queue
+    participant W as Webhook Service
+    participant n8n as n8n Workflow
+    
+    S->>T: User completes task
+    T->>T: Check webhook config
+    
+    alt Webhook configured
+        T->>Q: Queue webhook event
+        Note over Q: Event queued for delivery
+    else No webhook
+        T-->>T: Skip webhook
+    end
+    
+    Q->>W: Process webhook
+    
+    loop Max 3 attempts
+        W->>n8n: POST {webhook_url}
+        Note over W,n8n: Timeout: 30 seconds
+        
+        alt Success (2xx)
+            n8n-->>W: Success response
+            W->>T: Mark delivered
+            Note over T: Log success
+        else Failure
+            n8n-->>W: Error or timeout
+            W->>W: Wait (exponential backoff)
+            Note over W: 1st: 1min<br/>2nd: 5min<br/>3rd: 15min
+        end
+    end
+    
+    alt All attempts failed
+        W->>T: Mark failed
+        Note over T: Alert administrators
+    end
+```
+
+**What to notice:**
+- Events are queued immediately when triggered (step 3), ensuring no events are lost even during high load
+- The retry mechanism uses exponential backoff (steps 8-10) to handle temporary network issues without overwhelming your n8n instance  
+- Failed webhooks after 3 attempts trigger admin notifications (step 12) so you can investigate integration issues
 
 ### Troubleshooting guide
 

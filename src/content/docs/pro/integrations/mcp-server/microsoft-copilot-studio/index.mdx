@@ -48,6 +48,123 @@ You'll need a few things in place before diving in:
 
 Ready to get started? Here's how to connect everything:
 
+## Integration flow overview
+
+This diagram shows how Tallyfy MCP Server connects with Microsoft Copilot Studio through the Power Platform infrastructure.
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+sequenceDiagram
+    autonumber
+    participant Dev as Developer
+    participant Azure as Azure Functions
+    participant PA as Power Apps
+    participant CS as Copilot Studio
+    participant T as Tallyfy API
+    
+    Note over Dev,T: Authentication & Setup Flow
+    
+    Dev->>Azure: Deploy MCP server code
+    Dev->>PA: Create custom connector<br/>with OpenAPI spec
+    PA->>PA: Configure API Key auth
+    Dev->>CS: Add MCP connector
+    CS->>PA: Authorize connection
+    PA->>T: Test with API key
+    T-->>PA: Connection verified
+    CS->>CS: Configure DLP policies
+    CS->>T: Execute test queries
+    T-->>CS: Results returned
+    
+    Note over CS,T: Ready for production use
+```
+
+**What to notice:**
+- The setup involves multiple Microsoft services (Azure, Power Apps, Copilot Studio) that must be configured in sequence
+- Authentication happens at the Power Apps connector level using your Tallyfy API key
+- DLP policies provide an additional security layer for enterprise deployments
+
+## Multi-agent orchestration pattern
+
+See how Copilot Studio coordinates multiple specialized agents for complex workflows like employee onboarding.
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+flowchart TD
+    Start([User Request:<br/>Onboard Jane Smith]) --> Primary[Primary Agent<br/>Orchestrator]
+    
+    Primary --> Analyze{Analyze<br/>Request}
+    
+    Analyze -->|HR Tasks| HR[HR Agent]
+    Analyze -->|IT Tasks| IT[IT Agent]  
+    Analyze -->|Training| Train[Training Agent]
+    
+    HR --> HR1[Create Tallyfy<br/>Documentation Tasks]
+    IT --> IT1[Setup System<br/>Access via Tallyfy]
+    Train --> T1[Schedule<br/>Training Sessions]
+    
+    HR1 --> Monitor[Monitor Progress<br/>in Tallyfy]
+    IT1 --> Monitor
+    T1 --> Monitor
+    
+    Monitor --> Status[Consolidated<br/>Status Report]
+    Status --> End([Onboarding<br/>Complete])
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style End fill:#D4EDDA,stroke:#00AA55
+    style Primary fill:#FFF3CD,stroke:#FFC107
+    
+    click HR1 "/products/pro/tracking-and-tasks/tasks/" "Task management"
+    click Monitor "/products/pro/tracking-and-tasks/tracker-view/" "Process tracking"
+```
+
+**What to notice:**
+- The Primary Agent acts as an orchestrator, delegating specific tasks to specialized agents
+- Each agent creates and manages its tasks through Tallyfy's API
+- All progress is centrally monitored through Tallyfy's tracker view for complete visibility
+
+## Enterprise deployment architecture
+
+This shows the recommended architecture for large organizations requiring high availability and security.
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+graph TB
+    CS[Copilot Studio<br/>Agents]
+    CS -->|VNet Integration| APIM[API Management<br/>Gateway]
+    
+    subgraph "Azure App Service Environment"
+        APIM -->|Private Endpoint| LB[Load Balancer]
+        LB --> MCP1[MCP Server 1<br/>Instance]
+        LB --> MCP2[MCP Server 2<br/>Instance]
+    end
+    
+    MCP1 -->|Managed Identity| API[Tallyfy API<br/>Endpoints]
+    MCP2 -->|Managed Identity| API
+    
+    subgraph "Security & Monitoring"
+        WAF[Web Application<br/>Firewall]
+        DLP[DLP Policies]
+        MON[Azure Monitor<br/>& Alerts]
+    end
+    
+    APIM -.-> WAF
+    CS -.-> DLP
+    MCP1 -.-> MON
+    MCP2 -.-> MON
+    
+    style CS fill:#E8F4FF,stroke:#0066CC
+    style API fill:#D4EDDA,stroke:#00AA55
+    style WAF fill:#F8D7DA,stroke:#DC3545
+    
+    click API "/products/pro/integrations/open-api/" "API documentation"
+    click CS "#prerequisites" "Setup prerequisites"
+```
+
+**What to notice:**
+- Multiple MCP server instances provide high availability behind a load balancer
+- Security is layered with WAF, DLP policies, and VNet isolation
+- Managed identities eliminate the need to store credentials in code
+
 <Steps>
 
 1. **Create an MCP server for Tallyfy**

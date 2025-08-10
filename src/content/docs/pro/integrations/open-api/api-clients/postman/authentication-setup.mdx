@@ -98,6 +98,53 @@ Tallyfy's authentication has specific requirements that can trip you up if you'r
    ```
 </Steps>
 
+## Authentication flow visualization
+
+This diagram shows the complete OAuth authentication lifecycle including initial setup, API usage, and automatic token refresh.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant P as Postman
+    participant O as Tallyfy OAuth<br/>/oauth/token
+    participant A as Tallyfy API<br/>/api endpoints
+    
+    Note over P,A: Initial Authentication Setup
+    
+    P->>O: POST /oauth/token<br/>grant_type=password<br/>username, password<br/>client_id, client_secret
+    O->>O: Validate credentials
+    O-->>P: 200 OK<br/>access_token (1hr)<br/>refresh_token<br/>expires_in: 3600
+    
+    P->>P: Store tokens in environment<br/>Calculate expiry time
+    
+    Note over P,A: API Usage with Authentication
+    
+    P->>A: GET /organizations/{org_id}/me<br/>Authorization: Bearer {token}<br/>X-Tallyfy-Client: APIClient
+    A->>A: Validate token & header
+    A-->>P: 200 OK - User details
+    
+    Note over P,O: Token Refresh (after ~55 min)
+    
+    P->>P: Check token expiry<br/>(5 min buffer)
+    P->>O: POST /oauth/token<br/>grant_type=refresh_token<br/>refresh_token, client_id, client_secret
+    O-->>P: New access_token<br/>New refresh_token
+    P->>P: Update stored tokens
+    
+    Note over P,A: Common Error Scenarios
+    
+    P->>A: GET /api/endpoint<br/>Missing X-Tallyfy-Client header
+    A-->>P: 401 Unauthenticated
+    
+    P->>A: GET /api/endpoint<br/>Expired token
+    A-->>P: 401 Token expired
+```
+
+**What to notice:**
+- **Step 1-3**: Initial password grant requires all four parameters (username, password, client_id, client_secret) to get your first tokens
+- **Step 6**: Every API call must include both the Bearer token AND the X-Tallyfy-Client header - missing either causes authentication failures
+- **Step 10-12**: Token refresh happens automatically before expiry using the refresh_token, preventing interruptions in your API testing
+
 ## The critical header everyone forgets
 
 Every single API request needs this header:

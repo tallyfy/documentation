@@ -43,6 +43,47 @@ The typical integration architecture includes:
 - Human operators completing tasks requiring judgment
 - API-based communication between all systems
 
+### How RPA and human tasks flow together
+
+This diagram shows the real-time interaction between RPA systems, Tallyfy's orchestration layer, and human operators during process execution.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RPA as RPA System<br/>(UiPath/Blue Prism)
+    participant API as Tallyfy API<br/>(Orchestration)
+    participant Human as Human Operator
+    participant UI as Tallyfy UI<br/>(Visibility)
+    
+    Note over RPA,UI: Employee Onboarding Process Example
+    
+    API->>RPA: Trigger automated task<br/>(System access provisioning)
+    RPA->>RPA: Execute bot workflow
+    RPA->>API: Task completed<br/>+ Output data
+    API->>UI: Update process status
+    
+    API->>Human: Assign manual task<br/>(Document review)
+    Human->>UI: View task details
+    Human->>Human: Review & make decision
+    Human->>API: Complete task<br/>+ Decision data
+    API->>UI: Update process status
+    
+    alt Exception detected
+        RPA->>API: Report exception
+        API->>Human: Escalate for handling
+        Human->>API: Resolve exception
+        API->>RPA: Resume automation
+    end
+    
+    Note over API: Maintains complete audit trail
+    API->>UI: Process completed<br/>Full visibility maintained
+```
+
+**What to notice:**
+- **Seamless handoffs** - Work transitions automatically between RPA bots and human operators through Tallyfy's API orchestration
+- **Exception handling** - When RPA encounters issues, Tallyfy automatically escalates to human operators for resolution before resuming automation
+- **Complete visibility** - Every action from both automated and human activities is tracked in real-time through the Tallyfy UI
+
 ### Example: Employee Onboarding Process
 
 The following screenshot shows how Tallyfy orchestrates an employee onboarding process that combines RPA and human tasks:

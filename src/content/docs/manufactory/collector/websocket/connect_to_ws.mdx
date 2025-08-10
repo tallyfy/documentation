@@ -14,6 +14,37 @@ After successful authentication and getting client UUID along with actor profile
 
 Once a websocket connection is established you will receive a message `Manufactory Collector ✅`
 
+## WebSocket Authentication Flow
+
+This diagram shows the complete authentication handshake between your client and the Manufactory WebSocket server.
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant WS as WebSocket Server<br/>(collector.tallyfy.com)
+    
+    Note over C: Has client_uuid and<br/>actor_profile_id from<br/>prior authentication
+    
+    C->>WS: Connect to wss://collector.tallyfy.com/ws
+    WS-->>C: "Manufactory Collector ✅"
+    
+    Note over C,WS: Pairing connection with client/user
+    
+    C->>WS: Send auth message<br/>{type: "auth", org_id, project_id,<br/>client_uuid, actor_profile_id}
+    WS->>WS: Validate credentials
+    WS-->>C: {type: "auth", status: "ok"}
+    
+    Note over C,WS: Connection authenticated<br/>Ready to send events
+```
+
+### What to notice
+
+- **Two-phase authentication**: First the WebSocket connection itself, then the authentication message exchange
+- **Required credentials**: The auth message must include all five required keys (type, org_id, project_id, client_uuid, actor_profile_id)
+- **Sequential flow**: Each step must complete successfully before proceeding - the connection won't accept events until authentication succeeds
+
 The next step is that we need to pair the connection with the client/end-user. This is where actor profile ID and client UUID become active.
 
 ### Required keys

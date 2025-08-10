@@ -50,6 +50,42 @@ When someone sends an email to that special Tallyfy address:
 4. If you added special kick-off fields (see below), the email content copies into them automatically.
 5. Assignees for the first task(s) are notified to begin work.
 
+## How does the email trigger process work automatically?
+
+This diagram shows the complete email trigger flow, including all validation checks and possible outcomes.
+
+```mermaid
+flowchart TD
+    Start([Email sent to<br/>bot+TemplateID-launch@tallyfy.com]) --> Check1{Sender is<br/>active member?}
+    
+    Check1 -->|No| Reject[Email rejected<br/>No process created]
+    Check1 -->|Yes| Check2{Template has<br/>required fields?}
+    
+    Check2 -->|Yes| Fail[Launch fails<br/>Failure email sent]
+    Check2 -->|No| Create[Create process instance<br/>Subject → Process name]
+    
+    Create --> Check3{Has email_body or<br/>email_attachments fields?}
+    
+    Check3 -->|Yes| Capture[Capture email content<br/>into kick-off fields]
+    Check3 -->|No| Skip[Skip content capture]
+    
+    Capture --> Notify[Notify task assignees<br/>Process begins]
+    Skip --> Notify
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style Reject fill:#F8D7DA,stroke:#DC3545
+    style Fail fill:#F8D7DA,stroke:#DC3545
+    style Notify fill:#D4EDDA,stroke:#00AA55
+    
+    click Check1 "/products/pro/documenting/members/" "Learn about member management"
+    click Check2 "/products/pro/launching/triggers/kick-off-forms/" "Understanding kick-off forms"
+```
+
+**What to notice:**
+- The sender must be an active member in your organization - emails from external addresses or inactive members are automatically rejected
+- Templates with required kick-off fields cannot be launched via email - you'll receive a failure notification if you try
+- Email content and attachments are only captured if you've specifically added `email_body` or `email_attachments` fields to your template's kick-off form
+
 ### Capturing email content
 
 You can have Tallyfy automatically save the email body and attachments into kick-off form fields. Add kick-off fields to your template with these specific internal names:

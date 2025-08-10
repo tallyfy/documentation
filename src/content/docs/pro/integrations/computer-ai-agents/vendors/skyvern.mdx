@@ -53,6 +53,57 @@ The secret behind Skyvern 2.0's performance? A multi-agent system that actually 
 
 The old version (Skyvern 1.0) only scored 45% on WebVoyager. Why? Not enough memory and couldn't handle complex reasoning. The new architecture fixed both problems.
 
+#### Multi-Agent Architecture Flow
+
+This shows how Skyvern's three core agents collaborate with continuous feedback loops to achieve 85.8% accuracy on complex web tasks.
+
+```mermaid
+flowchart TB
+    Start([User Task Request]) --> Planner[<b>Planner Agent</b><br/>Maintains working memory<br/>Sets goals & sub-goals]
+    
+    Planner -->|Goal Assignment| Actor[<b>Actor Agent</b><br/>Executes browser actions<br/>Reports completion status]
+    
+    Actor -->|Action Results| Validator[<b>Validator Agent</b><br/>Assesses goal success<br/>Quality control checks]
+    
+    Validator -->|Feedback Loop| Planner
+    Validator -->|Error Correction| Actor
+    
+    Actor -->|Status Updates| Planner
+    
+    Validator -->|Success| Complete([Task Complete<br/>Returns data])
+    Validator -->|Failed| Retry{Retry<br/>Logic}
+    
+    Retry -->|New Approach| Planner
+    Retry -->|Max Attempts| Failed([Task Failed<br/>Error report])
+    
+    subgraph Specialized Sub-Agents
+        Elements[Element Agent<br/>Parse HTML]
+        Nav[Navigation Agent<br/>Plan sequences]
+        Data[Data Agent<br/>Extract JSON/CSV]
+        Auth[Auth Agents<br/>2FA & Passwords]
+    end
+    
+    Actor -.->|Invokes| Elements
+    Actor -.->|Invokes| Nav
+    Actor -.->|Invokes| Data
+    Actor -.->|Invokes| Auth
+    
+    style Planner fill:#e1f5e1
+    style Actor fill:#e1e5f5
+    style Validator fill:#f5e1e1
+    style Complete fill:#d4edda
+    style Failed fill:#f8d7da
+    
+    click Planner "#planner-agent" "Learn about Planner Agent"
+    click Actor "#actor-agent" "Learn about Actor Agent"
+    click Validator "#validator-agent" "Learn about Validator Agent"
+```
+
+**What to notice:**
+- The **continuous feedback loops** between agents enable self-correction without human intervention
+- **Specialized sub-agents** handle specific challenges like 2FA, making the system robust against real-world web complexity
+- The **retry logic with new approaches** explains why Skyvern succeeds where traditional scripts fail on dynamic websites
+
 They also built specialized sub-agents for specific jobs:
 
 1.  **Interactable Element Agent:** Parses HTML to identify and extract all interactive elements (buttons, forms, links, etc.).
@@ -119,6 +170,71 @@ Let's see how this works in practice. Say you need to check competitor pricing a
           "stock_status": "string"
         }
         ```
+
+#### Tallyfy-Skyvern Integration Flow
+
+This demonstrates how Tallyfy orchestrates Skyvern's browser automation with asynchronous API communication to extract competitor data.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy Process
+    participant W as Webhook/Middleware
+    participant S as Skyvern API
+    participant P as Planner Agent
+    participant A as Actor Agent
+    participant D as Data Agent
+    participant B as Browser
+    
+    T->>W: Task starts with form data<br/>(URL, product name, schema)
+    W->>S: POST /v1/tasks<br/>{"url", "prompt", "data_schema"}
+    S->>S: Create task ID
+    S-->>W: {"task_id": "abc-123",<br/>"status": "queued"}
+    W-->>T: Task initiated
+    
+    Note over S,B: Async Processing Begins
+    
+    S->>P: Analyze task requirements
+    P->>P: Break into sub-goals:<br/>1. Navigate to page<br/>2. Find product<br/>3. Extract data
+    
+    P->>A: Execute: Navigate to URL
+    A->>B: Browser automation<br/>(Playwright/Selenium)
+    B-->>A: Page loaded
+    
+    P->>A: Execute: Find "MegaWidget Advanced"
+    A->>B: Locate element by text
+    B-->>A: Product found
+    
+    P->>D: Extract price & stock
+    D->>B: Parse DOM elements
+    B-->>D: Raw data extracted
+    D->>D: Structure to JSON schema
+    
+    loop Polling (every 2-5 seconds)
+        T->>W: Check status
+        W->>S: GET /v1/tasks/abc-123
+        S-->>W: {"status": "processing"}
+        W-->>T: Still processing...
+    end
+    
+    D->>S: Task complete<br/>{"product_name": "MegaWidget Advanced",<br/>"price": "$99.99",<br/>"stock_status": "In Stock"}
+    
+    T->>W: Check status
+    W->>S: GET /v1/tasks/abc-123
+    S-->>W: {"status": "completed",<br/>"data": {...}}
+    W-->>T: JSON result
+    
+    T->>T: Update form fields:<br/>• Competitor Price = $99.99<br/>• Stock Status = In Stock
+    T->>T: Continue to next step
+    
+    Note over T: Process continues with extracted data
+```
+
+**What to notice:**
+- **Steps 1-5** show the asynchronous task creation, preventing Tallyfy from blocking while Skyvern works
+- **Steps 10-13** demonstrate the polling pattern that lets Tallyfy check completion status without maintaining an open connection
+- **Step 16** shows how the structured JSON response maps directly back to Tallyfy form fields for seamless data flow
+
 *   **Integration Steps (Conceptual - API route):**
     1.  When the Tallyfy task starts, a webhook or middleware calls the Skyvern API's endpoint for creating/running a task.
     2.  The API request to Skyvern includes:

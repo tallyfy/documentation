@@ -76,6 +76,40 @@ Let's walk through a real example. You've got a Power Automate flow using "Start
 
 That's it. When your flow runs, the approver gets an Adaptive Card right in Teams. They can approve or reject the Tallyfy item instantly - no app switching required.
 
+## Approval flow visualization
+
+This diagram shows how an approval request flows through Tallyfy, Power Automate, and Microsoft Teams.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy
+    participant PA as Power Automate
+    participant Teams as Microsoft Teams
+    participant U as Approver
+    
+    Note over T,U: Budget Approval Request Flow
+    
+    T->>PA: Trigger flow<br/>(budget request)
+    PA->>PA: Start and wait<br/>for approval
+    PA->>Teams: Post Adaptive Card<br/>to approver
+    Teams->>U: Display approval<br/>request
+    
+    Note over PA: Flow paused<br/>waiting for response
+    
+    U->>Teams: Click Approve/Reject
+    Teams->>PA: Return response
+    PA->>PA: Get Outcome<br/>and Comments
+    PA->>T: Update task/process<br/>with decision
+    
+    Note over T: Process continues<br/>based on approval
+```
+
+**What to notice:**
+- The flow pauses at step 5 while waiting for the approver's response - this is the asynchronous "wait" that makes the integration powerful
+- The Adaptive Card posted to Teams (step 3) contains all the approval details and action buttons, eliminating the need to switch apps
+- The entire round-trip from Tallyfy trigger to final update happens without the approver leaving Microsoft Teams
+
 ## Handling responses from Teams approvals for Tallyfy
 
 *   **Using "Start and wait for an approval":** This is the easy path. You use the `Teams Adaptive Card` output from a "Start and wait for an approval" action linked to your Tallyfy item, and Power Automate does the heavy lifting. The flow pauses and waits. User clicks a button in Teams? The response comes back automatically. Your flow continues, and you can grab the `Outcome` and `Comments` to update the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/).

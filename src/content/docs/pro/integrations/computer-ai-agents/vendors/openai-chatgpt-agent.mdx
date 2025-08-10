@@ -136,6 +136,50 @@ How well does Operator actually work? The benchmarks tell an interesting story:
 
 ### How Tallyfy Could Integrate with OpenAI Operator (Example Scenario)
 
+This section shows the complete integration flow between Tallyfy and ChatGPT Agent/Operator for automating web-based tasks.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant U as Tallyfy User
+    participant T as Tallyfy Process
+    participant A as ChatGPT Agent/Operator
+    participant E as External Service<br/>(OpenTable/Restaurant)
+    
+    Note over U,E: Restaurant Reservation Workflow
+    
+    U->>T: Activate reservation task
+    T->>T: Extract form field data<br/>(restaurant, party size, date/time)
+    T->>A: POST /api/agent<br/>Goal: "Make reservation at..."
+    
+    A->>E: Search for restaurant
+    E-->>A: Restaurant booking page
+    A->>E: Navigate to booking form
+    A->>E: Fill date/time/party size
+    
+    alt Needs Authentication
+        A->>T: Request approval<br/>"Need login credentials"
+        T->>U: Show approval request
+        U->>T: Provide credentials
+        T->>A: Continue with auth
+    end
+    
+    A->>E: Submit reservation
+    E-->>A: Confirmation #XYZ
+    A-->>T: Success: "Reservation confirmed"<br/>Confirmation: #XYZ
+    
+    T->>T: Update task fields<br/>(status, confirmation #)
+    T->>U: Task completed notification
+    
+    Note over A,E: Success rate: 67-85%<br/>Typical duration: 5-15 minutes
+```
+
+**What to notice:**
+- **Step 3**: Tallyfy sends structured data from form fields to the AI agent via API, ensuring consistent task execution
+- **Steps 9-12**: The conditional approval flow shows how sensitive actions pause for human confirmation, maintaining security while enabling automation
+- **Step 17**: Automatic field updates in Tallyfy create a complete audit trail of AI actions and results
+
 Let's walk through a real example. **Tallyfy Task:** "Make Dinner Reservation for 2 at 'The Italian Place' for Friday 7 PM"
 
 *   **Inputs from Tallyfy [Form Fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/):**

@@ -17,6 +17,44 @@ You can automate [tasks](/products/pro/tracking-and-tasks/tasks/) in Tallyfy thr
 
 Why bother with automation? It cuts out manual steps, speeds up your workflows, and keeps everything running smoothly across your connected apps.
 
+## Automation flow overview
+
+This diagram shows how Zapier connects external triggers to Tallyfy task completion through two possible paths.
+
+```mermaid
+flowchart TD
+    Start([External Trigger<br/>with Custom Data]) --> Zapier[Zapier/Middleware<br/>Platform]
+    
+    Zapier --> Decision{Have Task ID?}
+    
+    Decision -->|No| Find[Find Process Task]
+    Find --> Template[Select Template ID]
+    Template --> Search{Search Method}
+    Search -->|Process Name| SearchName[Search by<br/>Process Name]
+    Search -->|Kick-off Field| SearchField[Search by<br/>Kick-off Field]
+    SearchName --> SelectStep[Select Step<br/>by Task Alias]
+    SearchField --> SelectStep
+    SelectStep --> GetIDs[Retrieve<br/>Process ID & Task ID]
+    
+    Decision -->|Yes| Complete[Mark Process<br/>Task Complete]
+    GetIDs --> Complete
+    
+    Complete --> API[Tallyfy API]
+    API --> Success([Task Completed])
+    
+    style Start fill:#E8F4FF,stroke:#0066CC
+    style Success fill:#D4EDDA,stroke:#00AA55
+    style Decision fill:#FFF3CD,stroke:#FFC107
+    
+    click Find "/products/pro/tracking-and-tasks/tasks/" "Learn about tasks"
+    click API "/products/pro/integrations/open-api/" "Tallyfy API documentation"
+```
+
+**What to notice:**
+- The flow branches based on whether you already have the task ID - if not, you'll need to find it first
+- Finding a task requires both the template ID and a search method (either process name or kick-off field value)
+- Both paths converge at the final action where the task gets marked complete through Tallyfy's API
+
 :::note[Considering Integration Alternatives]
 While Zapier can be useful for simple connections, we generally recommend more capable and cost-effective [middleware](/products/pro/integrations/middleware/) solutions like **n8n**, **Make**, or **Microsoft Power Automate** for serious integrations.
 

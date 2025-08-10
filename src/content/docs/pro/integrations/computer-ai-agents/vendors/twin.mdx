@@ -115,6 +115,56 @@ Want proof this works? Check out Twin.so's first major deployment:
         *   Structured invoice data (amount, date, invoice number)
     6.  Tallyfy updates the task with the invoice attachment and data. Your expense report process continues smoothly.
 
+### Integration Flow Visualization
+
+This diagram shows how Tallyfy orchestrates Twin.so agents to retrieve invoices from external websites automatically.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy Process
+    participant W as Webhook/API
+    participant TS as Twin.so API
+    participant TA as Twin.so Agent
+    participant B as Browser Session
+    participant E as External Site<br/>(e.g., OpenAI)
+    
+    Note over T,E: Invoice Retrieval Automation Flow
+    
+    T->>T: Task becomes active
+    T->>W: Trigger webhook
+    W->>TS: POST /api/tasks/start<br/>starting_url, goal, access_key
+    TS->>TA: Initialize agent task
+    TA->>B: Launch secure browser
+    B->>E: Navigate to platform.openai.com
+    
+    Note over B,E: Agent uses vaulted credentials
+    B->>E: Login with credentials
+    E-->>B: Authentication success
+    B->>E: Navigate to billing section
+    E-->>B: Display invoices
+    B->>E: Download February 2025 invoice
+    E-->>B: Invoice file ($92.10)
+    
+    B-->>TA: Extracted data & file
+    TA-->>TS: Task complete + results
+    
+    alt Webhook Callback
+        TS-->>W: POST callback with results
+        W-->>T: Update task with invoice
+    else Status Polling
+        T->>TS: GET /api/tasks/{id}/status
+        TS-->>T: Status: completed + results
+    end
+    
+    T->>T: Attach invoice to task<br/>Continue process
+```
+
+**What to notice:**
+- **Secure credential handling**: Twin.so never exposes your login credentials - they're stored in encrypted vaults and accessed via secure keys
+- **Flexible result delivery**: The integration supports both webhook callbacks for real-time updates and status polling for simpler implementations
+- **Intelligent browser automation**: The Twin.so agent navigates the website just like a human would, adapting to UI changes and handling complex multi-step processes
+
 ### Use Cases for Tallyfy and Twin.so
 
 *   **Automated Invoice Collection:** Pull invoices from hundreds of vendor portals automatically (just like Qonto's doing).
