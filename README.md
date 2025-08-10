@@ -107,8 +107,11 @@ flowchart TD
     Start([User Action]) --> Process[Process Step]
     Process --> Complete([Complete])
     
-    style Start fill:#E8F4FF
-    style Complete fill:#D4EDDA
+    classDef startStyle fill:#E8F4FF,stroke:#0066CC,color:#000
+    classDef successStyle fill:#D4EDDA,stroke:#00AA55,color:#000
+    
+    class Start startStyle
+    class Complete successStyle
 ```
 ````
 
@@ -148,27 +151,31 @@ flowchart TD
 ```mermaid
 %%{init: {'theme':'forest'}}%%
 flowchart TD
-    Start([Event Triggers]) --> Load[Load Rules by Position]
-    Load --> Rule1{Rule 1 Met?}
+    Start([Event Triggers]) --> Load[Load Rules<br/>by Position]
+    Load --> Rule1{Rule 1<br/>Met?}
     
-    Rule1 -->|Yes| Op1{Next Rule Logic?}
+    Rule1 -->|Yes| Op1{Next Rule<br/>Logic?}
     Rule1 -->|No| Op1
     
-    Op1 -->|AND| Rule2AND{Rule 2 Met?}
-    Op1 -->|OR| Rule2OR{Rule 2 Met?}
+    Op1 -->|AND| Rule2AND{Rule 2<br/>Met?}
+    Op1 -->|OR| Rule2OR{Rule 2<br/>Met?}
     
-    Rule2AND -->|Yes + Prev Yes| Actions[Execute Actions]
-    Rule2AND -->|No| Skip[Skip Actions]
+    Rule2AND -->|Yes + Prev Yes| Actions[Execute<br/>Actions]
+    Rule2AND -->|No| Skip[Skip<br/>Actions]
     
     Rule2OR -->|Yes| Actions
     Rule2OR -->|No + Prev No| Skip
     
-    Actions --> Log[Log Execution]
+    Actions --> Log[Log<br/>Execution]
     Skip --> Log
     
-    style Start fill:#E8F4FF
-    style Actions fill:#D4EDDA
-    style Skip fill:#FFF3CD
+    classDef startStyle fill:#E8F4FF,stroke:#0066CC,color:#000
+    classDef successStyle fill:#D4EDDA,stroke:#00AA55,color:#000
+    classDef warningStyle fill:#FFF3CD,stroke:#FFC107,color:#000
+    
+    class Start startStyle
+    class Actions successStyle
+    class Skip warningStyle
 ```
 
 ###### Webhook with Retry Logic
@@ -240,15 +247,30 @@ sequenceDiagram
 ##### Best Practices
 
 1. **Keep diagrams focused** - One concept per diagram
-2. **Use consistent styling**:
-   - Start nodes: `fill:#E8F4FF`
-   - Success: `fill:#D4EDDA`
-   - Error: `fill:#F8D7DA`
-   - Warning/Skip: `fill:#FFF3CD`
-3. **Mobile-friendly** - Test readability on small screens
-4. **Add context** - Include descriptive text before/after diagrams
-5. **Match audience** - API terms for developers, business terms for users
-6. **Show error paths** - Include failure scenarios and retry logic
+2. **Prioritize vertical layouts** - Use `flowchart TD` over `flowchart LR` for mobile readability
+3. **Ensure dark mode compatibility**:
+   - Always specify text color: `color:#000` for light backgrounds
+   - Use semantic classes with explicit colors:
+   ```mermaid
+   classDef start fill:#E8F4FF,stroke:#0066CC,color:#000
+   classDef success fill:#D4EDDA,stroke:#00AA55,color:#000
+   classDef error fill:#F8D7DA,stroke:#DC3545,color:#000
+   classDef warning fill:#FFF3CD,stroke:#FFC107,color:#000
+   ```
+4. **Mobile-friendly design**:
+   - Maximum 3-4 words per line in nodes
+   - Use `<br/>` for line breaks: `User clicks<br/>Launch button`
+   - Test at 320px, 768px, and 1024px viewport widths
+   - Keep node labels under 20 characters
+5. **Ensure proper text spacing**:
+   - Check for missing spaces between words
+   - Avoid concatenated text like `UserclicksLaunchbutton`
+   - Use clear line breaks for long labels
+6. **Add context** - Include descriptive text before/after diagrams
+7. **Match audience** - API terms for developers, business terms for users
+8. **Show error paths** - Include failure scenarios and retry logic
+9. **Test in both themes** - Verify readability in light AND dark modes
+10. **Break complex diagrams** - Split 50+ node diagrams into smaller focused ones
 
 For comprehensive Mermaid documentation, see the [Mermaid Official Docs](https://mermaid.js.org/) or test your diagrams in the [Mermaid Live Editor](https://mermaid.live/).
 
@@ -265,9 +287,105 @@ Once you submit a pull request:
 
 If you're unsure about a contribution or need help, please open an issue to discuss your proposed changes before creating a pull request.
 
+## Time-Sensitive Content Monitoring
+
+### Overview
+Documentation requires regular updates to maintain accuracy, especially for articles referencing external vendors, third-party services, or evolving technologies. This section identifies patterns that indicate content may need updates.
+
+### High-Priority Update Categories
+
+#### 1. AI/ML Services (Monthly Review Recommended)
+These services evolve rapidly with new models, API changes, and feature updates:
+- OpenAI/ChatGPT integrations
+- Claude/Anthropic integrations  
+- Computer AI agents (Manus, Twin, Skyvern)
+- Location: `/src/content/docs/pro/integrations/computer-ai-agents/`, `/src/content/docs/pro/integrations/mcp-server/`
+
+#### 2. Authentication Providers (Quarterly Review)
+Security protocols and SSO configurations change regularly:
+- Okta, OneLogin, Auth0 integrations
+- Azure AD, Google Workspace SSO
+- OAuth/SAML protocol updates
+- Location: `/src/content/docs/pro/integrations/authentication/`
+
+#### 3. Analytics & BI Platforms (Quarterly Review)
+Connection methods and APIs frequently update:
+- Tableau, Power BI, Sigma Computing
+- Google Analytics (especially GA4 migrations)
+- Location: `/src/content/docs/pro/integrations/analytics/`
+
+#### 4. Cloud Services (Bi-Monthly Review)
+Platform updates affect integrations:
+- AWS services (S3, Lambda, Athena, Redshift)
+- Azure services (Cognitive AI, Translation)
+- Google Cloud services
+- Location: `/src/content/docs/pro/integrations/azure-translation/`
+
+#### 5. Middleware Platforms (Quarterly Review)
+API changes and new features require updates:
+- Zapier, Make.com, n8n
+- Microsoft Power Automate
+- Location: `/src/content/docs/pro/integrations/middleware/`
+
+### Content Age Indicators
+
+Articles requiring review based on age and content type:
+- **30 days**: AI services, version-specific references, pricing
+- **60 days**: Analytics platforms, communication tools
+- **90 days**: Authentication providers, business systems
+- **180 days**: General documentation without vendor references
+
+### Update Triggers
+
+Review and update documentation when:
+1. **Vendor announces major updates** - New API versions, deprecated features
+2. **Security advisories** - Authentication protocol changes, vulnerability patches
+3. **Pricing changes** - Subscription tiers, feature availability
+4. **UI/UX changes** - Screenshots, navigation instructions
+5. **Deprecation notices** - Sunset features, migration requirements
+6. **Changelog entries** - New Tallyfy features affecting integrations
+
+### Files Requiring Frequent Updates
+
+Based on analysis, these files have the highest update frequency needs:
+
+**Critical (Monthly)**:
+- `/pro/integrations/computer-ai-agents/vendors/*.mdx`
+- `/pro/integrations/mcp-server/**/*.mdx`
+- `/pro/changelog/**/*.mdx`
+
+**Important (Quarterly)**:
+- `/pro/integrations/authentication/*.mdx`
+- `/pro/integrations/analytics/*.mdx`
+- `/pro/integrations/middleware/*.mdx`
+- `/pro/pricing/*.mdx`
+
+**Standard (Semi-Annual)**:
+- `/pro/integrations/webhooks/*.mdx`
+- `/pro/integrations/open-api/*.mdx`
+- `/pro/compliance/*.mdx`
+
+### Monitoring Best Practices
+
+1. **Automated Scanning**: Use scripts to identify articles with vendor references
+2. **Age Tracking**: Monitor days since last modification
+3. **Vendor Watching**: Subscribe to vendor changelogs and announcement channels
+4. **User Feedback**: Track support tickets mentioning outdated documentation
+5. **Regular Audits**: Quarterly reviews of high-priority categories
+
 ## Automation & AI Support
 
 This documentation repository supports AI-driven automation for large-scale documentation tasks. We use Claude Code to break down complex documentation projects into manageable, automated workflows. This approach helps maintain consistency and quality across our extensive documentation while reducing manual effort.
+
+### Documentation Update Automation
+
+For systematic updates of time-sensitive content, we use queue-based processing:
+1. Identify eligible articles using vendor patterns and age thresholds
+2. Create update prompts for each article requiring refresh
+3. Process updates using Claude's non-interactive mode
+4. Validate changes before deployment
+
+See `/temporary/doc-updater/` for automation scripts and queue management tools.
 
 ## License
 

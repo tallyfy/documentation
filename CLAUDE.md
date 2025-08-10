@@ -1336,6 +1336,93 @@ Include these details:
 - Ensure text remains readable on mobile devices
 - One idea per diagram - chapter large flows with anchors
 
+### Mobile-Friendly Mermaid Design Guidelines
+
+#### Layout Orientation for Device Compatibility
+
+**CRITICAL**: Always prioritize vertical layouts for mobile readability:
+
+1. **Default to Top-Down (TD) Layout**:
+   - Use `flowchart TD` instead of `flowchart LR` for most diagrams
+   - Vertical scrolling is natural on mobile devices
+   - Horizontal diagrams become unreadable on small screens
+
+2. **When to Use Each Layout**:
+   - `TD` (Top-Down): Process flows, decision trees, hierarchies (PREFERRED)
+   - `LR` (Left-Right): Only for simple 2-3 step flows or timelines
+   - `BT` (Bottom-Top): Rarely - only for reverse hierarchies
+   - `RL` (Right-Left): Avoid - counterintuitive reading direction
+
+3. **Node Text Guidelines**:
+   - Maximum 3-4 words per line in nodes
+   - Use line breaks strategically: `Step 1<br/>Initialize`
+   - Avoid concatenated words - ensure spaces between words
+   - Test readability at 320px viewport width
+
+#### Dark Mode Compatibility
+
+**CRITICAL**: Never hardcode colors that break in dark mode:
+
+1. **Avoid These Style Declarations**:
+   ```mermaid
+   ❌ style Node fill:#E8F4FF,stroke:#0066CC
+   ❌ style Error fill:#F8D7DA,stroke:#DC3545
+   ```
+
+2. **Use Semantic Classes Instead**:
+   ```mermaid
+   ✅ classDef success fill:#D4EDDA,stroke:#00AA55,color:#000
+   ✅ classDef error fill:#F8D7DA,stroke:#DC3545,color:#000
+   ✅ classDef info fill:#E8F4FF,stroke:#0066CC,color:#000
+   ```
+   Always include `color:#000` for text visibility in dark mode
+
+3. **Essential Dark Mode Rules**:
+   - Always specify text color explicitly with `color:#000` or `color:#fff`
+   - Use high-contrast color combinations
+   - Test diagrams in both light and dark modes
+   - Avoid relying on theme defaults for critical elements
+
+#### Responsive Design Patterns
+
+1. **Break Complex Diagrams**:
+   Instead of one 50-node diagram, create:
+   - Overview diagram (10 nodes) with navigation links
+   - 3-4 detailed diagrams (10-15 nodes each) for subsections
+
+2. **Progressive Disclosure**:
+   ```mermaid
+   flowchart TD
+       Overview[Process Overview<br/>Click for details]
+       click Overview "#detailed-steps" "View detailed steps"
+   ```
+
+3. **Mobile-First Node Sizing**:
+   - Keep node labels under 20 characters
+   - Use abbreviations with legend below diagram
+   - Add full descriptions in surrounding text
+
+#### Text Spacing and Readability
+
+**CRITICAL**: Ensure proper text spacing in nodes:
+
+1. **Common Issues and Fixes**:
+   - Missing spaces: Check for `Task completionother` → Fix: `Task completion<br/>other`
+   - Long labels: `UserclicksLaunchbutton` → Fix: `User clicks<br/>Launch button`
+   - API endpoints: Keep on single line or use clear breaks
+
+2. **Label Formatting Rules**:
+   - Use `<br/>` for intentional line breaks
+   - Ensure spaces between all words
+   - Capitalize consistently (Title Case or sentence case)
+   - Avoid special characters that might not render
+
+3. **Testing Checklist**:
+   - View at 320px, 768px, and 1024px widths
+   - Toggle between light and dark modes
+   - Verify all text is readable without zooming
+   - Check for text overflow or truncation
+
 ### Mermaid Diagram Maintenance Rules
 
 **CRITICAL**: When updating ANY article that contains Mermaid diagrams, you MUST:
