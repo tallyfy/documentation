@@ -848,6 +848,12 @@ Example atomic prompts:
 
 ## 📊 Mermaid Diagram Guidelines for Tallyfy Documentation
 
+### Critical Implementation Notes (2025 Update)
+
+**RENDERING CONFIGURATION**: All Mermaid diagrams are rendered with global CSS and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling.
+
+**TEXT WRAPPING SYNTAX**: Use Mermaid's markdown string syntax (`` "`text`" ``) for all node labels to ensure proper text spacing and wrapping. This prevents text concatenation issues that occur with regular syntax.
+
 ### When to Use Visual Diagrams - ULTRATHINKING Required
 
 **CRITICAL RULE**: Only add Mermaid diagrams where they provide clear value for understanding complex flows or interactions. Based on extensive analysis, only **10-15% of documentation articles** should have diagrams. Most documentation is better with clear text.
@@ -940,6 +946,45 @@ Example atomic prompts:
 - "Workflow rules"
 - UI labels and button names
 
+### Mermaid Syntax Requirements (MANDATORY)
+
+**CRITICAL**: All Mermaid diagrams MUST use markdown string syntax for proper text rendering:
+
+#### ✅ CORRECT Syntax (Use This)
+```mermaid
+flowchart TD
+    Template["`**Template**
+    Reusable Blueprint`"]
+    Manual["`**Manual Launch**`"]
+    API["`**API/Webhook**`"]
+    
+    Template --> Manual
+    Template --> API
+    
+    Manual -->|"`With data`"| Process
+    API -->|"`No data`"| Process
+    
+    Process["`**Active Process**
+    Running Instance`"]
+```
+
+#### ❌ INCORRECT Syntax (Avoid This)
+```mermaid
+flowchart TD
+    Template[Template<br/>Reusable Blueprint]  %% Old syntax - causes text spacing issues
+    Manual[Manual Launch]                      %% Missing markdown strings
+    API[API/Webhook]                          %% Text may concatenate
+    
+    Template --> Manual
+    Template --> API
+```
+
+**Key Points**:
+- Use `` "`text`" `` for ALL node labels
+- Use `` **bold** `` within markdown strings for emphasis
+- Multi-line text works naturally within markdown strings (no `<br/>` needed)
+- Edge labels also use markdown strings: `` -->|"`label`"| ``
+
 ### Content-Specific Diagram Templates
 
 #### For OAuth Documentation
@@ -973,44 +1018,38 @@ sequenceDiagram
 ```mermaid
 %%{init: {'theme':'forest'}}%%
 flowchart TD
-    Start([Process Trigger]) --> Check{Which Trigger?}
+    Start(["`**Process Trigger**`"]) --> Check{"`Which Trigger?`"}
     
-    Check -->|Manual| M[User clicks Run]
-    Check -->|API| A[POST /api/v1/processes/run]
-    Check -->|Schedule| S[Cron expression matches]
-    Check -->|Email| E[Email to process@]
-    Check -->|Form| F[Public form submitted]
-    Check -->|Webhook| W[External webhook received]
-    Check -->|Process| P[Parent process triggers]
+    Check -->|"`Manual`"| M["`**User clicks Run**`"]
+    Check -->|"`API`"| A["`**POST /api/v1/processes/run**`"]
+    Check -->|"`Schedule`"| S["`**Cron expression matches**`"]
+    Check -->|"`Email`"| E["`**Email to process@**`"]
+    Check -->|"`Form`"| F["`**Public form submitted**`"]
+    Check -->|"`Webhook`"| W["`**External webhook received**`"]
+    Check -->|"`Process`"| P["`**Parent process triggers**`"]
     
-    M --> Validate{Has Permission?}
-    A --> Auth{Valid Token?}
-    S --> Time{Is Active?}
-    E --> Parse[Parse Email]
-    F --> Data[Collect Form Data]
-    W --> Verify{Valid Signature?}
-    P --> Check2{Conditions Met?}
+    M --> Validate{"`Has Permission?`"}
+    A --> Auth{"`Valid Token?`"}
+    S --> Time{"`Is Active?`"}
+    E --> Parse["`Parse Email`"]
+    F --> Data["`Collect Form Data`"]
+    W --> Verify{"`Valid Signature?`"}
+    P --> Check2{"`Conditions Met?`"}
     
-    Validate -->|Yes| Launch
-    Validate -->|No| Deny[Access Denied]
-    Auth -->|Yes| Launch
-    Auth -->|No| Deny
-    Time -->|Yes| Launch
-    Time -->|No| Skip[Skip This Run]
+    Validate -->|"`Yes`"| Launch
+    Validate -->|"`No`"| Deny["`**Access Denied**`"]
+    Auth -->|"`Yes`"| Launch
+    Auth -->|"`No`"| Deny
+    Time -->|"`Yes`"| Launch
+    Time -->|"`No`"| Skip["`**Skip This Run**`"]
     Parse --> Launch
     Data --> Launch
-    Verify -->|Yes| Launch
-    Verify -->|No| Reject[Reject Webhook]
-    Check2 -->|Yes| Launch
-    Check2 -->|No| Skip
+    Verify -->|"`Yes`"| Launch
+    Verify -->|"`No`"| Reject["`**Reject Webhook**`"]
+    Check2 -->|"`Yes`"| Launch
+    Check2 -->|"`No`"| Skip
     
-    Launch([Launch Process])
-    
-    style Start fill:#E8F4FF,stroke:#0066CC
-    style Launch fill:#D4EDDA,stroke:#00AA55
-    style Deny fill:#F8D7DA,stroke:#DC3545
-    style Reject fill:#F8D7DA,stroke:#DC3545
-    style Skip fill:#FFF3CD,stroke:#FFC107
+    Launch(["`**Launch Process**`"])
 ```
 
 #### For Webhook Events
@@ -1336,6 +1375,21 @@ Include these details:
 - Ensure text remains readable on mobile devices
 - One idea per diagram - chapter large flows with anchors
 
+### Global Configuration & CSS (DO NOT OVERRIDE)
+
+**IMPORTANT**: All Mermaid styling is handled globally through:
+1. **CSS Configuration**: `/support-docs/src/styles/mermaid.css` 
+2. **Astro Config**: `/support-docs/astro.config.mjs`
+
+These global settings ensure:
+- Proper text spacing (letter-spacing: 0.02em, word-spacing: 0.1em)
+- Minimum node sizes (100px width, 45px height)
+- Dark mode compatibility (automatic text color switching)
+- Mobile responsiveness (viewport-based adjustments)
+- Font consistency (Inter Variable font family)
+
+**DO NOT** add inline styles or color definitions in individual diagrams. The global configuration handles all visual aspects automatically.
+
 ### Mobile-Friendly Mermaid Design Guidelines
 
 #### Layout Orientation for Device Compatibility
@@ -1489,6 +1543,52 @@ All 17 diagram types are technically supported, but use these based on content n
   - Error: `#DC3545` / `fill:#F8D7DA`
   - Info: `fill:#E8F4FF`
   - Warning: `fill:#FFF3CD`
+
+### Mermaid Quick Reference for AI Assistants
+
+When creating or editing Mermaid diagrams:
+
+#### 1. ALWAYS Use Markdown String Syntax
+```mermaid
+# Correct:
+NodeA["`**Bold Title**
+Additional text`"]
+
+# Incorrect:
+NodeA[Bold Title<br/>Additional text]
+```
+
+#### 2. Common Node Patterns
+```mermaid
+# Simple node with emphasis:
+Process["`**Process Name**`"]
+
+# Multi-line node:
+Details["`**Main Title**
+Supporting line 1
+Supporting line 2`"]
+
+# Edge with label:
+A -->|"`With data`"| B
+
+# Decision node:
+Decision{"`Is valid?`"}
+```
+
+#### 3. DO NOT Add These (Handled Globally)
+- ❌ `style` directives
+- ❌ `classDef` color definitions  
+- ❌ `fill`, `stroke`, `color` attributes
+- ❌ Theme initialization (`%%{init: {'theme':'forest'}}%%`)
+- ❌ Manual color codes (#E8F4FF, etc.)
+
+#### 4. Checklist for New Diagrams
+- [ ] Used markdown strings (`` "`text`" ``) for ALL labels
+- [ ] Used `flowchart TD` (not LR) for mobile compatibility
+- [ ] Kept to <30 nodes (50 absolute max)
+- [ ] Added "What to notice" bullets after diagram
+- [ ] Included hyperlinks with `click` syntax where helpful
+- [ ] No inline styling or color definitions
 
 ## QUICK REFERENCE CHECKLIST
 

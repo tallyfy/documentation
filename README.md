@@ -97,23 +97,36 @@ We use Mermaid diagrams to visualize complex workflows, API interactions, and sy
 
 > **Important**: Only use diagrams where they add clear value. Simple processes with 3 steps or fewer usually don't need diagrams.
 
-##### Quick Example
+##### Required Syntax (2025 Update)
 
-Add a diagram to any documentation page using a code block with the `mermaid` language identifier:
+**CRITICAL**: Always use Mermaid's markdown string syntax for proper text rendering. This prevents text concatenation issues and ensures proper spacing.
+
+##### ✅ Correct Example (Use This)
 
 ````markdown
 ```mermaid
 flowchart TD
-    Start([User Action]) --> Process[Process Step]
-    Process --> Complete([Complete])
-    
-    classDef startStyle fill:#E8F4FF,stroke:#0066CC,color:#000
-    classDef successStyle fill:#D4EDDA,stroke:#00AA55,color:#000
-    
-    class Start startStyle
-    class Complete successStyle
+    Start(["`**User Action**`"]) --> Process["`**Process Step**`"]
+    Process --> Complete(["`**Complete**`"])
 ```
 ````
+
+##### ❌ Incorrect Example (Avoid This)
+
+````markdown
+```mermaid
+flowchart TD
+    Start([User Action]) --> Process[Process Step]  %% Old syntax - causes text issues
+    Process --> Complete([Complete])
+```
+````
+
+**Key Requirements**:
+- Use `` "`text`" `` for ALL node labels (markdown strings)
+- Use `` **bold** `` within markdown strings for emphasis
+- Multi-line text works naturally within markdown strings
+- Edge labels also use markdown strings: `` -->|"`label`"| ``
+- DO NOT add color styles - global CSS handles all styling automatically
 
 ##### When to Use Diagrams
 
@@ -151,31 +164,31 @@ flowchart TD
 ```mermaid
 %%{init: {'theme':'forest'}}%%
 flowchart TD
-    Start([Event Triggers]) --> Load[Load Rules<br/>by Position]
-    Load --> Rule1{Rule 1<br/>Met?}
+    Start(["`**Event Triggers**`"]) --> Load["`**Load Rules**
+    by Position`"]
+    Load --> Rule1{"`Rule 1
+    Met?`"}
     
-    Rule1 -->|Yes| Op1{Next Rule<br/>Logic?}
-    Rule1 -->|No| Op1
+    Rule1 -->|"`Yes`"| Op1{"`Next Rule
+    Logic?`"}
+    Rule1 -->|"`No`"| Op1
     
-    Op1 -->|AND| Rule2AND{Rule 2<br/>Met?}
-    Op1 -->|OR| Rule2OR{Rule 2<br/>Met?}
+    Op1 -->|"`AND`"| Rule2AND{"`Rule 2
+    Met?`"}
+    Op1 -->|"`OR`"| Rule2OR{"`Rule 2
+    Met?`"}
     
-    Rule2AND -->|Yes + Prev Yes| Actions[Execute<br/>Actions]
-    Rule2AND -->|No| Skip[Skip<br/>Actions]
+    Rule2AND -->|"`Yes + Prev Yes`"| Actions["`**Execute**
+    **Actions**`"]
+    Rule2AND -->|"`No`"| Skip["`**Skip**
+    **Actions**`"]
     
-    Rule2OR -->|Yes| Actions
-    Rule2OR -->|No + Prev No| Skip
+    Rule2OR -->|"`Yes`"| Actions
+    Rule2OR -->|"`No + Prev No`"| Skip
     
-    Actions --> Log[Log<br/>Execution]
+    Actions --> Log["`**Log**
+    **Execution**`"]
     Skip --> Log
-    
-    classDef startStyle fill:#E8F4FF,stroke:#0066CC,color:#000
-    classDef successStyle fill:#D4EDDA,stroke:#00AA55,color:#000
-    classDef warningStyle fill:#FFF3CD,stroke:#FFC107,color:#000
-    
-    class Start startStyle
-    class Actions successStyle
-    class Skip warningStyle
 ```
 
 ###### Webhook with Retry Logic
@@ -248,29 +261,26 @@ sequenceDiagram
 
 1. **Keep diagrams focused** - One concept per diagram
 2. **Prioritize vertical layouts** - Use `flowchart TD` over `flowchart LR` for mobile readability
-3. **Ensure dark mode compatibility**:
-   - Always specify text color: `color:#000` for light backgrounds
-   - Use semantic classes with explicit colors:
-   ```mermaid
-   classDef start fill:#E8F4FF,stroke:#0066CC,color:#000
-   classDef success fill:#D4EDDA,stroke:#00AA55,color:#000
-   classDef error fill:#F8D7DA,stroke:#DC3545,color:#000
-   classDef warning fill:#FFF3CD,stroke:#FFC107,color:#000
-   ```
-4. **Mobile-friendly design**:
+3. **Use markdown string syntax** - ALWAYS use `` "`text`" `` for node labels
+4. **No inline styling needed** - Global CSS handles all colors and styling automatically
+   - DO NOT use `style` directives
+   - DO NOT use `classDef` for colors
+   - DO NOT specify `fill`, `stroke`, or `color` attributes
+   - The global configuration in `/support-docs` handles everything
+5. **Mobile-friendly design**:
    - Maximum 3-4 words per line in nodes
-   - Use `<br/>` for line breaks: `User clicks<br/>Launch button`
+   - Natural line breaks occur in markdown strings
    - Test at 320px, 768px, and 1024px viewport widths
    - Keep node labels under 20 characters
-5. **Ensure proper text spacing**:
-   - Check for missing spaces between words
-   - Avoid concatenated text like `UserclicksLaunchbutton`
-   - Use clear line breaks for long labels
-6. **Add context** - Include descriptive text before/after diagrams
-7. **Match audience** - API terms for developers, business terms for users
-8. **Show error paths** - Include failure scenarios and retry logic
-9. **Test in both themes** - Verify readability in light AND dark modes
-10. **Break complex diagrams** - Split 50+ node diagrams into smaller focused ones
+6. **Ensure proper text spacing**:
+   - Markdown strings automatically handle spacing
+   - No more concatenated text issues
+   - Multi-line text works naturally
+7. **Add context** - Include descriptive text before/after diagrams
+8. **Match audience** - API terms for developers, business terms for users
+9. **Show error paths** - Include failure scenarios and retry logic
+10. **Test in both themes** - Verify readability in light AND dark modes
+11. **Break complex diagrams** - Split 50+ node diagrams into smaller focused ones
 
 For comprehensive Mermaid documentation, see the [Mermaid Official Docs](https://mermaid.js.org/) or test your diagrams in the [Mermaid Live Editor](https://mermaid.live/).
 
