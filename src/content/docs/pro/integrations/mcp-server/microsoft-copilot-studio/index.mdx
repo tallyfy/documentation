@@ -123,33 +123,18 @@ flowchart TD
 This shows the recommended architecture for large organizations requiring high availability and security.
 
 ```mermaid
-%%{init: {'theme':'neutral'}}%%
 graph TB
-    CS[Copilot Studio<br/>Agents]
-    CS -->|VNet Integration| APIM[API Management<br/>Gateway]
+    Copilot[Copilot Studio] --> Gateway[API Gateway<br/>+ WAF]
+    Gateway --> LB[Load Balancer]
     
-    subgraph "Azure App Service Environment"
-        APIM -->|Private Endpoint| LB[Load Balancer]
-        LB --> MCP1[MCP Server 1<br/>Instance]
-        LB --> MCP2[MCP Server 2<br/>Instance]
-    end
+    LB --> MCP1[MCP Server 1]
+    LB --> MCP2[MCP Server 2]
     
-    MCP1 -->|Managed Identity| API[Tallyfy API<br/>Endpoints]
-    MCP2 -->|Managed Identity| API
-    
-    subgraph "Security & Monitoring"
-        WAF[Web Application<br/>Firewall]
-        DLP[DLP Policies]
-        MON[Azure Monitor<br/>& Alerts]
-    end
-    
-    APIM -.-> WAF
-    CS -.-> DLP
-    MCP1 -.-> MON
-    MCP2 -.-> MON
+    MCP1 --> API[Tallyfy API]
+    MCP2 --> API
     
     click API "/products/pro/integrations/open-api/" "API documentation"
-    click CS "#prerequisites" "Setup prerequisites"
+    click Copilot "#prerequisites" "Setup prerequisites"
 ```
 
 **What to notice:**

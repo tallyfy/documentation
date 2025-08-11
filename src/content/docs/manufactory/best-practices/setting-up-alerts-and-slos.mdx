@@ -67,37 +67,18 @@ This diagram shows how SLI measurements flow through error budget calculations t
 
 ```mermaid
 flowchart TD
-    Start([Event Data from<br/>Manufactory]) --> SLI[Calculate SLI<br/>e.g., Success Rate]
+    Events[Event Data] --> SLI[Calculate SLI]
+    SLI --> Budget{Error Budget<br/>Burn Rate?}
     
-    SLI --> Compare{Compare to<br/>SLO Target}
+    Budget -->|Fast: 4h| Critical[🚨 Critical<br/>Page On-Call]
+    Budget -->|Slow: 24h| Warning[⚠️ Warning<br/>Notify Team]
+    Budget -->|Normal| OK[✅ Monitor]
     
-    Compare -->|Below Target| Consume[Consume Error Budget]
-    Compare -->|Meets Target| OK[Within Budget]
-    
-    Consume --> BurnCalc[Calculate Burn Rate<br/>over Time Windows]
-    
-    BurnCalc --> FastBurn{Fast Burn?<br/>Budget gone in 4h}
-    BurnCalc --> SlowBurn{Slow Burn?<br/>Budget gone in 24h}
-    
-    FastBurn -->|Yes| Critical[🚨 Critical Alert<br/>Page On-Call]
-    FastBurn -->|No| CheckSlow
-    
-    SlowBurn -->|Yes| Warning[⚠️ Warning Alert<br/>Notify Team]
-    SlowBurn -->|No| Monitor[Continue Monitoring]
-    
-    CheckSlow[Check Slower Burns] --> SlowBurn
-    
-    Critical --> Investigate[Investigate Actor/<br/>Event Issues]
-    Warning --> Investigate
-    
-    Investigate --> Fix[Fix Root Cause]
-    Fix --> Start
-    
-    OK --> Monitor
-    Monitor --> Start
+    Critical --> Fix[Investigate<br/>& Fix]
+    Warning --> Fix
     
     click SLI "/products/manufactory/best-practices/what-is-observability/" "Learn about observability"
-    click Investigate "/products/manufactory/actors/" "Understanding Manufactory actors"
+    click Fix "/products/manufactory/actors/" "Understanding Manufactory actors"
 ```
 
 **What to notice:**

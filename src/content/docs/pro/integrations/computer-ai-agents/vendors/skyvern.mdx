@@ -59,34 +59,14 @@ This shows how Skyvern's three core agents collaborate with continuous feedback 
 
 ```mermaid
 flowchart TB
-    Start([User Task Request]) --> Planner[<b>Planner Agent</b><br/>Maintains working memory<br/>Sets goals & sub-goals]
+    Request[Task Request] --> Planner[<b>Planner</b><br/>Sets goals]
     
-    Planner -->|Goal Assignment| Actor[<b>Actor Agent</b><br/>Executes browser actions<br/>Reports completion status]
+    Planner --> Actor[<b>Actor</b><br/>Executes actions]
     
-    Actor -->|Action Results| Validator[<b>Validator Agent</b><br/>Assesses goal success<br/>Quality control checks]
+    Actor --> Validator[<b>Validator</b><br/>Checks results]
     
-    Validator -->|Feedback Loop| Planner
-    Validator -->|Error Correction| Actor
-    
-    Actor -->|Status Updates| Planner
-    
-    Validator -->|Success| Complete([Task Complete<br/>Returns data])
-    Validator -->|Failed| Retry{Retry<br/>Logic}
-    
-    Retry -->|New Approach| Planner
-    Retry -->|Max Attempts| Failed([Task Failed<br/>Error report])
-    
-    subgraph Specialized Sub-Agents
-        Elements[Element Agent<br/>Parse HTML]
-        Nav[Navigation Agent<br/>Plan sequences]
-        Data[Data Agent<br/>Extract JSON/CSV]
-        Auth[Auth Agents<br/>2FA & Passwords]
-    end
-    
-    Actor -.->|Invokes| Elements
-    Actor -.->|Invokes| Nav
-    Actor -.->|Invokes| Data
-    Actor -.->|Invokes| Auth
+    Validator -->|Success| Complete([Complete])
+    Validator -->|Fail| Planner
     
     click Planner "#planner-agent" "Learn about Planner Agent"
     click Actor "#actor-agent" "Learn about Actor Agent"
