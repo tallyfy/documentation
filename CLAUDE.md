@@ -1544,6 +1544,26 @@ All 17 diagram types are technically supported, but use these based on content n
   - Info: `fill:#E8F4FF`
   - Warning: `fill:#FFF3CD`
 
+### ⚠️ CRITICAL MERMAID ISSUES TO AVOID
+
+#### 1. Text Visibility Problem (MUST FIX)
+**PROBLEM**: Text appears white/invisible on light backgrounds in light mode.
+**SOLUTION**: Text color is now forced to black in light mode via global CSS. Never override this.
+
+#### 2. Broken Hyperlinks (ALWAYS VERIFY)
+**PROBLEM**: Many click directives point to non-existent URLs (404 errors).
+**SOLUTION**: ALWAYS verify URLs exist before adding click directives:
+```bash
+# Check if a URL exists
+ls /Users/amit/Documents/GitHub/documentation/src/content/docs/pro/[path]/index.mdx
+```
+
+Common correct URLs:
+- Templates: `/products/pro/documenting/templates/`
+- Processes: `/products/pro/tracking-and-tasks/processes/`
+- Tasks: `/products/pro/tracking-and-tasks/tasks/`
+- API: `/products/pro/integrations/open-api/`
+
 ### Mermaid Quick Reference for AI Assistants
 
 When creating or editing Mermaid diagrams:
@@ -1582,13 +1602,29 @@ Decision{"`Is valid?`"}
 - ❌ Theme initialization (`%%{init: {'theme':'forest'}}%%`)
 - ❌ Manual color codes (#E8F4FF, etc.)
 
-#### 4. Checklist for New Diagrams
+#### 4. Mobile-First Diagram Orientation (MANDATORY)
+**ALWAYS use vertical orientation for mobile readability:**
+```mermaid
+# ✅ CORRECT - Vertical (TD = Top-Down)
+flowchart TD
+    A --> B --> C
+
+# ❌ AVOID - Horizontal (LR = Left-Right)
+flowchart LR
+    A --> B --> C
+```
+
+**Why**: Horizontal diagrams become unreadable on mobile screens. Vertical diagrams allow natural scrolling.
+
+#### 5. Checklist for New Diagrams
 - [ ] Used markdown strings (`` "`text`" ``) for ALL labels
 - [ ] Used `flowchart TD` (not LR) for mobile compatibility
+- [ ] Verified ALL click URLs actually exist (no 404s)
 - [ ] Kept to <30 nodes (50 absolute max)
 - [ ] Added "What to notice" bullets after diagram
-- [ ] Included hyperlinks with `click` syntax where helpful
+- [ ] Text is visible in BOTH light and dark modes
 - [ ] No inline styling or color definitions
+- [ ] Tested on mobile viewport (320px width)
 
 ## QUICK REFERENCE CHECKLIST
 
