@@ -17,7 +17,7 @@ import { CardGrid, LinkTitleCard, Steps } from "~/components";
 
 Claude can now control computers just like you do - clicking buttons, typing text, and navigating through applications. This "Computer Use" capability works with Claude 4 (Opus and Sonnet), Claude 3.7 Sonnet, and Claude 3.5 Sonnet v2. It's perfect for automating those repetitive UI tasks that eat up your day.
 
-Since May 22-23, 2025, Claude 4 models have taken computer use to the next level. You get new tool versions (computer_20250124), better performance, and the first AI model with Anthropic's ASL-3 safety protections. Want proof? Claude Opus 4 hits 72.5% on SWE-bench Verified (79.4% with parallel test-time compute), while Sonnet 4 reaches 72.7% (80.2% with parallel compute). The latest Claude Opus 4.1, released August 5, 2025, pushes the bar even higher with 74.5% on SWE-bench Verified.
+Since May 22, 2025, Claude 4 models have taken computer use to the next level. You get new tool versions (computer_20250124), better performance, and the first AI model with Anthropic's ASL-3 safety protections. Want proof? Claude Opus 4 hits 72.5% on SWE-bench Verified, while Sonnet 4 reaches 72.7%.
 
 :::warning[Important guidance for AI agent tasks]
 Your step-by-step instructions for the AI agent to perform work go into the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) description. **Start with short, bite-size and easy tasks that are just mundane and tedious.** Do not try and ask an AI agent to do huge, complex decision-driven jobs that are goal-driven - they are prone to indeterministic behavior, hallucination, and it can get very expensive quickly.
@@ -43,11 +43,11 @@ Here's the clever part - instead of building thousands of app-specific integrati
 
 Key aspects of Claude's Computer Use include:
 
-*   **Models Supported:** Claude 4 (Opus and Sonnet), Claude 3.7 Sonnet, and Claude 3.5 Sonnet v2. Claude 4 models, released May 22-23, 2025, offer enhanced computer use capabilities with extended thinking and tool use integration. Claude Opus 4.1 (August 5, 2025) further improves agentic performance.
-*   **Leading Performance:** Claude Opus 4.1 achieves 74.5% on SWE-bench Verified and maintains the 43.2% Terminal-bench score. Both models demonstrate sustained performance on long-running tasks requiring thousands of steps.
+*   **Models Supported:** Claude 4 (Opus and Sonnet), Claude 3.7 Sonnet, and Claude 3.5 Sonnet v2. Claude 4 models, released May 22, 2025, offer enhanced computer use capabilities with extended thinking and tool use integration.
+*   **Leading Performance:** Claude 4 models achieve state-of-the-art results on coding benchmarks, with Claude Opus 4 scoring 72.5% and Claude Sonnet 4 scoring 72.7% on SWE-bench Verified.
 *   **API-Driven Interaction:** Developers use Anthropic's Messages API, providing Claude with a set of **Anthropic-defined computer use tools**. Claude then requests to use these tools to achieve a user's goal.
 *   **Enhanced Tool Versions:** Each model gets its own tool version:
-    *   `computer_20250124` for Claude 4 and Claude 3.7 models (with enhanced actions including "hold_key", "left_mouse_down", "left_mouse_up", "scroll", "triple_click", and "wait")
+    *   `computer_20250124` for Claude 4 and Claude 3.7 models (with enhanced actions)
     *   `computer_20241022` for Claude 3.5 Sonnet v2
 *   **The Agent Loop:**
     1.  Your application sends a user prompt and the list of available computer use tools to Claude.
@@ -59,3 +59,231 @@ Key aspects of Claude's Computer Use include:
 
 This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
 
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy
+    participant I as Intermediary App
+    participant C as Claude API
+    participant S as Sandbox Environment<br/>(Docker Container)
+    
+    Note over T,S: Claude Computer Use Integration Flow
+    
+    T->>I: Webhook trigger<br/>Task + Form data
+    Note right of I: Extract: file name,<br/>filter criteria,<br/>output field
+    I->>I: Construct prompt<br/>+ tool list
+    I->>C: Initial prompt<br/>+ tools (computer,<br/>text_editor, bash)
+    
+    loop Agent Loop - Until Task Complete
+        C->>C: Analyze context<br/>Decide action
+        C->>I: tool_use request<br/>(e.g., screenshot)
+        I->>S: Execute tool<br/>in sandbox
+        
+        alt Screenshot Request
+            S->>S: Capture desktop<br/>X11 display
+            S-->>I: Image data
+        else Mouse/Keyboard Action
+            S->>S: Perform UI action<br/>(click/type/drag)
+            S-->>I: Success + new screenshot
+        else Bash Command
+            S->>S: Execute command
+            S-->>I: Command output
+        end
+        
+        I->>C: Send tool_result<br/>+ context
+        
+        alt Task Incomplete
+            C->>C: Process result<br/>Plan next action
+            Note right of C: Extended thinking<br/>(Claude 4 feature)
+        else Task Complete
+            C->>I: Final response<br/>"Task done: Result"
+        end
+    end
+    
+    I->>I: Parse final result<br/>Extract value
+    I->>T: Update form field<br/>via Tallyfy API
+    
+    Note over T,S: Task completed with tracked results
+```
+
+**What to notice:**
+- **Steps 1-4:** Tallyfy initiates the process with structured task data that the intermediary app transforms into Claude-ready prompts
+- **Steps 5-15:** The iterative agent loop shows how Claude repeatedly requests tools, receives results, and decides next actions - this may cycle dozens of times for complex UI tasks
+- **Steps 7-13:** Different tool types (screenshot, UI actions, bash) are executed in the isolated sandbox environment, ensuring security while giving Claude the perception and control it needs
+*   **Sandboxed Computing Environment:** Safety first - this environment (often a Docker container) typically includes:
+    *   A virtual X11 display server (like Xvfb) for rendering the desktop.
+    *   A lightweight Linux desktop environment (Mutter window manager, Tint2 panel).
+    *   Pre-installed applications (Firefox, LibreOffice, text editors, file managers).
+    *   Your implementations of the Anthropic-defined tools that translate Claude's requests into actual UI operations.
+*   **Anthropic-Defined Tools (User Executed):** Anthropic specifies the tools, but your application executes them. Core tools include:
+    *   **`computer`**: For mouse/keyboard actions (key presses, typing, cursor movement, clicks, drags, scrolling) and taking screenshots. Requires `display_width_px` and `display_height_px`.
+    *   **`text_editor` (`str_replace_editor`)**: To view, create, and edit files within the environment.
+    *   **`bash`**: To run shell commands in the sandboxed environment.
+    *   Each tool has versions optimized for specific models.
+*   **Extended Thinking with Tool Use:** Claude 4 models can think while they work - alternating between reasoning and tool execution for better results.
+*   **Parallel Tool Execution:** Claude 4 models can use multiple tools at once. They follow instructions more precisely and remember better too.
+*   **Natural Language Instructions:** Just tell Claude what you want in plain English. It figures out which tools to use.
+*   **Broad Availability:** Get the Claude API directly from Anthropic, Amazon Bedrock, or Google Cloud's Vertex AI.
+
+### Safety and Responsible Development
+
+*   **ASL-3 Protections:** Claude Opus 4 is the first model released under Anthropic's ASL-3 (AI Safety Level 3) safety protections, representing a higher standard of safety measures.
+*   **Enhanced Safety Evaluations:** Comprehensive testing includes agentic safety, alignment assessment, and CBRN (Chemical, Biological, Radiological, Nuclear) evaluations.
+*   **Reduced Shortcut Behavior:** Claude 4 models are 65% less likely to engage in shortcut or loophole behavior compared to previous models on agentic tasks.
+
+### Getting Started with Claude Computer Use (for Tallyfy Integration)
+
+You'll need to build an intermediary application that connects Tallyfy to the Anthropic API. Don't worry - it's more straightforward than it sounds.
+
+<Steps>
+
+1.  **Set Up Anthropic API Access:**
+    *   Obtain an Anthropic API key and familiarize yourself with their API documentation, particularly the sections on "Tool Use" and "Computer Use (beta)".
+
+2.  **Choose Your Model:**
+    *   Select between Claude 4 models (Opus 4 for maximum capability, Sonnet 4 for balanced performance) or Claude 3.7/3.5 models based on your requirements and budget.
+
+3.  **Build or Use a Reference Implementation:**
+    *   Anthropic provides a **reference implementation** (Docker setup) that includes a containerized environment, implementations of the computer use tools, an agent loop, and a web interface. This supports both Claude 4 and earlier model versions.
+
+4.  **Configure the Computing Environment:**
+    *   Ensure the sandboxed environment has the necessary applications (e.g., specific browser, office suite) that tasks automated via Tallyfy will need to interact with.
+
+5.  **Develop the Intermediary Application/Service:**
+    *   This service will receive requests (e.g., via a webhook from Tallyfy or a Tallyfy-compatible middleware).
+    *   It will construct the appropriate prompt and tool list for the Claude API based on the Tallyfy task instructions and input data.
+    *   It will manage the "agent loop," sending Claude's `tool_use` requests to your sandboxed environment for execution and returning `tool_result` back to Claude.
+    *   For Claude 4 models, consider enabling extended thinking for complex tasks.
+    *   Once Claude indicates task completion, this service will relay the final output back to Tallyfy.
+
+6.  **Prompt Engineering:**
+    *   Write clear prompts that Claude can't misinterpret. Anthropic recommends:
+        *   Specifying simple, well-defined tasks.
+        *   Telling Claude to verify outcomes with screenshots after each step.
+        *   Suggesting keyboard shortcuts for tricky UI elements.
+        *   Providing examples of successful interactions (if you have them).
+        *   Using XML tags like `<robot_credentials>` for sensitive data - but watch out for prompt injection risks.
+
+</Steps>
+
+### How Tallyfy Integrates with Claude Computer Use (Example Scenario)
+
+Let's walk through a real example. **Tallyfy Task:** "Open `Product_Feedback.xlsx` from desktop, filter for 'Urgent' issues, and count them."
+
+*   **Inputs from Tallyfy [Form Fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/):**
+    *   `File Name`: `Product_Feedback.xlsx`
+    *   `Filter Column Name`: `Priority`
+    *   `Filter Value`: `Urgent`
+    *   `Output Field Name`: `Urgent Issue Count`
+
+### Excel Filtering Example: Step-by-Step Execution Flow
+
+This sequence shows the actual tool calls and responses for a real Excel filtering task, demonstrating how Claude Computer Use handles UI automation through iterative perception and action.
+
+```mermaid
+%%{init: {'theme':'forest'}}%%
+sequenceDiagram
+    autonumber
+    participant T as Tallyfy Task
+    participant I as Intermediary
+    participant C as Claude API
+    participant E as Excel in Sandbox
+    
+    Note over T,E: Example: Count Urgent Issues in Excel
+    
+    T->>I: Webhook data<br/>File: Product_Feedback.xlsx<br/>Filter: Priority = Urgent
+    
+    I->>C: "Open Product_Feedback.xlsx,<br/>filter Priority column for 'Urgent',<br/>count rows"
+    
+    rect rgb(245, 245, 245)
+        Note right of C: Step 1: See Desktop
+        C->>I: tool_use: screenshot
+        I->>E: Capture desktop
+        E-->>I: Desktop image with<br/>Excel file icon
+        I->>C: tool_result: screenshot.png
+    end
+    
+    rect rgb(240, 248, 255)
+        Note right of C: Step 2: Open Excel
+        C->>I: tool_use: double_click<br/>at (x:150, y:200)
+        I->>E: Double-click Excel icon
+        E->>E: Launch Excel,<br/>open file
+        E-->>I: Excel window opened
+        I->>C: tool_result: success +<br/>new screenshot
+    end
+    
+    rect rgb(255, 245, 240)
+        Note right of C: Step 3: Apply Filter
+        C->>I: tool_use: click<br/>Priority column header
+        I->>E: Click column header
+        E-->>I: Filter menu visible
+        I->>C: tool_result: screenshot
+        
+        C->>I: tool_use: click<br/>"Filter" dropdown
+        I->>E: Open filter options
+        E-->>I: Filter options shown
+        I->>C: tool_result: screenshot
+        
+        C->>I: tool_use: type<br/>"Urgent" + Enter
+        I->>E: Apply filter value
+        E->>E: Filter data,<br/>show 15 rows
+        E-->>I: Filtered view
+        I->>C: tool_result: screenshot
+    end
+    
+    rect rgb(245, 255, 245)
+        Note right of C: Step 4: Count & Report
+        C->>C: Analyze status bar<br/>or count visible rows
+        C->>I: "Found 15 urgent issues"
+    end
+    
+    I->>T: Update form field<br/>Urgent Issue Count = 15
+    
+    Note over T,E: Task complete: Result tracked in Tallyfy
+```
+
+**What to notice:**
+- **Steps 3-8:** Claude starts by taking a screenshot to perceive the desktop environment before taking any action
+- **Steps 9-14:** Each UI interaction (clicking, typing) generates a new screenshot for Claude to verify the action succeeded
+- **Steps 15-29:** Complex operations like filtering require multiple coordinated actions, with Claude verifying each step through visual feedback
+
+*   **Integration Steps (Conceptual):**
+    1.  Tallyfy task starts, triggering your intermediary application via a webhook, passing the form field data.
+    2.  Your application constructs an initial prompt for Claude: "Open the Excel file named `Product_Feedback.xlsx` located on the desktop. This file contains columns including `Priority`. Filter the data to show only rows where the `Priority` column is 'Urgent'. Count the number of such rows and provide the total count."
+    3.  The application initiates a session with the Claude API, providing the `computer_20250124`, `text_editor_20250124`, and `bash_20250124` tools (for Claude 4/3.7) or appropriate versions for Claude 3.5.
+    4.  **Agent Loop Begins:**
+        *   Claude might first request a `screenshot` to see the desktop.
+        *   Your app executes this in the sandbox, returns the image.
+        *   Claude identifies the Excel file icon, requests a `double_click` at its coordinates.
+        *   Your app executes, returns a new screenshot showing Excel open.
+        *   Claude identifies the filter controls, requests clicks to apply the filter based on `Priority` = `Urgent`.
+        *   Your app executes, returns screenshots.
+        *   Claude identifies the number of visible rows (or a status bar count), then formulates a final text response: "The number of urgent issues is 15."
+    5.  Your intermediary application receives this final text response, parses the count (15), and updates the `Urgent Issue Count` form field in the Tallyfy task via Tallyfy's API.
+
+### Benefits
+
+*   **Automate UI Interactions for Diverse Applications:** Work with any desktop or web application - no specific APIs needed.
+*   **Leverage Claude's Advanced Reasoning:** Claude 4 models understand context and navigate UIs just like a human would.
+*   **Extended Thinking Capabilities:** For tricky tasks, Claude 4 models can think through problems step-by-step while using tools.
+*   **Structured Task Management by Tallyfy:** Tallyfy defines the "what" and "why" of the task, passes necessary inputs, and receives structured outputs. Every AI action becomes part of a documented, trackable [process](/products/pro/tracking-and-tasks/processes/).
+
+### Potential Considerations
+
+*   **Security Risks:** Computer use poses unique risks. Always run in a dedicated virtual machine or container with minimal privileges. Keep sensitive data away from the model. Limit internet access if you can. Require human confirmation for big decisions.
+*   **Prompt Injection:** Here's a quirk - Claude might follow instructions it sees on screen, even if they conflict with your instructions. Anthropic has classifiers to detect and flag potential prompt injections in screenshots, prompting Claude to ask for user confirmation.
+*   **Model Selection and Cost:** Claude 4 models perform better but cost more tokens. Pick based on your task complexity and budget.
+*   **Latency:** AI interaction can be slower than direct human action for some tasks. Works best for non-time-critical tasks or background processing.
+*   **Accuracy and Reliability:** Claude 4 models are much better, but they can still misinterpret screens or click wrong elements. The extended thinking capability helps debug these issues.
+*   **Restricted Actions:** Anthropic limits Claude's ability to create accounts or generate content on social media and communication platforms to prevent impersonation.
+
+Always check Claude's computer use actions carefully (especially in production with Tallyfy). Start small with low-risk tasks. Add human review steps in Tallyfy where it matters.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with Claude (text chat)</b>" href="/products/pro/integrations/mcp-server/claude-anthropic/" > Claude Desktop provides native MCP integration enabling seamless workflow management through natural language commands that connect directly to Tallyfy's API for task searching process analysis and automated reporting while maintaining security through local configuration and offering unique features like persistent project context and local file system access. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Computer AI agents</b>" href="/products/pro/integrations/computer-ai-agents/" > Computer AI Agents work with Tallyfy by providing intelligent automation capabilities that can perceive digital environments and execute complex tasks while Tallyfy serves as the orchestration framework that provides step-by-step instructions defines inputs and outputs establishes guardrails and ensures transparent trackable execution of AI-driven business processes. </LinkTitleCard>
+<LinkTitleCard header="<b>Computer Ai Agents > Local computer use agents</b>" href="/products/pro/integrations/computer-ai-agents/local-computer-use-agents/" > Tallyfy revolutionizes business automation by developing local Computer Use Agents that run entirely on your hardware providing complete privacy zero latency no token costs and offline operation while solving every limitation of cloud-based AI agents through advanced multimodal models like Gemma 3n DeepSeek-R1 and Qwen3 that deliver production-ready capabilities for enterprise workflow automation. </LinkTitleCard>
+<LinkTitleCard header="<b>Computer Ai Agents > AI agent vendors</b>" href="/products/pro/integrations/computer-ai-agents/vendors/" > The Computer AI Agent market has rapidly matured in 2025 with enterprise-ready leaders like OpenAI Operator Claude Computer Use and Twin.so alongside open-source innovations such as Skyvern and Manus AI offering various approaches to autonomous web-based task automation that can integrate with Tallyfy workflows. </LinkTitleCard>
+</CardGrid>
