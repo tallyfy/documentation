@@ -44,45 +44,75 @@ Each step in Tallyfy can be a standard task or an [approve/reject task](/product
 This diagram shows how a typical purchase approval process flows through various decision points and assignments.
 
 ```mermaid
-%%{init: {'theme':'forest'}}%%
-flowchart TD
-    Start([Submit Request]) --> Form["`**Kick-off Form**
-Gather Initial Data`"]
-    Form --> Validate{Valid<br/>Submission?}
+flowchart TB
+    subgraph "Initial Request"
+        Start(["`Submit Request`"])
+        Form["`**Kick-off Form**
+        Gather Initial Data`"]
+        Validate{"`Valid<br/>Submission?`"}
+        Return["`**Return for**
+        Corrections`"]
+    end
     
-    Validate -->|"`No`"| Return["`**Return for**
-Corrections`"]
+    subgraph "Amount Check"
+        Amount{"`Purchase<br/>Amount?`"}
+        CFO["`**CFO Approval**
+        Required`"]
+    end
+    
+    subgraph "Category Review"
+        Category{"`Purchase<br/>Category?`"}
+        Privacy["`**Vendor Privacy Review**
+        Assigned to Jane Doe`"]
+        IT["`**IT Department Review**`"]
+        Procurement["`**Procurement Review**`"]
+    end
+    
+    subgraph "Final Approval"
+        Manager["`**Manager Approval**`"]
+        Decision{"`Approved?`"}
+        Reminder["`**Send Automated**
+        Reminder`"]
+    end
+    
+    subgraph "Completion"
+        Archive["`**Archive &**
+        Tag Process`"]
+        Notify["`**Notify Requester**
+        of Rejection`"]
+        End(["`Complete`"])
+    end
+    
+    Start --> Form
+    Form --> Validate
+    
+    Validate -->|"`No`"| Return
     Return --> Form
     
-    Validate -->|"`Yes`"| Amount{Purchase<br/>Amount?}
+    Validate -->|"`Yes`"| Amount
     
-    Amount -->|"`< $10,000`"| Category{Purchase<br/>Category?}
-    Amount -->|"`≥ $10,000`"| CFO["`**CFO Approval**
-Required`"]
+    Amount -->|"`< $10,000`"| Category
+    Amount -->|"`≥ $10,000`"| CFO
     
-    Category -->|"`Software`"| Privacy["`**Vendor Privacy Review**
-Assigned to Jane Doe`"]
-    Category -->|"`Hardware`"| IT["`**IT Department Review**`"]
-    Category -->|"`Services`"| Procurement["`**Procurement Review**`"]
+    Category -->|"`Software`"| Privacy
+    Category -->|"`Hardware`"| IT
+    Category -->|"`Services`"| Procurement
     
-    Privacy --> Manager["`**Manager Approval**`"]
+    Privacy --> Manager
     IT --> Manager
     Procurement --> Manager
     CFO --> Manager
     
-    Manager --> Decision{Approved?}
+    Manager --> Decision
     
-    Decision -->|"`Yes`"| Archive["`**Archive &**
-Tag Process`"]
-    Decision -->|"`No`"| Notify["`**Notify Requester**
-of Rejection`"]
+    Decision -->|"`Yes`"| Archive
+    Decision -->|"`No`"| Notify
     
-    Archive --> End([Complete])
+    Archive --> End
     Notify --> End
     
     %% Add reminder automation
-    Manager -.->|Overdue| Reminder["`**Send Automated**
-Reminder`"]
+    Manager -.->|"`Overdue`"| Reminder
     Reminder -.-> Manager
     
     click Form "/products/pro/tutorials/how-to/build-effective-forms/" "Learn about form building"
