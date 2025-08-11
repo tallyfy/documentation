@@ -2,6 +2,41 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚨 CRITICAL: Repository Separation Rules
+
+**ABSOLUTE RULE - WHERE TO MAKE CHANGES:**
+
+### ✅ Changes that go in THIS repository (/documentation):
+- **ALL article content** (.mdx files in src/content/docs/)
+- **ALL documentation text updates**
+- **ALL Mermaid diagrams in articles**
+- **ALL images and screenshots for articles**
+- **ALL frontmatter changes** (titles, descriptions, etc.)
+- **ALL content fixes** (typos, broken links, outdated information)
+- **Python scripts** for content processing
+- **Documentation-specific automation**
+
+### ❌ NEVER make these changes in /documentation:
+- Astro configuration changes
+- Starlight theme modifications
+- CSS framework changes
+- Component framework updates
+- Build system modifications
+- Deployment configuration
+
+### 📍 Changes that go in /support-docs repository ONLY:
+- **Astro configuration** (astro.config.mjs)
+- **Starlight framework settings**
+- **Global CSS and styling** (including Mermaid global styles)
+- **Component overrides** in src/components/overrides/
+- **Build and deployment settings**
+- **Framework dependencies** in package.json
+- **Worker configuration** (Cloudflare Workers)
+
+**WHY THIS MATTERS**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
+
+**ENFORCEMENT**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
+
 ## 🚨 CRITICAL: Humanizing Rules Integration
 
 **ALL AI content operations MUST incorporate the comprehensive humanizing guidelines from `humanizing-rules.md`**. These rules ensure content appears natural, human-written, and undetectable as AI-generated.
