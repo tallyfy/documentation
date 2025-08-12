@@ -1,0 +1,240 @@
+---
+description: Connect your Google Workspace or Gmail account to Tallyfy for personalized email sending using OAuth 2.0 with minimal gmail.send scope requiring standard verification but avoiding expensive security assessments while respecting organizational admin controls.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 2
+title: Google Workspace email connection
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## How will Google Workspace integration work?
+
+**This planned feature will let you connect your Gmail or Google Workspace account so Tallyfy can send workflow emails directly from your email address.** We'll use Google's OAuth 2.0 system with only the `gmail.send` permission - the absolute minimum needed to send emails on your behalf without accessing your inbox or contacts.
+
+Want to know something interesting? Google classifies email permissions into three tiers, and we deliberately chose the least invasive one. The `gmail.send` scope is considered "Sensitive" (not "Restricted"), which means we can offer this integration without the expensive annual security audits that full email access requires. You get personalized sending without the privacy concerns.
+
+### What's required for Google OAuth verification?
+
+**Tallyfy will complete Google's standard OAuth verification for the `gmail.send` scope.** This is a one-time process we handle before the feature launches, not something you need to worry about.
+
+Here's what this means for you:
+- **No security assessment required**: Unlike apps that read your email, we don't need CASA audits
+- **Standard verification only**: Takes 2-4 weeks, not months
+- **Lower ongoing costs**: No annual $15,000-75,000 security assessment fees
+- **Faster approval**: Google reviews send-only apps much quicker
+
+The verification process ensures:
+- Tallyfy's identity is confirmed
+- Our privacy policy meets Google's standards
+- The app name and logo are approved
+- Security practices are documented
+- User consent screens are clear
+
+:::note[Why This Matters]
+Many email integrations request the `https://mail.google.com/` scope, which requires expensive annual security assessments. By limiting ourselves to just `gmail.send`, we keep costs down and pass those savings to you while maintaining full security.
+:::
+
+### Will users see an "unverified app" warning?
+
+**No - once we complete verification, users will see a standard Google consent screen.** During our development and testing phase, beta testers might see an "unverified app" screen, but this disappears once Google approves our application.
+
+The consent screen will clearly show:
+- Tallyfy's verified publisher badge
+- Exactly what permission you're granting (send email only)
+- How to revoke access later
+- No scary warnings or red flags
+
+### What about Google Workspace admin controls?
+
+**Your Google Workspace admin controls whether users can connect third-party apps.** Most organizations allow it, but some have restrictions.
+
+**Scenario 1: Open access (default setting)**
+- Your admin has "Allow users to access any third-party apps" enabled
+- You can connect Tallyfy immediately
+- No admin action needed
+- This is how 80% of organizations operate
+
+**Scenario 2: Restricted access**
+- Your admin has blocked unconfigured third-party apps
+- Admin must add Tallyfy to the allowed apps list
+- We'll provide your admin with our OAuth client ID
+- Once added, all users can connect
+- Takes about 5 minutes for admin to configure
+
+**Scenario 3: Highly restricted**
+- Organization blocks all third-party API access
+- Requires policy exception for Tallyfy
+- We'll provide security documentation for review
+- May need security team approval
+
+### How do IT admins approve Tallyfy?
+
+<Steps>
+1. **Access Google Admin Console**
+   - Sign in to admin.google.com
+   - Navigate to Security → API controls → Manage Third-party App Access
+
+2. **Add Tallyfy as trusted app**
+   - Click "Add app" → "OAuth App Name Or Client ID"
+   - Enter Tallyfy's OAuth Client ID (we'll provide this)
+   - Select "Trusted" or "Specific Google data"
+
+3. **Configure permissions**
+   - If choosing "Specific Google data", add scope: `https://www.googleapis.com/auth/gmail.send`
+   - Apply to entire organization or specific units
+   - Save configuration
+
+4. **Notify users**
+   - Changes take effect immediately
+   - Users can now connect their accounts
+   - No individual approval needed
+</Steps>
+
+We'll provide admins with a one-page setup guide including:
+- Our exact OAuth client ID
+- Screenshots of each configuration step
+- Security compliance documentation
+- Direct support contact for questions
+
+### What if my organization uses IP restrictions?
+
+Google Workspace IP restrictions won't affect Tallyfy's email sending. When we send emails through your account, they originate from Google's servers, not ours. The API calls come from Tallyfy's verified servers, which you can whitelist if needed.
+
+If your organization requires IP whitelisting:
+- We'll provide our API server IP ranges
+- These are stable and rarely change
+- We notify customers 30 days before any IP changes
+- Typically only 3-5 IP addresses to whitelist
+
+### How does this work with Google's "Less Secure Apps" policy?
+
+**This doesn't use "Less Secure Apps" at all - that's old technology.** We use modern OAuth 2.0, which Google actively recommends. In fact, Google is phasing out less secure app access entirely by 2025, but OAuth connections like ours will continue working indefinitely.
+
+Key differences:
+- **Less Secure Apps**: Uses your password directly (deprecated)
+- **OAuth 2.0**: Uses revocable tokens without password access (recommended)
+- **Our approach**: Follows Google's best practices for third-party integration
+
+### What about sending limits and quotas?
+
+**Your existing Gmail sending limits apply when Tallyfy sends on your behalf.** Google enforces these limits to prevent spam:
+
+**Google Workspace accounts**:
+- 2,000 emails per day
+- 500 recipients per message
+- 500 unique recipients per day
+
+**Free Gmail accounts**:
+- 500 emails per day
+- 500 recipients per message
+
+**Good news**: Workflow notifications rarely hit these limits. If you're sending 50 task notifications daily, you're using just 2.5% of your quota. We'll also implement smart batching to combine multiple notifications when possible.
+
+### Will emails appear in my Sent folder?
+
+**Yes - every email Tallyfy sends appears in your Gmail Sent folder.** This creates a complete audit trail in your familiar email interface. You can:
+- Search your Sent folder for any workflow email
+- See exactly what was sent and when
+- Forward or reply to continue conversations
+- Apply your existing email retention policies
+
+This also means:
+- Your email backup systems capture these messages
+- Legal discovery includes workflow notifications
+- You maintain full control over your email history
+
+### How do I revoke access?
+
+You can disconnect Tallyfy from your Google account in three ways:
+
+**Option 1: From Tallyfy**
+- Go to Settings → Email Integration
+- Click "Disconnect Google Account"
+- Confirmation appears immediately
+
+**Option 2: From Google Account Settings**
+- Visit myaccount.google.com/permissions
+- Find Tallyfy in the list
+- Click "Remove Access"
+
+**Option 3: Admin removal** (for IT admins)
+- Google Admin Console → Security → API controls
+- Find Tallyfy in connected apps
+- Remove for specific users or entire organization
+
+Revocation takes effect immediately. Tallyfy can no longer send emails from your account, though emails already sent remain in your Sent folder.
+
+### What data does Tallyfy store?
+
+**We store only the OAuth refresh token - not your emails or password.** Specifically:
+
+**What we store**:
+- OAuth refresh token (encrypted)
+- Your email address (for display)
+- Token expiration time
+- Last successful send timestamp
+
+**What we never store**:
+- Your Google password
+- Email contents from your inbox
+- Your contacts
+- Calendar information
+- Any other Google data
+
+The refresh token is encrypted at rest and can only be used to request short-lived access tokens for sending emails. Even if someone somehow accessed our database, they couldn't read your emails or access your account.
+
+### Integration with Google security features
+
+The integration respects all your Google security settings:
+
+**2-Factor Authentication**: Fully supported - OAuth works regardless of 2FA
+**Advanced Protection Program**: Compatible with Google's highest security tier
+**Context-Aware Access**: Follows your organization's access policies
+**Security Keys**: Work normally during initial authorization
+**Suspicious Activity Detection**: Google monitors OAuth usage for anomalies
+
+If Google detects unusual activity, they might:
+- Temporarily block sending
+- Require you to reauthorize
+- Send you a security alert
+- Ask you to confirm the activity
+
+This is Google protecting your account - exactly what you want.
+
+### Troubleshooting common authorization issues
+
+**"This app is blocked" message**
+- Your admin has blocked third-party apps
+- Solution: Ask admin to add Tallyfy to allowed apps
+- Provide them our OAuth client ID
+
+**"Requires admin approval" screen**
+- Your organization requires admin consent
+- Solution: Forward the consent link to your IT team
+- One-time approval unlocks for all users
+
+**"Invalid scope" error**
+- Rare technical issue
+- Solution: Clear browser cache and try again
+- Contact support if it persists
+
+**Authorization succeeds but sending fails**
+- Usually a temporary Google API issue
+- Wait 5 minutes and try again
+- Check if you've hit daily sending limits
+
+**"Token expired" messages**
+- Normal after 6 months of inactivity
+- Simply reconnect your account
+- Takes 30 seconds to reauthorize
+
+<PageTree />
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Connect your email > Overview</b>" href="/products/pro/integrations/email/connect-your-email/" > Tallyfy's planned direct email integration allows individual users to connect their personal Gmail or Outlook accounts enabling workflow emails to be sent directly from their own email address. </LinkTitleCard>
+<LinkTitleCard header="<b>Connect your email > Microsoft Outlook setup</b>" href="/products/pro/integrations/email/connect-your-email/outlook/" > Comprehensive instructions for connecting Microsoft 365 and Outlook accounts to Tallyfy covering Azure AD registration Mail.Send permissions organizational approval workflows and security requirements. </LinkTitleCard>
+<LinkTitleCard header="<b>Email > Gmail add-on</b>" href="/products/pro/integrations/email/how-can-i-manage-my-tasks-with-tallyfys-gmail-add-on/" > The Tallyfy Gmail Add-on enables users to create tasks launch processes and track status directly from their Gmail inbox while maintaining email context and reducing app switching. </LinkTitleCard>
+</CardGrid>

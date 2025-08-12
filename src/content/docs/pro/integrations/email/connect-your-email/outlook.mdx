@@ -1,0 +1,326 @@
+---
+description: Connect your Microsoft 365 or Outlook account to Tallyfy for personalized email sending using Microsoft Graph API with Mail.Send permission through Azure AD app registration supporting both delegated and admin-approved scenarios.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 3
+title: Microsoft Outlook email connection
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## How will Microsoft Outlook integration work?
+
+**This planned feature will connect your Microsoft 365 or Outlook.com account so Tallyfy can send workflow emails directly from your email address.** We'll use Microsoft Graph API with only the `Mail.Send` permission - just enough to send emails as you, without reading your inbox or accessing your calendar.
+
+Here's what makes this powerful: Microsoft Graph is the modern way to integrate with Microsoft 365. Unlike the old SMTP authentication that Microsoft is phasing out, Graph API uses secure OAuth tokens and respects all your organization's security policies. Your IT team keeps full control while you get seamless email integration.
+
+### What's Microsoft's app registration process?
+
+**Tallyfy will register as an Azure AD application with Microsoft, requiring publisher verification.** This one-time process establishes trust between Tallyfy and Microsoft's identity platform.
+
+The registration includes:
+- **Publisher verification**: Confirms Tallyfy's identity through our Microsoft Partner account
+- **App manifest configuration**: Defines exactly what permissions we request
+- **Consent screen customization**: Shows clear information about what users are authorizing
+- **Security compliance review**: Documents our data handling practices
+
+Microsoft's requirements are straightforward for send-only permissions:
+- No security assessment needed for `Mail.Send` scope
+- Standard verification takes 1-2 weeks
+- Publisher verification requires valid Microsoft Partner ID
+- Domain ownership must be verified
+
+:::note[Avoiding Restricted Scopes]
+We deliberately avoid requesting `Mail.Read` or `Mail.ReadWrite` permissions. These "restricted" scopes would require expensive annual security assessments. By limiting ourselves to `Mail.Send`, we keep the integration simple and secure.
+:::
+
+### How do delegated vs application permissions work?
+
+**We'll use delegated permissions, meaning users explicitly authorize Tallyfy to send on their behalf.** This is more secure than application permissions which would let us send as anyone in your organization.
+
+**Delegated permissions (what we use)**:
+- Each user authorizes individually
+- Users see exactly what they're granting
+- Permissions tied to specific user accounts
+- Can be revoked by users anytime
+- Shows "sent on behalf of" in email headers
+
+**Application permissions (what we don't use)**:
+- Would require admin consent for entire organization
+- Could send as any user without their knowledge
+- Higher security risk
+- More complex approval process
+- Not necessary for our use case
+
+The delegated model means you stay in control. You decide if and when to connect your account, and you can disconnect anytime.
+
+### What about admin consent requirements?
+
+**Whether you need admin approval depends on your organization's Azure AD settings.** Microsoft 365 organizations fall into three categories:
+
+**Scenario 1: User consent allowed (most common)**
+- Default setting for many organizations
+- Users can approve apps requesting basic permissions
+- Connect your account in 2 minutes
+- No IT involvement needed
+
+**Scenario 2: Admin consent required for new apps**
+- Organization requires admin review of new applications
+- Admin gets notification when you try to connect
+- One-time approval for entire organization
+- After approval, all users can connect freely
+
+**Scenario 3: All third-party apps blocked**
+- Strictest security setting
+- No apps allowed without explicit admin approval
+- Requires security review and exception process
+- May need business justification
+
+We'll detect your organization's settings automatically and guide you through the appropriate process.
+
+### How do IT admins pre-approve Tallyfy?
+
+<Steps>
+1. **Access Azure AD Portal**
+   - Sign in to portal.azure.com
+   - Navigate to Azure Active Directory → Enterprise applications
+
+2. **Add Tallyfy application**
+   - Click "New application" → "Create your own application"
+   - Enter name: "Tallyfy Email Integration"
+   - Select "Integrate any other application"
+
+3. **Configure permissions**
+   - Go to API permissions → Add permission
+   - Select Microsoft Graph → Delegated permissions
+   - Check only: `Mail.Send`
+   - Grant admin consent for organization
+
+4. **Set user assignment**
+   - Choose who can use the app:
+     - All users (recommended)
+     - Specific groups (for phased rollout)
+     - Selected users (for testing)
+
+5. **Configure consent settings**
+   - Properties → User consent disabled (prevents consent fatigue)
+   - Or allow user consent for verified publishers
+</Steps>
+
+We provide admins with:
+- Complete setup documentation with screenshots
+- Our Azure AD application ID
+- Security compliance certificates
+- Technical support contact
+- Rollback procedures if needed
+
+### Will this work with conditional access policies?
+
+**Yes - Tallyfy respects all your conditional access policies.** If your organization requires specific conditions for app access, we'll comply:
+
+**Supported policies**:
+- Multi-factor authentication (MFA)
+- Trusted device requirements
+- Location-based restrictions
+- Session lifetime limits
+- Risk-based authentication
+
+When a policy triggers:
+1. User attempts to connect account
+2. Azure AD evaluates policies
+3. Additional authentication requested if needed
+4. Once satisfied, connection proceeds
+5. Policies re-evaluated periodically
+
+This means your security team can:
+- Require MFA for Tallyfy connections
+- Limit access to corporate devices
+- Block connections from certain countries
+- Force re-authentication every 30 days
+
+### How does this handle email sending limits?
+
+**Microsoft 365 has daily sending limits that apply to Graph API sends.** These limits protect against spam and abuse:
+
+**Microsoft 365 Business/Enterprise**:
+- 10,000 recipients per day
+- 500 recipients per message
+- 30 messages per minute rate limit
+
+**Outlook.com (personal)**:
+- 300 emails per day
+- 100 recipients per message
+- Lower rate limits
+
+**Exchange Online Protection** adds:
+- Reputation-based sending
+- Automatic throttling if limits approached
+- Temporary blocks for unusual activity
+
+Don't worry - workflow notifications rarely approach these limits. If you send 100 task notifications daily, you're using just 1% of your quota. We'll also implement intelligent batching to stay well within limits.
+
+### What about Exchange on-premises?
+
+**The initial release will support cloud-based Microsoft 365 and Outlook.com only.** Exchange on-premises (self-hosted Exchange servers) requires different integration methods:
+
+**Why on-premises is different**:
+- No Azure AD for authentication
+- Requires hybrid connectivity setup
+- Graph API access needs special configuration
+- Additional firewall considerations
+
+**Future on-premises support** might include:
+- Exchange Web Services (EWS) integration
+- Hybrid modern authentication
+- ADFS federation support
+- Partner with your Exchange team for setup
+
+If you use on-premises Exchange, let us know - we're tracking demand for this capability.
+
+### Will emails show in my Sent Items?
+
+**Yes - every email sent through Graph API appears in your Sent Items folder.** This maintains a complete audit trail:
+
+- Full copy in Sent Items immediately
+- Searchable through Outlook
+- Subject to retention policies
+- Included in backups
+- Available for legal discovery
+
+This also enables:
+- Reply tracking from your sent folder
+- Forward workflow emails to others
+- Archive important notifications
+- Apply categories and flags
+- Include in email rules
+
+Your existing Outlook features work normally with these emails.
+
+### How does token refresh work?
+
+**Microsoft access tokens expire after 1 hour, but we handle refresh automatically.** Here's the lifecycle:
+
+1. **Initial authorization**: You sign in and grant permission
+2. **Access token issued**: Valid for 1 hour
+3. **Refresh token provided**: Valid for 90 days with activity
+4. **Automatic refresh**: We get new access tokens as needed
+5. **Sliding window**: Each use extends refresh token life
+
+You don't need to re-authenticate unless:
+- You explicitly revoke access
+- 90 days pass without any email sends
+- Your organization's policies force re-authentication
+- Microsoft detects security concerns
+
+The process is seamless - you connect once and forget about it.
+
+### Security and compliance features
+
+The Microsoft integration includes enterprise security features:
+
+**Data residency**:
+- Emails processed in your Microsoft 365 region
+- No data leaves your geography
+- Complies with data sovereignty requirements
+
+**Audit logging**:
+- All API calls logged in Azure AD
+- Sign-in events tracked
+- Admin audit reports available
+- Unusual activity alerts
+
+**Compliance standards**:
+- GDPR compliant data handling
+- SOC 2 certification aligned
+- HIPAA compatible (with BAA)
+- ISO 27001 practices
+
+**Zero Trust compatibility**:
+- No standing permissions
+- Just-in-time token access
+- Continuous verification
+- Least privilege principle
+
+### Integration with Microsoft security tools
+
+The connection works with Microsoft's security ecosystem:
+
+**Microsoft Defender for Office 365**:
+- Scans outbound emails
+- Applies anti-malware policies
+- Checks for data loss prevention (DLP)
+- Blocks suspicious content
+
+**Microsoft Purview**:
+- Information protection labels apply
+- Retention policies enforced
+- eDiscovery includes sent emails
+- Compliance boundaries respected
+
+**Azure AD Identity Protection**:
+- Risk-based conditional access
+- Unusual activity detection
+- Automated response to threats
+- User risk evaluation
+
+These tools work transparently - your security policies apply to Tallyfy-sent emails just like regular emails.
+
+### Troubleshooting common Microsoft issues
+
+**"Need admin approval" message**
+- Your organization requires admin consent
+- Click "Request approval" to notify admin
+- Or share our pre-approval guide with IT
+
+**"AADSTS65001: User or admin has not consented"**
+- App needs to be added to your tenant
+- Admin must grant consent first
+- We'll provide setup instructions
+
+**"Invalid client" error**
+- Usually a browser cache issue
+- Try incognito/private browsing mode
+- Clear cookies for login.microsoftonline.com
+
+**"Token expired" after connection**
+- Normal if unused for 90+ days
+- Simply reconnect your account
+- Takes 1 minute to reauthorize
+
+**Emails not appearing in Sent Items**
+- Check if Purview policies are archiving
+- Verify retention policies aren't deleting
+- Confirm mailbox has sufficient storage
+
+**"SendAs permission denied"**
+- Trying to send from shared mailbox
+- Only personal mailbox sending supported initially
+- Shared mailbox support planned for future
+
+### Microsoft 365 GCC and GCC High
+
+**Government cloud support is planned for Phase 2.** Microsoft's government clouds require additional compliance:
+
+**GCC (Government Community Cloud)**:
+- Separate app registration required
+- FedRAMP Moderate compliance needed
+- Different Graph API endpoints
+- Estimated: 6 months after general release
+
+**GCC High / DoD**:
+- ITAR compliance required
+- Isolated environment registration
+- Enhanced security review
+- Timeline depends on compliance certification
+
+If you're in government cloud, contact us to join the priority list for this capability.
+
+<PageTree />
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Connect your email > Overview</b>" href="/products/pro/integrations/email/connect-your-email/" > Tallyfy's planned direct email integration allows individual users to connect their personal Gmail or Outlook accounts enabling workflow emails to be sent directly from their own email address. </LinkTitleCard>
+<LinkTitleCard header="<b>Connect your email > Google Workspace setup</b>" href="/products/pro/integrations/email/connect-your-email/google-workspace/" > Detailed guide for connecting Google Workspace and Gmail accounts to Tallyfy including OAuth setup requirements permission scopes admin consent processes and troubleshooting common connection issues. </LinkTitleCard>
+<LinkTitleCard header="<b>Email > Set up custom SMTP</b>" href="/products/pro/integrations/email/how-to-set-up-custom-smtp-in-tallyfy/" > Configure a custom SMTP server in Tallyfy to handle outbound email communications with detailed setup instructions testing procedures and troubleshooting tips for successful implementation. </LinkTitleCard>
+</CardGrid>
