@@ -113,6 +113,79 @@ You can include multiple recipients, CC, BCC, and more:
 
 Remember - the email still opens in the user's email client where they can review and edit before sending. Nothing gets sent automatically, giving users full control while saving them tons of typing.
 
+### Browser compatibility for mailto: links
+
+Mailto: links work differently across devices and browsers - here's what you need to know:
+
+**Desktop browsers (Chrome, Edge, Firefox):** Full support with a quick setup
+- Look for the protocol handler icon (double-diamond) in your browser's address bar
+- Click it and allow Gmail (or your preferred email service) to "open all email links"
+- From then on, clicking a mailto: link opens your chosen web email service
+- This uses the browser's `registerProtocolHandler` feature for seamless integration
+
+**Safari and mobile browsers:** Limited support
+- Safari on macOS doesn't support web-based protocol handlers - mailto: links will open your Mac's default mail app
+- Mobile browsers (iOS/Android) generally don't support web protocol handlers either
+- On mobile devices, mailto: links try to launch a native mail app, not web email
+- You'd need a native app (like the Gmail app) set as your default email handler
+
+**Workaround for universal access:** If you control the link creation and know users primarily use Gmail, you can skip mailto: entirely and use Gmail compose URLs directly (see section below).
+
+### HTML formatting not supported in mailto: links
+
+**Important limitation:** Mailto: links can only pre-fill plain text - no HTML formatting is possible.
+
+According to the mailto: specification (RFC 6068), the `body=` parameter is strictly for "the first text/plain body part." This means:
+- No bold, italics, or other rich text formatting
+- No hyperlinks or clickable URLs within the email body
+- No tables, images, or other HTML elements
+- Any HTML tags you include will appear as literal text, not formatted content
+
+**Working with plain text:**
+- Use line breaks with URL encoding: `%0D%0A` represents a new line
+- Example: `mailto:user@example.com?body=Line%201%0D%0ALine%202` creates two separate lines
+- Structure your content with spacing and plain text formatting (dashes, asterisks, etc.)
+- Keep messages clear and concise since formatting options are limited
+
+If you need rich HTML emails, you'll need to either:
+- Use server-side email sending where you control the MIME type and can include HTML
+- Direct users to a web form that sends formatted emails on the backend
+- Have users manually format the email after it opens in their client
+
+### Alternative: Gmail compose URLs for web-only workflows
+
+If your team primarily uses Gmail on the web, you can create direct Gmail compose URLs instead of mailto: links. These bypass the mailto: protocol entirely and open Gmail's compose window directly.
+
+**Gmail compose URL structure:**
+```
+https://mail.google.com/mail/?view=cm&fs=1&to=recipient@example.com&su=Subject&body=Message
+```
+
+**Parameters you can use:**
+- `to=` - Recipient email address
+- `cc=` - CC recipients (comma-separated for multiple)
+- `bcc=` - BCC recipients
+- `su=` - Subject line
+- `body=` - Message body (plain text only, URL-encoded)
+
+**Example with variables:**
+```html
+<a href="https://mail.google.com/mail/?view=cm&fs=1&to={{customerEmail}}&su=Order%20{{orderNumber}}%20Update&body=Hi%20{{customerName}},%0A%0AYour%20order%20is%20ready." target="_blank">Email customer via Gmail</a>
+```
+
+**Limitations of Gmail compose URLs:**
+- **Plain text only** - Just like mailto:, the body parameter doesn't support HTML formatting
+- **Gmail-specific** - Only works for users who use Gmail (won't work with Outlook, Yahoo, etc.)
+- **Web-only** - Opens in a browser tab, not a desktop email client
+- **Authentication required** - Users must be logged into Gmail
+
+**When to use each approach:**
+- **Use mailto:** When users have various email clients and you want universal compatibility
+- **Use Gmail URLs:** When you know all users use Gmail and want to avoid mailto: handler issues
+- **Use server-side:** When you need HTML formatting, attachments, or guaranteed delivery
+
+For teams using Gmail exclusively, the compose URL approach eliminates compatibility issues while still providing one-click email creation with pre-filled content.
+
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
