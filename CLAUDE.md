@@ -257,6 +257,7 @@ python scripts/update-documentation-structure.py     # Update structure map afte
    - **For Related articles**: `import { CardGrid, LinkTitleCard } from "~/components";`
    - **For procedural content**: `import { Steps } from '@astrojs/starlight/components';`
    - **For tabs/asides**: `import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';`
+   - **For navigation trees in index pages**: `import PageTree from '@/components/PageTree.astro';` then use `<PageTree />` to display child pages
    - **Multiple imports example**:
      ```markdown
      ---
@@ -265,10 +266,11 @@ python scripts/update-documentation-structure.py     # Update structure map afte
      
      import { CardGrid, LinkTitleCard } from "~/components";
      import { Steps } from '@astrojs/starlight/components';
+     import PageTree from '@/components/PageTree.astro';
      
      ## Your content starts here
      ```
-   - **CRITICAL**: Missing imports will cause build failures
+   - **CRITICAL**: Missing imports will cause build failures - always check if components are used but not imported
 
 3. **Content Hierarchy**:
    - Start with H2 (`##`), never H1
