@@ -45,6 +45,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Required in every AI prompt**: Include humanizing guidelines for conversational tone, varied sentence rhythm, specific examples, answer-first structure, and elimination of AI-typical phrases.
 
+## 📝 Hover Annotations (Footnotes) Guidelines
+
+### When to Use Hover Annotations
+
+Hover annotations use littlefoot.js to display supplementary information as interactive popovers. Use them SPARINGLY and INTELLIGENTLY.
+
+#### ✅ GOOD Use Cases for Annotations:
+1. **Technical clarifications** - Brief explanations of jargon or acronyms that some (not all) users need
+2. **Supporting data/research** - Statistics, studies, or evidence that backs up claims
+3. **Advanced details** - Optional deeper explanations for power users
+4. **Examples without cluttering** - Quick examples that illustrate a point
+5. **Cross-references** - Additional context that links concepts without disrupting flow
+
+#### ❌ NEVER Use Annotations For:
+1. **Critical instructions** - Steps users MUST follow to complete tasks
+2. **Warnings or requirements** - Security, compliance, or validation rules
+3. **Primary definitions** - Core concepts everyone needs to understand
+4. **Long explanations** - Anything over 2-3 sentences belongs in the main text
+5. **Mobile-critical content** - Information essential for mobile users (hover doesn't work on touch)
+
+### Implementation Syntax
+```markdown
+Text with annotation[^1] appears here.
+
+[^1]: This brief supplementary information appears on hover/click.
+```
+
+### Quality Checklist
+- [ ] Is this information optional/supplementary?
+- [ ] Can users complete their task WITHOUT this information?
+- [ ] Is it under 3 sentences?
+- [ ] Does it enhance rather than distract?
+- [ ] Will the main text still make sense without it?
+
+### Examples of Intelligent Usage
+- **Good**: "Processes complete 80% faster[^1]" → [^1]: Based on analysis of 10,000+ customer workflows comparing manual vs. automated execution times.
+- **Bad**: "Click the Submit button[^1]" → [^1]: The submit button saves your work.
+- **Good**: "Uses Azure Cognitive Services[^1]" → [^1]: Microsoft's cloud-based AI that provides enterprise-grade translation with 99.9% uptime SLA.
+- **Bad**: "Required fields[^1]" → [^1]: You must fill in all required fields.
+
 ## ROLE & PRIMARY OBJECTIVE
 
 You are working with Tallyfy's comprehensive product documentation. Your role is to act as a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform.
