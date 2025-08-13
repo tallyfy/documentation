@@ -483,11 +483,17 @@ Apply the answer-first pattern from `humanizing-rules.md`:
 #### What to Keep
 **ONLY include sentences that**:
 - Provide specific instructions or steps
-- State concrete facts or numbers
+- State concrete facts or numbers (from real sources - NEVER fabricate data)
 - Explain actual functionality
 - Give real examples
 - Solve specific problems
 - Answer direct questions
+
+**⚠️ CRITICAL RULE ON STATISTICS**: 
+- ONLY use statistics, percentages, or specific numbers when you have real, verifiable sources
+- NEVER invent or fabricate data points, accuracy percentages, or research findings
+- If no real data exists, use qualitative descriptions instead ("significant", "many", "often")
+- Better to be vague than to be falsely precise with made-up numbers
 
 #### Practical Meaningfulness Test
 Before including ANY sentence, ask:
@@ -785,6 +791,7 @@ The tracker view provides real-time visibility. Navigate to **Tracker** to see a
 - Structured formats (lists, tables, steps) for easy parsing
 - Semantic HTML: proper use of `<article>`, `<section>`, `<nav>`
 - Internal linking with descriptive anchor text (3-5 per article)
+- **CRITICAL**: Never fabricate statistics, percentages, or specific numbers - only use real, verifiable data from actual sources
 
 
 ### LLM-Specific Optimization Patterns
@@ -1866,7 +1873,7 @@ Before submitting documentation:
 - [ ] "Tallyfy" mentioned 1-3 times naturally (not "the platform")
 - [ ] Answer provided in first 2-3 sentences
 - [ ] Title under 60 characters when possible
-- [ ] Includes specific numbers where available
+- [ ] Includes specific numbers where available (NEVER fabricate statistics - only use real, verifiable data)
 - [ ] Front-loads key information in first paragraph
 - [ ] Uses natural keyword variations
 - [ ] Includes 3-5 internal links with descriptive anchor text

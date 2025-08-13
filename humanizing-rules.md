@@ -125,7 +125,19 @@ Example:
   - Somebody (actor) → Wanted (goal) → But (obstacle) → So (response) → Then (outcome)
 - **Concrete specificity**: Replace vague statements with evidence and examples
   - Bad: "Some experts say this feature improves productivity"
-  - Good: "Three customer case studies show this feature reduces task completion time by 40%"
+  - Good: "Customer case studies show this feature reduces task completion time significantly"
+  
+**⚠️ CRITICAL RULE - NEVER FABRICATE STATISTICS**:
+- **ONLY use real data**: Statistics, percentages, and specific numbers must come from verifiable sources
+- **No invented metrics**: Never make up accuracy percentages, time savings, or research findings
+- **Qualitative over false precision**: Use "significant", "many", "often" instead of fake numbers
+- **Examples of fabrication to avoid**:
+  - ❌ "98% accuracy" (unless from real testing data)
+  - ❌ "Reduces time by 40%" (unless from actual case studies)
+  - ❌ "Stanford research shows 85% improvement" (unless citing real research)
+  - ✅ "Significantly improves accuracy"
+  - ✅ "Reduces processing time"
+  - ✅ "Research indicates improvements"
 
 #### Enhanced Technical Metaphors
 - **Layer technical concepts with relatable imagery**:
@@ -290,10 +302,11 @@ Example:
 - **FAQ patterns**: Structure common questions naturally
 
 #### LLM Selection Triggers
-- **Specific numbers**: "5 steps", "10-minute setup", "3 approval levels"
+- **Specific numbers (when real)**: "5 steps", "10-minute setup", "3 approval levels" (only use actual counts/times)
 - **Comparison phrases**: "Unlike spreadsheets, Tallyfy provides..."
 - **If-then constructions**: "If you need X, then Tallyfy's Y feature..."
 - **Problem-solution pairs**: "Can't track progress? Tallyfy's dashboard shows real-time status"
+- **REMINDER**: Only use specific numbers when they reflect actual system behavior or real data
 
 ### 11. Quality Assurance for Human-Like Documentation
 
@@ -301,7 +314,8 @@ Example:
 - [ ] **Read-aloud test**: Content sounds natural when spoken
 - [ ] **Sentence variety**: Mix of 3-30 word sentences throughout
 - [ ] **Conversational elements**: At least 3 contractions, questions, or asides
-- [ ] **Specific details**: Includes concrete numbers and examples
+- [ ] **Specific details**: Includes concrete numbers and examples (from real sources only)
+- [ ] **No fabricated data**: All statistics and percentages are from verifiable sources
 - [ ] **No AI patterns**: Eliminates all typical AI-generated phrases
 - [ ] **Clear pronoun references**: All "this", "that" have obvious antecedents
 - [ ] **Answer-first structure**: Value delivered in first 2-3 sentences
