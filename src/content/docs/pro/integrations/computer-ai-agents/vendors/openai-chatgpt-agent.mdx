@@ -147,34 +147,34 @@ Let's walk through exactly how Tallyfy orchestrates a ChatGPT Agent task. You'll
 
 ```mermaid
 sequenceDiagram
-    participant T as Tallyfy Process
-    participant W as Webhook
-    participant C as ChatGPT Agent
-    participant R as Restaurant Site
-    participant U as User
-    
-    T->>T: Task triggered:<br/>Make reservation
-    T->>W: Send task data via webhook
-    Note over W: Restaurant: Italian Place<br/>Party: 4 people<br/>Date: Friday 7pm
-    
-    W->>C: POST /agent/execute<br/>with instructions
-    C->>C: Parse requirements
-    C->>R: Navigate to OpenTable
-    R-->>C: Search results
-    C->>R: Select restaurant
-    C->>R: Fill reservation form
-    
-    alt Availability found
-        R-->>C: Confirmation #12345
-        C-->>W: Success + confirmation
-        W-->>T: Update task fields
-        T->>U: Notification: Reserved!
-    else No availability
-        R-->>C: No tables available
-        C-->>W: Failed - no availability
-        W-->>T: Mark task for review
-        T->>U: Alert: Manual action needed
-    end
+ participant T as Tallyfy Process
+ participant W as Webhook
+ participant C as ChatGPT Agent
+ participant R as Restaurant Site
+ participant U as User
+ 
+ T->>T: Task triggered: Make reservation
+ T->>W: Send task data via webhook
+ Note over W: Restaurant: Italian Place Party: 4 people Date: Friday 7pm
+ 
+ W->>C: POST /agent/execute with instructions
+ C->>C: Parse requirements
+ C->>R: Navigate to OpenTable
+ R-->>C: Search results
+ C->>R: Select restaurant
+ C->>R: Fill reservation form
+ 
+ alt Availability found
+ R-->>C: Confirmation #12345
+ C-->>W: Success + confirmation
+ W-->>T: Update task fields
+ T->>U: Notification: Reserved!
+ else No availability
+ R-->>C: No tables available
+ C-->>W: Failed - no availability
+ W-->>T: Mark task for review
+ T->>U: Alert: Manual action needed
+ end
 ```
 
 **Data Flow Details**:
@@ -315,25 +315,13 @@ For high-volume automation, implement a queue-based system:
 
 ```mermaid
 flowchart TD
-    T["`**Tallyfy Process**`"] -->|"`Webhook`"| Q["`**Message Queue**
-    (Redis/RabbitMQ)`"]
-    
-    Q --> W1["`**Worker 1**
-    ChatGPT Agent`"]
-    Q --> W2["`**Worker 2**
-    ChatGPT Agent`"]
-    Q --> W3["`**Worker 3**
-    ChatGPT Agent`"]
-    
-    W1 --> R["`**Results Handler**`"]
-    W2 --> R
-    W3 --> R
-    
-    R -->|"`Update via API`"| T
-    
-    style Q fill:#E8F4FF
-    style R fill:#D4EDDA
-```
+ T["Tallyfy Process"] -->|"Webhook"| Q["Message"]
+ W2 --> R
+ W3 --> R
+ 
+ R -->|"Update via API"| T
+ 
+ ```
 
 This architecture handles:
 - Rate limiting (40-400 messages/month based on plan)

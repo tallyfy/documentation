@@ -75,32 +75,32 @@ This diagram shows the complete OAuth authentication flow for both user-based an
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant App as Your Application
-    participant Auth as Tallyfy OAuth
-    participant API as Tallyfy API
-    
-    Note over App,API: OAuth Authentication Flow
-    
-    alt Password Grant (User Context)
-        App->>Auth: POST /oauth/token<br/>grant_type=password<br/>client_id, client_secret<br/>username, password
-        Auth->>App: access_token + refresh_token<br/>expires_in: 3600
-    else Client Credentials Grant (App Context)
-        App->>Auth: POST /oauth/token<br/>grant_type=client_credentials<br/>client_id, client_secret
-        Auth->>App: access_token (limited scope)<br/>expires_in: 3600
-    end
-    
-    App->>API: API Request<br/>Authorization: Bearer {token}<br/>X-Tallyfy-Client: APIClient
-    
-    alt Token Valid
-        API->>App: 200 OK + Response Data
-    else Token Expired
-        API->>App: 401 Unauthenticated
-        App->>Auth: POST /oauth/token<br/>grant_type=refresh_token<br/>refresh_token={token}
-        Auth->>App: New access_token
-        App->>API: Retry with new token
-        API->>App: 200 OK + Response Data
-    end
+ autonumber
+ participant App as Your Application
+ participant Auth as Tallyfy OAuth
+ participant API as Tallyfy API
+ 
+ Note over App,API: OAuth Authentication Flow
+ 
+ alt Password Grant (User Context)
+ App->>Auth: POST /oauth/token grant_type=password client_id, client_secret username, password
+ Auth->>App: access_token + refresh_token expires_in: 3600
+ else Client Credentials Grant (App Context)
+ App->>Auth: POST /oauth/token grant_type=client_credentials client_id, client_secret
+ Auth->>App: access_token (limited scope) expires_in: 3600
+ end
+ 
+ App->>API: API Request Authorization: Bearer {token} X-Tallyfy-Client: APIClient
+ 
+ alt Token Valid
+ API->>App: 200 OK + Response Data
+ else Token Expired
+ API->>App: 401 Unauthenticated
+ App->>Auth: POST /oauth/token grant_type=refresh_token refresh_token={token}
+ Auth->>App: New access_token
+ App->>API: Retry with new token
+ API->>App: 200 OK + Response Data
+ end
 ```
 
 **What to notice:**

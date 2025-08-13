@@ -43,35 +43,35 @@ This diagram shows the complete authentication flow for third-party applications
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant App as Third-Party App
-    participant Auth as Tallyfy Auth<br/>(account.tallyfy.com)
-    participant API as Tallyfy API<br/>(go.tallyfy.com)
-    participant User as End User
-    
-    Note over App,API: OAuth 2.0 Client Credentials Flow
-    
-    %% Step 1: Get App Token
-    App->>Auth: POST /oauth/token<br/>client_id, client_secret<br/>grant_type: "client_credentials"
-    Auth-->>App: Application Access Token<br/>(expires_in: 3600)
-    
-    %% Step 2: Provision User
-    App->>API: POST /api/applications/{orgID}/users<br/>Bearer: {app_token}<br/>User details (name, email, role)
-    API-->>App: User created<br/>(user_id: 12345)
-    
-    %% Step 3: Get User Token
-    App->>API: POST /api/applications/{orgID}/users/{email}/token<br/>Bearer: {app_token}
-    API-->>App: User-specific Access Token<br/>(expires_in: 3600)
-    
-    %% Step 4: Act on behalf of user
-    App->>API: GET /api/organizations/{orgID}/me/tasks<br/>Bearer: {user_token}<br/>X-Tallyfy-Client: APIClient
-    API-->>App: User's tasks data
-    
-    Note over App,User: User interacts with third-party app
-    User->>App: Request workflow action
-    App->>API: API call with user token
-    API-->>App: Response
-    App-->>User: Display result
+ autonumber
+ participant App as Third-Party App
+ participant Auth as Tallyfy Auth (account.tallyfy.com)
+ participant API as Tallyfy API (go.tallyfy.com)
+ participant User as End User
+ 
+ Note over App,API: OAuth 2.0 Client Credentials Flow
+ 
+ %% Step 1: Get App Token
+ App->>Auth: POST /oauth/token client_id, client_secret grant_type: "client_credentials"
+ Auth-->>App: Application Access Token (expires_in: 3600)
+ 
+ %% Step 2: Provision User
+ App->>API: POST /api/applications/{orgID}/users Bearer: {app_token} User details (name, email, role)
+ API-->>App: User created (user_id: 12345)
+ 
+ %% Step 3: Get User Token
+ App->>API: POST /api/applications/{orgID}/users/{email}/token Bearer: {app_token}
+ API-->>App: User-specific Access Token (expires_in: 3600)
+ 
+ %% Step 4: Act on behalf of user
+ App->>API: GET /api/organizations/{orgID}/me/tasks Bearer: {user_token} X-Tallyfy-Client: APIClient
+ API-->>App: User's tasks data
+ 
+ Note over App,User: User interacts with third-party app
+ User->>App: Request workflow action
+ App->>API: API call with user token
+ API-->>App: Response
+ App-->>User: Display result
 ```
 
 **What to notice:**

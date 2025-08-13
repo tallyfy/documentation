@@ -23,23 +23,16 @@ This diagram shows the two connection methods and the bidirectional flow between
 
 ```mermaid
 flowchart TD
-    Method{Connection<br/>Method}
-    
-    Method -->|"`Quick`"| Node[Tallyfy Node]
-    Method -->|"`Custom`"| HTTP[HTTP Request]
-    
-    Node --> Auth["`**Configure**
-API Token`"]
-    HTTP --> Auth
-    
-    Auth --> Test{Test<br/>Connection}
-    
-    Test -->|"`Success`"| Ready["`**60+ Operations**
-Ready to Use`"]
-    Test -->|"`Failed`"| Debug[Check Token]
-    
-    click Node "/products/pro/integrations/middleware/n8n/index/" "n8n integration overview"
-    click Ready "/products/pro/integrations/open-api/index/" "Tallyfy API documentation"
+ Method{Connection Method}
+ 
+ Method -->|"Quick"| Node[Tallyfy Node]
+ Method -->|"Custom"| HTTP[HTTP Request]
+ 
+ Node --> Auth["Configure API Token"] HTTP"]
+ Test -->|"Failed"| Debug[Check Token]
+ 
+ click Node "/products/pro/integrations/middleware/n8n/index/" "n8n integration overview"
+ click Ready "/products/pro/integrations/open-api/index/" "Tallyfy API documentation"
 ```
 
 **What to notice:**
@@ -243,44 +236,44 @@ This sequence diagram illustrates how Tallyfy sends real-time events to n8n with
 ```mermaid
 %%{init: {'theme':'forest'}}%%
 sequenceDiagram
-    autonumber
-    participant S as Step/Task
-    participant T as Tallyfy
-    participant Q as Queue
-    participant W as Webhook Service
-    participant n8n as n8n Workflow
-    
-    S->>T: User completes task
-    T->>T: Check webhook config
-    
-    alt Webhook configured
-        T->>Q: Queue webhook event
-        Note over Q: Event queued for delivery
-    else No webhook
-        T-->>T: Skip webhook
-    end
-    
-    Q->>W: Process webhook
-    
-    loop Max 3 attempts
-        W->>n8n: POST {webhook_url}
-        Note over W,n8n: Timeout: 30 seconds
-        
-        alt Success (2xx)
-            n8n-->>W: Success response
-            W->>T: Mark delivered
-            Note over T: Log success
-        else Failure
-            n8n-->>W: Error or timeout
-            W->>W: Wait (exponential backoff)
-            Note over W: 1st: 1min<br/>2nd: 5min<br/>3rd: 15min
-        end
-    end
-    
-    alt All attempts failed
-        W->>T: Mark failed
-        Note over T: Alert administrators
-    end
+ autonumber
+ participant S as Step/Task
+ participant T as Tallyfy
+ participant Q as Queue
+ participant W as Webhook Service
+ participant n8n as n8n Workflow
+ 
+ S->>T: User completes task
+ T->>T: Check webhook config
+ 
+ alt Webhook configured
+ T->>Q: Queue webhook event
+ Note over Q: Event queued for delivery
+ else No webhook
+ T-->>T: Skip webhook
+ end
+ 
+ Q->>W: Process webhook
+ 
+ loop Max 3 attempts
+ W->>n8n: POST {webhook_url}
+ Note over W,n8n: Timeout: 30 seconds
+ 
+ alt Success (2xx)
+ n8n-->>W: Success response
+ W->>T: Mark delivered
+ Note over T: Log success
+ else Failure
+ n8n-->>W: Error or timeout
+ W->>W: Wait (exponential backoff)
+ Note over W: 1st: 1min 2nd: 5min 3rd: 15min
+ end
+ end
+ 
+ alt All attempts failed
+ W->>T: Mark failed
+ Note over T: Alert administrators
+ end
 ```
 
 **What to notice:**

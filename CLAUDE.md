@@ -130,18 +130,46 @@ Contact support: `/products/pro/miscellaneous/support/how-can-i-contact-tallyfys
 
 ## FINDING & UPDATING DOCUMENTATION
 
+### Deriving Local File Paths from URLs
+
+When given a staging or production URL, derive the local file path using this pattern:
+
+**URL to Local Path Conversion**:
+```
+URL: https://staging.products.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/
+Path: documentation/src/content/docs/pro/integrations/extract-tasks-from-meetings.mdx
+
+URL: https://tallyfy.com/products/pro/tracking-and-tasks/tasks/
+Path: documentation/src/content/docs/pro/tracking-and-tasks/tasks/index.mdx
+```
+
+**Conversion Rules**:
+1. Remove domain (`https://staging.products.tallyfy.com/` or `https://tallyfy.com/`)
+2. Remove `/products/` prefix
+3. Add relative base path: `documentation/src/content/docs/`
+4. If URL ends with a specific page name: add `.mdx`
+5. If URL ends with `/`: look for `index.mdx` in that directory
+
+**Examples** (relative to GitHub root directory):
+- `https://staging.products.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/`
+  → `documentation/src/content/docs/pro/integrations/extract-tasks-from-meetings.mdx`
+- `https://tallyfy.com/products/pro/documenting/templates/`
+  → `documentation/src/content/docs/pro/documenting/templates/index.mdx`
+- `https://staging.products.tallyfy.com/products/manufactory/overview/`
+  → `documentation/src/content/docs/manufactory/overview.mdx` or `overview/index.mdx`
+
 ### Documentation Discovery Strategies
 When identifying where to update documentation, use this search hierarchy:
 
 1. **Check existing file coverage first**:
    ```bash
-   # Find by feature area
-   find /src/content/docs/pro/documenting/templates -name "*.mdx"
-   find /src/content/docs/pro/tracking-and-tasks/tasks -name "*.mdx"
+   # Find by feature area (from documentation directory)
+   find src/content/docs/pro/documenting/templates -name "*.mdx"
+   find src/content/docs/pro/tracking-and-tasks/tasks -name "*.mdx"
    
-   # Search by keywords
-   grep -r "assignment\|assign" /src/content/docs/pro --include="*.mdx"
-   grep -r "automation\|rule" /src/content/docs/pro --include="*.mdx"
+   # Search by keywords (from documentation directory)
+   grep -r "assignment\|assign" src/content/docs/pro --include="*.mdx"
+   grep -r "automation\|rule" src/content/docs/pro --include="*.mdx"
    ```
 
 2. **Use the comprehensive structure map**: `DOCUMENTATION_STRUCTURE.md` contains complete file inventory
@@ -156,15 +184,15 @@ When identifying where to update documentation, use this search hierarchy:
 
 ### Quick File Location Commands
 ```bash
-# Most common documentation areas (use these to narrow search)
-ls /src/content/docs/pro/documenting/templates/     # 84 files - Template creation
-ls /src/content/docs/pro/tracking-and-tasks/tasks/ # 25 files - Task management  
-ls /src/content/docs/pro/integrations/             # 149 files - All integrations
-ls /src/content/docs/pro/documenting/members/      # 19 files - User management
+# Most common documentation areas (from documentation directory)
+ls src/content/docs/pro/documenting/templates/     # 84 files - Template creation
+ls src/content/docs/pro/tracking-and-tasks/tasks/ # 25 files - Task management  
+ls src/content/docs/pro/integrations/             # 149 files - All integrations
+ls src/content/docs/pro/documenting/members/      # 19 files - User management
 
-# Find specific topics
-grep -l "how to assign" /src/content/docs/pro/**/*.mdx
-grep -l "template\|blueprint" /src/content/docs/pro/**/*.mdx
+# Find specific topics (from documentation directory)
+grep -l "how to assign" src/content/docs/pro/**/*.mdx
+grep -l "template\|blueprint" src/content/docs/pro/**/*.mdx
 ```
 
 ### Update vs. Create Decision Matrix
@@ -251,6 +279,10 @@ python scripts/update-documentation-structure.py     # Update structure map afte
    - **CRITICAL Title vs. Heading Rule**: The frontmatter title MUST be different from the main H2 heading
      - Title: Short and practical (e.g., "Create a table of contents")
      - H2 Heading: Slightly different, clarifying context (e.g., "Using table of contents in Tallyfy")
+     - **VIOLATION EXAMPLE from actual codebase** (`/pro/integrations/extract-tasks-from-meetings.mdx`):
+       - ❌ BAD: Title: "Extract tasks" → Heading: "# Extract tasks from meetings (Coming Soon)" (just adds words)
+       - ✅ BETTER: Title: "Extract tasks from meetings" → Heading: "# Converting meeting recordings into actionable tasks" (different angle)
+       - The heading should provide a different perspective, not just extend the title with more words
 
 2. **Component Imports**:
    - **Required placement**: Immediately after the frontmatter YAML, before any content
@@ -885,11 +917,88 @@ Example atomic prompts:
 
 ## 📊 Mermaid Diagram Guidelines for Tallyfy Documentation
 
+### 🚨 MANDATORY NOTATION RULES (2025-08-13 Update)
+
+**CRITICAL**: Analysis shows 100% of existing Mermaid diagrams have notation issues. These rules are MANDATORY to prevent rendering problems.
+
+#### ❌ FORBIDDEN NOTATION (Never Use These)
+
+1. **NO backticks in labels**: 
+   - ❌ WRONG: `Node["`**Text**`"]` or `Node[`Text`]`
+   - ✅ RIGHT: `Node["Text"]` or `Node[Text]`
+
+2. **NO HTML tags**:
+   - ❌ WRONG: `Node["Text<br/>More text"]`
+   - ✅ RIGHT: `Node["Text"]` (keep it short)
+
+3. **NO markdown formatting**:
+   - ❌ WRONG: `Node["**Bold Text**"]`
+   - ✅ RIGHT: `Node["Bold Text"]`
+
+4. **NO inline styles or colors**:
+   - ❌ WRONG: `style Node fill:#E8F4FF`
+   - ✅ RIGHT: Let global config handle colors
+
+5. **NO excessive text** (max 4-5 words):
+   - ❌ WRONG: `Node["This is a very long description that wraps"]`
+   - ✅ RIGHT: `Node["Long Description"]`
+
+6. **NO special characters**:
+   - ❌ WRONG: `Node["Data & Analytics"]`
+   - ✅ RIGHT: `Node["Data and Analytics"]`
+
+7. **NO parentheses for node definitions**:
+   - ❌ WRONG: `Node("Text")` or `Node([Text])`
+   - ✅ RIGHT: `Node["Text"]` or `Node[Text]`
+
+8. **PREVENT TEXT BLEEDING** (words splitting across lines):
+   - ❌ WRONG: `Node["AI Transcription"]` (may split as "AI Transcripti" + "on")
+   - ✅ RIGHT: `Node["AI Transcript"]` or `Node["Transcribe AI"]`
+   - Keep labels under 15 characters when possible
+   - Avoid words longer than 10 characters
+   - Test rendering to ensure no word breaks
+
+#### ✅ CORRECT NOTATION PATTERNS
+
+```mermaid
+flowchart TD
+    Start["Simple Label"] --> Next["Another Label"]
+    Next --> Decision{"Question?"}
+    Decision -->|Yes| Action["Do Something"]
+    Decision -->|No| End["Complete"]
+```
+
+**Key Rules**:
+- Use square brackets for all nodes: `Node[Text]` or `Node["Text with spaces"]`
+- Keep labels under 30 characters (ideally under 20)
+- Use 3-4 words maximum per label
+- Put detailed explanations in the article text, not the diagram
+- Use consistent node naming: `Start`, `Process1`, `Decision1`, etc.
+
+#### 🔍 PREVENTING TEXT BLEEDING
+
+**Problem**: Text like "AI Transcription" displays as "AI Transcripti" with "on" on the next line.
+
+**Solutions**:
+1. **Shorten labels**: "AI Transcription" → "AI Transcript" or "Transcribe"
+2. **Avoid long words**: Break "Implementation" into "Implement"
+3. **Character limits**: Keep total label length under 15 characters
+4. **Test common problems**:
+   - "Transcription" (13 chars) → Use "Transcript" (10 chars)
+   - "Configuration" (13 chars) → Use "Config" (6 chars)
+   - "Authorization" (13 chars) → Use "Auth" (4 chars)
+   - "Synchronization" (15 chars) → Use "Sync" (4 chars)
+
 ### Critical Implementation Notes (2025 Update)
 
-**RENDERING CONFIGURATION**: All Mermaid diagrams are rendered with global CSS and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling.
+**RENDERING CONFIGURATION**: All Mermaid diagrams are rendered with global CSS and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
+- Brand colors (light green #f2faf4, #e1f7e6 with dark green borders #225930)
+- Dark mode colors (#0D0D0D background, rgba(11, 40, 19, 0.4) nodes)
+- Font settings (Inter Variable)
+- Node spacing and padding
+- Text wrapping at 200px width
 
-**TEXT WRAPPING SYNTAX**: Use Mermaid's markdown string syntax (`` "`text`" ``) for all node labels to ensure proper text spacing and wrapping. This prevents text concatenation issues that occur with regular syntax.
+**ENFORCEMENT**: These notation rules are MANDATORY. Every Mermaid diagram must follow them to prevent rendering issues. When creating or editing diagrams, mentally check each rule before committing changes.
 
 ### When to Use Visual Diagrams - ULTRATHINKING Required
 

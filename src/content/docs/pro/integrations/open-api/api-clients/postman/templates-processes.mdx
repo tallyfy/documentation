@@ -27,51 +27,51 @@ This diagram shows the complete API flow from listing templates to launching and
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant P as Postman Client
-    participant T as Tallyfy API
-    participant DB as Tallyfy Database
-    
-    Note over P,DB: Template to Process Launch Flow
-    
-    %% List available templates
-    P->>T: GET /organizations/{org}/checklists
-    T->>DB: Query templates
-    DB-->>T: Template list
-    T-->>P: Available templates<br/>[{id, name, steps_count}]
-    
-    %% Conditional template selection
-    Note over P: Evaluate conditions<br/>(amount, priority, etc.)
-    alt Amount < $1000
-        P->>P: Select simple_template
-    else Amount < $10000
-        P->>P: Select manager_approval_template
-    else Amount >= $10000
-        P->>P: Select executive_approval_template
-    end
-    
-    %% Launch process with kick-off form
-    P->>T: POST /checklists/{template}/launch<br/>+ preruns data
-    T->>T: Validate kick-off fields
-    T->>DB: Create process instance
-    DB-->>T: Process created
-    T-->>P: 201 Created<br/>{process_id, status: "active"}
-    
-    %% Bulk launch pattern
-    loop For each employee
-        P->>P: Wait 200ms (rate limit)
-        P->>T: POST /checklists/{template}/launch
-        T-->>P: Process launched
-    end
-    
-    %% Process monitoring
-    P->>T: GET /runs?status=active
-    T-->>P: Active processes list
-    
-    P->>T: PUT /runs/{process}/archive
-    T->>DB: Update status to archived
-    DB-->>T: Status updated
-    T-->>P: Process archived
+ autonumber
+ participant P as Postman Client
+ participant T as Tallyfy API
+ participant DB as Tallyfy Database
+ 
+ Note over P,DB: Template to Process Launch Flow
+ 
+ %% List available templates
+ P->>T: GET /organizations/{org}/checklists
+ T->>DB: Query templates
+ DB-->>T: Template list
+ T-->>P: Available templates [{id, name, steps_count}]
+ 
+ %% Conditional template selection
+ Note over P: Evaluate conditions (amount, priority, etc.)
+ alt Amount < $1000
+ P->>P: Select simple_template
+ else Amount < $10000
+ P->>P: Select manager_approval_template
+ else Amount >= $10000
+ P->>P: Select executive_approval_template
+ end
+ 
+ %% Launch process with kick-off form
+ P->>T: POST /checklists/{template}/launch + preruns data
+ T->>T: Validate kick-off fields
+ T->>DB: Create process instance
+ DB-->>T: Process created
+ T-->>P: 201 Created {process_id, status: "active"}
+ 
+ %% Bulk launch pattern
+ loop For each employee
+ P->>P: Wait 200ms (rate limit)
+ P->>T: POST /checklists/{template}/launch
+ T-->>P: Process launched
+ end
+ 
+ %% Process monitoring
+ P->>T: GET /runs?status=active
+ T-->>P: Active processes list
+ 
+ P->>T: PUT /runs/{process}/archive
+ T->>DB: Update status to archived
+ DB-->>T: Status updated
+ T-->>P: Process archived
 ```
 
 **What to notice:**

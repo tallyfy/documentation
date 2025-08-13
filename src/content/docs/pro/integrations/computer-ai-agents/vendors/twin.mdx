@@ -121,43 +121,43 @@ This diagram shows how Tallyfy orchestrates Twin.so agents to retrieve invoices 
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant T as Tallyfy Process
-    participant W as Webhook/API
-    participant TS as Twin.so API
-    participant TA as Twin.so Agent
-    participant B as Browser Session
-    participant E as External Site<br/>(e.g., OpenAI)
-    
-    Note over T,E: Invoice Retrieval Automation Flow
-    
-    T->>T: Task becomes active
-    T->>W: Trigger webhook
-    W->>TS: POST /api/tasks/start<br/>starting_url, goal, access_key
-    TS->>TA: Initialize agent task
-    TA->>B: Launch secure browser
-    B->>E: Navigate to platform.openai.com
-    
-    Note over B,E: Agent uses vaulted credentials
-    B->>E: Login with credentials
-    E-->>B: Authentication success
-    B->>E: Navigate to billing section
-    E-->>B: Display invoices
-    B->>E: Download February 2025 invoice
-    E-->>B: Invoice file ($92.10)
-    
-    B-->>TA: Extracted data & file
-    TA-->>TS: Task complete + results
-    
-    alt Webhook Callback
-        TS-->>W: POST callback with results
-        W-->>T: Update task with invoice
-    else Status Polling
-        T->>TS: GET /api/tasks/{id}/status
-        TS-->>T: Status: completed + results
-    end
-    
-    T->>T: Attach invoice to task<br/>Continue process
+ autonumber
+ participant T as Tallyfy Process
+ participant W as Webhook/API
+ participant TS as Twin.so API
+ participant TA as Twin.so Agent
+ participant B as Browser Session
+ participant E as External Site (e.g., OpenAI)
+ 
+ Note over T,E: Invoice Retrieval Automation Flow
+ 
+ T->>T: Task becomes active
+ T->>W: Trigger webhook
+ W->>TS: POST /api/tasks/start starting_url, goal, access_key
+ TS->>TA: Initialize agent task
+ TA->>B: Launch secure browser
+ B->>E: Navigate to platform.openai.com
+ 
+ Note over B,E: Agent uses vaulted credentials
+ B->>E: Login with credentials
+ E-->>B: Authentication success
+ B->>E: Navigate to billing section
+ E-->>B: Display invoices
+ B->>E: Download February 2025 invoice
+ E-->>B: Invoice file ($92.10)
+ 
+ B-->>TA: Extracted data & file
+ TA-->>TS: Task complete + results
+ 
+ alt Webhook Callback
+ TS-->>W: POST callback with results
+ W-->>T: Update task with invoice
+ else Status Polling
+ T->>TS: GET /api/tasks/{id}/status
+ TS-->>T: Status: completed + results
+ end
+ 
+ T->>T: Attach invoice to task Continue process
 ```
 
 **What to notice:**
