@@ -64,45 +64,45 @@ sequenceDiagram
     participant T as Tallyfy
     participant I as Intermediary App
     participant C as Claude API
-    participant S as Sandbox Environment<br/>(Docker Container)
+    participant S as Sandbox
     
-    Note over T,S: Claude Computer Use Integration Flow
+    Note over T,S: Integration Flow
     
-    T->>I: Webhook trigger<br/>Task + Form data
-    Note right of I: Extract: file name,<br/>filter criteria,<br/>output field
-    I->>I: Construct prompt<br/>+ tool list
-    I->>C: Initial prompt<br/>+ tools (computer,<br/>text_editor, bash)
+    T->>I: Webhook trigger
+    Note right of I: Extract data
+    I->>I: Build prompt
+    I->>C: Send prompt
     
-    loop Agent Loop - Until Task Complete
-        C->>C: Analyze context<br/>Decide action
-        C->>I: tool_use request<br/>(e.g., screenshot)
-        I->>S: Execute tool<br/>in sandbox
+    loop Until Complete
+        C->>C: Analyze
+        C->>I: Request tool
+        I->>S: Execute
         
-        alt Screenshot Request
-            S->>S: Capture desktop<br/>X11 display
-            S-->>I: Image data
-        else Mouse/Keyboard Action
-            S->>S: Perform UI action<br/>(click/type/drag)
-            S-->>I: Success + new screenshot
-        else Bash Command
-            S->>S: Execute command
-            S-->>I: Command output
+        alt Screenshot
+            S->>S: Capture
+            S-->>I: Image
+        else UI Action
+            S->>S: Click/Type
+            S-->>I: Success
+        else Bash
+            S->>S: Run
+            S-->>I: Output
         end
         
-        I->>C: Send tool_result<br/>+ context
+        I->>C: Send result
         
-        alt Task Incomplete
-            C->>C: Process result<br/>Plan next action
-            Note right of C: Extended thinking<br/>(Claude 4 feature)
-        else Task Complete
-            C->>I: Final response<br/>"Task done: Result"
+        alt Incomplete
+            C->>C: Process
+            Note right of C: Think
+        else Complete
+            C->>I: Final result
         end
     end
     
-    I->>I: Parse final result<br/>Extract value
-    I->>T: Update form field<br/>via Tallyfy API
+    I->>I: Parse result
+    I->>T: Update field
     
-    Note over T,S: Task completed with tracked results
+    Note over T,S: Complete
 ```
 
 **What to notice:**
@@ -390,59 +390,59 @@ sequenceDiagram
     participant T as Tallyfy Task
     participant I as Intermediary
     participant C as Claude API
-    participant E as Excel in Sandbox
+    participant E as Excel
     
-    Note over T,E: Example: Count Urgent Issues in Excel
+    Note over T,E: Count Urgent Issues
     
-    T->>I: Webhook data<br/>File: Product_Feedback.xlsx<br/>Filter: Priority = Urgent
+    T->>I: Webhook data
     
-    I->>C: "Open Product_Feedback.xlsx,<br/>filter Priority column for 'Urgent',<br/>count rows"
+    I->>C: Open and filter
     
     rect rgb(245, 245, 245)
-        Note right of C: Step 1: See Desktop
-        C->>I: tool_use: screenshot
-        I->>E: Capture desktop
-        E-->>I: Desktop image with<br/>Excel file icon
-        I->>C: tool_result: screenshot.png
+        Note right of C: Step 1
+        C->>I: Screenshot
+        I->>E: Capture
+        E-->>I: Image
+        I->>C: Result
     end
     
     rect rgb(240, 248, 255)
-        Note right of C: Step 2: Open Excel
-        C->>I: tool_use: double_click<br/>at (x:150, y:200)
-        I->>E: Double-click Excel icon
-        E->>E: Launch Excel,<br/>open file
-        E-->>I: Excel window opened
-        I->>C: tool_result: success +<br/>new screenshot
+        Note right of C: Step 2
+        C->>I: Double click
+        I->>E: Click icon
+        E->>E: Open
+        E-->>I: Opened
+        I->>C: Success
     end
     
     rect rgb(255, 245, 240)
-        Note right of C: Step 3: Apply Filter
-        C->>I: tool_use: click<br/>Priority column header
-        I->>E: Click column header
-        E-->>I: Filter menu visible
-        I->>C: tool_result: screenshot
+        Note right of C: Step 3
+        C->>I: Click header
+        I->>E: Click
+        E-->>I: Menu
+        I->>C: Screenshot
         
-        C->>I: tool_use: click<br/>"Filter" dropdown
-        I->>E: Open filter options
-        E-->>I: Filter options shown
-        I->>C: tool_result: screenshot
+        C->>I: Click filter
+        I->>E: Open
+        E-->>I: Options
+        I->>C: Screenshot
         
-        C->>I: tool_use: type<br/>"Urgent" + Enter
-        I->>E: Apply filter value
-        E->>E: Filter data,<br/>show 15 rows
-        E-->>I: Filtered view
-        I->>C: tool_result: screenshot
+        C->>I: Type Urgent
+        I->>E: Apply
+        E->>E: Filter
+        E-->>I: Filtered
+        I->>C: Screenshot
     end
     
     rect rgb(245, 255, 245)
-        Note right of C: Step 4: Count & Report
-        C->>C: Analyze status bar<br/>or count visible rows
-        C->>I: "Found 15 urgent issues"
+        Note right of C: Step 4
+        C->>C: Count rows
+        C->>I: Found 15
     end
     
-    I->>T: Update form field<br/>Urgent Issue Count = 15
+    I->>T: Update field
     
-    Note over T,E: Task complete: Result tracked in Tallyfy
+    Note over T,E: Complete
 ```
 
 **What to notice:**
