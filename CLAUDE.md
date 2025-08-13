@@ -1165,36 +1165,31 @@ flowchart TD
 
 ### Mermaid Syntax Requirements (MANDATORY)
 
-**CRITICAL**: All Mermaid diagrams MUST use markdown string syntax for proper text rendering:
+**CRITICAL SYNTAX RULES** to prevent parse errors:
 
-#### ✅ CORRECT Syntax (Use This)
+#### ✅ CORRECT Node Definition
 ```mermaid
 flowchart TD
-    Template["`**Template**
-    Reusable Blueprint`"]
-    Manual["`**Manual Launch**`"]
-    API["`**API/Webhook**`"]
-    
-    Template --> Manual
-    Template --> API
-    
-    Manual -->|"`With data`"| Process
-    API -->|"`No data`"| Process
-    
-    Process["`**Active Process**
-    Running Instance`"]
+    NodeA["Simple Label"]
+    NodeB["Label with spaces"]
+    NodeC["Multi<br/>Line Label"]
 ```
 
-#### ❌ INCORRECT Syntax (Avoid This)
+#### ❌ SYNTAX ERRORS TO AVOID
 ```mermaid
-flowchart TD
-    Template[Template<br/>Reusable Blueprint]  %% Old syntax - causes text spacing issues
-    Manual[Manual Launch]                      %% Missing markdown strings
-    API[API/Webhook]                          %% Text may concatenate
-    
-    Template --> Manual
-    Template --> API
+# NEVER DO THESE:
+NodeA["Label"] NodeA"]     # Duplicated node name
+NodeB["Label"]"]            # Extra closing bracket
+NodeC["Label                # Missing closing quote/bracket
+Node D["Label"]             # Space in node name
 ```
+
+#### Essential Syntax Rules:
+1. **Node names**: No spaces, use letters/numbers only (e.g., `Node1`, `ProcessA`)
+2. **Every node referenced in edges MUST be defined first**
+3. **Bracket matching**: Each `[` needs exactly one `]`, each `"` needs closing `"`
+4. **One node definition per line**
+5. **Use `<br/>` for line breaks, not actual newlines**
 
 **Key Points**:
 - Use `` "`text`" `` for ALL node labels
