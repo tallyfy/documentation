@@ -35,6 +35,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **WHY THIS MATTERS**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
 
+**CRITICAL - NEVER MANUALLY SYNC CONTENT**: 
+- **NEVER copy MDX files from /documentation to /support-docs manually**
+- **NEVER run sync commands between the repositories**
+- **NEVER edit content directly in /support-docs**
+- Content synchronization happens AUTOMATICALLY through CI/CD pipelines
+- Manual syncing breaks the automated deployment process
+
 **ENFORCEMENT**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
 
 ## 🚨 CRITICAL: Humanizing Rules Integration
@@ -70,6 +77,23 @@ Hover annotations use littlefoot.js to display supplementary information as inte
 Text with annotation[^1] appears here.
 
 [^1]: This brief supplementary information appears on hover/click.
+```
+
+### ⚠️ CRITICAL: Footnote Implementation Requirements
+**BOTH parts are required for footnotes to work**:
+1. **Reference in text**: `[^1]` where you want the superscript to appear
+2. **Definition at bottom**: `[^1]: Content here` - MUST be placed before the "Related articles" section
+
+**Common Mistake**: Adding references without definitions causes footnotes to appear as plain text "[^1]" instead of interactive elements.
+
+**Correct placement**:
+```markdown
+Article content with reference[^1]...
+
+[^1]: Definition goes here before Related articles
+
+## Related articles
+<CardGrid>...</CardGrid>
 ```
 
 ### Quality Checklist
