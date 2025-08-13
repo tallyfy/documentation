@@ -138,34 +138,41 @@ After you complete the integration:
 
 This shows the complete SAML authentication flow after configuration is complete.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant U as User
- participant T as Tallyfy
- participant G as Google Workspace IdP
- 
- Note over U,G: SAML Authentication Flow
- 
- U->>T: Access Tallyfy SSO URL
- T->>G: Redirect to Google SSO (with SAML Request)
- G->>U: Show Google login page
- U->>G: Enter Google credentials
- G->>G: Validate credentials
- 
- alt New User
- G->>T: SAML Response with attributes (email, firstName, lastName)
- T->>T: Auto-provision new user account
- T->>T: Create session
- T->>U: Grant access to Tallyfy
- else Existing User 
- G->>T: SAML Response with attributes
- T->>T: Match existing user by email
- T->>T: Create session
- T->>U: Grant access to Tallyfy
- end
- 
- Note over U,T: User now authenticated via SSO
+```d2
+G: "G"
+T: "T"
+U: "U"
+U: User
+T: Tallyfy
+G: Google Workspace IdP
+
+# SAML Authentication Flow
+U -> T: "1. Access Tallyfy SSO URL"
+T -> G: "2. Redirect to Google SSO\n(with SAML Request)"
+G -> U: "3. Show Google login page"
+U -> G: "4. Enter Google credentials"
+G -> G: "5. Validate credentials"
+
+# Branching logic for New vs Existing User
+New User: {
+  shape: rectangle
+  style.stroke-dash: 3
+  G -> T: "6a. SAML Response with attributes\n(email, firstName, lastName)"
+  T -> T: "7a. Auto-provision new user account"
+  T -> T: "8a. Create session"
+  T -> U: "9a. Grant access to Tallyfy"
+}
+
+Existing User: {
+  shape: rectangle  
+  style.stroke-dash: 3
+  G -> T: "6b. SAML Response with attributes"
+  T -> T: "7b. Match existing user by email"
+  T -> T: "8b. Create session"
+  T -> U: "9b. Grant access to Tallyfy"
+}
+
+# Note: User now authenticated via SSO
 ```
 
 **What to notice:**

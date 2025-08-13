@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### ✅ Changes that go in THIS repository (/documentation):
 - **ALL article content** (.mdx files in src/content/docs/)
 - **ALL documentation text updates**
-- **ALL Mermaid diagrams in articles**
+- **ALL D2 diagrams in articles**
 - **ALL images and screenshots for articles**
 - **ALL frontmatter changes** (titles, descriptions, etc.)
 - **ALL content fixes** (typos, broken links, outdated information)
@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 📍 Changes that go in /support-docs repository ONLY:
 - **Astro configuration** (astro.config.mjs)
 - **Starlight framework settings**
-- **Global CSS and styling** (including Mermaid global styles)
+- **Global CSS and styling** (including D2 diagram styles)
 - **Component overrides** in src/components/overrides/
 - **Build and deployment settings**
 - **Framework dependencies** in package.json
@@ -986,11 +986,11 @@ Example atomic prompts:
 4. **Style Compliance**: Check and fix articles not following guidelines
 5. **Missing Content Detection**: Identify and create stub articles for new features
 
-## 📊 Mermaid Diagram Guidelines for Tallyfy Documentation
+## 📊 D2 Diagram Guidelines for Tallyfy Documentation
 
 ### 🚨 MANDATORY NOTATION RULES (2025-08-13 Update)
 
-**CRITICAL**: Analysis shows 100% of existing Mermaid diagrams have notation issues. These rules are MANDATORY to prevent rendering problems.
+**CRITICAL**: D2 provides cleaner, more maintainable diagram notation. These rules are MANDATORY for consistent rendering.
 
 #### ❌ FORBIDDEN NOTATION (Never Use These)
 
@@ -1031,16 +1031,23 @@ Example atomic prompts:
 
 #### ✅ CORRECT NOTATION PATTERNS
 
-```mermaid
-flowchart TD
-    Start["Simple Label"] --> Next["Another Label"]
-    Next --> Decision{"Question?"}
-    Decision -->|Yes| Action["Do Something"]
-    Decision -->|No| End["Complete"]
+```d2
+Start: Simple Label
+Next: Another Label
+Decision: Question? {
+  shape: diamond
+}
+Action: Do Something
+End: Complete
+
+Start -> Next
+Next -> Decision
+Decision -> Action: Yes
+Decision -> End: No
 ```
 
 **Key Rules**:
-- Use square brackets for all nodes: `Node[Text]` or `Node["Text with spaces"]`
+- Use clear node names and labels: `NodeName: Label Text`
 - Keep labels under 30 characters (ideally under 20)
 - Use 3-4 words maximum per label
 - Put detailed explanations in the article text, not the diagram
@@ -1062,18 +1069,18 @@ flowchart TD
 
 ### Critical Implementation Notes (2025 Update)
 
-**RENDERING CONFIGURATION**: All Mermaid diagrams are rendered with global CSS and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
+**RENDERING CONFIGURATION**: All D2 diagrams are rendered with global theme and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
 - Brand colors (light green #f2faf4, #e1f7e6 with dark green borders #225930)
 - Dark mode colors (#0D0D0D background, rgba(11, 40, 19, 0.4) nodes)
 - Font settings (Inter Variable)
 - Node spacing and padding
-- Text wrapping at 200px width
+- Automatic text wrapping
 
-**ENFORCEMENT**: These notation rules are MANDATORY. Every Mermaid diagram must follow them to prevent rendering issues. When creating or editing diagrams, mentally check each rule before committing changes.
+**ENFORCEMENT**: These notation rules are MANDATORY. Every D2 diagram must follow them to ensure consistent rendering. When creating or editing diagrams, mentally check each rule before committing changes.
 
 ### When to Use Visual Diagrams - ULTRATHINKING Required
 
-**CRITICAL RULE**: Only add Mermaid diagrams where they provide clear value for understanding complex flows or interactions. Based on extensive analysis, only **10-15% of documentation articles** should have diagrams. Most documentation is better with clear text.
+**CRITICAL RULE**: Only add D2 diagrams where they provide clear value for understanding complex flows or interactions. Based on extensive analysis, only **10-15% of documentation articles** should have diagrams. Most documentation is better with clear text.
 
 **ULTRATHINKING APPROACH**: Before adding any diagram, you must:
 1. Read the ENTIRE article to understand full context
@@ -1163,90 +1170,115 @@ flowchart TD
 - "Workflow rules"
 - UI labels and button names
 
-### Mermaid Syntax Requirements (MANDATORY)
+### D2 Syntax Requirements (MANDATORY)
 
 **CRITICAL SYNTAX RULES** to prevent parse errors:
 
 #### ✅ CORRECT Node Definition
-```mermaid
-flowchart TD
-    NodeA["Simple Label"]
-    NodeB["Label with spaces"]
-    NodeC["Multi<br/>Line Label"]
+```d2
+NodeA: Simple Label
+NodeB: Label with spaces
+NodeC: |md
+  Multi
+  Line Label
+|
 ```
 
 #### ❌ SYNTAX ERRORS TO AVOID
-```mermaid
+```d2
 # NEVER DO THESE:
-NodeA["Label"] NodeA"]     # Duplicated node name
-NodeB["Label"]"]            # Extra closing bracket
-NodeC["Label                # Missing closing quote/bracket
-Node D["Label"]             # Space in node name
+Node A: Label     # Space in node name - use Node_A or NodeA
+Node: "Label      # Missing closing quote
+Node -> Target    # Using undefined Target node
 ```
 
 #### Essential Syntax Rules:
-1. **Node names**: No spaces, use letters/numbers only (e.g., `Node1`, `ProcessA`)
-2. **Every node referenced in edges MUST be defined first**
-3. **Bracket matching**: Each `[` needs exactly one `]`, each `"` needs closing `"`
+1. **Node names**: No spaces, use letters/numbers/underscores (e.g., `Node1`, `Process_A`)
+2. **Every node referenced in edges MUST be defined**
+3. **Quote matching**: Each `"` needs closing `"`
 4. **One node definition per line**
-5. **Use `<br/>` for line breaks, not actual newlines**
+5. **Use `|md` blocks for multi-line text with markdown formatting
 
 **Key Points**:
-- Use `` "`text`" `` for ALL node labels
-- Use `` **bold** `` within markdown strings for emphasis
-- Multi-line text works naturally within markdown strings (no `<br/>` needed)
-- Edge labels also use markdown strings: `` -->|"`label`"| ``
+- Simple labels don't need quotes: `Node: Label Text`
+- Use `style.bold: true` for emphasis
+- Multi-line text uses `|md` blocks
+- Edge labels are simple: `A -> B: label`
 
 ### Content-Specific Diagram Templates
 
 #### For OAuth Documentation
-```mermaid
-%%{init: {'theme':'forest'}}%%
-sequenceDiagram
-    participant App as Your App
-    participant Auth as Tallyfy Auth
-    participant API as Tallyfy API
-    
-    Note over App,API: OAuth 2.0 Authorization Code Flow
-    
-    App->>Auth: GET /oauth/authorize<br/>client_id, redirect_uri, scope
-    Auth->>App: Show login page
-    App->>Auth: User credentials
-    Auth->>App: Redirect with code
-    App->>Auth: POST /oauth/token<br/>code, client_secret
-    Auth->>App: Access token + Refresh token
-    
-    loop API Usage
-        App->>API: API request + Bearer token
-        API->>App: Response data
-    end
-    
-    Note over App,Auth: Token expired
-    App->>Auth: POST /oauth/refresh<br/>refresh_token
-    Auth->>App: New access token
+```d2
+App: Your App
+Auth: Tallyfy Auth
+API: Tallyfy API
+
+OAuth Flow: {
+  label: OAuth 2.0 Authorization Code Flow
+  
+  App -> Auth: GET /oauth/authorize\nclient_id, redirect_uri, scope
+  Auth -> App: Show login page
+  App -> Auth: User credentials
+  Auth -> App: Redirect with code
+  App -> Auth: POST /oauth/token\ncode, client_secret
+  Auth -> App: Access token + Refresh token
+}
+
+API Usage: {
+  label: API Usage Loop
+  App -> API: API request + Bearer token
+  API -> App: Response data
+}
+
+Token Refresh: {
+  label: Token expired
+  App -> Auth: POST /oauth/refresh\nrefresh_token
+  Auth -> App: New access token
+}
 ```
 
 #### For Process Triggers
-```mermaid
-%%{init: {'theme':'forest'}}%%
-flowchart TD
-    Start(["`**Process Trigger**`"]) --> Check{"`Which Trigger?`"}
-    
-    Check -->|"`Manual`"| M["`**User clicks Run**`"]
-    Check -->|"`API`"| A["`**POST /api/v1/processes/run**`"]
-    Check -->|"`Schedule`"| S["`**Cron expression matches**`"]
-    Check -->|"`Email`"| E["`**Email to process@**`"]
-    Check -->|"`Form`"| F["`**Public form submitted**`"]
-    Check -->|"`Webhook`"| W["`**External webhook received**`"]
-    Check -->|"`Process`"| P["`**Parent process triggers**`"]
-    
-    M --> Validate{"`Has Permission?`"}
-    A --> Auth{"`Valid Token?`"}
-    S --> Time{"`Is Active?`"}
-    E --> Parse["`Parse Email`"]
-    F --> Data["`Collect Form Data`"]
-    W --> Verify{"`Valid Signature?`"}
-    P --> Check2{"`Conditions Met?`"}
+```d2
+Start: Process Trigger {
+  shape: oval
+  style.bold: true
+}
+Check: Which Trigger? {
+  shape: diamond
+}
+
+M: User clicks Run { style.bold: true }
+A: POST /api/v1/processes/run { style.bold: true }
+S: Cron expression matches { style.bold: true }
+E: Email to process@ { style.bold: true }
+F: Public form submitted { style.bold: true }
+W: External webhook received { style.bold: true }
+P: Parent process triggers { style.bold: true }
+
+Validate: Has Permission? { shape: diamond }
+Auth: Valid Token? { shape: diamond }
+Time: Is Active? { shape: diamond }
+Parse: Parse Email
+Data: Collect Form Data
+Verify: Valid Signature? { shape: diamond }
+Check2: Conditions Met? { shape: diamond }
+
+Start -> Check
+Check -> M: Manual
+Check -> A: API
+Check -> S: Schedule
+Check -> E: Email
+Check -> F: Form
+Check -> W: Webhook
+Check -> P: Process
+
+M -> Validate
+A -> Auth
+S -> Time
+E -> Parse
+F -> Data
+W -> Verify
+P -> Check2
     
     Validate -->|"`Yes`"| Launch
     Validate -->|"`No`"| Deny["`**Access Denied**`"]
@@ -1265,88 +1297,114 @@ flowchart TD
 ```
 
 #### For Webhook Events
-```mermaid
-%%{init: {'theme':'forest'}}%%
-sequenceDiagram
-    participant S as Step
-    participant T as Tallyfy
-    participant Q as Queue
-    participant W as Webhook Service
-    participant E as External System
-    
-    S->>T: Complete step
-    T->>T: Check webhook config
-    
-    alt Template-level webhook
-        T->>Q: Queue template webhook
-    else Step-level webhook
-        T->>Q: Queue step webhook
-    end
-    
-    Q->>W: Process webhook
-    
-    loop Max 3 attempts
-        W->>E: POST {webhook_url}
-        Note over W,E: Timeout: 30 seconds
-        
-        alt Success (2xx)
-            E-->>W: Success response
-            W->>T: Mark delivered
-            Note over T: Log success
-        else Failure
-            E-->>W: Error or timeout
-            W->>W: Wait (backoff)
-            Note over W: 1st: 1min<br/>2nd: 5min<br/>3rd: 15min
-        end
-    end
-    
-    alt All attempts failed
-        W->>T: Mark failed
-        Note over T: Send failure notification
-    end
+```d2
+Step: Step
+Tallyfy: Tallyfy
+Queue: Queue
+Webhook: Webhook Service
+External: External System
+
+Step -> Tallyfy: Complete step
+Tallyfy -> Tallyfy: Check webhook config
+
+Webhook Type: {
+  Template Level: {
+    Tallyfy -> Queue: Queue template webhook
+  }
+  Step Level: {
+    Tallyfy -> Queue: Queue step webhook
+  }
+}
+
+Queue -> Webhook: Process webhook
+
+Retry Loop: {
+  label: Max 3 attempts
+  Webhook -> External: POST {webhook_url}\nTimeout: 30 seconds
+  
+  Success: {
+    External -> Webhook: Success response (2xx)
+    Webhook -> Tallyfy: Mark delivered
+    note: Log success
+  }
+  
+  Failure: {
+    External -> Webhook: Error or timeout
+    Webhook -> Webhook: Wait (backoff)\n1st: 1min\n2nd: 5min\n3rd: 15min
+  }
+}
+
+Final Failure: {
+  Webhook -> Tallyfy: Mark failed
+  note: Send failure notification
+}
 ```
 
 #### For Automation Logic (Reflecting Actual System)
-```mermaid
-%%{init: {'theme':'forest'}}%%
-flowchart TD
-    Start([Event Triggers Automation]) --> Context[Determine Context<br/>task completion/process start/etc]
-    
-    Context --> Rules[Load Rules by Position Order]
-    
-    Rules --> Rule1{Rule 1<br/>Position: 1}
-    
-    Rule1 -->|Met| Op1{Logic Operator<br/>for Rule 2?}
-    Rule1 -->|Not Met| Op1
-    
-    Op1 -->|AND| Rule2AND{Rule 2 Met?}
-    Op1 -->|OR| Rule2OR{Rule 2 Met?}
-    Op1 -->|None| CheckActions
-    
-    Rule2AND -->|Yes + Previous Yes| Continue[Continue to Rule 3...]
-    Rule2AND -->|No| NoAction[Skip Actions]
-    
-    Rule2OR -->|Yes| CheckActions[All Rules Evaluated]
-    Rule2OR -->|No + Previous No| NoAction
-    
-    CheckActions --> Actions[Execute Actions<br/>by Position Order]
-    
-    Actions --> A1[Action 1: Show/Hide Task]
-    A1 --> A2[Action 2: Set Deadline]
-    A2 --> A3[Action 3: Assign Users]
-    A3 --> A4[Action 4: Change Status]
-    
-    A4 --> Log[Log in automation_executions]
-    NoAction --> Log
-    
-    Log --> End([Complete])
-    
-    style Start fill:#E8F4FF
-    style End fill:#D4EDDA
-    style CheckActions fill:#D4EDDA
-    style NoAction fill:#FFF3CD
-    
-    Note over Rule1,Rule2OR: Rules evaluated sequentially<br/>by position field, no parentheses<br/>or complex precedence
+```d2
+Start: Event Triggers Automation {
+  shape: oval
+}
+Context: Determine Context\ntask completion/process start/etc
+Rules: Load Rules by Position Order
+Rule1: Rule 1\nPosition: 1 {
+  shape: diamond
+}
+Op1: Logic Operator\nfor Rule 2? {
+  shape: diamond
+}
+Rule2AND: Rule 2 Met? {
+  shape: diamond
+}
+Rule2OR: Rule 2 Met? {
+  shape: diamond
+}
+Continue: Continue to Rule 3...
+NoAction: Skip Actions
+CheckActions: All Rules Evaluated
+Actions: Execute Actions\nby Position Order
+
+A1: Action 1: Show/Hide Task
+A2: Action 2: Set Deadline
+A3: Action 3: Assign Users
+A4: Action 4: Change Status
+
+Log: Log in automation_executions
+End: Complete {
+  shape: oval
+}
+
+Start -> Context
+Context -> Rules
+Rules -> Rule1
+
+Rule1 -> Op1: Met
+Rule1 -> Op1: Not Met
+
+Op1 -> Rule2AND: AND
+Op1 -> Rule2OR: OR
+Op1 -> CheckActions: None
+
+Rule2AND -> Continue: Yes + Previous Yes
+Rule2AND -> NoAction: No
+
+Rule2OR -> CheckActions: Yes
+Rule2OR -> NoAction: No + Previous No
+
+CheckActions -> Actions
+Actions -> A1
+A1 -> A2
+A2 -> A3
+A3 -> A4
+A4 -> Log
+NoAction -> Log
+Log -> End
+
+note: |md
+  Rules evaluated sequentially
+  by position field, no parentheses
+  or complex precedence
+|
 ```
 
 ### Webhook and API Visualization Best Practices
@@ -1354,88 +1412,87 @@ flowchart TD
 #### API Call Representation
 
 **Use API Terminology for Technical Documentation:**
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as Tallyfy API
-    participant DB as Database
-    
-    C->>A: POST /api/v1/processes<br/>Bearer: {token}
-    A->>A: Validate token
-    A->>DB: Query permissions
-    DB-->>A: User authorized
-    A->>DB: Create process
-    DB-->>A: Process ID: abc123
-    A-->>C: 201 Created<br/>{id: "abc123"}
+```d2
+Client: Client
+API: Tallyfy API
+DB: Database
+
+Client -> API: POST /api/v1/processes\nBearer: {token}
+API -> API: Validate token
+API -> DB: Query permissions
+DB -> API: User authorized
+API -> DB: Create process
+DB -> API: Process ID: abc123
+API -> Client: 201 Created\n{id: "abc123"}
 ```
 
 **Use User-Facing Terms for End-User Documentation:**
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant T as Tallyfy
-    participant E as Email Service
-    
-    U->>T: Launches process
-    T->>T: Creates tasks
-    T->>E: Send notifications
-    E-->>U: Task assigned email
+```d2
+User: User
+Tallyfy: Tallyfy
+Email: Email Service
+
+User -> Tallyfy: Launches process
+Tallyfy -> Tallyfy: Creates tasks
+Tallyfy -> Email: Send notifications
+Email -> User: Task assigned email
 ```
 
 #### Webhook Flow Patterns
 
 **Standard Webhook with Retry Logic:**
-```mermaid
-sequenceDiagram
-    participant T as Tallyfy
-    participant Q as Queue
-    participant W as Webhook Service
-    participant E as External System
-    
-    Note over T,E: Event-Driven Architecture
-    
-    T->>Q: Queue webhook event
-    Q->>W: Process event
-    
-    loop Retry up to 3 times
-        W->>E: POST webhook_url
-        alt Success (2xx)
-            E-->>W: Success
-            W->>T: Mark delivered
-        else Failure
-            E-->>W: Error/Timeout
-            W->>W: Exponential backoff
-            Note right of W: 1min, 5min, 15min
-        end
-    end
+```d2
+Tallyfy: Tallyfy
+Queue: Queue
+Webhook: Webhook Service
+External: External System
+
+label: Event-Driven Architecture
+
+Tallyfy -> Queue: Queue webhook event
+Queue -> Webhook: Process event
+
+Retry Loop: {
+  label: Retry up to 3 times
+  Webhook -> External: POST webhook_url
+  
+  Success: {
+    External -> Webhook: Success (2xx)
+    Webhook -> Tallyfy: Mark delivered
+  }
+  
+  Failure: {
+    External -> Webhook: Error/Timeout
+    Webhook -> Webhook: Exponential backoff\n1min, 5min, 15min
+  }
+}
 ```
 
 #### SSO and Authentication Flows
 
 **Collaborative Setup (User + Admin Actions):**
-```mermaid
-sequenceDiagram
-    participant A as Admin
-    participant T as Tallyfy
-    participant I as Identity Provider
-    participant U as User
-    
-    Note over A,U: SSO Setup Process
-    
-    A->>T: Configure SSO settings
-    T->>I: Register service provider
-    I-->>T: Metadata exchange
-    T-->>A: Configuration complete
-    
-    Note over U,I: User Login Flow
-    
-    U->>T: Access Tallyfy
-    T->>I: Redirect to IdP
-    U->>I: Enter credentials
-    I->>I: Authenticate user
-    I->>T: SAML assertion
-    T->>T: Create session
-    T-->>U: Access granted
+```d2
+Admin: Admin
+Tallyfy: Tallyfy
+IdP: Identity Provider
+User: User
+
+SSO Setup Process: {
+  Admin -> Tallyfy: Configure SSO settings
+  Tallyfy -> IdP: Register service provider
+  IdP -> Tallyfy: Metadata exchange
+  Tallyfy -> Admin: Configuration complete
+}
+
+User Login Flow: {
+  User -> Tallyfy: Access Tallyfy
+  Tallyfy -> IdP: Redirect to IdP
+  User -> IdP: Enter credentials
+  IdP -> IdP: Authenticate user
+  IdP -> Tallyfy: SAML assertion
+  Tallyfy -> Tallyfy: Create session
+  Tallyfy -> User: Access granted
+}
 ```
 
 ### Auto-Generation Rules
@@ -1477,10 +1534,10 @@ sequenceDiagram
 ### Diagram Placement & Article Structure
 
 #### Recommended Article Structure with Diagrams
-When including a Mermaid diagram, follow this proven structure:
+When including a D2 diagram, follow this proven structure:
 1. **H2 heading** for the concept
 2. **One-sentence "What this shows" line** - Brief context
-3. **Mermaid code fence** - The diagram itself
+3. **D2 code fence** - The diagram itself
 4. **3 bullets titled "What to notice"** - Call out key insights
 5. **Optional links** to deeper concepts embedded in the diagram
 
@@ -1510,35 +1567,42 @@ When including a Mermaid diagram, follow this proven structure:
 - **Value-add**: Would removing the diagram hurt understanding?
 - **Maintenance**: Will this need frequent updates?
 
-### Hyperlinks in Mermaid Diagrams
+### Hyperlinks in D2 Diagrams
 
 #### Making Diagrams Interactive Navigation Hubs
-Transform diagrams into clickable navigation tools using the `click` syntax:
+Transform diagrams into clickable navigation tools using D2's link syntax:
 
-```mermaid
-flowchart TD
-  A[Create Template] --> B[Add Approval]
-  click A "/products/pro/documenting/templates/" "Templates overview"
-  click B "/products/pro/documenting/templates/automations/" "Automation rules"
-  click A "#template-section" "Jump to template section on this page"
+```d2
+A: Create Template {
+  link: /products/pro/documenting/templates/
+  tooltip: Templates overview
+}
+B: Add Approval {
+  link: /products/pro/documenting/templates/automations/
+  tooltip: Automation rules
+}
+
+A -> B
 ```
 
-#### Hyperlink Support by Diagram Type
-- ✅ **Full support**: `flowchart`, `classDiagram`, `stateDiagram-v2`
-- ❌ **No support**: `sequenceDiagram`, `erDiagram`, `journey`, `timeline`, `gantt`, `pie`, `gitGraph`
-- **Note**: Edges/lines cannot be made clickable in any diagram type
+#### Hyperlink Support in D2
+- ✅ **Full support**: All node types support hyperlinks
+- ✅ **Tooltips**: Rich tooltips on hover
+- ✅ **External links**: Full URL support
+- **Note**: D2 provides consistent link support across all diagram types
 
 #### Link Patterns
-1. **Internal docs**: `click NodeA "/products/pro/path/" "Tooltip"`
-2. **Same-page anchors**: `click NodeB "#section-id" "Jump to section"`
-3. **External sites**: `click NodeC "https://api.tallyfy.com" "API docs"`
+1. **Internal docs**: `link: /products/pro/path/`
+2. **Same-page anchors**: `link: #section-id`
+3. **External sites**: `link: https://api.tallyfy.com`
+4. **With tooltip**: `tooltip: Descriptive text`
 
-**Best Practice**: Add at least 2 `click` links per diagram to make it a navigation hub.
+**Best Practice**: Add at least 2 links per diagram to make it a navigation hub.
 
-### Practical Mermaid Implementation
+### Practical D2 Implementation
 
 #### Creating Effective Prompts for AI
-When asking AI to generate Mermaid diagrams, be specific:
+When asking AI to generate D2 diagrams, be specific:
 - "Create a sequence diagram showing OAuth flow with token refresh"
 - "Generate a flowchart for automation rule evaluation with AND/OR logic"
 - "Visualize webhook retry mechanism with exponential backoff"
@@ -1589,8 +1653,8 @@ Include these details:
 
 ### Global Configuration & CSS (DO NOT OVERRIDE)
 
-**IMPORTANT**: All Mermaid styling is handled globally through:
-1. **CSS Configuration**: `/support-docs/src/styles/mermaid.css` 
+**IMPORTANT**: All D2 styling is handled globally through:
+1. **Theme Configuration**: `/support-docs/src/styles/d2-theme.css` 
 2. **Astro Config**: `/support-docs/astro.config.mjs`
 
 These global settings ensure:
@@ -1602,7 +1666,7 @@ These global settings ensure:
 
 **DO NOT** add inline styles or color definitions in individual diagrams. The global configuration handles all visual aspects automatically.
 
-### Mobile-Friendly Mermaid Design Guidelines
+### Mobile-Friendly D2 Design Guidelines
 
 #### Layout Orientation for Device Compatibility
 
@@ -1621,7 +1685,7 @@ These global settings ensure:
 
 3. **Node Text Guidelines**:
    - Maximum 3-4 words per line in nodes
-   - Use line breaks strategically: `Step 1<br/>Initialize`
+   - Use multi-line labels: `Step 1\nInitialize`
    - Avoid concatenated words - ensure spaces between words
    - Test readability at 320px viewport width
 
@@ -1630,18 +1694,18 @@ These global settings ensure:
 **CRITICAL**: Never hardcode colors that break in dark mode:
 
 1. **Avoid These Style Declarations**:
-   ```mermaid
-   ❌ style Node fill:#E8F4FF,stroke:#0066CC
-   ❌ style Error fill:#F8D7DA,stroke:#DC3545
+   ```d2
+   ❌ Node.style.fill: "#E8F4FF"  # Don't hardcode colors
+   ❌ Error.style.stroke: "#DC3545"  # Use themes instead
    ```
 
-2. **Use Semantic Classes Instead**:
-   ```mermaid
-   ✅ classDef success fill:#D4EDDA,stroke:#00AA55,color:#000
-   ✅ classDef error fill:#F8D7DA,stroke:#DC3545,color:#000
-   ✅ classDef info fill:#E8F4FF,stroke:#0066CC,color:#000
+2. **Use Theme-Based Styling Instead**:
+   ```d2
+   ✅ Success.class: success  # Use predefined classes
+   ✅ Error.class: error      # Theme handles colors
+   ✅ Info.class: info        # Consistent across modes
    ```
-   Always include `color:#000` for text visibility in dark mode
+   D2 themes automatically handle text visibility in dark mode
 
 3. **Essential Dark Mode Rules**:
    - Always specify text color explicitly with `color:#000` or `color:#fff`
@@ -1657,10 +1721,11 @@ These global settings ensure:
    - 3-4 detailed diagrams (10-15 nodes each) for subsections
 
 2. **Progressive Disclosure**:
-   ```mermaid
-   flowchart TD
-       Overview[Process Overview<br/>Click for details]
-       click Overview "#detailed-steps" "View detailed steps"
+   ```d2
+   Overview: Process Overview\nClick for details {
+     link: #detailed-steps
+     tooltip: View detailed steps
+   }
    ```
 
 3. **Mobile-First Node Sizing**:
@@ -1689,18 +1754,18 @@ These global settings ensure:
    - Verify all text is readable without zooming
    - Check for text overflow or truncation
 
-### Mermaid Diagram Maintenance Rules
+### D2 Diagram Maintenance Rules
 
-**CRITICAL**: When updating ANY article that contains Mermaid diagrams, you MUST:
+**CRITICAL**: When updating ANY article that contains D2 diagrams, you MUST:
 
 1. **Review Existing Diagrams**: Check if the content changes affect the diagram's accuracy
-2. **Update Diagram Content**: If the article changes modify any process, flow, or relationship shown in the diagram, update the Mermaid notation accordingly
+2. **Update Diagram Content**: If the article changes modify any process, flow, or relationship shown in the diagram, update the D2 notation accordingly
 3. **Maintain Consistency**: Ensure terminology in the diagram matches the updated article text
 4. **Verify Links**: If the diagram contains `click` statements, verify all linked paths remain valid
 5. **Apply ULTRATHINKING**: Re-evaluate if the diagram still adds value after the content update
    - If the process simplified to ≤3 steps, consider removing the diagram
    - If complexity increased, consider if a diagram is now needed
-6. **Follow All Guidelines**: Apply the complete Mermaid guidelines when making updates:
+6. **Follow All Guidelines**: Apply the complete D2 guidelines when making updates:
    - Keep to <30 nodes ideal
    - Maintain appropriate diagram type for content
    - Update labels to ≤5 words
@@ -1717,9 +1782,9 @@ These global settings ensure:
 
 **Remember**: An outdated diagram is worse than no diagram. Always keep diagrams in sync with article content.
 
-### Mermaid Configuration in Astro Starlight
+### D2 Configuration in Astro Starlight
 
-#### Supported Diagram Types (Mermaid v11.8.1)
+#### Supported Diagram Types with D2
 All 17 diagram types are technically supported, but use these based on content needs:
 
 **PRIMARY (Use frequently)**:
@@ -1745,9 +1810,9 @@ All 17 diagram types are technically supported, but use these based on content n
 - `block` - Beta feature
 
 #### Platform Configuration
-- **Version**: Mermaid v11.8.1
-- **Theme**: Neutral (works with light/dark modes)
-- **Rendering**: Client-side via rehype-mermaid plugin
+- **Version**: D2 (latest)
+- **Theme**: Customizable themes (works with light/dark modes)
+- **Rendering**: Server-side or client-side rendering options
 - **Font**: Inter Variable (matches documentation font)
 - **Colors**: 
   - Primary: `#0066CC` (Tallyfy Blue)
@@ -1756,7 +1821,7 @@ All 17 diagram types are technically supported, but use these based on content n
   - Info: `fill:#E8F4FF`
   - Warning: `fill:#FFF3CD`
 
-### ⚠️ CRITICAL MERMAID ISSUES TO AVOID
+### ⚠️ CRITICAL D2 DIAGRAM ISSUES TO AVOID
 
 #### 1. Text Visibility Problem (MUST FIX)
 **PROBLEM**: Text appears white/invisible on light backgrounds in light mode.
@@ -1776,35 +1841,45 @@ Common correct URLs:
 - Tasks: `/products/pro/tracking-and-tasks/tasks/`
 - API: `/products/pro/integrations/open-api/`
 
-### Mermaid Quick Reference for AI Assistants
+### D2 Quick Reference for AI Assistants
 
-When creating or editing Mermaid diagrams:
+When creating or editing D2 diagrams:
 
-#### 1. ALWAYS Use Markdown String Syntax
-```mermaid
+#### 1. ALWAYS Use Clear D2 Syntax
+```d2
 # Correct:
-NodeA["`**Bold Title**
-Additional text`"]
+NodeA: Bold Title {
+  style.bold: true
+}
 
-# Incorrect:
-NodeA[Bold Title<br/>Additional text]
+# For multi-line:
+NodeA: |md
+  **Bold Title**
+  Additional text
+|
 ```
 
 #### 2. Common Node Patterns
-```mermaid
+```d2
 # Simple node with emphasis:
-Process["`**Process Name**`"]
+Process: Process Name {
+  style.bold: true
+}
 
 # Multi-line node:
-Details["`**Main Title**
-Supporting line 1
-Supporting line 2`"]
+Details: |md
+  **Main Title**
+  Supporting line 1
+  Supporting line 2
+|
 
 # Edge with label:
-A -->|"`With data`"| B
+A -> B: With data
 
 # Decision node:
-Decision{"`Is valid?`"}
+Decision: Is valid? {
+  shape: diamond
+}
 ```
 
 #### 3. DO NOT Add These (Handled Globally)
@@ -1816,14 +1891,13 @@ Decision{"`Is valid?`"}
 
 #### 4. Mobile-First Diagram Orientation (MANDATORY)
 **ALWAYS use vertical orientation for mobile readability:**
-```mermaid
-# ✅ CORRECT - Vertical (TD = Top-Down)
-flowchart TD
-    A --> B --> C
+```d2
+# ✅ CORRECT - Vertical layout (default)
+A -> B -> C
 
-# ❌ AVOID - Horizontal (LR = Left-Right)
-flowchart LR
-    A --> B --> C
+# ❌ AVOID - Forcing horizontal when vertical works better
+direction: right  # Only use when absolutely necessary
+A -> B -> C
 ```
 
 **Why**: Horizontal diagrams become unreadable on mobile screens. Vertical diagrams allow natural scrolling.
@@ -1853,16 +1927,16 @@ Before submitting documentation:
 - [ ] Procedures start with action verbs
 - [ ] Varied sentence lengths for natural rhythm
 
-### Mermaid Diagrams (If Applicable)
+### D2 Diagrams (If Applicable)
 - [ ] ULTRATHINKING applied - diagram truly adds value (10-15% of articles)
 - [ ] Diagram type matches content (sequence for APIs, flowchart for logic)
 - [ ] One idea per diagram, <30 nodes ideal
 - [ ] Labels ≤5 words, verbs on edges
-- [ ] At least 2 `click` links added for navigation
+- [ ] At least 2 links added for navigation
 - [ ] Placed appropriately (after overview, before steps, etc.)
 - [ ] Includes "What to notice" bullets after diagram
 - [ ] Mobile-friendly and readable on small screens
-- [ ] Uses appropriate flow direction (LR for features, TD for troubleshooting)
+- [ ] Uses appropriate flow direction (vertical for mobile, horizontal only when necessary)
 
 ### Content Optimization
 - [ ] "Tallyfy" mentioned 1-3 times naturally (not "the platform")

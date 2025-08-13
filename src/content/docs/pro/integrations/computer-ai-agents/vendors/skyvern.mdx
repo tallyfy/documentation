@@ -23,22 +23,29 @@ Your step-by-step instructions for the AI agent to perform work go into the Tall
 
 This diagram illustrates how Tallyfy sends web automation tasks to Skyvern's AI agents, which use computer vision and LLMs to extract data and return structured results.
 
-```mermaid
-flowchart TD
-    T[Tallyfy Task] --> W[Webhook]
-    W --> S[Skyvern API]
-    
-    S --> A[Analyze Task]
-    A --> P[Planner Agent]
-    P --> AC[Actor Agent]
-    AC --> V[Validator Agent]
-    
-    V -->|Success| D[Data Extraction]
-    V -->|Retry| P
-    
-    D --> J[JSON Results]
-    J --> U[Update Tallyfy]
-    U --> N[Next Task]
+```d2
+A: "A"
+AC: "AC"
+D: "D"
+J: "J"
+N: "N"
+P: "P"
+S: "S"
+U: "U"
+V: "V"
+T: "Tallyfy Task"
+W: "Webhook"
+T -> W
+W -> S: "Skyvern API"
+S -> A: "Analyze Task"
+A -> P: "Planner Agent"
+P -> AC: "Actor Agent"
+AC -> V: "Validator Agent"
+V -> D: "Success"
+V -> P: "Retry"
+D -> J: "JSON Results"
+J -> U: "Update Tallyfy"
+U -> N: "Next Task"
 ```
 
 **What to notice:**
@@ -84,18 +91,18 @@ The old version (Skyvern 1.0) only scored 45% on WebVoyager. Why? Not enough mem
 
 This shows how Skyvern's three core agents collaborate with continuous feedback loops to achieve 85.8% accuracy on complex web tasks.
 
-```mermaid
-flowchart TB
- Request[Task Request] --> Planner["<b>Planner</b> Sets goals"]
- Planner --> Actor["<b>Actor</b> Executes actions"]
- Actor --> Validator["<b>Validator</b> Checks results"]
- 
- Validator -->|"Success"| Complete[Complete]
- Validator -->|"Fail"| Planner
- 
- click Planner "#planner-agent" "Learn about Planner Agent"
- click Actor "#actor-agent" "Learn about Actor Agent"
- click Validator "#validator-agent" "Learn about Validator Agent"
+```d2
+Actor: "Actor"
+Planner: "Planner"
+Validator: "Validator"
+Request: "Task Request" -> Planner: ""<b>Planner</b> Sets goals""
+Planner -> Actor: ""<b>Actor</b> Executes actions""
+Actor -> Validator: ""<b>Validator</b> Checks results""
+Validator -> : ""Success"" Complete: "Complete"
+Validator -> : ""Fail"" Planner
+click Planner "#planner-agent" "Learn about Planner Agent"
+click Actor "#actor-agent" "Learn about Actor Agent"
+click Validator "#validator-agent" "Learn about Validator Agent"
 ```
 
 **What to notice:**
@@ -174,59 +181,54 @@ Let's see how this works in practice. Say you need to check competitor pricing a
 
 This demonstrates how Tallyfy orchestrates Skyvern's browser automation with asynchronous API communication to extract competitor data.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant T as Tallyfy Process
- participant W as Webhook/Middleware
- participant S as Skyvern API
- participant P as Planner Agent
- participant A as Actor Agent
- participant D as Data Agent
- participant B as Browser
- 
- T->>W: Task starts with form data (URL, product name, schema)
- W->>S: POST /v1/tasks {"url", "prompt", "data_schema"}
- S->>S: Create task ID
- S-->>W: {"task_id": "abc-123", "status": "queued"}
- W-->>T: Task initiated
- 
- Note over S,B: Async Processing Begins
- 
- S->>P: Analyze task requirements
- P->>P: Break into sub-goals: 1. Navigate to page 2. Find product 3. Extract data
- 
- P->>A: Execute: Navigate to URL
- A->>B: Browser automation (Playwright/Selenium)
- B-->>A: Page loaded
- 
- P->>A: Execute: Find "MegaWidget Advanced"
- A->>B: Locate element by text
- B-->>A: Product found
- 
- P->>D: Extract price & stock
- D->>B: Parse DOM elements
- B-->>D: Raw data extracted
- D->>D: Structure to JSON schema
- 
- loop Polling (every 2-5 seconds)
- T->>W: Check status
- W->>S: GET /v1/tasks/abc-123
- S-->>W: {"status": "processing"}
- W-->>T: Still processing...
- end
- 
- D->>S: Task complete {"product_name": "MegaWidget Advanced", "price": "$99.99", "stock_status": "In Stock"}
- 
- T->>W: Check status
- W->>S: GET /v1/tasks/abc-123
- S-->>W: {"status": "completed", "data": {...}}
- W-->>T: JSON result
- 
- T->>T: Update form fields: • Competitor Price = $99.99 • Stock Status = In Stock
- T->>T: Continue to next step
- 
- Note over T: Process continues with extracted data
+```d2
+A: "A"
+B: "B"
+D: "D"
+P: "P"
+S: "S"
+T: "T"
+W: "W"
+autonumber
+T as Tallyfy Process
+W as Webhook/Middleware
+S as Skyvern API
+P as Planner Agent
+A as Actor Agent
+D as Data Agent
+B as Browser
+T -> W: Task starts with form data (URL, product name, schema)
+W -> S: POST /v1/tasks {"url", "prompt", "data_schema"}
+S -> S: Create task ID
+S- -> W: {"task_id": "abc-123", "status": "queued"}
+W- -> T: Task initiated
+# Note over S,B: Async Processing Begins
+S -> P: Analyze task requirements
+P -> P: Break into sub-goals: 1. Navigate to page 2. Find product 3. Extract data
+P -> A: Execute: Navigate to URL
+A -> B: Browser automation (Playwright/Selenium)
+B- -> A: Page loaded
+P -> A: Execute: Find "MegaWidget Advanced"
+A -> B: Locate element by text
+B- -> A: Product found
+P -> D: Extract price & stock
+D -> B: Parse DOM elements
+B- -> D: Raw data extracted
+D -> D: Structure to JSON schema
+# loop: Polling (every 2-5 seconds)
+T -> W: Check status
+W -> S: GET /v1/tasks/abc-123
+S- -> W: {"status": "processing"}
+W- -> T: Still processing...
+# end block
+D -> S: Task complete {"product_name": "MegaWidget Advanced", "price": "$99.99", "stock_status": "In Stock"}
+T -> W: Check status
+W -> S: GET /v1/tasks/abc-123
+S- -> W: {"status": "completed", "data": {...}}
+W- -> T: JSON result
+T -> T: Update form fields: • Competitor Price = $99.99 • Stock Status = In Stock
+T -> T: Continue to next step
+# Note over T: Process continues with extracted data
 ```
 
 **What to notice:**

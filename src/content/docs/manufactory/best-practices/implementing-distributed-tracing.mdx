@@ -82,37 +82,74 @@ If the customer later reports not receiving a welcome email, this distributed tr
 
 This diagram shows how trace context propagates through the entire event processing pipeline.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant User
- participant UAS as UserAccountService (Span A)
- participant M as Manufactory Ingestion (Span B)
- participant P as Manufactory Project (Span C)
- participant WE as WelcomeEmail Actor (Span D)
- participant PT as ProvisionTrial Actor (Span E)
- 
- User->>UAS: Signup Request
- Note over UAS: Create Span A (Root) Trace ID: xyz123
- UAS->>UAS: Create User Account
- UAS->>M: UserSignedUp Event + Trace Context (TraceID: xyz123, ParentID: A)
- 
- Note over M: Create Span B Parent: Span A
- M->>P: Route to Onboarding Project (TraceID: xyz123, ParentID: B)
- 
- Note over P: Create Span C Parent: Span B
- 
- par Parallel Actor Execution
- P->>WE: Trigger WelcomeEmailActor (TraceID: xyz123, ParentID: C)
- Note over WE: Create Span D Parent: Span C
- WE->>WE: Send Email
- and
- P->>PT: Trigger ProvisionTrialActor (TraceID: xyz123, ParentID: C)
- Note over PT: Create Span E Parent: Span C
- PT->>PT: Grant Access
- end
- 
- Note over User,PT: Complete Trace: Spans A→B→C→(D,E)
+```d2
+M: "M"
+P: "P"
+PT: "PT"
+UAS: "UAS"
+User: "User"
+WE: "WE"
+User: User {
+  shape: person
+}
+UAS: UserAccountService (Span A) {
+  shape: rectangle
+}
+M: Manufactory Ingestion (Span B) {
+  shape: rectangle
+}
+P: Manufactory Project (Span C) {
+  shape: rectangle
+}
+WE: WelcomeEmail Actor (Span D) {
+  shape: hexagon
+}
+PT: ProvisionTrial Actor (Span E) {
+  shape: hexagon
+}
+
+User -> UAS: "1. Signup Request"
+UAS.note: |md
+  Create Span A (Root)
+  Trace ID: xyz123
+|
+UAS -> UAS: "2. Create User Account"
+UAS -> M: "3. UserSignedUp Event + Trace Context\n(TraceID: xyz123, ParentID: A)"
+
+M.note: |md
+  Create Span B
+  Parent: Span A
+|
+M -> P: "4. Route to Onboarding Project\n(TraceID: xyz123, ParentID: B)"
+
+P.note: |md
+  Create Span C
+  Parent: Span B
+|
+
+parallel: Parallel Actor Execution {
+  style.stroke: "#FF6B6B"
+  style.stroke-width: 2
+  style.stroke-dash: 3
+  
+  P -> WE: "5. Trigger WelcomeEmailActor\n(TraceID: xyz123, ParentID: C)"
+  WE.note: |md
+    Create Span D
+    Parent: Span C
+  |
+  WE -> WE: "6. Send Email"
+  
+  P -> PT: "5. Trigger ProvisionTrialActor\n(TraceID: xyz123, ParentID: C)"
+  PT.note: |md
+    Create Span E
+    Parent: Span C
+  |
+  PT -> PT: "6. Grant Access"
+}
+
+footnote: |md
+  Complete Trace: Spans A→B→C→(D,E)
+|
 ```
 
 **What to notice:**

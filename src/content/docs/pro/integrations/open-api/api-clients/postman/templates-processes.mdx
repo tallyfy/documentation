@@ -26,53 +26,79 @@ This naming difference catches everyone. Just remember: Template → Process in 
 
 This diagram shows the complete API flow from listing templates to launching and managing processes.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant P as Postman Client
- participant T as Tallyfy API
- participant DB as Tallyfy Database
- 
- Note over P,DB: Template to Process Launch Flow
- 
- %% List available templates
- P->>T: GET /organizations/{org}/checklists
- T->>DB: Query templates
- DB-->>T: Template list
- T-->>P: Available templates [{id, name, steps_count}]
- 
- %% Conditional template selection
- Note over P: Evaluate conditions (amount, priority, etc.)
- alt Amount < $1000
- P->>P: Select simple_template
- else Amount < $10000
- P->>P: Select manager_approval_template
- else Amount >= $10000
- P->>P: Select executive_approval_template
- end
- 
- %% Launch process with kick-off form
- P->>T: POST /checklists/{template}/launch + preruns data
- T->>T: Validate kick-off fields
- T->>DB: Create process instance
- DB-->>T: Process created
- T-->>P: 201 Created {process_id, status: "active"}
- 
- %% Bulk launch pattern
- loop For each employee
- P->>P: Wait 200ms (rate limit)
- P->>T: POST /checklists/{template}/launch
- T-->>P: Process launched
- end
- 
- %% Process monitoring
- P->>T: GET /runs?status=active
- T-->>P: Active processes list
- 
- P->>T: PUT /runs/{process}/archive
- T->>DB: Update status to archived
- DB-->>T: Status updated
- T-->>P: Process archived
+```d2
+DB: "DB"
+P: "P"
+T: "T"
+# Template to Process Launch Flow
+
+P: Postman Client {
+  shape: rectangle
+}
+T: Tallyfy API {
+  shape: rectangle
+}
+DB: Tallyfy Database {
+  shape: cylinder
+}
+
+# List available templates
+P -> T: "1. GET /organizations/{org}/checklists"
+T -> DB: "2. Query templates"
+DB -> T: "3. Template list" {
+  style.stroke-dash: 3
+}
+T -> P: "4. Available templates [{id, name, steps_count}]" {
+  style.stroke-dash: 3
+}
+
+# Conditional template selection
+condition: "Evaluate conditions" {
+  shape: diamond
+  style.fill: "#f0f0f0"
+}
+P -> condition: "5. Check amount"
+condition -> P: "6. Amount < $1000\nSelect simple_template"
+condition -> P: "7. Amount < $10000\nSelect manager_approval_template"
+condition -> P: "8. Amount >= $10000\nSelect executive_approval_template"
+
+# Launch process with kick-off form
+P -> T: "9. POST /checklists/{template}/launch + preruns data"
+T -> T: "10. Validate kick-off fields"
+T -> DB: "11. Create process instance"
+DB -> T: "12. Process created" {
+  style.stroke-dash: 3
+}
+T -> P: "13. 201 Created {process_id, status: 'active'}" {
+  style.stroke-dash: 3
+}
+
+# Bulk launch pattern
+bulk_loop: "For each employee" {
+  shape: hexagon
+  style.fill: "#e8f4f8"
+}
+P -> bulk_loop: "14. Start bulk launch"
+bulk_loop -> P: "15. Wait 200ms (rate limit)"
+P -> T: "16. POST /checklists/{template}/launch"
+T -> P: "17. Process launched" {
+  style.stroke-dash: 3
+}
+
+# Process monitoring
+P -> T: "18. GET /runs?status=active"
+T -> P: "19. Active processes list" {
+  style.stroke-dash: 3
+}
+
+P -> T: "20. PUT /runs/{process}/archive"
+T -> DB: "21. Update status to archived"
+DB -> T: "22. Status updated" {
+  style.stroke-dash: 3
+}
+T -> P: "23. Process archived" {
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**

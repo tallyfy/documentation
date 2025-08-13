@@ -91,42 +91,53 @@ git push origin improve-docs-topic-name
 - Follow American English spelling
 - Bold UI elements using `**text**`
 
-#### Using Mermaid Diagrams
+#### Using D2 Diagrams
 
-We use Mermaid diagrams to visualize complex workflows, API interactions, and system architectures. Mermaid enables you to create diagrams using simple text-based syntax.
+We use D2 diagrams to visualize complex workflows, API interactions, and system architectures. D2 (Declarative Diagramming) enables you to create diagrams using simple text-based syntax with better layout algorithms and more intuitive notation than traditional diagramming tools.
 
 > **Important**: Only use diagrams where they add clear value. Simple processes with 3 steps or fewer usually don't need diagrams.
 
 ##### Required Syntax (2025 Update)
 
-**CRITICAL**: Always use Mermaid's markdown string syntax for proper text rendering. This prevents text concatenation issues and ensures proper spacing.
+**CRITICAL**: Always use D2's clear and simple syntax for proper text rendering. D2 automatically handles text spacing and layout without complex notation.
 
 ##### ✅ Correct Example (Use This)
 
 ````markdown
-```mermaid
-flowchart TD
-    Start(["`**User Action**`"]) --> Process["`**Process Step**`"]
-    Process --> Complete(["`**Complete**`"])
+```d2
+Start: User Action {
+  shape: oval
+  style.bold: true
+}
+Process: Process Step {
+  style.bold: true
+}
+Complete: Complete {
+  shape: oval
+  style.bold: true
+}
+
+Start -> Process
+Process -> Complete
 ```
 ````
 
 ##### ❌ Incorrect Example (Avoid This)
 
 ````markdown
-```mermaid
-flowchart TD
-    Start([User Action]) --> Process[Process Step]  %% Old syntax - causes text issues
-    Process --> Complete([Complete])
+```d2
+# Avoid overly complex nested structures
+Start.nested.deeply.action -> Process  # Too nested
+Process -> Complete[with inline style]  # Mixing concerns
 ```
 ````
 
 **Key Requirements**:
-- Use `` "`text`" `` for ALL node labels (markdown strings)
-- Use `` **bold** `` within markdown strings for emphasis
-- Multi-line text works naturally within markdown strings
-- Edge labels also use markdown strings: `` -->|"`label`"| ``
-- DO NOT add color styles - global CSS handles all styling automatically
+- Use clear node names and labels
+- Use `style.bold: true` for emphasis
+- Multi-line text works naturally with D2's automatic text wrapping
+- Edge labels are simple: `connection: label`
+- Style consistently using D2's theming system
 
 ##### When to Use Diagrams
 
@@ -161,84 +172,99 @@ flowchart TD
 
 ###### Automation Rule Evaluation (Reflects Actual System)
 
-```mermaid
-%%{init: {'theme':'forest'}}%%
-flowchart TD
-    Start(["`**Event Triggers**`"]) --> Load["`**Load Rules**
-    by Position`"]
-    Load --> Rule1{"`Rule 1
-    Met?`"}
-    
-    Rule1 -->|"`Yes`"| Op1{"`Next Rule
-    Logic?`"}
-    Rule1 -->|"`No`"| Op1
-    
-    Op1 -->|"`AND`"| Rule2AND{"`Rule 2
-    Met?`"}
-    Op1 -->|"`OR`"| Rule2OR{"`Rule 2
-    Met?`"}
-    
-    Rule2AND -->|"`Yes + Prev Yes`"| Actions["`**Execute**
-    **Actions**`"]
-    Rule2AND -->|"`No`"| Skip["`**Skip**
-    **Actions**`"]
-    
-    Rule2OR -->|"`Yes`"| Actions
-    Rule2OR -->|"`No + Prev No`"| Skip
-    
-    Actions --> Log["`**Log**
-    **Execution**`"]
-    Skip --> Log
+```d2
+Start: Event Triggers {
+  shape: oval
+  style.bold: true
+}
+Load: Load Rules\nby Position {
+  style.bold: true
+}
+Rule1: Rule 1\nMet? {
+  shape: diamond
+}
+Op1: Next Rule\nLogic? {
+  shape: diamond
+}
+Rule2AND: Rule 2\nMet? {
+  shape: diamond
+}
+Rule2OR: Rule 2\nMet? {
+  shape: diamond
+}
+Actions: Execute\nActions {
+  style.bold: true
+}
+Skip: Skip\nActions {
+  style.bold: true
+}
+Log: Log\nExecution {
+  style.bold: true
+}
+
+Start -> Load
+Load -> Rule1
+Rule1 -> Op1: Yes
+Rule1 -> Op1: No
+Op1 -> Rule2AND: AND
+Op1 -> Rule2OR: OR
+Rule2AND -> Actions: Yes + Prev Yes
+Rule2AND -> Skip: No
+Rule2OR -> Actions: Yes
+Rule2OR -> Skip: No + Prev No
+Actions -> Log
+Skip -> Log
 ```
 
 ###### Webhook with Retry Logic
 
-```mermaid
-sequenceDiagram
-    participant T as Tallyfy
-    participant Q as Queue
-    participant E as External System
-    
-    T->>Q: Queue webhook event
-    Q->>E: POST webhook_url
-    
-    alt Success (2xx)
-        E-->>Q: Success
-        Q->>T: Mark delivered
-    else Failure
-        E-->>Q: Error/Timeout
-        loop Retry 3 times
-            Q->>Q: Wait (1min, 5min, 15min)
-            Q->>E: POST webhook_url
-            alt Success
-                E-->>Q: Success
-                Q->>T: Mark delivered
-            end
-        end
-    end
+```d2
+Tallyfy: Tallyfy
+Queue: Queue
+External: External System
+
+Tallyfy -> Queue: Queue webhook event
+Queue -> External: POST webhook_url
+
+Success: {
+  External -> Queue: Success (2xx)
+  Queue -> Tallyfy: Mark delivered
+}
+
+Failure: {
+  External -> Queue: Error/Timeout
+  Retry: {
+    label: Retry 3 times
+    Queue -> Queue: Wait (1min, 5min, 15min)
+    Queue -> External: POST webhook_url
+    External -> Queue: Success?
+    Queue -> Tallyfy: Mark delivered
+  }
+}
 ```
 
 ###### SSO Setup (User + Admin Collaboration)
 
-```mermaid
-sequenceDiagram
-    participant A as Admin
-    participant T as Tallyfy
-    participant I as Identity Provider
-    participant U as User
-    
-    Note over A,I: Setup Phase
-    A->>T: Configure SSO
-    T->>I: Register SP
-    I-->>T: Metadata
-    T-->>A: Ready
-    
-    Note over U,I: Login Phase
-    U->>T: Access Tallyfy
-    T->>I: Redirect to IdP
-    U->>I: Credentials
-    I->>T: SAML assertion
-    T-->>U: Access granted
+```d2
+Admin: Admin
+Tallyfy: Tallyfy
+IdP: Identity Provider
+User: User
+
+Setup Phase: {
+  Admin -> Tallyfy: Configure SSO
+  Tallyfy -> IdP: Register SP
+  IdP -> Tallyfy: Metadata
+  Tallyfy -> Admin: Ready
+}
+
+Login Phase: {
+  User -> Tallyfy: Access Tallyfy
+  Tallyfy -> IdP: Redirect to IdP
+  User -> IdP: Credentials
+  IdP -> Tallyfy: SAML assertion
+  Tallyfy -> User: Access granted
+}
 ```
 
 ##### Terminology Guidelines
@@ -282,7 +308,7 @@ sequenceDiagram
 10. **Test in both themes** - Verify readability in light AND dark modes
 11. **Break complex diagrams** - Split 50+ node diagrams into smaller focused ones
 
-For comprehensive Mermaid documentation, see the [Mermaid Official Docs](https://mermaid.js.org/) or test your diagrams in the [Mermaid Live Editor](https://mermaid.live/).
+For comprehensive D2 documentation, see the [D2 Official Docs](https://d2lang.com/tour/intro/) or test your diagrams in the [D2 Playground](https://play.d2lang.com/).
 
 ### Review Process
 

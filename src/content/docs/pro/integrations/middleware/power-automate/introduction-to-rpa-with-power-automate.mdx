@@ -64,43 +64,41 @@ Building a full RPA flow takes work. Here's a conceptual outline for updating an
 
 This diagram shows how data flows from Tallyfy through Power Automate's cloud and desktop components to update legacy systems.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant User
- participant Tallyfy
- participant CloudFlow as Power Automate Cloud Flow
- participant Gateway as On-Premises Gateway
- participant DesktopFlow as Power Automate Desktop Flow
- participant LegacyCRM as Legacy Desktop CRM
-
- Note over User,LegacyCRM: RPA Integration Pattern: Bridging Tallyfy with Legacy Systems
- 
- User->>Tallyfy: Complete "Client Info Update" task
- Tallyfy-->>CloudFlow: Trigger: Task completed event
- 
- CloudFlow->>Tallyfy: Get task details (form field data)
- Tallyfy-->>CloudFlow: Return client data (phone, ID, etc.)
- 
- CloudFlow->>Gateway: Run desktop flow with input variables
- Gateway->>DesktopFlow: Start RPA bot (attended/unattended)
- 
- Note over DesktopFlow,LegacyCRM: UI Automation Sequence
- DesktopFlow->>LegacyCRM: Launch application
- DesktopFlow->>LegacyCRM: Click "Search Client"
- DesktopFlow->>LegacyCRM: Enter client ID
- DesktopFlow->>LegacyCRM: Click "Search"
- LegacyCRM-->>DesktopFlow: Display client record
- DesktopFlow->>LegacyCRM: Update phone field
- DesktopFlow->>LegacyCRM: Click "Save Changes"
- DesktopFlow->>LegacyCRM: Close application
- 
- DesktopFlow-->>Gateway: Execution complete
- Gateway-->>CloudFlow: Success/failure status
- 
- opt Update Tallyfy
- CloudFlow->>Tallyfy: Update process status (optional)
- end
+```d2
+CloudFlow: "CloudFlow"
+DesktopFlow: "DesktopFlow"
+Gateway: "Gateway"
+LegacyCRM: "LegacyCRM"
+Tallyfy: "Tallyfy"
+User: "User"
+autonumber
+User
+Tallyfy
+CloudFlow as Power Automate Cloud Flow
+Gateway as On-Premises Gateway
+DesktopFlow as Power Automate Desktop Flow
+LegacyCRM as Legacy Desktop CRM
+# Note over User,LegacyCRM: RPA Integration Pattern: Bridging Tallyfy with Legacy Systems
+User -> Tallyfy: Complete "Client Info Update" task
+Tallyfy- -> CloudFlow: Trigger: Task completed event
+CloudFlow -> Tallyfy: Get task details (form field data)
+Tallyfy- -> CloudFlow: Return client data (phone, ID, etc.)
+CloudFlow -> Gateway: Run desktop flow with input variables
+Gateway -> DesktopFlow: Start RPA bot (attended/unattended)
+# Note over DesktopFlow,LegacyCRM: UI Automation Sequence
+DesktopFlow -> LegacyCRM: Launch application
+DesktopFlow -> LegacyCRM: Click "Search Client"
+DesktopFlow -> LegacyCRM: Enter client ID
+DesktopFlow -> LegacyCRM: Click "Search"
+LegacyCRM- -> DesktopFlow: Display client record
+DesktopFlow -> LegacyCRM: Update phone field
+DesktopFlow -> LegacyCRM: Click "Save Changes"
+DesktopFlow -> LegacyCRM: Close application
+DesktopFlow- -> Gateway: Execution complete
+Gateway- -> CloudFlow: Success/failure status
+# opt: Update Tallyfy
+CloudFlow -> Tallyfy: Update process status (optional)
+# end block
 ```
 
 **What to notice:**

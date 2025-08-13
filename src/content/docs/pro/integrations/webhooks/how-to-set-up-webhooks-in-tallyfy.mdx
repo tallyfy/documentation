@@ -42,52 +42,60 @@ Step-level webhooks trigger when a **specific step** is completed. They provide 
 
 This diagram shows how Tallyfy sends webhook data to external systems when events occur in your workflows.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant P as Process/Step
- participant T as Tallyfy
- participant Q as Queue
- participant W as Webhook Service
- participant M as Middleware (Zapier/Make/n8n)
- participant E as External System (Slack/CRM/etc)
- 
- Note over P,E: Webhook Event Flow
- 
- P->>T: Complete step/Launch process
- T->>T: Check webhook config
- 
- alt Template-level webhook
- Note over T: Fires on ANY step or launch
- T->>Q: Queue template webhook with ALL process data
- else Step-level webhook 
- Note over T: Fires on SPECIFIC step only
- T->>Q: Queue step webhook with step data
- end
- 
- Q->>W: Process webhook event
- 
- loop Max 3 attempts
- W->>M: POST webhook_url X-Tallyfy-OrgID: [org_id] JSON payload
- Note over W,M: Timeout: 30 seconds
- 
- alt Success (2xx)
- M-->>W: Success response
- W->>T: Mark delivered
- M->>M: Validate X-Tallyfy-OrgID
- M->>E: Trigger action (Send Slack message)
- E-->>M: Action confirmed
- else Failure
- M-->>W: Error/Timeout
- W->>W: Exponential backoff
- Note over W: Retry: 1min, 5min, 15min
- end
- end
- 
- alt All attempts failed
- W->>T: Mark failed
- Note over T: Log failure for debugging
- end
+```d2
+P: Process/Step
+T: Tallyfy
+Q: Queue
+W: Webhook Service
+M: Middleware (Zapier/Make/n8n)
+E: External System (Slack/CRM/etc)
+
+# Webhook Event Flow
+Webhook Event Flow: {near: top-center}
+
+1: P -> T: Complete step/Launch process
+2: T -> T: Check webhook config
+
+# Template vs Step Level
+Template-level: {
+  note1: Fires on ANY step or launch {near: T}
+  3a: T -> Q: Queue template webhook with ALL process data
+}
+
+Step-level: {
+  note2: Fires on SPECIFIC step only {near: T}
+  3b: T -> Q: Queue step webhook with step data
+}
+
+4: Q -> W: Process webhook event
+
+# Retry Loop (Max 3 attempts)
+Retry: {
+  5: W -> M: POST webhook_url\nX-Tallyfy-OrgID: [org_id]\nJSON payload
+  Timeout: 30 seconds {near: W-M}
+  
+  # Success path
+  Success: {
+    6a: M --> W: Success response (2xx) {style.stroke-dash: 3}
+    7a: W -> T: Mark delivered
+    8a: M -> M: Validate X-Tallyfy-OrgID
+    9a: M -> E: Trigger action (Send Slack message)
+    10a: E --> M: Action confirmed {style.stroke-dash: 3}
+  }
+  
+  # Failure path
+  Failure: {
+    6b: M --> W: Error/Timeout {style.stroke-dash: 3}
+    7b: W -> W: Exponential backoff
+    Retry timing: 1min, 5min, 15min {near: W}
+  }
+}
+
+# Final failure
+All attempts failed: {
+  11: W -> T: Mark failed
+  Log failure for debugging {near: T}
+}
 ```
 
 **What to notice:**

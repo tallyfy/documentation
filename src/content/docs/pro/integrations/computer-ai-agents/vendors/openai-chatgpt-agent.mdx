@@ -29,24 +29,32 @@ Your step-by-step instructions for the AI agent to perform work go into the Tall
 
 This flowchart shows how Tallyfy orchestrates ChatGPT Agent's browser automation, code execution, and research capabilities to complete complex workflow tasks.
 
-```mermaid
-flowchart TD
-    T[Tallyfy Task] --> W[Webhook/API]
-    W --> C[ChatGPT Agent]
-    
-    C --> P[Plan Execution]
-    P --> B[Browser Tasks]
-    P --> R[Deep Research]
-    P --> E[Code Execution]
-    P --> D[Doc Creation]
-    
-    B --> O[Task Output]
-    R --> O
-    E --> O
-    D --> O
-    
-    O --> U[Update Tallyfy]
-    U --> N[Next Task]
+```d2
+T: "Tallyfy Task"
+W: "Webhook/API"
+C: "ChatGPT Agent"
+P: "Plan Execution"
+B: "Browser Tasks"
+R: "Deep Research"
+E: "Code Execution"
+D: "Doc Creation"
+O: "Task Output"
+U: "Update Tallyfy"
+N: "Next Task"
+
+T -> W
+W -> C
+C -> P
+P -> B
+P -> R
+P -> E
+P -> D
+B -> O
+R -> O
+E -> O
+D -> O
+O -> U
+U -> N
 ```
 
 **What to notice:**
@@ -175,36 +183,37 @@ Let's walk through exactly how Tallyfy orchestrates a ChatGPT Agent task. You'll
 
 **Scenario**: Your sales team needs dinner reservations for client meetings. Here's how it works with Tallyfy + ChatGPT Agent.
 
-```mermaid
-sequenceDiagram
- participant T as Tallyfy Process
- participant W as Webhook
- participant C as ChatGPT Agent
- participant R as Restaurant Site
- participant U as User
- 
- T->>T: Task triggered: Make reservation
- T->>W: Send task data via webhook
- Note over W: Restaurant: Italian Place Party: 4 people Date: Friday 7pm
- 
- W->>C: POST /agent/execute with instructions
- C->>C: Parse requirements
- C->>R: Navigate to OpenTable
- R-->>C: Search results
- C->>R: Select restaurant
- C->>R: Fill reservation form
- 
- alt Availability found
- R-->>C: Confirmation #12345
- C-->>W: Success + confirmation
- W-->>T: Update task fields
- T->>U: Notification: Reserved!
- else No availability
- R-->>C: No tables available
- C-->>W: Failed - no availability
- W-->>T: Mark task for review
- T->>U: Alert: Manual action needed
- end
+```d2
+C: "C"
+R: "R"
+T: "T"
+U: "U"
+W: "W"
+T as Tallyfy Process
+W as Webhook
+C as ChatGPT Agent
+R as Restaurant Site
+U as User
+T -> T: Task triggered: Make reservation
+T -> W: Send task data via webhook
+# Note over W: Restaurant: Italian Place Party: 4 people Date: Friday 7pm
+W -> C: POST /agent/execute with instructions
+C -> C: Parse requirements
+C -> R: Navigate to OpenTable
+R- -> C: Search results
+C -> R: Select restaurant
+C -> R: Fill reservation form
+# alt: Availability found
+R- -> C: Confirmation #12345
+C- -> W: Success + confirmation
+W- -> T: Update task fields
+T -> U: Notification: Reserved!
+else No availability
+R- -> C: No tables available
+C- -> W: Failed - no availability
+W- -> T: Mark task for review
+T -> U: Alert: Manual action needed
+# end block
 ```
 
 **Data Flow Details**:
@@ -343,15 +352,29 @@ The agent understands your Tallyfy context through MCP - no complex prompts need
 
 For high-volume automation, implement a queue-based system:
 
-```mermaid
-flowchart TD
- T["Tallyfy Process"] -->|"Webhook"| Q["Message"]
- W2 --> R
- W3 --> R
- 
- R -->|"Update via API"| T
- 
- ```
+```d2
+Q: "Q"
+R: "R"
+T: "T"
+W1: "W1"
+W2: "W2"
+W3: "W3"
+T: Tallyfy Process
+Q: Message Queue
+W1: Worker 1
+W2: Worker 2
+W3: Worker 3
+R: Results Aggregator
+
+T -> Q: Webhook
+Q -> W1: Process
+Q -> W2: Process
+Q -> W3: Process
+W1 -> R
+W2 -> R
+W3 -> R
+R -> T: Update via API
+```
 
 This architecture handles:
 - Rate limiting (40-400 messages/month based on plan)

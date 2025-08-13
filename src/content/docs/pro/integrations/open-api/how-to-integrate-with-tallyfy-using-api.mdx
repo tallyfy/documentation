@@ -72,34 +72,49 @@ For third-party applications or dedicated Tallyfy integrations requiring client 
 
 This diagram shows the complete OAuth authentication flow for both user-based and application-based authentication methods.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant App as Your Application
- participant Auth as Tallyfy OAuth
- participant API as Tallyfy API
- 
- Note over App,API: OAuth Authentication Flow
- 
- alt Password Grant (User Context)
- App->>Auth: POST /oauth/token grant_type=password client_id, client_secret username, password
- Auth->>App: access_token + refresh_token expires_in: 3600
- else Client Credentials Grant (App Context)
- App->>Auth: POST /oauth/token grant_type=client_credentials client_id, client_secret
- Auth->>App: access_token (limited scope) expires_in: 3600
- end
- 
- App->>API: API Request Authorization: Bearer {token} X-Tallyfy-Client: APIClient
- 
- alt Token Valid
- API->>App: 200 OK + Response Data
- else Token Expired
- API->>App: 401 Unauthenticated
- App->>Auth: POST /oauth/token grant_type=refresh_token refresh_token={token}
- Auth->>App: New access_token
- App->>API: Retry with new token
- API->>App: 200 OK + Response Data
- end
+```d2
+API: "API"
+App: "App"
+Auth: "Auth"
+App: Your Application
+Auth: Tallyfy OAuth
+API: Tallyfy API
+
+# OAuth Authentication Flow
+
+# Grant Type Options
+Password Grant: {
+  shape: rectangle
+  style.stroke-dash: 3
+  App -> Auth: "1a. POST /oauth/token\ngrant_type=password\nclient_id, client_secret\nusername, password"
+  Auth -> App: "2a. access_token + refresh_token\nexpires_in: 3600"
+}
+
+Client Credentials Grant: {
+  shape: rectangle
+  style.stroke-dash: 3
+  App -> Auth: "1b. POST /oauth/token\ngrant_type=client_credentials\nclient_id, client_secret"
+  Auth -> App: "2b. access_token (limited scope)\nexpires_in: 3600"
+}
+
+App -> API: "3. API Request\nAuthorization: Bearer {token}\nX-Tallyfy-Client: APIClient"
+
+# Token Validation Flow
+Token Valid: {
+  shape: rectangle
+  style.stroke-dash: 3
+  API -> App: "4a. 200 OK + Response Data"
+}
+
+Token Expired: {
+  shape: rectangle
+  style.stroke-dash: 3
+  API -> App: "4b. 401 Unauthenticated"
+  App -> Auth: "5b. POST /oauth/token\ngrant_type=refresh_token\nrefresh_token={token}"
+  Auth -> App: "6b. New access_token"
+  App -> API: "7b. Retry with new token"
+  API -> App: "8b. 200 OK + Response Data"
+}
 ```
 
 **What to notice:**

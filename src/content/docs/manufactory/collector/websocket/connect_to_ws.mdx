@@ -18,25 +18,42 @@ Once a websocket connection is established you will receive a message `Manufacto
 
 This diagram shows the complete authentication handshake between your client and the Manufactory WebSocket server.
 
-```mermaid
-%%{init: {'theme':'neutral'}}%%
-sequenceDiagram
- autonumber
- participant C as Client
- participant WS as WebSocket Server (collector.tallyfy.com)
- 
- Note over C: Has client_uuid and actor_profile_id from prior authentication
- 
- C->>WS: Connect to wss://collector.tallyfy.com/ws
- WS-->>C: "Manufactory Collector ✅"
- 
- Note over C,WS: Pairing connection with client/user
- 
- C->>WS: Send auth message {type: "auth", org_id, project_id, client_uuid, actor_profile_id}
- WS->>WS: Validate credentials
- WS-->>C: {type: "auth", status: "ok"}
- 
- Note over C,WS: Connection authenticated Ready to send events
+```d2
+C: "C"
+WS: "WS"
+C: Client
+WS: WebSocket Server (collector.tallyfy.com)
+
+C -> WS: "1. Connect to wss://collector.tallyfy.com/ws" {
+  style.stroke-dash: 0
+}
+WS -> C: "2. 'Manufactory Collector ✅'" {
+  style.stroke-dash: 3
+}
+
+C -> WS: "3. Send auth message {type: 'auth', org_id, project_id, client_uuid, actor_profile_id}" {
+  style.stroke-dash: 0
+}
+WS -> WS: "4. Validate credentials" {
+  style.stroke-dash: 0
+}
+WS -> C: "5. {type: 'auth', status: 'ok'}" {
+  style.stroke-dash: 3
+}
+
+C.label: |md
+  Has client_uuid and
+  actor_profile_id from
+  prior authentication
+|
+
+WS.label: |md
+  Connection authenticated
+  Ready to send events
+|
+
+C.shape: person
+WS.shape: cloud
 ```
 
 ### What to notice

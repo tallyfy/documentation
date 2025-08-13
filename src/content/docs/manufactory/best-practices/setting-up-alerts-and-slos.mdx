@@ -66,25 +66,77 @@ This approach ensures alerts are:
 
 This diagram shows how SLI measurements flow through error budget calculations to trigger different alert severities based on burn rates.
 
-```mermaid
-flowchart TD
- Events[Event Data] --> SLI[Calculate SLI]
- SLI --> Budget{Error Budget Burn Rate?}
- 
- Budget -->|"Fast: 4h"| Critical["🚨 Critical Page On-Call"]
- Budget -->|"Slow: 24h"| Warning["⚠️ Warning Notification"]
- Budget -->|"Normal"| OK["✅ Within Budget"]
- 
- Critical --> Investigate["Investigate Issue"]
- Warning --> Monitor["Monitor Closely"]
- OK --> Continue["Continue Normal Ops"]
- 
- Investigate --> Fix["Apply Fix"]
- Monitor --> Fix
- Fix --> Events
- 
- click SLI "/products/manufactory/best-practices/what-is-observability/" "Learn about observability"
- click Fix "/products/manufactory/actors/index/" "Understanding Manufactory actors"
+```d2
+Budget: "Budget"
+Continue: "Continue"
+Critical: "Critical"
+Events: "Events"
+Fix: "Fix"
+Investigate: "Investigate"
+Monitor: "Monitor"
+OK: "OK"
+SLI: "SLI"
+Warning: "Warning"
+Events: Event Data {
+  shape: cylinder
+}
+SLI: Calculate SLI {
+  shape: rectangle
+}
+Budget: Error Budget Burn Rate? {
+  shape: diamond
+}
+
+Critical: 🚨 Critical Page On-Call {
+  shape: rectangle
+  style.fill: "#FF4444"
+  style.font-color: "#FFFFFF"
+}
+Warning: ⚠️ Warning Notification {
+  shape: rectangle
+  style.fill: "#FFA500"
+}
+OK: ✅ Within Budget {
+  shape: rectangle
+  style.fill: "#90EE90"
+}
+
+Investigate: Investigate Issue {
+  shape: rectangle
+}
+Monitor: Monitor Closely {
+  shape: rectangle
+}
+Continue: Continue Normal Ops {
+  shape: rectangle
+}
+
+Fix: Apply Fix {
+  shape: hexagon
+  style.fill: "#87CEEB"
+}
+
+Events -> SLI
+SLI -> Budget
+
+Budget -> Critical: "Fast: 4h"
+Budget -> Warning: "Slow: 24h"
+Budget -> OK: Normal
+
+Critical -> Investigate
+Warning -> Monitor
+OK -> Continue
+
+Investigate -> Fix
+Monitor -> Fix
+Fix -> Events: Feedback Loop {
+  style.stroke-dash: 3
+}
+
+SLI.link: "/products/manufactory/best-practices/what-is-observability/"
+SLI.tooltip: "Learn about observability"
+Fix.link: "/products/manufactory/actors/index/"
+Fix.tooltip: "Understanding Manufactory actors"
 ```
 
 **What to notice:**

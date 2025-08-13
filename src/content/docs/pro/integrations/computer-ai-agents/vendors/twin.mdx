@@ -23,27 +23,35 @@ Your step-by-step instructions for the AI agent to perform work go into the Tall
 
 This flowchart shows how Tallyfy orchestrates Twin.so's enterprise-grade browser automation to retrieve documents and data from web portals automatically.
 
-```mermaid
-flowchart TD
-    T[Tallyfy Task] --> W[Webhook/API]
-    W --> TS[Twin.so API]
-    
-    TS --> V[Vault Access]
-    V --> B[Browser Session]
-    
-    B --> M[Twin Model]
-    M --> N[Navigate Site]
-    M --> L[Login Securely]
-    M --> E[Extract Data]
-    M --> D[Download Files]
-    
-    N --> R[Results Package]
-    L --> R
-    E --> R
-    D --> R
-    
-    R --> U[Update Tallyfy]
-    U --> NT[Next Task]
+```d2
+B: "B"
+D: "D"
+E: "E"
+L: "L"
+M: "M"
+N: "N"
+NT: "NT"
+R: "R"
+TS: "TS"
+U: "U"
+V: "V"
+T: "Tallyfy Task"
+W: "Webhook/API"
+T -> W
+W -> TS: "Twin.so API"
+TS -> V: "Vault Access"
+V -> B: "Browser Session"
+B -> M: "Twin Model"
+M -> N: "Navigate Site"
+M -> L: "Login Securely"
+M -> E: "Extract Data"
+M -> D: "Download Files"
+N -> R: "Results Package"
+L -> R
+E -> R
+D -> R
+R -> U: "Update Tallyfy"
+U -> NT: "Next Task"
 ```
 
 **What to notice:**
@@ -149,45 +157,44 @@ Want proof this works? Check out Twin.so's first major deployment:
 
 This diagram shows how Tallyfy orchestrates Twin.so agents to retrieve invoices from external websites automatically.
 
-```mermaid
-sequenceDiagram
- autonumber
- participant T as Tallyfy Process
- participant W as Webhook/API
- participant TS as Twin.so API
- participant TA as Twin.so Agent
- participant B as Browser Session
- participant E as External Site (e.g., OpenAI)
- 
- Note over T,E: Invoice Retrieval Automation Flow
- 
- T->>T: Task becomes active
- T->>W: Trigger webhook
- W->>TS: POST /api/tasks/start starting_url, goal, access_key
- TS->>TA: Initialize agent task
- TA->>B: Launch secure browser
- B->>E: Navigate to platform.openai.com
- 
- Note over B,E: Agent uses vaulted credentials
- B->>E: Login with credentials
- E-->>B: Authentication success
- B->>E: Navigate to billing section
- E-->>B: Display invoices
- B->>E: Download February 2025 invoice
- E-->>B: Invoice file ($92.10)
- 
- B-->>TA: Extracted data & file
- TA-->>TS: Task complete + results
- 
- alt Webhook Callback
- TS-->>W: POST callback with results
- W-->>T: Update task with invoice
- else Status Polling
- T->>TS: GET /api/tasks/{id}/status
- TS-->>T: Status: completed + results
- end
- 
- T->>T: Attach invoice to task Continue process
+```d2
+B: "B"
+E: "E"
+T: "T"
+TA: "TA"
+TS: "TS"
+W: "W"
+autonumber
+T as Tallyfy Process
+W as Webhook/API
+TS as Twin.so API
+TA as Twin.so Agent
+B as Browser Session
+E as External Site (e.g., OpenAI)
+# Note over T,E: Invoice Retrieval Automation Flow
+T -> T: Task becomes active
+T -> W: Trigger webhook
+W -> TS: POST /api/tasks/start starting_url, goal, access_key
+TS -> TA: Initialize agent task
+TA -> B: Launch secure browser
+B -> E: Navigate to platform.openai.com
+# Note over B,E: Agent uses vaulted credentials
+B -> E: Login with credentials
+E- -> B: Authentication success
+B -> E: Navigate to billing section
+E- -> B: Display invoices
+B -> E: Download February 2025 invoice
+E- -> B: Invoice file ($92.10)
+B- -> TA: Extracted data & file
+TA- -> TS: Task complete + results
+# alt: Webhook Callback
+TS- -> W: POST callback with results
+W- -> T: Update task with invoice
+else Status Polling
+T -> TS: GET /api/tasks/{id}/status
+TS- -> T: Status: completed + results
+# end block
+T -> T: Attach invoice to task Continue process
 ```
 
 **What to notice:**

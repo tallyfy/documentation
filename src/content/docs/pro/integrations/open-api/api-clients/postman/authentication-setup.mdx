@@ -102,42 +102,91 @@ Tallyfy's authentication has specific requirements that can trip you up if you'r
 
 This diagram shows the complete OAuth authentication lifecycle including initial setup, API usage, and automatic token refresh.
 
-```mermaid
-%%{init: {'theme':'forest'}}%%
-sequenceDiagram
- autonumber
- participant P as Postman
- participant O as Tallyfy OAuth /oauth/token
- participant A as Tallyfy API /api endpoints
- 
- Note over P,A: Initial Authentication Setup
- 
- P->>O: POST /oauth/token grant_type=password username, password client_id, client_secret
- O->>O: Validate credentials
- O-->>P: 200 OK access_token (1hr) refresh_token expires_in: 3600
- 
- P->>P: Store tokens in environment Calculate expiry time
- 
- Note over P,A: API Usage with Authentication
- 
- P->>A: GET /organizations/{org_id}/me Authorization: Bearer {token} X-Tallyfy-Client: APIClient
- A->>A: Validate token & header
- A-->>P: 200 OK - User details
- 
- Note over P,O: Token Refresh (after ~55 min)
- 
- P->>P: Check token expiry (5 min buffer)
- P->>O: POST /oauth/token grant_type=refresh_token refresh_token, client_id, client_secret
- O-->>P: New access_token New refresh_token
- P->>P: Update stored tokens
- 
- Note over P,A: Common Error Scenarios
- 
- P->>A: GET /api/endpoint Missing X-Tallyfy-Client header
- A-->>P: 401 Unauthenticated
- 
- P->>A: GET /api/endpoint Expired token
- A-->>P: 401 Token expired
+```d2
+P: "P"
+# OAuth Authentication Lifecycle
+
+P: Postman {
+  shape: rectangle
+}
+O: "Tallyfy OAuth\n/oauth/token" {
+  shape: rectangle
+  style.fill: "#d4f1d4"
+}
+A: "Tallyfy API\n/api endpoints" {
+  shape: rectangle
+  style.fill: "#d4f1d4"
+}
+
+# Initial Authentication Setup
+auth_setup: "Initial Authentication Setup" {
+  shape: text
+  near: top-center
+  style.font-size: 18
+  style.bold: true
+}
+
+P -> O: "1. POST /oauth/token\ngrant_type=password\nusername, password\nclient_id, client_secret"
+O -> O: "2. Validate credentials"
+O -> P: "3. 200 OK\naccess_token (1hr)\nrefresh_token\nexpires_in: 3600" {
+  style.stroke-dash: 3
+}
+
+P -> P: "4. Store tokens in environment\nCalculate expiry time"
+
+# API Usage with Authentication
+api_usage: "API Usage with Authentication" {
+  shape: text
+  near: center-left
+  style.font-size: 18
+  style.bold: true
+}
+
+P -> A: "5. GET /organizations/{org_id}/me\nAuthorization: Bearer {token}\nX-Tallyfy-Client: APIClient"
+A -> A: "6. Validate token & header"
+A -> P: "7. 200 OK - User details" {
+  style.stroke-dash: 3
+}
+
+# Token Refresh
+token_refresh: "Token Refresh (after ~55 min)" {
+  shape: text
+  near: center-right
+  style.font-size: 18
+  style.bold: true
+}
+
+P -> P: "8. Check token expiry\n(5 min buffer)"
+P -> O: "9. POST /oauth/token\ngrant_type=refresh_token\nrefresh_token, client_id\nclient_secret"
+O -> P: "10. New access_token\nNew refresh_token" {
+  style.stroke-dash: 3
+}
+P -> P: "11. Update stored tokens"
+
+# Common Error Scenarios
+error_scenarios: "Common Error Scenarios" {
+  shape: text
+  near: bottom-center
+  style.font-size: 18
+  style.bold: true
+  style.font-color: "#cc0000"
+}
+
+P -> A: "12. GET /api/endpoint\nMissing X-Tallyfy-Client header" {
+  style.stroke: "#cc0000"
+}
+A -> P: "13. 401 Unauthenticated" {
+  style.stroke-dash: 3
+  style.stroke: "#cc0000"
+}
+
+P -> A: "14. GET /api/endpoint\nExpired token" {
+  style.stroke: "#cc0000"
+}
+A -> P: "15. 401 Token expired" {
+  style.stroke-dash: 3
+  style.stroke: "#cc0000"
+}
 ```
 
 **What to notice:**

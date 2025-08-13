@@ -40,43 +40,37 @@ Both capabilities can complement each other in comprehensive automation workflow
 
 Here's the clever part - instead of building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
 
-```mermaid
-flowchart TD
-    subgraph TallyfyTask[Tallyfy Task]
-        T1[Task Description]
-        T2[Form Fields]
-        T3[Expected Output]
-    end
-    
-    subgraph ClaudeAgent[Claude Computer Use]
-        C1[Take Screenshot]
-        C2[Analyze Screen]
-        C3[Click/Type/Navigate]
-        C4[Verify Action]
-        C5{Task Complete?}
-    end
-    
-    subgraph TallyfyOutput[Tallyfy Results]
-        O1[Completion Status]
-        O2[Extracted Values]
-        O3[Action Log]
-        O4[Screenshots]
-    end
-    
-    T1 --> C2
-    T2 --> C3
-    T3 --> C4
-    
-    C1 --> C2
-    C2 --> C3
-    C3 --> C4
-    C4 --> C5
-    C5 -->|No| C1
-    C5 -->|Yes| O1
-    
-    C4 --> O2
-    C3 --> O3
-    C1 --> O4
+```d2
+TallyfyTask[Tallyfy Task]: {
+T1: "Task Description"
+T2: "Form Fields"
+T3: "Expected Output"
+}
+ClaudeAgent[Claude Computer Use]: {
+C1: "Take Screenshot"
+C2: "Analyze Screen"
+C3: "Click/Type/Navigate"
+C4: "Verify Action"
+C5: "Task Complete?" {shape: diamond}
+}
+TallyfyOutput[Tallyfy Results]: {
+O1: "Completion Status"
+O2: "Extracted Values"
+O3: "Action Log"
+O4: "Screenshots"
+}
+T1 -> C2
+T2 -> C3
+T3 -> C4
+C1 -> C2
+C2 -> C3
+C3 -> C4
+C4 -> C5
+C5 -> C1: "No"
+C5 -> O1: "Yes"
+C4 -> O2
+C3 -> O3
+C1 -> O4
 ```
 
 **What to notice:**
@@ -102,52 +96,55 @@ Key aspects of Claude's Computer Use include:
 
 This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
 
-```mermaid
-%%{init: {'theme':'forest'}}%%
-sequenceDiagram
- autonumber
- participant T as Tallyfy
- participant I as Intermediary App
- participant C as Claude API
- participant S as Sandbox
- 
- Note over T,S: Integration Flow
- 
- T->>I: Webhook trigger
- Note right of I: Extract data
- I->>I: Build prompt
- I->>C: Send prompt
- 
- loop Until Complete
- C->>C: Analyze
- C->>I: Request tool
- I->>S: Execute
- 
- alt Screenshot
- S->>S: Capture
- S-->>I: Image
- else UI Action
- S->>S: Click/Type
- S-->>I: Success
- else Bash
- S->>S: Run
- S-->>I: Output
- end
- 
- I->>C: Send result
- 
- alt Incomplete
- C->>C: Process
- Note right of C: Think
- else Complete
- C->>I: Final result
- end
- end
- 
- I->>I: Parse result
- I->>T: Update field
- 
- Note over T,S: Complete
+```d2
+C: "C"
+I: "I"
+S: "S"
+T: "T"
+T: Tallyfy
+I: Intermediary App
+C: Claude API
+S: Sandbox
+
+T -> I: "1. Webhook trigger"
+I -> I: "2. Extract data"
+I -> I: "3. Build prompt"
+I -> C: "4. Send prompt"
+
+Loop: "Agent Loop" {
+  C -> C: "5. Analyze"
+  C -> I: "6. Request tool"
+  I -> S: "7. Execute"
+  
+  Screenshot: {
+    S -> S: "8a. Capture"
+    S -> I: "9a. Image"
+  }
+  
+  UI_Action: {
+    S -> S: "8b. Click/Type"
+    S -> I: "9b. Success"
+  }
+  
+  Bash: {
+    S -> S: "8c. Run"
+    S -> I: "9c. Output"
+  }
+  
+  I -> C: "10. Send result"
+  
+  Incomplete: {
+    C -> C: "11a. Process"
+    C -> C: "12a. Think"
+  }
+  
+  Complete: {
+    C -> I: "11b. Final result"
+  }
+}
+
+I -> I: "13. Parse result"
+I -> T: "14. Update field"
 ```
 
 **What to notice:**
@@ -428,66 +425,54 @@ Let's walk through a real example. **Tallyfy Task:** "Open `Product_Feedback.xls
 
 This sequence shows the actual tool calls and responses for a real Excel filtering task, demonstrating how Claude Computer Use handles UI automation through iterative perception and action.
 
-```mermaid
-%%{init: {'theme':'forest'}}%%
+```d2
 sequenceDiagram
- autonumber
- participant T as Tallyfy Task
- participant I as Intermediary
- participant C as Claude API
- participant E as Excel
- 
- Note over T,E: Count Urgent Issues
- 
- T->>I: Webhook data
- 
- I->>C: Open and filter
- 
- rect rgb(245, 245, 245)
- Note right of C: Step 1
- C->>I: Screenshot
- I->>E: Capture
- E-->>I: Image
- I->>C: Result
- end
- 
- rect rgb(240, 248, 255)
- Note right of C: Step 2
- C->>I: Double click
- I->>E: Click icon
- E->>E: Open
- E-->>I: Opened
- I->>C: Success
- end
- 
- rect rgb(255, 245, 240)
- Note right of C: Step 3
- C->>I: Click header
- I->>E: Click
- E-->>I: Menu
- I->>C: Screenshot
- 
- C->>I: Click filter
- I->>E: Open
- E-->>I: Options
- I->>C: Screenshot
- 
- C->>I: Type Urgent
- I->>E: Apply
- E->>E: Filter
- E-->>I: Filtered
- I->>C: Screenshot
- end
- 
- rect rgb(245, 255, 245)
- Note right of C: Step 4
- C->>C: Count rows
- C->>I: Found 15
- end
- 
- I->>T: Update field
- 
- Note over T,E: Complete
+autonumber
+participant T as Tallyfy Task
+participant I as Intermediary
+participant C as Claude API
+participant E as Excel
+Note over T,E: Count Urgent Issues
+T->>I: Webhook data
+I->>C: Open and filter
+rect rgb: "245, 245, 245"
+Note right of C: Step 1
+C->>I: Screenshot
+I->>E: Capture
+E->>I: Image
+I->>C: Result
+}
+rect rgb: "240, 248, 255"
+Note right of C: Step 2
+C->>I: Double click
+I->>E: Click icon
+E->>E: Open
+E->>I: Opened
+I->>C: Success
+}
+rect rgb: "255, 245, 240"
+Note right of C: Step 3
+C->>I: Click header
+I->>E: Click
+E->>I: Menu
+I->>C: Screenshot
+C->>I: Click filter
+I->>E: Open
+E->>I: Options
+I->>C: Screenshot
+C->>I: Type Urgent
+I->>E: Apply
+E->>E: Filter
+E->>I: Filtered
+I->>C: Screenshot
+}
+rect rgb: "245, 255, 245"
+Note right of C: Step 4
+C->>C: Count rows
+C->>I: Found 15
+}
+I->>T: Update field
+Note over T,E: Complete
 ```
 
 **What to notice:**
