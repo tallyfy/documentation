@@ -8,7 +8,7 @@ We welcome contributions to improve our documentation. Whether you've found a ty
 
 ### How to Contribute
 
-#### 1. Fork the Repository
+#### 1. Fork the Repo
 
 Click the "Fork" button at the top right of this page to create your own copy of the documentation repository.
 
