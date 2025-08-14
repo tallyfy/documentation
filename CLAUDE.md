@@ -1193,6 +1193,44 @@ Decision -> End: No
    - "Authorization" (13 chars) → Use "Auth" (4 chars)
    - "Synchronization" (15 chars) → Use "Sync" (4 chars)
 
+### 🔧 D2 Syntax Troubleshooting (2025-08-14 Update)
+
+**CRITICAL SYNTAX ERRORS TO AVOID** (from Cloudflare Pages build failures):
+
+1. **Dollar signs trigger variable substitution**:
+   - ❌ WRONG: `Check: "Amount > $5000?"` 
+   - ✅ RIGHT: `Check: "Amount > 5000?"`
+   - D2 interprets `$` as start of variable substitution
+
+2. **Curly braces in labels cause substitution errors**:
+   - ❌ WRONG: `T -> S: "POST /api/tasks/{id}"`
+   - ✅ RIGHT: `T -> S: "POST /api/tasks/[id]"` or use parentheses
+   - D2 interprets `{...}` as variable substitution syntax
+
+3. **Double-double quotes break parsing**:
+   - ❌ WRONG: `Start: ""Agent Starts""`
+   - ✅ RIGHT: `Start: "Agent Starts"`
+
+4. **Invalid node syntax with square brackets**:
+   - ❌ WRONG: `TallyfyInputs[Tallyfy Process]: { ... }`
+   - ✅ RIGHT: `TallyfyInputs: "Tallyfy Process" { ... }`
+   - Square brackets in node names aren't valid D2 syntax
+
+5. **Self-loops on containers not supported**:
+   - ❌ WRONG: Container with note/children having `Container -> Container`
+   - ✅ RIGHT: Move self-loop action into the note text
+   - D2's dagre layout engine doesn't support self-loops on containers
+
+6. **Position constants are limited**:
+   - ❌ WRONG: `{near: middle-center}` (doesn't exist)
+   - ✅ RIGHT: Valid positions: top-left, top-center, top-right, center-left, center-right, bottom-left, bottom-center, bottom-right
+
+7. **Local validation before pushing**:
+   ```bash
+   # Validate all D2 diagrams locally
+   ./scripts/validate-d2.sh
+   ```
+
 ### Critical Implementation Notes (2025 Update)
 
 **RENDERING CONFIGURATION**: All D2 diagrams are rendered with global theme and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
@@ -1321,6 +1359,7 @@ Problem: "Text" {
   near: center-right  # ❌ FATAL: near: inside blocks = build failure
 }
 A -> B: "Response {'data': 'value'}"  # ❌ FATAL: Curly braces in labels = substitution error
+Start: ""Text""   # ❌ FATAL: Double-double quotes = parse error
 ```
 
 #### Essential Syntax Rules:
@@ -1333,8 +1372,11 @@ A -> B: "Response {'data': 'value'}"  # ❌ FATAL: Curly braces in labels = subs
 5. **NEVER use curly braces `{}` in edge labels** - D2 interprets them as variable substitutions
    - ❌ INVALID: `A -> B: "JSON {'key': 'value'}"`
    - ✅ VALID: `A -> B: "JSON [key: value]"` or `A -> B: "JSON (key=value)"`
-6. **One node definition per line**
-7. **Use `|md` blocks for multi-line text with markdown formatting
+6. **NEVER use double-double quotes `""`** - causes "unexpected text after double quoted string" error
+   - ❌ INVALID: `Start: ""Agent Starts""`
+   - ✅ VALID: `Start: "Agent Starts"`
+7. **One node definition per line**
+8. **Use `|md` blocks for multi-line text with markdown formatting
 
 **Key Points**:
 - Simple labels don't need quotes: `Node: Label Text`
@@ -1972,7 +2014,11 @@ All 17 diagram types are technically supported, but use these based on content n
 **PROBLEM**: Using `{}` in edge/node labels causes "substitutions must begin on {" errors.
 **SOLUTION**: Replace curly braces with square brackets `[]` or parentheses `()` for JSON-like data.
 
-#### 4. Broken Hyperlinks (ALWAYS VERIFY)
+#### 4. Double-Double Quotes (CAUSES BUILD FAILURES)
+**PROBLEM**: Using `""` in labels causes "unexpected text after double quoted string" errors.
+**SOLUTION**: Use single pair of quotes only: `"Text"` not `""Text""`.
+
+#### 5. Broken Hyperlinks (ALWAYS VERIFY)
 **PROBLEM**: Many click directives point to non-existent URLs (404 errors).
 **SOLUTION**: ALWAYS verify URLs exist before adding click directives:
 ```bash
@@ -2037,8 +2083,17 @@ Common correct URLs:
      - `A -> B: "JSON response [status: ok]"`
      - `A -> B: "JSON response (status=ok)"`
 
+8. **"unexpected text after double quoted string"**:
+   - **Cause**: Using double-double quotes `""` in node/edge labels
+   - **Example of INVALID**: `Start: ""Agent Starts""`
+   - **Fix**: Use single pair of quotes:
+     - `Start: "Agent Starts"`
+
 #### Debug Commands
 ```bash
+# VALIDATE ALL D2 DIAGRAMS LOCALLY (RECOMMENDED BEFORE PUSHING)
+./scripts/validate-d2.sh
+
 # Find all D2 diagrams in documentation
 grep -r "^\`\`\`d2" src/content/docs --include="*.mdx" | wc -l
 

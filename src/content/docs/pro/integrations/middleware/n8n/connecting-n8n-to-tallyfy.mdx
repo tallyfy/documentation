@@ -249,35 +249,22 @@ n8n: n8n Workflow
 S -> T: 1. User completes task
 T -> T: 2. Check webhook config
 
-webhook_check: {
-  T -> Q: 3. Queue webhook event |Webhook configured|
-  # Event queued for delivery
-  T -> T: Skip webhook |No webhook|
-}
+T -> Q: "3. Queue webhook event" {style.stroke-dash: 3}
+T -> T: "Skip webhook" {style.stroke-dash: 5}
 
 Q -> W: 4. Process webhook
 
-retry_loop: {
-  W -> n8n: 5. POST {webhook_url}
-  # Timeout: 30 seconds
-  
-  success_path: {
-    n8n -> W: 6. Success response |Success (2xx)|
-    W -> T: 7. Mark delivered
-    # Log success
-  }
-  
-  failure_path: {
-    n8n -> W: Error or timeout |Failure|
-    W -> W: Wait (exponential backoff)
-    # 1st: 1min 2nd: 5min 3rd: 15min
-  }
-}
+W -> n8n: "5. POST to webhook_url"
+# Timeout: 30 seconds
+n8n -> W: "6. Success response (2xx)"
+W -> T: "7. Mark delivered"
+# Log success
+n8n -> W: "Error or timeout" {style.stroke: red}
+W -> W: "Wait (exponential backoff)" {style.stroke-dash: 3}
+# 1st: 1min 2nd: 5min 3rd: 15min
 
-final_failure: {
-  W -> T: 8. Mark failed |All attempts failed|
-  # Alert administrators
-}
+W -> T: "8. Mark failed (All attempts failed)" {style.stroke: red}
+# Alert administrators
 ```
 
 **What to notice:**
