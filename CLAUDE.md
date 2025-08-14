@@ -429,15 +429,6 @@ Run `python scripts/markdown-lint.py --dir src/content/docs` to validate:
 
 **CRITICAL**: All writing must follow the comprehensive humanizing guidelines in `humanizing-rules.md`. The rules below supplement but do not replace the humanizing requirements.
 
-### Answer-First Content Structure (From Humanizing Rules)
-
-Apply the answer-first pattern from `humanizing-rules.md`:
-- Provide complete, actionable answer in first 2-3 sentences
-- Use conversational tone with natural speech patterns
-- Include specific examples and concrete details
-- Vary sentence rhythm throughout
-
-**See humanizing-rules.md for complete guidelines on natural content structure.**
 
 ### Critical Content Quality Rules - NO FLUFF ALLOWED
 
@@ -503,15 +494,6 @@ Before including ANY sentence, ask:
 4. Is there evidence or specificity backing any claims?
 
 If the answer to ANY of these is "no", DELETE THE SENTENCE.
-
-### Voice & Tone (Enhanced by Humanizing Rules)
-- **Apply all humanizing-rules.md guidelines first**
-- Direct & Clear with conversational elements
-- Simple language with varied sentence rhythm
-- Natural contractions and personal pronouns
-- Professional but conversational tone
-- Eliminate all AI-typical phrases and patterns
-
 
 ### Language Rules (Following Humanizing Guidelines)
 
@@ -700,9 +682,6 @@ These patterns are effective when used intentionally with substance:
 - Link only first occurrence in a section
 - Use descriptive anchor text (not "click here")
 - Add "See also" sections when helpful
-
-### Linking Best Practices
-- Sparingly link to core concepts when helpful
 - Verify all links are valid
 - Don't over-link (distracts readers)
 
@@ -1841,76 +1820,52 @@ Common correct URLs:
 - Tasks: `/products/pro/tracking-and-tasks/tasks/`
 - API: `/products/pro/integrations/open-api/`
 
-### D2 Quick Reference for AI Assistants
+### D2 Diagram Troubleshooting Guide
 
-When creating or editing D2 diagrams:
+#### Common Build Errors and Solutions
 
-#### 1. ALWAYS Use Clear D2 Syntax
-```d2
-# Correct:
-NodeA: Bold Title {
-  style.bold: true
-}
+1. **"unexpected text after map"**:
+   - **Cause**: Comments placed inline with nodes/edges
+   - **Fix**: Move all comments to separate lines using `#` syntax
+   
+2. **"undefined node referenced"**:
+   - **Cause**: Using a node in an edge that wasn't defined
+   - **Fix**: Define all nodes before using them in edges
+   
+3. **Text bleeding/splitting across lines**:
+   - **Cause**: Labels too long for node width
+   - **Fix**: Shorten to <15 characters or use abbreviations
+   
+4. **404 errors on diagram links**:
+   - **Cause**: Incorrect URL paths in link properties
+   - **Fix**: Verify paths exist, include trailing slashes
 
-# For multi-line:
-NodeA: |md
-  **Bold Title**
-  Additional text
-|
+5. **Diagram not rendering**:
+   - **Cause**: Invalid D2 syntax or unsupported keywords
+   - **Fix**: Ensure using only D2-supported syntax, no legacy diagramming keywords
+
+#### Debug Commands
+```bash
+# Find all D2 diagrams in documentation
+grep -r "^\`\`\`d2" src/content/docs --include="*.mdx" | wc -l
+
+# Check for invalid keywords that shouldn't be in D2 (legacy syntax check)
+grep -r "sequenceDiagram\|participant\|autonumber" src/content/docs --include="*.mdx"
+
+# Find incorrect edge label syntax
+grep -r "->.*:.*\"" src/content/docs --include="*.mdx" | grep -v "-> [A-Za-z]*:"
+
+# Verify linked URLs in D2 diagrams
+for file in $(grep -r "link:" src/content/docs --include="*.mdx" -l); do
+  echo "Checking $file"
+  grep "link:" "$file" | sed 's/.*link: "\(.*\)".*/\1/' | while read url; do
+    if [[ ! -f "src/content/docs${url}index.mdx" ]] && [[ ! -f "src/content/docs${url%.mdx}.mdx" ]]; then
+      echo "  ❌ Missing: $url"
+    fi
+  done
+done
 ```
 
-#### 2. Common Node Patterns
-```d2
-# Simple node with emphasis:
-Process: Process Name {
-  style.bold: true
-}
-
-# Multi-line node:
-Details: |md
-  **Main Title**
-  Supporting line 1
-  Supporting line 2
-|
-
-# Edge with label:
-A -> B: With data
-
-# Decision node:
-Decision: Is valid? {
-  shape: diamond
-}
-```
-
-#### 3. DO NOT Add These (Handled Globally)
-- ❌ `style` directives
-- ❌ `classDef` color definitions  
-- ❌ `fill`, `stroke`, `color` attributes
-- ❌ Theme initialization (`%%{init: {'theme':'forest'}}%%`)
-- ❌ Manual color codes (#E8F4FF, etc.)
-
-#### 4. Mobile-First Diagram Orientation (MANDATORY)
-**ALWAYS use vertical orientation for mobile readability:**
-```d2
-# ✅ CORRECT - Vertical layout (default)
-A -> B -> C
-
-# ❌ AVOID - Forcing horizontal when vertical works better
-direction: right  # Only use when absolutely necessary
-A -> B -> C
-```
-
-**Why**: Horizontal diagrams become unreadable on mobile screens. Vertical diagrams allow natural scrolling.
-
-#### 5. Checklist for New Diagrams
-- [ ] Used markdown strings (`` "`text`" ``) for ALL labels
-- [ ] Used `flowchart TD` (not LR) for mobile compatibility
-- [ ] Verified ALL click URLs actually exist (no 404s)
-- [ ] Kept to <30 nodes (50 absolute max)
-- [ ] Added "What to notice" bullets after diagram
-- [ ] Text is visible in BOTH light and dark modes
-- [ ] No inline styling or color definitions
-- [ ] Tested on mobile viewport (320px width)
 
 ## QUICK REFERENCE CHECKLIST
 
