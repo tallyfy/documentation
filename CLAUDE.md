@@ -213,6 +213,14 @@ A production-ready system exists at `/temporary/footnote-annotator/` for batch p
 - Average character count: 95 characters per footnote
 - Most valuable categories: Technical terms (30%), API parameters (25%), Performance metrics (20%), Tallyfy-specific terms (15%)
 
+## D2 Diagrams Resources
+
+**Pre-built Diagram Assets**: 63 D2 diagrams are available for reuse across documentation and marketing materials. See the **D2 Diagrams Inventory** section in `/README.md` for:
+- Production URLs for all rendered diagrams (https://tallyfy.com/products/d2-diagrams/...)
+- Categorized inventory by diagram type (API flows, authentication, workflows, etc.)
+- Quick reference guide for finding relevant diagrams
+- Full metadata available in `/temporary/d2_inventory.json`
+
 ## ROLE & PRIMARY OBJECTIVE
 
 You are working with Tallyfy's comprehensive product documentation. Your role is to act as a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform.

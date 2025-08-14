@@ -423,6 +423,115 @@ For systematic updates of time-sensitive content, we use queue-based processing:
 
 See `/temporary/doc-updater/` for automation scripts and queue management tools.
 
+## D2 Diagrams Inventory
+
+### Overview
+
+This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. All diagrams are automatically generated at build time and served from our CDN.
+
+**Total Diagrams**: 63 diagrams across 49 documentation pages
+
+### Production URL Pattern
+
+All D2 diagrams are accessible via the following URL pattern:
+```
+https://tallyfy.com/products/d2-diagrams/[path]/[filename]-[index].svg
+```
+
+Where:
+- `[path]` = directory path from `/src/content/docs/` (e.g., `pro/integrations/middleware`)
+- `[filename]` = MDX filename without extension (e.g., `zapier`)
+- `[index]` = diagram number in the file, starting from 0
+
+### Diagram Categories
+
+#### API Integration Flows (32 diagrams - 50.8%)
+Integration patterns, middleware connections, and API interactions
+
+**Key Examples:**
+- Zapier automation: `d2-diagrams/pro/integrations/middleware/zapier/how-to-automate-tasks-in-tallyfy-using-zaps-0.svg`
+- Power Automate workflows: `d2-diagrams/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate-0.svg`
+- n8n connections: `d2-diagrams/pro/integrations/middleware/n8n/connecting-n8n-to-tallyfy-0.svg`
+- Make.com automations: `d2-diagrams/pro/integrations/middleware/make/trigger-tallyfy-processes-from-make-0.svg`
+
+#### Computer AI Agents (13 diagrams - 20.6%)
+AI agent integrations and computer use patterns
+
+**Key Examples:**
+- Claude computer use: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/claude-computer-use-0.svg` (3 diagrams)
+- OpenAI ChatGPT: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/openai-chatgpt-agent-0.svg` (3 diagrams)
+- Skyvern AI: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/skyvern-0.svg` (3 diagrams)
+- Local agents: `d2-diagrams/pro/integrations/computer-ai-agents/local-computer-use-agents-0.svg` (3 diagrams)
+
+#### Authentication & SSO (4 diagrams - 6.3%)
+SAML SSO configurations and authentication flows
+
+**Key Examples:**
+- Azure AD SSO: `d2-diagrams/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy-0.svg`
+- Okta SSO: `d2-diagrams/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy-0.svg`
+- OneLogin: `d2-diagrams/pro/integrations/authentication/how-to-integrate-onelogin-samlsso-with-tallyfy-0.svg`
+- Auth0: `d2-diagrams/pro/integrations/authentication/how-to-integrate-auth0-samlsso-with-tallyfy-0.svg`
+
+#### Process Workflows (5 diagrams - 7.9%)
+Business process representations and approval flows
+
+**Key Examples:**
+- Multi-level approvals: `d2-diagrams/pro/documenting/templates/automations/examples/multi-level-approval-loops-0.svg` (3 diagrams)
+- RPA vs Computer agents: `d2-diagrams/pro/integrations/computer-ai-agents/rpa-vs-computer-use-agents-0.svg`
+- Process launching: `d2-diagrams/pro/launching/process-launching/launch-options-0.svg`
+
+#### Webhook Integrations (4 diagrams - 6.3%)
+Webhook-based integration patterns and event flows
+
+**Key Examples:**
+- Webhook triggers: `d2-diagrams/pro/integrations/webhooks/trigger-a-process-from-a-webhook-0.svg`
+- Azure runbooks: `d2-diagrams/pro/integrations/webhooks/trigger-azure-runbook-from-tallyfy-0.svg`
+- Basic webhooks: `d2-diagrams/pro/integrations/webhooks/use-webhooks-0.svg`
+- External webhook templates: `d2-diagrams/pro/integrations/webhooks/external-webhook-and-email-templates-0.svg`
+
+#### System Architecture (2 diagrams - 3.2%)
+High-level system design and data flows
+
+**Key Examples:**
+- Distributed tracing: `d2-diagrams/manufactory/best-practices/implementing-distributed-tracing-0.svg`
+- WebSocket connections: `d2-diagrams/manufactory/collector/websocket/connect_to_ws-0.svg`
+
+### Quick Reference by Product
+
+#### PRO Documentation (59 diagrams)
+- **Integrations**: 51 diagrams
+- **Launching**: 2 diagrams
+- **Documenting**: 3 diagrams
+- **Tutorials**: 3 diagrams
+
+#### Manufactory Documentation (4 diagrams)
+- **Best Practices**: 3 diagrams
+- **Collector/WebSocket**: 1 diagram
+
+### Reusable Diagram Assets
+
+These production-ready diagram URLs can be embedded in:
+- Marketing materials and blog posts
+- Sales presentations
+- Support documentation
+- Training materials
+- External integrations documentation
+
+### Full Inventory Access
+
+For programmatic access to all diagram metadata:
+- **JSON format**: `/temporary/d2_inventory.json` (complete metadata)
+- **CSV format**: `/temporary/d2_inventory.csv` (spreadsheet-friendly)
+- **Markdown report**: `/temporary/d2_inventory_report.md` (categorized listing)
+
+### AI Assistant Reference
+
+AI assistants working with this repository can reference the D2 diagrams inventory for:
+- Finding relevant visual assets for documentation updates
+- Understanding system architecture through diagrams
+- Cross-referencing diagram content with documentation text
+- Identifying gaps where diagrams might be helpful
+
 ## License
 
 By contributing to this repository, you agree that your contributions will be owned by Tallyfy.

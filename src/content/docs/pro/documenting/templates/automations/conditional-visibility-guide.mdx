@@ -24,10 +24,15 @@ Here's what happens: someone fills out a form field, Tallyfy checks your IF-THEN
 One catch - once a task appears, it stays visible unless someone manually hides it.
 
 ### Important limitations
-- **No field-level conditions**: You can't show/hide individual form fields within a task (just whole tasks)
+- **No field-level conditions**: You can't show/hide individual form fields within a task (just whole tasks). Tallyfy doesn't support conditional logic at the form field level - fields can't appear/disappear based on other field values within the same form
 - **Tasks only**: Conditions apply to complete tasks, not sections or fields
 - **One-way visibility**: Tasks shown by conditions won't automatically hide if conditions change - they stick around
 - **Hidden steps cannot be completed**: Hidden steps remain incomplete indefinitely and can't trigger completion-based automations
+- **Same-step field references only**: When creating automation conditions based on form fields, you can only reference fields within the same step. You cannot reference form fields from other steps in your conditions - the dropdown will only show fields from the current step or let you check if other steps are completed/reopened
+
+:::note[Form field conditional logic not supported]
+**Looking for form-level conditional logic?** Tallyfy's conditional logic works at the task/step level, not within forms. You can't make form fields appear/disappear based on other field selections in the same form. Instead, use conditional task visibility to show different tasks with different form fields based on earlier selections.
+:::
 
 ## Setting up conditional visibility
 
@@ -127,6 +132,50 @@ Rule: IF "Document Type" equals "Contract"
       OR "Document Type" equals "Partnership Agreement"
       THEN show this task
 ```
+
+### Example 4: Questionnaire-style quotation workflow
+
+**Scenario**: Build a dynamic quotation process that asks questions to narrow down options, like a decision tree
+
+**Setup**:
+```
+Step 1 - Kick-off form:
+- "Industry Type" (Dropdown: Manufacturing, Services, Retail)
+- "Company Size" (Radio: Small, Medium, Large)
+
+Step 2 - Manufacturing Questions (conditional):
+Rule: IF "Industry Type" equals "Manufacturing" THEN show this task
+- "Production Volume" (Number)
+- "Equipment Needed" (Checklist)
+
+Step 3 - Services Questions (conditional):
+Rule: IF "Industry Type" equals "Services" THEN show this task
+- "Service Type" (Dropdown)
+- "Monthly Hours" (Number)
+
+Step 4 - Small Business Package (conditional):
+Rule: IF "Company Size" equals "Small" 
+      AND "Industry Type" equals "Manufacturing"
+      AND "Production Volume" less than 1000
+      THEN show this task
+
+Step 5 - Enterprise Solution (conditional):
+Rule: IF "Company Size" equals "Large"
+      OR "Production Volume" greater than 10000
+      THEN show this task
+```
+
+**Result**: The process dynamically reveals only relevant questions based on previous answers, creating a questionnaire flow that leads to the right quotation options.
+
+:::tip[Using kick-off fields for process branching]
+**Want one template instead of many?** Use kick-off form fields to control your entire process flow:
+1. Add dropdowns/radio buttons to your kick-off form for key decisions
+2. Reference these fields in automation rules throughout the template
+3. Show/hide entire task groups based on kick-off selections
+4. Avoid creating duplicate templates for similar processes
+
+Example: Instead of "Onboarding - US" and "Onboarding - EU" templates, use one template with a "Region" kick-off field that controls which compliance steps appear.
+:::
 
 ## Troubleshooting common issues
 
