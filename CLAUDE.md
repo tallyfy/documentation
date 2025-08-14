@@ -1216,16 +1216,25 @@ Decision -> End: No
    - ✅ RIGHT: `TallyfyInputs: "Tallyfy Process" { ... }`
    - Square brackets in node names aren't valid D2 syntax
 
-5. **Self-loops on containers not supported**:
+5. **No mixed node definitions and edges on same line**:
+   - ❌ WRONG: `Request: "Task Request" -> Planner: "Sets goals"`
+   - ✅ RIGHT: Separate into two lines:
+     ```
+     Request: "Task Request"
+     Request -> Planner: "Sets goals"
+     ```
+   - Node definitions and edge definitions must be on separate lines
+
+6. **Self-loops on containers not supported**:
    - ❌ WRONG: Container with note/children having `Container -> Container`
    - ✅ RIGHT: Move self-loop action into the note text
    - D2's dagre layout engine doesn't support self-loops on containers
 
-6. **Position constants are limited**:
+7. **Position constants are limited**:
    - ❌ WRONG: `{near: middle-center}` (doesn't exist)
    - ✅ RIGHT: Valid positions: top-left, top-center, top-right, center-left, center-right, bottom-left, bottom-center, bottom-right
 
-7. **Local validation before pushing**:
+8. **Local validation before pushing**:
    ```bash
    # Validate all D2 diagrams locally
    ./scripts/validate-d2.sh
