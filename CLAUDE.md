@@ -1316,14 +1316,21 @@ NodeC: |md
 Node A: Label     # Space in node name - use Node_A or NodeA
 Node: "Label      # Missing closing quote
 Node -> Target    # Using undefined Target node
+Problem: "Text" {
+  shape: rectangle
+  near: center-right  # ❌ FATAL: near: inside blocks = build failure
+}
 ```
 
 #### Essential Syntax Rules:
 1. **Node names**: No spaces, use letters/numbers/underscores (e.g., `Node1`, `Process_A`)
 2. **Every node referenced in edges MUST be defined**
 3. **Quote matching**: Each `"` needs closing `"`
-4. **One node definition per line**
-5. **Use `|md` blocks for multi-line text with markdown formatting
+4. **NEVER use `near:` inside blocks with other properties** - causes "unexpected text after map" build failures
+   - ✅ VALID: `SomeText: {near: center-right}` (standalone)
+   - ❌ INVALID: Mixing `near:` with `shape:`, `style:` etc. in same block
+5. **One node definition per line**
+6. **Use `|md` blocks for multi-line text with markdown formatting
 
 **Key Points**:
 - Simple labels don't need quotes: `Node: Label Text`
@@ -1953,7 +1960,11 @@ All 17 diagram types are technically supported, but use these based on content n
 **PROBLEM**: Text appears white/invisible on light backgrounds in light mode.
 **SOLUTION**: Text color is now forced to black in light mode via global CSS. Never override this.
 
-#### 2. Broken Hyperlinks (ALWAYS VERIFY)
+#### 2. Near Positioning Inside Blocks (CAUSES BUILD FAILURES)
+**PROBLEM**: Using `near:` inside node definition blocks with other properties causes "unexpected text after map" errors.
+**SOLUTION**: NEVER use `near:` inside blocks with other properties. Only use as standalone positioning.
+
+#### 3. Broken Hyperlinks (ALWAYS VERIFY)
 **PROBLEM**: Many click directives point to non-existent URLs (404 errors).
 **SOLUTION**: ALWAYS verify URLs exist before adding click directives:
 ```bash
@@ -1983,9 +1994,25 @@ Common correct URLs:
    - **Cause**: Labels too long for node width
    - **Fix**: Shorten to <15 characters or use abbreviations
    
-4. **"unexpected text after unquoted string"**:
-   - **Cause**: Using `near:` or other positioning inside node blocks
-   - **Fix**: Remove positioning attributes from inside blocks, use comments instead
+4. **"unexpected text after unquoted string" or "unexpected text after map"**:
+   - **Cause**: Using `near:` positioning inside node definition blocks with other properties
+   - **Example of INVALID syntax**:
+     ```d2
+     Problem: "Text" {
+       shape: rectangle
+       style.fill: "#ffcccc"
+       near: center-right  # ❌ INVALID - near: cannot be inside blocks
+     }
+     ```
+   - **Fix**: Remove positioning from inside blocks - only use `near:` as standalone:
+     ```d2
+     Problem: "Text" {
+       shape: rectangle
+       style.fill: "#ffcccc"
+     }
+     # Or use positioning as standalone (valid):
+     # SomeNode: {near: center-right}
+     ```
    
 5. **404 errors on diagram links**:
    - **Cause**: Incorrect URL paths in link properties
