@@ -27,11 +27,27 @@ Treat your personal access token like a password. Do not share it publicly or co
 :::
 
 :::warning[Token Invalidation on Logout]
-**Important**: Your personal access token is invalidated when you log out of Tallyfy. This means:
-- Logging out will break any automations using your token
-- You'll need to obtain a new token after logging back in
-- Consider using application tokens (Enterprise plans) for stable, long-running automations
-- Advise users who need persistent API access to avoid logging out frequently
+**Important**: Your personal access token is automatically invalidated and regenerated every time you log out of Tallyfy. This is a security feature that can impact your integrations.
+
+**What causes token invalidation**:
+- Manual logout from the web interface
+- Automatic session timeout after inactivity
+- Browser clearing cookies/sessions
+- Switching between multiple Tallyfy organizations
+- Password reset operations
+
+**Impact on automations**:
+- All API calls using the old token will return 401/403 errors
+- Automations will stop working immediately
+- You'll need to manually update the token in all integrations
+
+**Best practices for stable API access**:
+1. **Dedicated service accounts** - Create a specific user for API integrations who never logs out
+2. **Error handling** - Implement 401/403 detection with alerts for token refresh
+3. **Token monitoring** - Track token validity and alert on unexpected changes
+4. **Document dependencies** - Keep a list of all systems using each token
+5. **Consider OAuth flow** - For production systems, use OAuth with refresh tokens
+6. **Enterprise options** - Contact support about application tokens that don't expire on logout
 :::
 
 :::note[API Access Plans]
