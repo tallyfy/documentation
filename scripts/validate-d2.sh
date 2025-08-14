@@ -34,11 +34,11 @@ for file in $(grep -r '```d2' src/content/docs --include='*.mdx' -l); do
         elif [[ "$line" == '```' ]]; then
             if [ -s "$temp_file" ]; then
                 # Try to compile the D2 diagram
-                if ! d2 "$temp_file" "$output_file" 2>/dev/null; then
+                if ! d2 --layout=elk --theme=104 --sketch=false --pad=10 --dark-theme=200 "$temp_file" "$output_file" 2>/dev/null; then
                     echo "  ❌ D2 syntax error in block $block_num"
                     # Show the actual error
                     echo "  Error details:"
-                    d2 "$temp_file" "$output_file" 2>&1 | head -5 | sed 's/^/    /'
+                    d2 --layout=elk --theme=104 --sketch=false --pad=10 --dark-theme=200 "$temp_file" "$output_file" 2>&1 | head -5 | sed 's/^/    /'
                     error_count=$((error_count + 1))
                 else
                     echo "  ✅ Block $block_num valid"

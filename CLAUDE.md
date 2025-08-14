@@ -1110,7 +1110,7 @@ Example atomic prompts:
 
 ## 📊 D2 Diagram Guidelines for Tallyfy Documentation
 
-### 🚨 MANDATORY NOTATION RULES (2025-08-13 Update)
+### 🚨 MANDATORY NOTATION RULES
 
 **CRITICAL**: D2 provides cleaner, more maintainable diagram notation. These rules are MANDATORY for consistent rendering.
 
@@ -1193,7 +1193,7 @@ Decision -> End: No
    - "Authorization" (13 chars) → Use "Auth" (4 chars)
    - "Synchronization" (15 chars) → Use "Sync" (4 chars)
 
-### 🔧 D2 Syntax Troubleshooting (2025-08-14 Update)
+### 🔧 D2 Syntax Troubleshooting
 
 **CRITICAL SYNTAX ERRORS TO AVOID** (from Cloudflare Pages build failures):
 
@@ -1231,7 +1231,7 @@ Decision -> End: No
    ./scripts/validate-d2.sh
    ```
 
-### Critical Implementation Notes (2025 Update)
+### Critical Implementation Notes
 
 **RENDERING CONFIGURATION**: All D2 diagrams are rendered with global theme and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
 - Brand colors (light green #f2faf4, #e1f7e6 with dark green borders #225930)
