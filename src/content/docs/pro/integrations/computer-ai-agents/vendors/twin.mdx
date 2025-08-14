@@ -158,43 +158,43 @@ Want proof this works? Check out Twin.so's first major deployment:
 This diagram shows how Tallyfy orchestrates Twin.so agents to retrieve invoices from external websites automatically.
 
 ```d2
-B: "B"
-E: "E"
-T: "T"
-TA: "TA"
-TS: "TS"
-W: "W"
-autonumber
-T as Tallyfy Process
-W as Webhook/API
-TS as Twin.so API
-TA as Twin.so Agent
-B as Browser Session
-E as External Site (e.g., OpenAI)
-# Note over T,E: Invoice Retrieval Automation Flow
-T -> T: Task becomes active
-T -> W: Trigger webhook
-W -> TS: POST /api/tasks/start starting_url, goal, access_key
-TS -> TA: Initialize agent task
-TA -> B: Launch secure browser
-B -> E: Navigate to platform.openai.com
-# Note over B,E: Agent uses vaulted credentials
-B -> E: Login with credentials
-E- -> B: Authentication success
-B -> E: Navigate to billing section
-E- -> B: Display invoices
-B -> E: Download February 2025 invoice
-E- -> B: Invoice file ($92.10)
-B- -> TA: Extracted data & file
-TA- -> TS: Task complete + results
-# alt: Webhook Callback
-TS- -> W: POST callback with results
-W- -> T: Update task with invoice
-else Status Polling
-T -> TS: GET /api/tasks/{id}/status
-TS- -> T: Status: completed + results
-# end block
-T -> T: Attach invoice to task Continue process
+T: "Tallyfy Process"
+W: "Webhook/API"
+TS: "Twin.so API"
+TA: "Twin.so Agent"
+B: "Browser Session"
+E: "External Site (e.g., OpenAI)"
+
+# Invoice Retrieval Automation Flow
+T -> T: "1. Task becomes active"
+T -> W: "2. Trigger webhook"
+W -> TS: "3. POST /api/tasks/start starting_url, goal, access_key"
+TS -> TA: "4. Initialize agent task"
+TA -> B: "5. Launch secure browser"
+B -> E: "6. Navigate to platform.openai.com"
+# Agent uses vaulted credentials
+B -> E: "7. Login with credentials"
+E -> B: "8. Authentication success"
+B -> E: "9. Navigate to billing section"
+E -> B: "10. Display invoices"
+B -> E: "11. Download February 2025 invoice"
+E -> B: "12. Invoice file ($92.10)"
+B -> TA: "13. Extracted data & file"
+TA -> TS: "14. Task complete + results"
+
+# Webhook Callback Option
+CallbackOption: "Webhook Callback" {
+  TS -> W: "15a. POST callback with results"
+  W -> T: "16a. Update task with invoice"
+}
+
+# Status Polling Option
+PollingOption: "Status Polling" {
+  T -> TS: "15b. GET /api/tasks/{id}/status"
+  TS -> T: "16b. Status: completed + results"
+}
+
+T -> T: "17. Attach invoice to task Continue process"
 ```
 
 **What to notice:**

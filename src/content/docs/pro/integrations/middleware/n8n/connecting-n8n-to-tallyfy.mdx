@@ -240,38 +240,43 @@ Treat your API key like a password. Never share it publicly or commit it to vers
 This sequence diagram illustrates how Tallyfy sends real-time events to n8n with retry logic.
 
 ```d2
-sequenceDiagram
-autonumber
-participant S as Step/Task
-participant T as Tallyfy
-participant Q as Queue
-participant W as Webhook Service
-participant n8n as n8n Workflow
-S->>T: User completes task
-T->>T: Check webhook config
-alt Webhook configured
-T->>Q: Queue webhook event
-Note over Q: Event queued for delivery
-else No webhook
-T->>T: Skip webhook
+S: Step/Task
+T: Tallyfy
+Q: Queue
+W: Webhook Service
+n8n: n8n Workflow
+
+S -> T: 1. User completes task
+T -> T: 2. Check webhook config
+
+webhook_check: {
+  T -> Q: 3. Queue webhook event |Webhook configured|
+  # Event queued for delivery
+  T -> T: Skip webhook |No webhook|
 }
-Q->>W: Process webhook
-loop Max 3 attempts
-W->>n8n: POST {webhook_url}
-Note over W,n8n: Timeout: 30 seconds
-alt Success (2xx)
-n8n->>W: Success response
-W->>T: Mark delivered
-Note over T: Log success
-else Failure
-n8n->>W: Error or timeout
-W->>W: Wait (exponential backoff)
-Note over W: 1st: 1min 2nd: 5min 3rd: 15min
+
+Q -> W: 4. Process webhook
+
+retry_loop: {
+  W -> n8n: 5. POST {webhook_url}
+  # Timeout: 30 seconds
+  
+  success_path: {
+    n8n -> W: 6. Success response |Success (2xx)|
+    W -> T: 7. Mark delivered
+    # Log success
+  }
+  
+  failure_path: {
+    n8n -> W: Error or timeout |Failure|
+    W -> W: Wait (exponential backoff)
+    # 1st: 1min 2nd: 5min 3rd: 15min
+  }
 }
-}
-alt All attempts failed
-W->>T: Mark failed
-Note over T: Alert administrators
+
+final_failure: {
+  W -> T: 8. Mark failed |All attempts failed|
+  # Alert administrators
 }
 ```
 

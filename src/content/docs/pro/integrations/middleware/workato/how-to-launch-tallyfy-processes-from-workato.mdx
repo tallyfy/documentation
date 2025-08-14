@@ -23,44 +23,51 @@ Want to launch Tallyfy workflows when something happens in Salesforce? Or maybe 
 This diagram shows how external triggers flow through Workato to launch Tallyfy processes automatically.
 
 ```d2
-ES: "ES"
-HTTP: "HTTP"
-T: "T"
-W: "W"
-autonumber
-ES as External System (Salesforce/Zendesk)
-W as Workato Recipe
-HTTP as HTTP Connector
-T as Tallyfy API
-# Note over ES,T: Integration Flow: External Event → Tallyfy Process Launch
-ES -> W: Trigger Event (New opportunity, ticket, etc.)
-W -> W: Extract trigger data
-W -> HTTP: Configure request
-# Note over HTTP: Authentication: Bearer token + X-Tallyfy-Client header
-HTTP -> T: POST /api/runs with JSON body
-# Note right of T: Body includes: - blueprint_id - owner_id - prerun data
-# alt: Success
-T- -> HTTP: 200 OK Process details
-HTTP- -> W: Process ID, title, status
-W -> W: Store process details
-# Note over W: Process launched successfully
-else 401 Unauthorized
-T- -> HTTP: 401 Error
-HTTP- -> W: Invalid token
-W -> W: Check API token validity
-else 404 Not Found
-T- -> HTTP: 404 Error
-HTTP- -> W: Template not found
-W -> W: Verify template ID
-else 400 Bad Request
-T- -> HTTP: 400 Error
-HTTP- -> W: Invalid data
-W -> W: Log error for debugging
-else Rate Limit
-T- -> HTTP: 429 Too Many Requests
-HTTP- -> W: Rate limit exceeded
-W -> W: Implement exponential backoff
-# end block
+ES: "External System (Salesforce/Zendesk)"
+W: "Workato Recipe"
+HTTP: "HTTP Connector"
+T: "Tallyfy API"
+
+# Integration Flow: External Event → Tallyfy Process Launch
+ES -> W: "1. Trigger Event (New opportunity, ticket, etc.)"
+W -> W: "2. Extract trigger data"
+W -> HTTP: "3. Configure request"
+# Authentication: Bearer token + X-Tallyfy-Client header
+HTTP -> T: "4. POST /api/runs with JSON body"
+# Body includes: - blueprint_id - owner_id - prerun data
+
+# Success Path
+Success: "Success Response" {
+  T -> HTTP: "200 OK Process details"
+  HTTP -> W: "Process ID, title, status"
+  W -> W: "Store process details"
+  # Process launched successfully
+}
+
+# Error Paths
+Error401: "401 Unauthorized" {
+  T -> HTTP: "401 Error"
+  HTTP -> W: "Invalid token"
+  W -> W: "Check API token validity"
+}
+
+Error404: "404 Not Found" {
+  T -> HTTP: "404 Error"
+  HTTP -> W: "Template not found"
+  W -> W: "Verify template ID"
+}
+
+Error400: "400 Bad Request" {
+  T -> HTTP: "400 Error"
+  HTTP -> W: "Invalid data"
+  W -> W: "Log error for debugging"
+}
+
+RateLimit: "429 Rate Limit" {
+  T -> HTTP: "429 Too Many Requests"
+  HTTP -> W: "Rate limit exceeded"
+  W -> W: "Implement exponential backoff"
+}
 ```
 
 **What to notice:**

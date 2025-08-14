@@ -183,36 +183,24 @@ Let's walk through exactly how Tallyfy orchestrates a ChatGPT Agent task. You'll
 **Scenario**: Your sales team needs dinner reservations for client meetings. Here's how it works with Tallyfy + ChatGPT Agent.
 
 ```d2
-C: "C"
-R: "R"
-T: "T"
-U: "U"
-W: "W"
-T as Tallyfy Process
-W as Webhook
-C as ChatGPT Agent
-R as Restaurant Site
-U as User
-T -> T: Task triggered: Make reservation
-T -> W: Send task data via webhook
-# Note over W: Restaurant: Italian Place Party: 4 people Date: Friday 7pm
-W -> C: POST /agent/execute with instructions
-C -> C: Parse requirements
-C -> R: Navigate to OpenTable
-R- -> C: Search results
-C -> R: Select restaurant
-C -> R: Fill reservation form
-# alt: Availability found
-R- -> C: Confirmation #12345
-C- -> W: Success + confirmation
-W- -> T: Update task fields
-T -> U: Notification: Reserved!
-else No availability
-R- -> C: No tables available
-C- -> W: Failed - no availability
-W- -> T: Mark task for review
-T -> U: Alert: Manual action needed
-# end block
+T: "Tallyfy Process"
+W: "Webhook"
+C: "ChatGPT Agent"
+R: "Restaurant Site"
+U: "User"
+
+T -> T: "Task triggered: Make reservation"
+T -> W: "Send task data via webhook"
+W -> C: "POST /agent/execute with instructions"
+C -> C: "Parse requirements"
+C -> R: "Navigate to OpenTable"
+R --> C: "Search results" {style.stroke-dash: 3}
+C -> R: "Select restaurant"
+C -> R: "Fill reservation form"
+R --> C: "Confirmation #12345" {style.stroke-dash: 3}
+C --> W: "Success + confirmation" {style.stroke-dash: 3}
+W --> T: "Update task fields" {style.stroke-dash: 3}
+T -> U: "Notification: Reserved!"
 ```
 
 **Data Flow Details**:
@@ -352,27 +340,21 @@ The agent understands your Tallyfy context through MCP - no complex prompts need
 For high-volume automation, implement a queue-based system:
 
 ```d2
-Q: "Q"
-R: "R"
-T: "T"
-W1: "W1"
-W2: "W2"
-W3: "W3"
-T: Tallyfy Process
-Q: Message Queue
-W1: Worker 1
-W2: Worker 2
-W3: Worker 3
-R: Results Aggregator
+T: "Tallyfy Process"
+Q: "Message Queue"
+W1: "Worker 1"
+W2: "Worker 2"
+W3: "Worker 3"
+R: "Results Aggregator"
 
-T -> Q: Webhook
-Q -> W1: Process
-Q -> W2: Process
-Q -> W3: Process
+T -> Q: "Webhook"
+Q -> W1: "Process"
+Q -> W2: "Process"
+Q -> W3: "Process"
 W1 -> R
 W2 -> R
 W3 -> R
-R -> T: Update via API
+R -> T: "Update via API"
 ```
 
 This architecture handles:

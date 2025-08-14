@@ -99,11 +99,15 @@ Validator: "Validator"
 Request: "Task Request" -> Planner: ""<b>Planner</b> Sets goals""
 Planner -> Actor: ""<b>Actor</b> Executes actions""
 Actor -> Validator: ""<b>Validator</b> Checks results""
-Validator -> : ""Success"" Complete: "Complete"
-Validator -> : ""Fail"" Planner
-click Planner "#planner-agent" "Learn about Planner Agent"
-click Actor "#actor-agent" "Learn about Actor Agent"
-click Validator "#validator-agent" "Learn about Validator Agent"
+Validator -> Complete: "Success"
+Complete: "Complete"
+Validator -> Planner: "Fail"
+Planner.link: "#planner-agent"
+Planner.tooltip: "Learn about Planner Agent"
+Actor.link: "#actor-agent"
+Actor.tooltip: "Learn about Actor Agent"
+Validator.link: "#validator-agent"
+Validator.tooltip: "Learn about Validator Agent"
 ```
 
 **What to notice:**
@@ -183,53 +187,52 @@ Let's see how this works in practice. Say you need to check competitor pricing a
 This demonstrates how Tallyfy orchestrates Skyvern's browser automation with asynchronous API communication to extract competitor data.
 
 ```d2
-A: "A"
-B: "B"
-D: "D"
-P: "P"
-S: "S"
-T: "T"
-W: "W"
-autonumber
-T as Tallyfy Process
-W as Webhook/Middleware
-S as Skyvern API
-P as Planner Agent
-A as Actor Agent
-D as Data Agent
-B as Browser
-T -> W: Task starts with form data (URL, product name, schema)
-W -> S: POST /v1/tasks {"url", "prompt", "data_schema"}
-S -> S: Create task ID
-S- -> W: {"task_id": "abc-123", "status": "queued"}
-W- -> T: Task initiated
-# Note over S,B: Async Processing Begins
-S -> P: Analyze task requirements
-P -> P: Break into sub-goals: 1. Navigate to page 2. Find product 3. Extract data
-P -> A: Execute: Navigate to URL
-A -> B: Browser automation (Playwright/Selenium)
-B- -> A: Page loaded
-P -> A: Execute: Find "MegaWidget Advanced"
-A -> B: Locate element by text
-B- -> A: Product found
-P -> D: Extract price & stock
-D -> B: Parse DOM elements
-B- -> D: Raw data extracted
-D -> D: Structure to JSON schema
-# loop: Polling (every 2-5 seconds)
-T -> W: Check status
-W -> S: GET /v1/tasks/abc-123
-S- -> W: {"status": "processing"}
-W- -> T: Still processing...
-# end block
-D -> S: Task complete {"product_name": "MegaWidget Advanced", "price": "$99.99", "stock_status": "In Stock"}
-T -> W: Check status
-W -> S: GET /v1/tasks/abc-123
-S- -> W: {"status": "completed", "data": {...}}
-W- -> T: JSON result
-T -> T: Update form fields: • Competitor Price = $99.99 • Stock Status = In Stock
-T -> T: Continue to next step
-# Note over T: Process continues with extracted data
+T: "Tallyfy Process"
+W: "Webhook/Middleware"
+S: "Skyvern API"
+P: "Planner Agent"
+A: "Actor Agent"
+D: "Data Agent"
+B: "Browser"
+
+T -> W: "1. Task starts with form data (URL, product name, schema)"
+W -> S: "2. POST /v1/tasks {'url', 'prompt', 'data_schema'}"
+S -> S: "3. Create task ID"
+S -> W: "4. {'task_id': 'abc-123', 'status': 'queued'}"
+W -> T: "5. Task initiated"
+
+# Async Processing Begins
+AsyncProcessing: "Async Processing" {
+  S -> P: "6. Analyze task requirements"
+  P -> P: "7. Break into sub-goals: 1. Navigate to page 2. Find product 3. Extract data"
+  P -> A: "8. Execute: Navigate to URL"
+  A -> B: "9. Browser automation (Playwright/Selenium)"
+  B -> A: "10. Page loaded"
+  P -> A: "11. Execute: Find 'MegaWidget Advanced'"
+  A -> B: "12. Locate element by text"
+  B -> A: "13. Product found"
+  P -> D: "14. Extract price & stock"
+  D -> B: "15. Parse DOM elements"
+  B -> D: "16. Raw data extracted"
+  D -> D: "17. Structure to JSON schema"
+}
+
+# Polling (every 2-5 seconds)
+PollingLoop: "Polling Loop" {
+  T -> W: "18. Check status"
+  W -> S: "19. GET /v1/tasks/abc-123"
+  S -> W: "20. {'status': 'processing'}"
+  W -> T: "21. Still processing..."
+}
+
+D -> S: "22. Task complete {'product_name': 'MegaWidget Advanced', 'price': '$99.99', 'stock_status': 'In Stock'}"
+T -> W: "23. Check status"
+W -> S: "24. GET /v1/tasks/abc-123"
+S -> W: "25. {'status': 'completed', 'data': {...}}"
+W -> T: "26. JSON result"
+T -> T: "27. Update form fields: • Competitor Price = $99.99 • Stock Status = In Stock"
+T -> T: "28. Continue to next step"
+# Process continues with extracted data
 ```
 
 **What to notice:**
