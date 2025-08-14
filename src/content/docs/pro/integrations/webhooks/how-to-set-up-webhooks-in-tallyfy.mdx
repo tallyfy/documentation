@@ -50,52 +50,33 @@ W: Webhook Service
 M: Middleware (Zapier/Make/n8n)
 E: External System (Slack/CRM/etc)
 
-# Webhook Event Flow
-Webhook Event Flow: {near: top-center}
-
-1: P -> T: Complete step/Launch process
-2: T -> T: Check webhook config
+# Main flow
+P -> T: 1. Complete step/Launch process
+T -> T: 2. Check webhook config
 
 # Template vs Step Level
-Template-level: {
-  note1: Fires on ANY step or launch {near: T}
-  3a: T -> Q: Queue template webhook with ALL process data
-}
+T -> Q: 3a. Queue template webhook (ANY step)
+T -> Q: 3b. Queue step webhook (SPECIFIC step)
 
-Step-level: {
-  note2: Fires on SPECIFIC step only {near: T}
-  3b: T -> Q: Queue step webhook with step data
-}
+Q -> W: 4. Process webhook event
 
-4: Q -> W: Process webhook event
+# Webhook Processing
+W -> M: 5. POST webhook_url\nX-Tallyfy-OrgID: [org_id]
 
-# Retry Loop (Max 3 attempts)
-Retry: {
-  5: W -> M: POST webhook_url\nX-Tallyfy-OrgID: [org_id]\nJSON payload
-  Timeout: 30 seconds {near: W-M}
-  
-  # Success path
-  Success: {
-    6a: M --> W: Success response (2xx) {style.stroke-dash: 3}
-    7a: W -> T: Mark delivered
-    8a: M -> M: Validate X-Tallyfy-OrgID
-    9a: M -> E: Trigger action (Send Slack message)
-    10a: E --> M: Action confirmed {style.stroke-dash: 3}
-  }
-  
-  # Failure path
-  Failure: {
-    6b: M --> W: Error/Timeout {style.stroke-dash: 3}
-    7b: W -> W: Exponential backoff
-    Retry timing: 1min, 5min, 15min {near: W}
-  }
-}
+# Success path
+M -> W: 6a. Success (2xx) {style.stroke-dash: 3}
+W -> T: 7a. Mark delivered
+M -> M: 8a. Validate OrgID
+M -> E: 9a. Trigger action
+E -> M: 10a. Confirmed {style.stroke-dash: 3}
+
+# Failure path  
+M -> W: 6b. Error/Timeout {style.stroke-dash: 3}
+W -> W: 7b. Wait (1m, 5m, 15m)
+W -> M: 8b. Retry POST
 
 # Final failure
-All attempts failed: {
-  11: W -> T: Mark failed
-  Log failure for debugging {near: T}
-}
+W -> T: 11. Mark failed (after 3 retries)
 ```
 
 **What to notice:**

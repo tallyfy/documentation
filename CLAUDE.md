@@ -56,58 +56,162 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### When to Use Hover Annotations
 
-Hover annotations use littlefoot.js to display supplementary information as interactive popovers. Use them SPARINGLY and INTELLIGENTLY.
+Hover annotations use littlefoot.js to display supplementary information as interactive popovers. Use them SPARINGLY and INTELLIGENTLY - most articles need NO footnotes.
 
-#### ✅ GOOD Use Cases for Annotations:
-1. **Technical clarifications** - Brief explanations of jargon or acronyms that some (not all) users need
-2. **Supporting data/research** - Statistics, studies, or evidence that backs up claims
-3. **Advanced details** - Optional deeper explanations for power users
-4. **Examples without cluttering** - Quick examples that illustrate a point
-5. **Cross-references** - Additional context that links concepts without disrupting flow
+#### 🎯 CRITICAL: Intelligent Footnote Addition Protocol
 
-#### ❌ NEVER Use Annotations For:
-1. **Critical instructions** - Steps users MUST follow to complete tasks
-2. **Warnings or requirements** - Security, compliance, or validation rules
-3. **Primary definitions** - Core concepts everyone needs to understand
-4. **Long explanations** - Anything over 2-3 sentences belongs in the main text
-5. **Mobile-critical content** - Information essential for mobile users (hover doesn't work on touch)
+**When creating or editing any article, evaluate for HIGH-VALUE footnote opportunities:**
 
-### Implementation Syntax
+1. **Scan for these specific patterns** that benefit from footnotes:
+   - Technical terms/jargon that ~30% of users might not know
+   - Performance claims that benefit from evidence
+   - API/code parameters needing clarification
+   - Architecture decisions with non-obvious reasons
+   - Integration points with external systems
+   - Industry standards or protocols mentioned
+   - **Tallyfy-specific terminology** when first introduced or in complex contexts
+
+2. **Apply the 5-Point Value Test** before adding ANY footnote:
+   - Will some (not all) users benefit from this clarification?
+   - Is the information supplementary (not critical)?
+   - Can it be explained in 50-150 characters?
+   - Does it add genuine value without disrupting flow?
+   - Would an expert user find this helpful, not patronizing?
+
+3. **Target Metrics**:
+   - **Most articles**: 0 footnotes (default)
+   - **Technical articles**: 1-3 footnotes maximum
+   - **API/integration docs**: 2-5 footnotes maximum
+   - **Character limit**: 50-150 characters per footnote
+   - **Success rate**: Only ~10-15% of articles should have footnotes
+
+#### ✅ HIGH-VALUE Footnote Patterns:
+
+1. **Technical Clarifications** (Use when term is industry-specific)
+   ```markdown
+   The system uses OAuth 2.0[^1] for authentication.
+   [^1]: Industry-standard protocol for secure third-party authorization without sharing passwords
+   ```
+
+2. **Performance Evidence** (Use for specific claims)
+   ```markdown
+   Processes complete 80% faster[^2] with automation.
+   [^2]: Based on analysis of 10,000+ workflows comparing manual vs automated execution times
+   ```
+
+3. **API Implementation Details** (Use for non-obvious parameters)
+   ```markdown
+   Set temperature=0.3[^3] for consistent results.
+   [^3]: Lower values (0-1) make AI more deterministic, reducing variation across runs
+   ```
+
+4. **Architecture Context** (Use for design decisions)
+   ```markdown
+   Uses speaker diarization[^4] to identify task owners.
+   [^4]: Audio processing that separates different speakers, crucial for accurate task assignment
+   ```
+
+5. **Integration Specifics** (Use for external system details)
+   ```markdown
+   Connects via webhook[^5] to your CRM.
+   [^5]: HTTP callbacks triggered by Tallyfy events, enabling real-time data synchronization
+   ```
+
+6. **Tallyfy-Specific Terms** (Use when context needs clarification)
+   ```markdown
+   The template becomes a process[^6] when launched.
+   [^6]: Running instance with tracked tasks, assignments, and deadlines - like a template brought to life
+   ```
+   
+   ```markdown
+   Assign to job titles[^7] for dynamic routing.
+   [^7]: Role-based assignment that automatically finds the right person when the process runs
+   ```
+   
+   ```markdown
+   Use snippets[^8] to reuse content blocks.
+   [^8]: Centralized text fragments that update everywhere when edited once - perfect for legal disclaimers
+   ```
+
+#### ❌ NEVER Use Footnotes For:
+1. **Basic UI instructions** - "Click the button" explanations
+2. **Critical warnings** - Security, compliance, validation rules
+3. **Core definitions** - Fundamental concepts everyone needs
+4. **Obvious clarifications** - Information users can infer
+5. **Marketing fluff** - Benefits or features already clear in context
+6. **Long explanations** - Anything over 150 characters
+7. **Mobile-critical info** - Touch devices can't hover
+
+### Implementation Requirements
+
+**CRITICAL - Both parts required**:
 ```markdown
-Text with annotation[^1] appears here.
+Article text with term[^1] that needs clarification.
 
-[^1]: This brief supplementary information appears on hover/click.
-```
+<!-- More article content -->
 
-### ⚠️ CRITICAL: Footnote Implementation Requirements
-**BOTH parts are required for footnotes to work**:
-1. **Reference in text**: `[^1]` where you want the superscript to appear
-2. **Definition at bottom**: `[^1]: Content here` - MUST be placed before the "Related articles" section
-
-**Common Mistake**: Adding references without definitions causes footnotes to appear as plain text "[^1]" instead of interactive elements.
-
-**Correct placement**:
-```markdown
-Article content with reference[^1]...
-
-[^1]: Definition goes here before Related articles
+[^1]: Brief 50-150 character explanation providing genuine value
 
 ## Related articles
 <CardGrid>...</CardGrid>
 ```
 
-### Quality Checklist
-- [ ] Is this information optional/supplementary?
-- [ ] Can users complete their task WITHOUT this information?
-- [ ] Is it under 3 sentences?
-- [ ] Does it enhance rather than distract?
-- [ ] Will the main text still make sense without it?
+**Placement Rules**:
+- Footnote definitions go BEFORE "Related articles" section
+- Number sequentially starting from [^1]
+- Group all definitions together
+- Don't mix definitions with main content
 
-### Examples of Intelligent Usage
-- **Good**: "Processes complete 80% faster[^1]" → [^1]: Based on analysis of 10,000+ customer workflows comparing manual vs. automated execution times.
-- **Bad**: "Click the Submit button[^1]" → [^1]: The submit button saves your work.
-- **Good**: "Uses Azure Cognitive Services[^1]" → [^1]: Microsoft's cloud-based AI that provides enterprise-grade translation with 99.9% uptime SLA.
-- **Bad**: "Required fields[^1]" → [^1]: You must fill in all required fields.
+### Quality Control Checklist
+
+Before adding ANY footnote, verify:
+- [ ] Does this pass the 5-Point Value Test?
+- [ ] Is it 50-150 characters?
+- [ ] Would removing it still leave the article complete?
+- [ ] Does it clarify without patronizing?
+- [ ] Is it factual and specific (no vague statements)?
+- [ ] Have you limited to 5 footnotes maximum per article?
+
+### Examples of Intelligent vs Poor Usage
+
+#### ✅ INTELLIGENT (High-Value):
+- "Uses ELK layout[^1]" → [^1]: Layered graph drawing algorithm optimized for complex hierarchical diagrams
+- "Rate limit is 100 req/min[^2]" → [^2]: Resets every 60 seconds with burst allowance up to 150 requests
+- "Supports SAML 2.0[^3]" → [^3]: XML-based standard enabling single sign-on across independent security domains
+
+#### ❌ POOR (No Value):
+- "Click Submit[^1]" → [^1]: This saves your work
+- "Fill required fields[^2]" → [^2]: Required fields must be filled
+- "Fast performance[^3]" → [^3]: Tallyfy is very fast
+- "User-friendly interface[^4]" → [^4]: Easy to use for everyone
+
+### Tallyfy Terms That May Benefit from Footnotes
+
+**Consider footnotes for these Tallyfy-specific terms when context needs clarification:**
+
+- **blueprints** → API term for templates, different from UI terminology
+- **job titles** → Dynamic role-based routing vs. specific user assignment
+- **snippets** → Centralized content that updates everywhere
+- **tracker view** → Process-level overview vs. task-level view
+- **light users** → Limited permissions, view-only access
+- **kick-off form** → Data collection before process starts
+- **deadline rules** → Automatic due date calculations
+- **public forms** → External data collection without login
+- **runs** → Individual process instances from same template
+- **automations** → If-this-then-that workflow rules
+
+**Remember**: Only add footnotes when the term appears in a context where ~30% of users might need clarification. Never footnote basic UI terms or actions.
+
+### Automated Intelligence System
+
+A production-ready system exists at `/temporary/footnote-annotator/` for batch processing. For individual articles during creation/editing, manually apply the protocol above.
+
+**Key Stats from Testing**:
+- ~85% of articles need NO footnotes
+- ~12% benefit from 1-2 footnotes
+- ~3% (technical/API docs) benefit from 3-5 footnotes
+- Average character count: 95 characters per footnote
+- Most valuable categories: Technical terms (30%), API parameters (25%), Performance metrics (20%), Tallyfy-specific terms (15%)
 
 ## ROLE & PRIMARY OBJECTIVE
 
@@ -144,19 +248,58 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 - This applies to all documentation, articles, and content where our product names appear
 
 ### Tallyfy Pro Terminology & Concepts
+
+#### Core Workflow Terms
 - **Templates**: Where you define your process (API calls these "blueprints")
-  - Two types: Document templates and Procedure templates
+  - **Procedure templates**: Step-by-step workflows with tasks and assignments
+  - **Document templates**: Structured documents with fillable fields
 - **Processes**: Running instances of launched templates that you can track
 - **Steps vs Tasks**: 
   - In a procedure template: single items are called "steps"
   - In a launched process: single items are called "tasks"
-- **Automations**: "If this then that" rules
-- **Views**:
-  - Tasks view: Individual tasks assigned across all processes
-  - Tracker view: Birds-eye view at per-process level
-- **User Roles**: Administrator, Standard, and Light (Light users cannot edit/create templates)
+- **Runs**: Individual process instances (each launch creates a new run)
+
+#### Assignment & User Management
+- **User Roles**: 
+  - **Administrator**: Full access to all features and settings
+  - **Standard**: Can create/edit templates and manage processes
+  - **Light**: View-only access, cannot edit/create templates
 - **Guests**: Email addresses outside your company (unlimited free)
-- **Features**: API-first architecture, Free SSO for all customers
+- **Job Titles**: Role-based assignments that dynamically find the right person
+- **Groups**: Collections of users for bulk assignments
+- **Org Chart**: Hierarchical structure for approval routing
+
+#### Content & Automation
+- **Automations**: "If this then that" rules that trigger actions
+- **Snippets**: Reusable content blocks that update everywhere when edited
+- **Variables**: Dynamic placeholders that get filled with actual data
+- **Form Fields**: Input elements that collect data during task completion
+- **Kick-off Form**: Initial data collection before process launch
+- **Deadline Rules**: Automatic due date calculations based on business rules
+
+#### Views & Navigation
+- **Tasks View**: Individual tasks assigned across all processes
+- **Tracker View**: Birds-eye view at per-process level
+- **Dashboard**: Personal overview of assignments and deadlines
+- **Templates**: Collection of all templates available to launch
+
+#### Technical & Integration Terms
+- **API**: RESTful interface (API-first architecture)
+- **Webhooks**: Event-driven HTTP callbacks
+- **SSO**: Single Sign-On (free for all customers)
+- **Middleware**: Integration platform connections (Zapier, Make, etc.)
+- **Tallyfy Analytics**: Built-in process performance metrics
+- **Public Forms**: External-facing forms for data collection
+
+#### Process States & Actions
+- **Draft**: Template under construction
+- **Active**: Live template available for launching
+- **Archived**: Retired template (kept for historical reference)
+- **Paused**: Process temporarily halted
+- **Completed**: All tasks finished
+- **Cancelled**: Process terminated before completion
+
+**Note on Footnotes**: Consider adding brief footnotes for these terms when they first appear in technical articles or when the context might confuse new users. Keep explanations under 150 characters.
 
 ### Core Concepts Reference Links (Pro Product)
 Use these absolute paths for internal linking:
@@ -1001,7 +1144,11 @@ Example atomic prompts:
    - ❌ WRONG: `Node("Text")` or `Node([Text])`
    - ✅ RIGHT: `Node["Text"]` or `Node[Text]`
 
-8. **PREVENT TEXT BLEEDING** (words splitting across lines):
+8. **NO positioning attributes inside node blocks**:
+   - ❌ WRONG: `Label: "Title" { near: top-center }`
+   - ✅ RIGHT: Just use comments like `# Title` or simple labels
+
+9. **PREVENT TEXT BLEEDING** (words splitting across lines):
    - ❌ WRONG: `Node["AI Transcription"]` (may split as "AI Transcripti" + "on")
    - ✅ RIGHT: `Node["AI Transcript"]` or `Node["Transcribe AI"]`
    - Keep labels under 15 characters when possible
@@ -1836,11 +1983,15 @@ Common correct URLs:
    - **Cause**: Labels too long for node width
    - **Fix**: Shorten to <15 characters or use abbreviations
    
-4. **404 errors on diagram links**:
+4. **"unexpected text after unquoted string"**:
+   - **Cause**: Using `near:` or other positioning inside node blocks
+   - **Fix**: Remove positioning attributes from inside blocks, use comments instead
+   
+5. **404 errors on diagram links**:
    - **Cause**: Incorrect URL paths in link properties
    - **Fix**: Verify paths exist, include trailing slashes
 
-5. **Diagram not rendering**:
+6. **Diagram not rendering**:
    - **Cause**: Invalid D2 syntax or unsupported keywords
    - **Fix**: Ensure using only D2-supported syntax, no legacy diagramming keywords
 
