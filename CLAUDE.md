@@ -1320,6 +1320,7 @@ Problem: "Text" {
   shape: rectangle
   near: center-right  # ❌ FATAL: near: inside blocks = build failure
 }
+A -> B: "Response {'data': 'value'}"  # ❌ FATAL: Curly braces in labels = substitution error
 ```
 
 #### Essential Syntax Rules:
@@ -1329,8 +1330,11 @@ Problem: "Text" {
 4. **NEVER use `near:` inside blocks with other properties** - causes "unexpected text after map" build failures
    - ✅ VALID: `SomeText: {near: center-right}` (standalone)
    - ❌ INVALID: Mixing `near:` with `shape:`, `style:` etc. in same block
-5. **One node definition per line**
-6. **Use `|md` blocks for multi-line text with markdown formatting
+5. **NEVER use curly braces `{}` in edge labels** - D2 interprets them as variable substitutions
+   - ❌ INVALID: `A -> B: "JSON {'key': 'value'}"`
+   - ✅ VALID: `A -> B: "JSON [key: value]"` or `A -> B: "JSON (key=value)"`
+6. **One node definition per line**
+7. **Use `|md` blocks for multi-line text with markdown formatting
 
 **Key Points**:
 - Simple labels don't need quotes: `Node: Label Text`
@@ -1964,7 +1968,11 @@ All 17 diagram types are technically supported, but use these based on content n
 **PROBLEM**: Using `near:` inside node definition blocks with other properties causes "unexpected text after map" errors.
 **SOLUTION**: NEVER use `near:` inside blocks with other properties. Only use as standalone positioning.
 
-#### 3. Broken Hyperlinks (ALWAYS VERIFY)
+#### 3. Curly Braces in Labels (CAUSES BUILD FAILURES)
+**PROBLEM**: Using `{}` in edge/node labels causes "substitutions must begin on {" errors.
+**SOLUTION**: Replace curly braces with square brackets `[]` or parentheses `()` for JSON-like data.
+
+#### 4. Broken Hyperlinks (ALWAYS VERIFY)
 **PROBLEM**: Many click directives point to non-existent URLs (404 errors).
 **SOLUTION**: ALWAYS verify URLs exist before adding click directives:
 ```bash
@@ -2021,6 +2029,13 @@ Common correct URLs:
 6. **Diagram not rendering**:
    - **Cause**: Invalid D2 syntax or unsupported keywords
    - **Fix**: Ensure using only D2-supported syntax, no legacy diagramming keywords
+
+7. **"substitutions must begin on {"**:
+   - **Cause**: Using curly braces `{}` in labels (D2 treats them as variable substitution syntax)
+   - **Example of INVALID**: `A -> B: "JSON response {'status': 'ok'}"`
+   - **Fix**: Replace curly braces with square brackets or parentheses:
+     - `A -> B: "JSON response [status: ok]"`
+     - `A -> B: "JSON response (status=ok)"`
 
 #### Debug Commands
 ```bash
