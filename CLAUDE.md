@@ -467,6 +467,7 @@ python scripts/generate-related-articles.py --dir [directory] --answers_api_key 
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [directory]
 python scripts/update-documentation-structure.py     # Update structure map after file changes
+python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
 
 ## PLATFORM & TECHNICAL REQUIREMENTS
@@ -485,12 +486,14 @@ python scripts/update-documentation-structure.py     # Update structure map afte
      order: 15
    description: [AI-generated comprehensive description]
    title: [Article title in sentence case]
+   lastUpdated: 2025-08-15  # Auto-generated from Git history
    ---
    ```
    - New articles must use ID: `0000000000000000000000000000000000`
    - **description** field is generated server-side
    - **sidebar.order**: Use sequential numbers (1, 2, 3...) for articles within a section to control display order
    - **title**: Must be short, practical, and in sentence case with only first letter capitalized unless proper nouns
+   - **lastUpdated**: Automatically updated from Git history by GitHub Actions (YYYY-MM-DD format)
    - **CRITICAL Title vs. Heading Rule**: The frontmatter title MUST be different from the main H2 heading
      - Title: Short and practical (e.g., "Create a table of contents")
      - H2 Heading: Slightly different, clarifying context (e.g., "Using table of contents in Tallyfy")
@@ -568,6 +571,7 @@ This repository uses a sophisticated Python-based content automation system:
 2. **AI-Generated Descriptions**: `generate-snippets.py` uses Claude AI to create page descriptions
 3. **Related Articles**: `generate-related-articles.py` fetches cross-references via Answers API
 4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
+5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
 
 ### Content Validation
 Run `python scripts/markdown-lint.py --dir src/content/docs` to validate:
@@ -1007,6 +1011,48 @@ When working with content:
 4. Run `python scripts/markdown-lint.py` to validate structure
 5. Use `npm run dev` to preview changes locally
 
+## LAST UPDATED DATES SYSTEM
+
+### Overview
+Every documentation page displays its last modification date, automatically maintained through Git history. This provides transparency about content freshness for users and improves SEO.
+
+### How It Works
+1. **GitHub Actions Workflow** (`answers.yml`):
+   - Runs on every commit to main branch
+   - Executes `update-last-modified.py` script
+   - Extracts last modified date from Git history for each MDX file
+   - Updates `lastUpdated` field in frontmatter
+
+2. **Date Format**:
+   - Format: `YYYY-MM-DD` (e.g., `2025-08-15`)
+   - Stored in frontmatter: `lastUpdated: 2025-08-15`
+   - Displayed as: "Last updated: August 15, 2025"
+
+3. **Automation Benefits**:
+   - No manual date maintenance required
+   - Accurate dates based on actual Git commits
+   - Consistent across all 600+ documentation files
+   - Automatically synced to rendering repository
+
+### Script Usage
+```bash
+# Update all lastUpdated dates from Git history
+python scripts/update-last-modified.py --dir=src/content/docs
+
+# The script will:
+# - Process all .mdx files recursively
+# - Extract last commit date for each file
+# - Update or add lastUpdated field in frontmatter
+# - Skip files already up-to-date
+# - Report summary of changes
+```
+
+### Important Notes
+- Requires full Git history (`fetch-depth: 0` in GitHub Actions)
+- Dates reflect when content was last modified in Git
+- If a file has no Git history, it won't get a lastUpdated date
+- The rendering repository (/support-docs) uses these dates from frontmatter
+
 ## AI INTEGRATION
 
 This repository extensively uses Claude AI for content automation:
@@ -1014,6 +1060,7 @@ This repository extensively uses Claude AI for content automation:
 1. **Content Generation**: `generate-snippets.py` uses Claude API to create descriptions
 2. **Related Articles**: Integration with Tallyfy's Answers API for cross-references
 3. **Configuration**: AI settings in `.claude/settings.local.json`
+4. **Date Updates**: `update-last-modified.py` maintains lastUpdated dates from Git
 
 ## CLAUDE CODE AUTOMATION PHILOSOPHY
 
