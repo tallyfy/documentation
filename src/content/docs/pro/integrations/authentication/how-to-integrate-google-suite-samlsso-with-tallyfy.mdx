@@ -140,30 +140,60 @@ After you complete the integration:
 This shows the complete SAML authentication flow after configuration is complete.
 
 ```d2
-G: Google Workspace IdP
-T: Tallyfy
-U: User
-shape: rectangle
-style.stroke-dash: 3
-U -> T
-T -> G
-G -> U
-U -> G
-G -> G
-G -> T
-T -> T
-T -> T
-T -> U
-G -> T
-T -> T
-T -> T
-T -> U
+User: User
+Tallyfy: Tallyfy
+Google: Google Workspace IdP
+
+# Authentication Flow
+User -> Tallyfy: 1. Access SSO URL
+Tallyfy -> Google: 2. Redirect with SAML
+Google -> User: 3. Show login page
+User -> Google: 4. Enter credentials
+Google -> Google: 5. Validate
+
+# Decision point for authentication success
+AuthCheck: Auth OK? {
+  shape: diamond
+}
+
+Google -> AuthCheck: 6. Check result
+
+# Success path
+AuthCheck -> Google: Yes
+Google -> Tallyfy: 7. SAML Response
+
+# User provisioning check
+UserCheck: User Exists? {
+  shape: diamond
+}
+
+Tallyfy -> UserCheck: 8. Check email
+
+# New user provisioning
+UserCheck -> Tallyfy: No
+NewUser: 9a. Create account
+Tallyfy -> NewUser
+NewUser -> Session: 10a. Create session
+
+# Existing user path
+UserCheck -> Tallyfy: Yes
+ExistingUser: 9b. Match user
+Tallyfy -> ExistingUser
+ExistingUser -> Session: 10b. Create session
+
+# Grant access
+Session: Session Created
+Session -> User: 11. Grant access
+
+# Failure path
+AuthCheck -> Google: No
+Google -> User: 12. Auth failed
 ```
 
 **What to notice:**
-- **Automatic user provisioning** - New users are created automatically on first login (step 8), eliminating manual account setup
-- **SAML attribute mapping** - The email, firstName, and lastName attributes configured earlier (step 7 and 12) determine how user accounts are created and matched
-- **Single authentication point** - Users authenticate only with Google (step 5), never entering Tallyfy passwords
+- **Automatic user provisioning** - New users are created automatically on first login (step 9a), eliminating manual account setup
+- **SAML attribute mapping** - The email, firstName, and lastName attributes configured earlier (step 7) determine how user accounts are created and matched
+- **Single authentication point** - Users authenticate only with Google (step 4-5), never entering Tallyfy passwords
 
 ### Troubleshooting
 

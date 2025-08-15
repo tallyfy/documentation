@@ -27,27 +27,37 @@ This naming difference catches everyone. Just remember: Template → Process in 
 This diagram shows the complete API flow from listing templates to launching and managing processes.
 
 ```d2
-DB: DB
-P: P
-T: T
-shape: hexagon
-style.stroke-dash: 3
-style.fill: #e8f4f8
-P -> T
-T -> DB
-DB -> T
-T -> P
-P -> condition
-condition -> P
-condition -> P
-condition -> P
-P -> T
-T -> T
-T -> DB
-DB -> T
-T -> P
-P -> bulk_loop
-bulk_loop -> P
+Postman: Postman Client
+Templates: Templates API
+Database: Database
+Process: Process Instance
+
+# List templates
+Postman -> Templates: 1. GET /templates
+Templates -> Database: 2. Query templates
+Database -> Templates: 3. Return list
+Templates -> Postman: 4. Templates array
+
+# Select template
+condition: Select Template? {
+  shape: diamond
+}
+Postman -> condition: 5. Choose template
+condition -> Postman: 6. By amount
+condition -> Postman: 7. By category
+condition -> Postman: 8. By department
+
+# Launch process
+Postman -> Templates: 9. POST /processes
+Templates -> Templates: 10. Validate data
+Templates -> Database: 11. Create instance
+Database -> Templates: 12. Process created
+Templates -> Postman: 13. Process details
+
+# Bulk operations
+bulk_loop: Bulk Launch
+Postman -> bulk_loop: 14. Multiple processes
+bulk_loop -> Postman: 15. Rate limited
 ```
 
 **What to notice:**
