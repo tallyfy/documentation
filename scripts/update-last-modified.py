@@ -50,14 +50,30 @@ def update_file_last_modified(file_path):
         git_date = get_git_last_modified(file_path)
         
         if git_date:
+            # For Astro, we need to write the date as an unquoted YAML date
+            # python-frontmatter will write date objects without quotes
+            from datetime import datetime
+            date_obj = datetime.strptime(git_date, '%Y-%m-%d').date()
+            
             # Check if we need to update
             current_last_updated = post.get('lastUpdated')
             
-            if current_last_updated != git_date:
-                # Update the lastUpdated field
-                post['lastUpdated'] = git_date
+            # Force update if current is a string (needs to be date object for Astro)
+            # or if the date value has changed
+            if isinstance(current_last_updated, str):
+                # Always update strings to date objects for proper YAML formatting
+                needs_update = True
+            elif hasattr(current_last_updated, 'date'):
+                needs_update = current_last_updated.date() != date_obj
+            else:
+                needs_update = current_last_updated != date_obj
+            
+            if needs_update:
+                # Update the lastUpdated field with date object
+                # This will be written as: lastUpdated: 2025-08-15 (without quotes)
+                post['lastUpdated'] = date_obj
                 
-                # Write the file back
+                # Write the file back - frontmatter.dumps will write dates without quotes
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(frontmatter.dumps(post))
                 
