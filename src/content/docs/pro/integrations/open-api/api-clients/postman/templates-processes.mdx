@@ -28,43 +28,68 @@ This naming difference catches everyone. Just remember: Template → Process in 
 This diagram shows the complete API flow from listing templates to launching and managing processes.
 
 ```d2
-Postman: Postman Client
-Templates: Templates API
-Database: Database
-Process: Process Instance
+direction: down
 
-# List templates
-Postman -> Templates: 1. GET /templates
-Templates -> Database: 2. Query templates
-Database -> Templates: 3. Return list
-Templates -> Postman: 4. Templates array
-
-# Select template
-condition: Select Template? {
-  shape: diamond
+Postman: "Postman\nClient" {
+  shape: rectangle
+  style.fill: "#ff6c37"
+  style.font-color: "#fff"
 }
-Postman -> condition: 5. Choose template
-condition -> Postman: 6. By amount
-condition -> Postman: 7. By category
-condition -> Postman: 8. By department
 
-# Launch process
-Postman -> Templates: 9. POST /processes
-Templates -> Templates: 10. Validate data
-Templates -> Database: 11. Create instance
-Database -> Templates: 12. Process created
-Templates -> Postman: 13. Process details
+API: "Tallyfy API" {
+  shape: cylinder
+  style.fill: "#e6f3ff"
+}
 
-# Bulk operations
-bulk_loop: Bulk Launch
-Postman -> bulk_loop: 14. Multiple processes
-bulk_loop -> Postman: 15. Rate limited
+Process: "Process\nInstance" {
+  shape: hexagon
+  style.fill: "#e6ffe6"
+}
+
+# Step 1: List templates
+Postman -> API: "1. GET /templates\n(list available)" {
+  style.stroke: "#333"
+}
+
+API -> Postman: "2. Return template\nlist with IDs" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+# Step 2: Select and launch
+Postman -> Postman: "3. Select template\nbased on rules" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+Postman -> API: "4. POST /launch\nwith form data" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+API -> API: "5. Validate\nkick-off data" {
+  style.stroke: "#333"
+}
+
+API -> Process: "6. Create process\ninstance" {
+  style.stroke: "#333"
+}
+
+Process -> API: "7. Process created" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+API -> Postman: "8. Return process\nID & details" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**
-- **Step 6-10**: Templates are selected dynamically based on business rules (purchase amount thresholds determine approval levels)
-- **Step 11-15**: Kick-off form data (`preruns`) is validated before creating the process instance
-- **Step 16-19**: Bulk launching requires rate limiting (200ms delays) to avoid hitting API limits
+- **Step 3**: Templates are selected dynamically based on business rules (purchase amount thresholds determine approval levels)
+- **Step 5**: Kick-off form data (`preruns`) is validated before creating the process instance
+- **Step 8**: Process details include the unique process ID needed for subsequent operations
 
 ## Listing available templates
 

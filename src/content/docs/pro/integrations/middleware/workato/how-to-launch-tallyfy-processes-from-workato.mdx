@@ -24,32 +24,70 @@ Want to launch Tallyfy workflows when something happens in Salesforce? Or maybe 
 This diagram shows how external triggers flow through Workato to launch Tallyfy processes automatically.
 
 ```d2
-ES: External System (Salesforce/Zendesk)
-W: Workato Recipe
-HTTP: HTTP Connector
-T: Tallyfy API
+direction: down
 
-ES -> W
-W -> W
-W -> HTTP
-HTTP -> T
-T -> HTTP
-HTTP -> W
-W -> W
-T -> HTTP
-HTTP -> W
-W -> W
-T -> HTTP
-HTTP -> W
-W -> W
-T -> HTTP
-HTTP -> W
+ES: "External System\n(Salesforce/Zendesk)" {
+  shape: cylinder
+  style.fill: "#e6f3ff"
+}
+
+W: "Workato Recipe" {
+  shape: rectangle
+  style.fill: "#ffe6e6"
+}
+
+HTTP: "HTTP Connector" {
+  shape: hexagon
+  style.fill: "#fff3cd"
+}
+
+T: "Tallyfy API" {
+  shape: rectangle
+  style.fill: "#e6ffe6"
+}
+
+ES -> W: "1. Trigger event\n(new opportunity)" {
+  style.stroke: "#333"
+}
+
+W -> W: "2. Map trigger\ndata" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+W -> HTTP: "3. Prepare API\nrequest" {
+  style.stroke: "#333"
+}
+
+HTTP -> T: "4. POST /api/runs\nwith auth headers" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+T -> T: "5. Validate request\n& create process" {
+  style.stroke: "#333"
+}
+
+T -> HTTP: "6. Return process ID\n& details" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+HTTP -> W: "7. Pass response\nback" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+W -> W: "8. Log success\nor handle error" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**
 - The authentication setup (step 4) requires both a Bearer token and the X-Tallyfy-Client header - missing either will cause a 401 error
-- Workato transforms trigger data into the prerun object that populates your kick-off form fields automatically
-- Error handling paths show exactly what to check when processes don't launch - authentication, template ID, data format, or rate limits
+- Workato transforms trigger data into the prerun object that populates your kick-off form fields automatically (step 2)
+- Error handling (step 8) captures any issues with authentication, template ID, data format, or rate limits
 
 ### Prerequisites
 

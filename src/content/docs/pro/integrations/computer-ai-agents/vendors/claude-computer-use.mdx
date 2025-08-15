@@ -42,86 +42,60 @@ Both capabilities can complement each other in comprehensive automation workflow
 Here's the clever part - instead of building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
 
 ```d2
-direction: down
+direction: right
 
-# Nodes
-Task: Tallyfy Task {
+Task: "Tallyfy Task\n(Instructions)" {
   shape: circle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
   style.stroke-width: 2
 }
 
-Claude: Claude Agent {
+Claude: "Claude Agent" {
   shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
+  style.fill: "#8b5cf6"
+  style.font-color: "#fff"
 }
 
-Screenshot: Screenshot {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
+Loop: "Perception-Action\nLoop" {
+  shape: hexagon
+  style.fill: "#fff3cd"
 }
 
-Analyze: Analyze UI {
-  shape: diamond
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Action: Click/Type {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Complete: Complete {
-  shape: diamond
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Output: Tallyfy Output {
+Output: "Tallyfy Output\n(Results)" {
   shape: circle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
   style.stroke-width: 2
 }
 
-# Flow
-Task -> Claude {
+Task -> Claude: "1. Send task\ndescription" {
   style.stroke: "#225930"
   style.stroke-width: 2
-  style.animated: true
 }
 
-Claude -> Screenshot {
-  style.stroke: "#225930"
-  style.animated: true
+Claude -> Loop: "2. Request\nscreenshot" {
+  style.stroke: "#333"
 }
 
-Screenshot -> Analyze {
-  style.stroke: "#225930"
-}
-
-Analyze -> Action {
-  style.stroke: "#225930"
-}
-
-Action -> Complete {
-  style.stroke: "#225930"
-}
-
-Complete -> Screenshot: Loop {
-  style.stroke: "#225930"
+Loop -> Loop: "3. Take screenshot\n4. Analyze UI\n5. Click/Type\n6. Check result" {
+  style.stroke: "#666"
   style.stroke-dash: 3
 }
 
-Complete -> Output: Done {
+Loop -> Claude: "7. Return\nresult" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+Claude -> Output: "8. Task\ncomplete" {
   style.stroke: "#225930"
   style.stroke-width: 2
-  style.animated: true
+}
+
+Claude -> Loop: "Repeat until done" {
+  style.stroke: "#666"
+  style.stroke-dash: 5
 }
 ```
 
@@ -149,20 +123,71 @@ Key aspects of Claude's Computer Use include:
 This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
 
 ```d2
-Tallyfy: Tallyfy
-App: Your App
-Claude: Claude API
-Sandbox: Sandbox
-Tallyfy -> App
-App -> Claude
-Claude -> App
-App -> Sandbox
-Sandbox -> App
-App -> Claude
-Claude -> Done
-Done -> Claude
-Done -> App
-App -> Tallyfy
+direction: down
+
+Tallyfy: "Tallyfy" {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+App: "Your App\n(Orchestrator)" {
+  shape: hexagon
+  style.fill: "#fff3cd"
+}
+
+Claude: "Claude API" {
+  shape: rectangle
+  style.fill: "#8b5cf6"
+  style.font-color: "#fff"
+}
+
+Sandbox: "Docker Sandbox\n(Isolated Environment)" {
+  shape: cylinder
+  style.fill: "#e6f3ff"
+}
+
+Tallyfy -> App: "1. Webhook with\ntask data" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+App -> Claude: "2. Send prompt +\ncomputer tools" {
+  style.stroke: "#333"
+}
+
+Claude -> App: "3. Tool use\nrequest" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+App -> Sandbox: "4. Execute tool\n(screenshot/click)" {
+  style.stroke: "#666"
+}
+
+Sandbox -> App: "5. Return\nresult" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+App -> Claude: "6. Send tool\nresult" {
+  style.stroke: "#333"
+}
+
+Claude -> Claude: "7. Analyze &\ndecide next" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+Claude -> App: "8. Final response\nor next tool" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+App -> Tallyfy: "9. Update task\nwith results" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
 ```
 
 **What to notice:**

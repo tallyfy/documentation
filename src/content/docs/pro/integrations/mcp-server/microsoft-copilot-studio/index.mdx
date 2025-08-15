@@ -54,21 +54,77 @@ Ready to get started? Here's how to connect everything:
 This diagram shows how Tallyfy MCP Server connects with Microsoft Copilot Studio through the Power Platform infrastructure.
 
 ```d2
-Dev: Developer
-Azure: Azure Functions
-PA: Power Apps
-CS: Copilot Studio
-T: Tallyfy API
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
+direction: down
+
+Developer: "Developer" {
+  shape: person
+  style.fill: "#e6ffe6"
+}
+
+Azure: "Azure Functions\n(MCP Server)" {
+  shape: hexagon
+  style.fill: "#0078d4"
+  style.font-color: "#fff"
+}
+
+PowerApps: "Power Apps\nConnector" {
+  shape: rectangle
+  style.fill: "#742774"
+  style.font-color: "#fff"
+}
+
+CopilotStudio: "Copilot Studio\nAgent" {
+  shape: rectangle
+  style.fill: "#5e5e5e"
+  style.font-color: "#fff"
+}
+
+TallyfyAPI: "Tallyfy API" {
+  shape: cylinder
+  style.fill: "#e6f3ff"
+}
+
+Developer -> Azure: "1. Deploy MCP\nserver code" {
+  style.stroke: "#333"
+}
+
+Azure -> PowerApps: "2. Register as\ncustom connector" {
+  style.stroke: "#333"
+}
+
+PowerApps -> PowerApps: "3. Configure\nauthentication" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+PowerApps -> CopilotStudio: "4. Add to agent\nactions" {
+  style.stroke: "#333"
+}
+
+CopilotStudio -> Azure: "5. Invoke MCP\ntools" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+Azure -> TallyfyAPI: "6. API requests\nwith auth" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+TallyfyAPI -> Azure: "7. Return data" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+Azure -> CopilotStudio: "8. Format response" {
+  style.stroke: "#333"
+  style.stroke-dash: 3
+}
+
+CopilotStudio -> CopilotStudio: "9. Process with\nGenerative AI" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**
@@ -81,29 +137,97 @@ T: Tallyfy API
 See how Copilot Studio coordinates multiple specialized agents for complex workflows like employee onboarding.
 
 ```d2
-Analyze: Analyze
-End: End
-HR: HR
-HR1: HR1
-IT: IT
-IT1: IT1
-Monitor: Monitor
-Primary: Primary
-Start: Start
-Status: Status
-Start -> Primary
-Primary -> Analyze
-Analyze -> HR
-Analyze -> IT
-Analyze -> Train
-HR -> HR1
-IT -> IT1
-Train -> T1
-HR1 -> Monitor
-IT1 -> Monitor
-T1 -> Monitor
-Monitor -> Status
-Status -> End
+direction: down
+
+Start: "User Request\n(New Employee)" {
+  shape: circle
+  style.fill: "#d4ffd4"
+}
+
+Primary: "Primary Agent\n(Orchestrator)" {
+  shape: hexagon
+  style.fill: "#5e5e5e"
+  style.font-color: "#fff"
+}
+
+Analyze: "Analyze\nRequirements" {
+  shape: rectangle
+  style.fill: "#fff3cd"
+}
+
+HR: "HR Agent" {
+  shape: rectangle
+  style.fill: "#e6f3ff"
+}
+
+IT: "IT Agent" {
+  shape: rectangle
+  style.fill: "#ffe6e6"
+}
+
+Training: "Training Agent" {
+  shape: rectangle
+  style.fill: "#e6ffe6"
+}
+
+Monitor: "Progress\nMonitor" {
+  shape: hexagon
+  style.fill: "#f5f5f5"
+}
+
+Tallyfy: "Tallyfy\nTracker" {
+  shape: cylinder
+  style.fill: "#e6f3ff"
+}
+
+End: "Onboarding\nComplete" {
+  shape: circle
+  style.fill: "#d4ffd4"
+}
+
+Start -> Primary: "Initiate\nonboarding" {
+  style.stroke: "#333"
+}
+
+Primary -> Analyze: "Parse request" {
+  style.stroke: "#333"
+}
+
+Analyze -> HR: "Create HR\ntasks" {
+  style.stroke: "#333"
+}
+
+Analyze -> IT: "Create IT\ntasks" {
+  style.stroke: "#333"
+}
+
+Analyze -> Training: "Schedule\ntraining" {
+  style.stroke: "#333"
+}
+
+HR -> Monitor: "Report\nprogress" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+IT -> Monitor: "Report\nprogress" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+Training -> Monitor: "Report\nprogress" {
+  style.stroke: "#666"
+  style.stroke-dash: 3
+}
+
+Monitor -> Tallyfy: "Update\nstatus" {
+  style.stroke: "#333"
+}
+
+Tallyfy -> End: "Process\ncomplete" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
 ```
 
 **What to notice:**
@@ -116,18 +240,64 @@ Status -> End
 This shows the recommended architecture for large organizations requiring high availability and security.
 
 ```d2
-API: API
-Copilot: Copilot
-Gateway: Gateway
-LB: LB
-MCP1: MCP1
-MCP2: MCP2
-Copilot -> Gateway
-Gateway -> LB
-LB -> MCP1
-LB -> MCP2
-MCP1 -> API
-MCP2 -> API
+direction: right
+
+Copilot: "Copilot Studio\nAgents" {
+  shape: rectangle
+  style.fill: "#5e5e5e"
+  style.font-color: "#fff"
+}
+
+Gateway: "API Gateway\n(with WAF)" {
+  shape: hexagon
+  style.fill: "#ff6c37"
+  style.font-color: "#fff"
+}
+
+LB: "Load\nBalancer" {
+  shape: diamond
+  style.fill: "#fff3cd"
+}
+
+MCP1: "MCP Server\nInstance 1" {
+  shape: rectangle
+  style.fill: "#e6f3ff"
+}
+
+MCP2: "MCP Server\nInstance 2" {
+  shape: rectangle
+  style.fill: "#e6f3ff"
+}
+
+API: "Tallyfy API\nCluster" {
+  shape: cylinder
+  style.fill: "#e6ffe6"
+}
+
+Copilot -> Gateway: "HTTPS\nrequests" {
+  style.stroke: "#333"
+  style.stroke-width: 2
+}
+
+Gateway -> LB: "Route to\navailable server" {
+  style.stroke: "#333"
+}
+
+LB -> MCP1: "50% traffic" {
+  style.stroke: "#666"
+}
+
+LB -> MCP2: "50% traffic" {
+  style.stroke: "#666"
+}
+
+MCP1 -> API: "API calls\n(with auth)" {
+  style.stroke: "#333"
+}
+
+MCP2 -> API: "API calls\n(with auth)" {
+  style.stroke: "#333"
+}
 ```
 
 **What to notice:**
