@@ -4,6 +4,7 @@ description: Tallyfy webhooks enable automated real-time integration by sending 
   firing on any step completion and step-level webhooks triggering only for specific
   tasks.
 id: f590764433995ecdf06adf92bd5492cf
+lastUpdated: '2025-08-14'
 sidebar:
   order: 1
 title: Details about webhooks
@@ -43,40 +44,129 @@ Step-level webhooks trigger when a **specific step** is completed. They provide 
 This diagram shows how Tallyfy sends webhook data to external systems when events occur in your workflows.
 
 ```d2
-P: Process/Step
-T: Tallyfy
-Q: Queue
-W: Webhook Service
-M: Middleware (Zapier/Make/n8n)
-E: External System (Slack/CRM/etc)
+# Webhook Event Flow
+direction: down
 
-# Main flow
-P -> T: 1. Complete step/Launch process
-T -> T: 2. Check webhook config
+# Start Event
+Complete_Step: Complete Step {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
 
-# Template vs Step Level
-T -> Q: 3a. Queue template webhook (ANY step)
-T -> Q: 3b. Queue step webhook (SPECIFIC step)
+# Core Components
+Tallyfy: Tallyfy System {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
 
-Q -> W: 4. Process webhook event
+Event_Queue: Event Queue {
+  shape: queue
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
 
-# Webhook Processing
-W -> M: "5. POST webhook_url with X-Tallyfy-OrgID"
+Webhook_Handler: Webhook Handler {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
 
-# Success path
-M -> W: 6a. Success (2xx) {style.stroke-dash: 3}
-W -> T: 7a. Mark delivered
-M -> M: 8a. Validate OrgID
-M -> E: 9a. Trigger action
-E -> M: 10a. Confirmed {style.stroke-dash: 3}
+External_System: External System {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
 
-# Failure path  
-M -> W: 6b. Error/Timeout {style.stroke-dash: 3}
-W -> W: 7b. Wait (1m, 5m, 15m)
-W -> M: 8b. Retry POST
+# Webhook Type Decision
+Webhook_Type: Webhook Type? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
 
-# Final failure
-W -> T: 11. Mark failed (after 3 retries)
+# Success and Failure Paths
+Success_Response: Success {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Failure_Handler: Retry Logic {
+  shape: rectangle
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+# Main Flow
+Complete_Step -> Tallyfy: Trigger event {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+  style.animated: true
+}
+
+Tallyfy -> Webhook_Type: Check type {
+  style.stroke: "#225930"
+}
+
+Webhook_Type -> Event_Queue: Template-level\n(any step) {
+  style.stroke: "#225930"
+}
+
+Webhook_Type -> Event_Queue: Step-level\n(specific step) {
+  style.stroke: "#225930"
+}
+
+Event_Queue -> Webhook_Handler: Process webhook {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Webhook_Handler -> External_System: POST JSON data {
+  style.stroke: "#225930"
+  style.stroke-width: 3
+  style.animated: true
+}
+
+# Success Path
+External_System -> Success_Response: 200 OK {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Success_Response -> Tallyfy: Confirmed {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+# Failure Path
+External_System -> Failure_Handler: Error/Timeout {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Failure_Handler -> Webhook_Handler: Retry 1 min {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Failure_Handler -> Webhook_Handler: Retry 5 min {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Failure_Handler -> Webhook_Handler: Retry 15 min {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Failure_Handler -> Tallyfy: Max retries\nexceeded {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**

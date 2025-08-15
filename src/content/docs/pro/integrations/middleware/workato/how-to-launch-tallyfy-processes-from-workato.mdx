@@ -4,6 +4,7 @@ description: Workato can automatically trigger Tallyfy workflow processes when e
   send properly formatted API requests with authentication headers and process data
   to launch templates with pre-populated kick-off forms.
 id: cd4df7b75ea046f290726458031e6ae0
+lastUpdated: '2025-08-14'
 sidebar:
   order: 1
 snippet: Step-by-step guide to automatically launch Tallyfy processes from Workato
@@ -23,51 +24,26 @@ Want to launch Tallyfy workflows when something happens in Salesforce? Or maybe 
 This diagram shows how external triggers flow through Workato to launch Tallyfy processes automatically.
 
 ```d2
-ES: "External System (Salesforce/Zendesk)"
-W: "Workato Recipe"
-HTTP: "HTTP Connector"
-T: "Tallyfy API"
+ES: External System (Salesforce/Zendesk)
+W: Workato Recipe
+HTTP: HTTP Connector
+T: Tallyfy API
 
-# Integration Flow: External Event → Tallyfy Process Launch
-ES -> W: "1. Trigger Event (New opportunity, ticket, etc.)"
-W -> W: "2. Extract trigger data"
-W -> HTTP: "3. Configure request"
-# Authentication: Bearer token + X-Tallyfy-Client header
-HTTP -> T: "4. POST /api/runs with JSON body"
-# Body includes: - blueprint_id - owner_id - prerun data
-
-# Success Path
-Success: "Success Response" {
-  T -> HTTP: "200 OK Process details"
-  HTTP -> W: "Process ID, title, status"
-  W -> W: "Store process details"
-  # Process launched successfully
-}
-
-# Error Paths
-Error401: "401 Unauthorized" {
-  T -> HTTP: "401 Error"
-  HTTP -> W: "Invalid token"
-  W -> W: "Check API token validity"
-}
-
-Error404: "404 Not Found" {
-  T -> HTTP: "404 Error"
-  HTTP -> W: "Template not found"
-  W -> W: "Verify template ID"
-}
-
-Error400: "400 Bad Request" {
-  T -> HTTP: "400 Error"
-  HTTP -> W: "Invalid data"
-  W -> W: "Log error for debugging"
-}
-
-RateLimit: "429 Rate Limit" {
-  T -> HTTP: "429 Too Many Requests"
-  HTTP -> W: "Rate limit exceeded"
-  W -> W: "Implement exponential backoff"
-}
+ES -> W
+W -> W
+W -> HTTP
+HTTP -> T
+T -> HTTP
+HTTP -> W
+W -> W
+T -> HTTP
+HTTP -> W
+W -> W
+T -> HTTP
+HTTP -> W
+W -> W
+T -> HTTP
+HTTP -> W
 ```
 
 **What to notice:**

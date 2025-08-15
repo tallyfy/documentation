@@ -4,6 +4,7 @@ description: Setting up Tallyfy's API authentication in Postman requires configu
   X-Tallyfy-Client header must be included in every request along with proper token
   management for the one-hour expiration period.
 id: db184f3f72207253ae7872dd857b1dc5
+lastUpdated: '2025-08-14'
 sidebar:
   order: 2
 title: Authentication setup for Postman
@@ -104,65 +105,23 @@ Tallyfy's authentication has specific requirements that can trip you up if you'r
 This diagram shows the complete OAuth authentication lifecycle including initial setup, API usage, and automatic token refresh.
 
 ```d2
-P: "P"
-# OAuth Authentication Lifecycle
-
-P: Postman {
-  shape: rectangle
-}
-O: "Tallyfy OAuth\n/oauth/token" {
-  shape: rectangle
-  style.fill: "#d4f1d4"
-}
-A: "Tallyfy API\n/api endpoints" {
-  shape: rectangle
-  style.fill: "#d4f1d4"
-}
-
-# Initial Authentication Setup
-
-P -> O: "1. POST /oauth/token\ngrant_type=password\nusername, password\nclient_id, client_secret"
-O -> O: "2. Validate credentials"
-O -> P: "3. 200 OK\naccess_token (1hr)\nrefresh_token\nexpires_in: 3600" {
-  style.stroke-dash: 3
-}
-
-P -> P: "4. Store tokens in environment\nCalculate expiry time"
-
-# API Usage with Authentication
-
-P -> A: "5. GET /organizations/{org_id}/me\nAuthorization: Bearer {token}\nX-Tallyfy-Client: APIClient"
-A -> A: "6. Validate token & header"
-A -> P: "7. 200 OK - User details" {
-  style.stroke-dash: 3
-}
-
-# Token Refresh (after ~55 min)
-
-P -> P: "8. Check token expiry\n(5 min buffer)"
-P -> O: "9. POST /oauth/token\ngrant_type=refresh_token\nrefresh_token, client_id\nclient_secret"
-O -> P: "10. New access_token\nNew refresh_token" {
-  style.stroke-dash: 3
-}
-P -> P: "11. Update stored tokens"
-
-# Common Error Scenarios
-
-P -> A: "12. GET /api/endpoint\nMissing X-Tallyfy-Client header" {
-  style.stroke: "#cc0000"
-}
-A -> P: "13. 401 Unauthenticated" {
-  style.stroke-dash: 3
-  style.stroke: "#cc0000"
-}
-
-P -> A: "14. GET /api/endpoint\nExpired token" {
-  style.stroke: "#cc0000"
-}
-A -> P: "15. 401 Token expired" {
-  style.stroke-dash: 3
-  style.stroke: "#cc0000"
-}
+P: P
+shape: rectangle
+P -> O
+O -> O
+O -> P
+P -> P
+P -> A
+A -> A
+A -> P
+P -> P
+P -> O
+O -> P
+P -> P
+P -> A
+A -> P
+P -> A
+A -> P
 ```
 
 **What to notice:**

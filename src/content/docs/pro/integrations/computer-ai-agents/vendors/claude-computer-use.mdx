@@ -5,6 +5,7 @@ description: Claude's Computer Use capability enables AI agents to visually perc
   business processes where the AI can navigate desktop applications web browsers and
   legacy systems while providing complete audit trails and structured task management.
 id: 77698ab94281d0bdaad78200bfeab52f
+lastUpdated: '2025-08-14'
 sidebar:
   order: 14
 title: Claude computer use
@@ -41,36 +42,87 @@ Both capabilities can complement each other in comprehensive automation workflow
 Here's the clever part - instead of building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
 
 ```d2
-TallyfyTask: {
-  T1: "Task Description"
-  T2: "Form Fields"
-  T3: "Expected Output"
+direction: down
+
+# Nodes
+Task: Tallyfy Task {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
 }
-ClaudeAgent: {
-  C1: "Take Screenshot"
-  C2: "Analyze Screen"
-  C3: "Click/Type/Navigate"
-  C4: "Verify Action"
-  C5: "Task Complete?" {shape: diamond}
+
+Claude: Claude Agent {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
-TallyfyOutput: {
-  O1: "Completion Status"
-  O2: "Extracted Values"
-  O3: "Action Log"
-  O4: "Screenshots"
+
+Screenshot: Screenshot {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
-TallyfyTask.T1 -> ClaudeAgent.C2
-TallyfyTask.T2 -> ClaudeAgent.C3
-TallyfyTask.T3 -> ClaudeAgent.C4
-ClaudeAgent.C1 -> ClaudeAgent.C2
-ClaudeAgent.C2 -> ClaudeAgent.C3
-ClaudeAgent.C3 -> ClaudeAgent.C4
-ClaudeAgent.C4 -> ClaudeAgent.C5
-ClaudeAgent.C5 -> ClaudeAgent.C1: "No"
-ClaudeAgent.C5 -> TallyfyOutput.O1: "Yes"
-ClaudeAgent.C4 -> TallyfyOutput.O2
-ClaudeAgent.C3 -> TallyfyOutput.O3
-ClaudeAgent.C1 -> TallyfyOutput.O4
+
+Analyze: Analyze UI {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Action: Click/Type {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Complete: Complete {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Output: Tallyfy Output {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Flow
+Task -> Claude {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+  style.animated: true
+}
+
+Claude -> Screenshot {
+  style.stroke: "#225930"
+  style.animated: true
+}
+
+Screenshot -> Analyze {
+  style.stroke: "#225930"
+}
+
+Analyze -> Action {
+  style.stroke: "#225930"
+}
+
+Action -> Complete {
+  style.stroke: "#225930"
+}
+
+Complete -> Screenshot: Loop {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+Complete -> Output: Done {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+  style.animated: true
+}
 ```
 
 **What to notice:**
@@ -97,57 +149,26 @@ Key aspects of Claude's Computer Use include:
 This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
 
 ```d2
-T: "Tallyfy"
-I: "Intermediary App"
-C: "Claude API"
-S: "Sandbox"
-
-T -> I: "1. Webhook trigger"
-I -> I: "2. Extract data"
-I -> I: "3. Build prompt"
-I -> C: "4. Send prompt"
-
-Loop: {
-  label: "Agent Loop"
-  C -> C: "5. Analyze"
-  C -> I: "6. Request tool"
-  I -> S: "7. Execute"
-  
-  Screenshot: {
-    S -> S: "8a. Capture"
-    S -> I: "9a. Image"
-  }
-  
-  UI_Action: {
-    S -> S: "8b. Click/Type"
-    S -> I: "9b. Success"
-  }
-  
-  Bash: {
-    S -> S: "8c. Run"
-    S -> I: "9c. Output"
-  }
-  
-  I -> C: "10. Send result"
-  
-  Incomplete: {
-    C -> C: "11a. Process"
-    C -> C: "12a. Think"
-  }
-  
-  Complete: {
-    C -> I: "11b. Final result"
-  }
-}
-
-I -> I: "13. Parse result"
-I -> T: "14. Update field"
+Tallyfy: Tallyfy
+App: Your App
+Claude: Claude API
+Sandbox: Sandbox
+Tallyfy -> App
+App -> Claude
+Claude -> App
+App -> Sandbox
+Sandbox -> App
+App -> Claude
+Claude -> Done
+Done -> Claude
+Done -> App
+App -> Tallyfy
 ```
 
 **What to notice:**
-- **Steps 1-4:** Tallyfy initiates the process with structured task data that the intermediary app transforms into Claude-ready prompts
-- **Steps 5-15:** The iterative agent loop shows how Claude repeatedly requests tools, receives results, and decides next actions - this may cycle dozens of times for complex UI tasks
-- **Steps 7-13:** Different tool types (screenshot, UI actions, bash) are executed in the isolated sandbox environment, ensuring security while giving Claude the perception and control it needs
+- Tallyfy triggers your intermediary app via webhook with task data
+- The loop between Claude and the sandbox continues until the task is complete
+- All tool execution happens in an isolated sandbox for security
 *   **Sandboxed Computing Environment:** Safety first - this environment (often a Docker container) typically includes:
     *   A virtual X11 display server (like Xvfb) for rendering the desktop.
     *   A lightweight Linux desktop environment (Mutter window manager, Tint2 panel).
@@ -423,55 +444,26 @@ Let's walk through a real example. **Tallyfy Task:** "Open `Product_Feedback.xls
 This sequence shows the actual tool calls and responses for a real Excel filtering task, demonstrating how Claude Computer Use handles UI automation through iterative perception and action.
 
 ```d2
-T: "Tallyfy Task"
-I: "Intermediary"
-C: "Claude API"
-E: "Excel"
-
-T -> I: "1. Webhook data"
-I -> C: "2. Open and filter"
-
-Step1: {
-  style.fill: "#f5f5f5"
-  C -> I: "3. Screenshot"
-  I -> E: "4. Capture"
-  E -> I: "5. Image"
-  I -> C: "6. Result"
-}
-
-Step2: {
-  style.fill: "#f0f8ff"
-  C -> I: "7. Double click"
-  I -> E: "8. Click icon"
-  E -> E: "9. Open"
-  E -> I: "10. Opened"
-  I -> C: "11. Success"
-}
-
-Step3: {
-  style.fill: "#fff5f0"
-  C -> I: "12. Click header"
-  I -> E: "13. Click"
-  E -> I: "14. Menu"
-  I -> C: "15. Screenshot"
-  C -> I: "16. Click filter"
-  I -> E: "17. Open"
-  E -> I: "18. Options"
-  I -> C: "19. Screenshot"
-  C -> I: "20. Type Urgent"
-  I -> E: "21. Apply"
-  E -> E: "22. Filter"
-  E -> I: "23. Filtered"
-  I -> C: "24. Screenshot"
-}
-
-Step4: {
-  style.fill: "#f5fff5"
-  C -> C: "25. Count rows"
-  C -> I: "26. Found 15"
-}
-
-I -> T: "27. Update field"
+T: Tallyfy Task
+I: Intermediary
+C: Claude API
+E: Excel
+style.fill: #f5fff5
+T -> I
+I -> C
+C -> I
+I -> E
+E -> I
+I -> C
+C -> I
+I -> E
+E -> E
+E -> I
+I -> C
+C -> I
+I -> E
+E -> I
+I -> C
 ```
 
 **What to notice:**

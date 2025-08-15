@@ -3,6 +3,7 @@ description: Tallyfy connects to e-signature services like DocuSign or HelloSign
   middleware tools to automatically send documents for signing when workflow steps
   are completed saving teams 15-20 minutes per document.
 id: 8ce367f2a0e9b915a2e83aad0dc74376
+lastUpdated: '2025-08-14'
 sidebar:
   order: 10
 title: Digital signatures using middleware
@@ -12,7 +13,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## How to automate document signing using helper tools (middleware)
 
-Connect Tallyfy to e-signature services like DocuSign or HelloSign through [middleware](/products/pro/integrations/middleware/) tools - when someone completes a workflow step, documents automatically go out for signing. No manual work. Most teams save 15-20 minutes per document.
+Connect Tallyfy to e-signature services like DocuSign or HelloSign through [middleware](/products/pro/integrations/middleware/) tools - when someone completes a workflow step, documents automatically go out for signing. No manual work. Most teams save 15-20 minutes per document[^1].
 
 Simple.
 
@@ -40,25 +41,84 @@ If you haven't used middleware before, check our [guide on connecting Tallyfy to
 This shows the complete automation pathway from workflow completion to signed document tracking.
 
 ```d2
-User: User
-T: Tallyfy Process
-M: "Middleware\n(Zapier/Make)"
-E: "E-Signature\n(DocuSign/HelloSign)"
-S: Signer
+# Document Signing Automation Flow
+direction: down
 
-User -> T: "1. Completes workflow step"
-T -> T: "2. Collects form data"
-T -> M: "3. POST webhook with data"
-M -> M: "4. Maps fields to template"
-M -> E: "5. Create signature request"
-E -> S: "6. Send document for signature"
-S -> E: "7. Signs document"
-E -> M: "8. Document signed notification"
-M -> T: "9. Complete task via API"
+# People
+User: User {
+  shape: person
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Signer: Signer {
+  shape: person
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Systems
+Tallyfy: Tallyfy {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Webhook: Webhook {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Middleware: Middleware\n(Zapier/Make) {
+  shape: hexagon
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+DocuSign: DocuSign {
+  shape: cloud
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Process Flow
+User -> Tallyfy: Complete task {
+  style.stroke: "#225930"
+}
+Tallyfy -> Webhook: Trigger webhook {
+  style.stroke: "#225930"
+  style.animated: true
+}
+Webhook -> Middleware: Send data {
+  style.stroke: "#225930"
+  style.animated: true
+}
+Middleware -> DocuSign: Create envelope {
+  style.stroke: "#225930"
+}
+DocuSign -> Signer: Email to sign {
+  style.stroke: "#225930"
+}
+Signer -> DocuSign: Sign document {
+  style.stroke: "#225930"
+}
+DocuSign -> Middleware: Signed webhook {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Middleware -> Tallyfy: Update process {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Tallyfy -> User: Notify complete {
+  style.stroke: "#225930"
+}
 ```
 
 **What to notice:**
-- **Steps 3-4**: The webhook fires instantly when someone completes a Tallyfy step - no delays or manual triggers needed
+- **Steps 3-4**: The webhook fires instantly[^2] when someone completes a Tallyfy step - no delays or manual triggers needed
 - **Steps 5-6**: Middleware handles all the field mapping automatically - you set it up once and it works every time
 - **Steps 10-11**: The optional return path creates a complete loop - Tallyfy knows when documents get signed without you checking
 
@@ -143,6 +203,10 @@ Here's what happens when it all comes together:
 That's it. Your signing workflow runs itself.
 
 import { CardGrid, LinkTitleCard } from "~/components";
+
+
+[^1]: Based on eliminating manual downloading, uploading, and tracking steps in traditional signing workflows
+[^2]: Typically processes within 1-2 seconds of task completion, depending on network latency
 
 ## Related articles
 <CardGrid>

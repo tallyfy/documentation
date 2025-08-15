@@ -107,6 +107,36 @@ jobs:
           fi
 
 
+  update-last-modified:
+    needs: upload-to-tallyfy-answers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate Git dates
+          ref: main
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Update lastUpdated dates from Git history
+        run: |
+          git pull
+          python -m pip install --upgrade python-frontmatter
+          python scripts/update-last-modified.py --dir=src/content/docs
+        shell: bash
+      - name: Commit and push lastUpdated dates
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add .
+            git commit -m "Update lastUpdated dates from Git history" -a
+            git pull
+            git push
+          else
+            echo "No lastUpdated changes needed"
+          fi
+
   generate-related-articles:
     needs: upload-to-tallyfy-answers
     #    if: needs.upload-to-tallyfy-search.outputs.upload-to-tallyfy-search-completed == 'success'
@@ -135,7 +165,7 @@ jobs:
           git push
 
   sync:
-    needs: [ validate-markdown, upload-to-tallyfy-answers, check-deleted-files, generate-related-articles ]
+    needs: [ validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source repository (tallyfy/documentation)

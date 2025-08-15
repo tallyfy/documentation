@@ -4,6 +4,7 @@ description: Tallyfy templates can be launched via email by sending messages to 
   subject as the process name while capturing email content and attachments in designated
   kick-off form fields.
 id: 0604283d73d577667b35cae9909c0d89
+lastUpdated: '2025-08-14'
 sidebar:
   order: 8
 title: Email triggers
@@ -55,19 +56,103 @@ When someone sends an email to that special Tallyfy address:
 This diagram shows the complete email trigger flow, including all validation checks and possible outcomes.
 
 ```d2
-Check: "Check"
-Fail: "Fail"
-Launch: "Launch"
-Notify: "Notify"
-Reject: "Reject"
-Email: "Email to Address"
-Validate: "Valid Sender?"
-Email -> Validate
-Validate -> Reject: "No"
-Validate -> Check: "Yes"
-Check -> Fail: "Yes"
-Check -> Launch: "No"
-Launch -> Notify: "Process Started"
+# Email Trigger Validation Flow
+direction: down
+
+# Start
+Email: Email Received {
+  shape: circle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Validation Checks
+Valid_Member: Active Member? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Check_Fields: Required Fields? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Success Path
+Launch_Process: Launch Process {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Notify_Users: Notify Assignees {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Process_Running: Process Running {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Failure Paths
+Reject_Email: Reject Email {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Send_Failure: Send Failure {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+# Optional Data
+Data_Capture: Data Captured {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+  style.stroke-dash: 2
+}
+
+# Main Flow
+Email -> Valid_Member: Validate {
+  style.stroke: "#225930"
+}
+
+Valid_Member -> Reject_Email: No {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Valid_Member -> Check_Fields: Yes {
+  style.stroke: "#225930"
+}
+
+Check_Fields -> Send_Failure: Missing {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Check_Fields -> Launch_Process: Complete {
+  style.stroke: "#225930"
+}
+
+# Success flow
+Launch_Process -> Notify_Users: Process created {
+  style.stroke: "#225930"
+}
+Notify_Users -> Process_Running: Tasks assigned {
+  style.stroke: "#225930"
+}
+
+# Optional data capture
+Launch_Process -> Data_Capture: If email fields exist {
+  style.stroke: "#225930"
+  style.stroke-dash: 2
+}
+Data_Capture -> Notify_Users: Fields populated {
+  style.stroke: "#225930"
+  style.stroke-dash: 2
+}
 ```
 
 **What to notice:**

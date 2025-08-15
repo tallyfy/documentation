@@ -1257,6 +1257,57 @@ Decision -> End: No
 - Node spacing and padding
 - Automatic text wrapping
 
+### 🎨 D2 Diagram Color Palette
+
+**MANDATORY**: Use ONLY these colors in D2 diagrams. Random colors are forbidden. Style attributes should be minimal and only when absolutely necessary for clarity.
+
+#### Light Theme Colors (Manual and Website)
+- **Primary Fill**: `#f2faf4` (rgb(242 250 244) - use without opacity in D2)
+- **Secondary Fill**: `#e1f7e6` (rgb(225 247 230) - use without opacity in D2)
+- **Border Color**: `#225930` (rgb(34 89 48) - dark green for borders and strokes)
+- **Warning/Reminder**: `#fff3cd` (light yellow for special states)
+- **Text**: Black (default) - Never override
+- **Background**: White (default)
+
+#### Dark Theme Colors  
+- **Primary Fill**: `#0D0D0D` - Near black
+- **Secondary Fill**: `#0b2813` (rgb(11 40 19) - dark green tint)
+- **Border Color**: `#e1f7e6` (rgb(225 247 230) - light green border)
+- **Text**: White (automatic) - Never override
+- **Background**: `#0D0D0D`
+
+#### D2 Usage in Code
+```d2
+# Use these exact colors in your D2 diagrams:
+Node1: Primary Node {
+  style.fill: "#f2faf4"
+}
+Node2: Secondary Node {
+  style.fill: "#e1f7e6"
+}
+Decision: Decision Point {
+  shape: diamond
+  style.fill: "#f2faf4"
+}
+Warning: Overdue Task {
+  style.fill: "#fff3cd"
+}
+Connection: {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+```
+
+#### Usage Rules
+1. **NO random colors**: Never use red, blue, yellow, orange, etc. unless semantically meaningful
+2. **NO inline styles**: Let global config handle 99% of styling
+3. **Semantic colors ONLY when necessary**:
+   - Success/Approval: Use default green theme
+   - Error/Rejection: May use subtle red ONLY for clear error states
+   - Warning: Avoid - use text labels instead
+4. **Consistency**: All diagrams must look cohesive across the documentation
+5. **Simplicity**: When in doubt, use NO color styling - let defaults handle it
+
 **ENFORCEMENT**: These notation rules are MANDATORY. Every D2 diagram must follow them to ensure consistent rendering. When creating or editing diagrams, mentally check each rule before committing changes.
 
 ### When to Use Visual Diagrams - ULTRATHINKING Required
@@ -1809,6 +1860,50 @@ Include these details:
 - Timing information (timeouts, retry delays)
 - User roles and permissions
 - Hyperlinks to related documentation
+
+#### Animated Arrows in D2 Diagrams
+
+**Two Types of Animations Available:**
+
+1. **Multi-Board Animations** (Transitions between diagram states)
+   - Configured via `animateInterval` in astro.config.mjs
+   - Currently set to 1000ms in /support-docs
+   - Used for showing progressive changes or steps
+   - Requires multiple boards/states in the diagram
+
+2. **Animated Connections** ("Marching Ants" effect)
+   - Creates moving dashed lines on arrows to show flow direction
+   - Requires `style.animated: true` on individual connections
+   - Works with both normal and sketch modes
+   - Best for showing data flow, critical paths, or active connections
+
+**How to Add Animated Arrows:**
+```d2
+# Static arrow (default)
+Client -> API: Request
+
+# Animated arrow (marching ants effect)
+Client -> API: Request {
+  style.animated: true
+}
+
+# Multiple animated connections
+database -> api: data flow {
+  style.animated: true
+}
+api -> frontend: JSON response {
+  style.animated: true
+}
+```
+
+**When to Use Animated Arrows:**
+- **Sparingly** - Too many animations can be distracting
+- **Critical Flows** - Highlight the most important data paths
+- **API Documentation** - Show request/response flow direction
+- **Process Workflows** - Indicate the active path through a process
+- **Event Propagation** - Visualize how events flow through the system
+
+**Current Status:** Animated arrows are properly configured but not currently used in diagrams. Consider selectively adding them to enhance understanding of flow direction.
 
 #### Golden Nuggets for Specific Diagram Types
 

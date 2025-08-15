@@ -4,6 +4,7 @@ description: Connecting n8n to Tallyfy takes about 5 minutes using either a dedi
   with Tallyfy's Open API to enable 60+ operations across 10 resources with webhook
   support for real-time automation.
 id: 453c767597f639655737478b8aeed689
+lastUpdated: '2025-08-14'
 sidebar:
   order: 1
 title: Connect n8n to Tallyfy
@@ -22,6 +23,8 @@ The dedicated connector covers 95% of use cases, while HTTP Request nodes give y
 This diagram shows the two connection methods and the bidirectional flow between n8n and Tallyfy.
 
 ```d2
+direction: right
+
 Method: "Connection Method" {shape: diamond}
 Node: "Tallyfy Node"
 HTTP: "HTTP Request"
@@ -239,6 +242,8 @@ Treat your API key like a password. Never share it publicly or commit it to vers
 This sequence diagram illustrates how Tallyfy sends real-time events to n8n with retry logic.
 
 ```d2
+direction: right
+
 S: Step/Task
 T: Tallyfy
 Q: Queue
@@ -248,21 +253,23 @@ n8n: n8n Workflow
 S -> T: 1. User completes task
 T -> T: 2. Check webhook config
 
-T -> Q: "3. Queue webhook event" {style.stroke-dash: 3}
-T -> T: "Skip webhook" {style.stroke-dash: 5}
+T -> Q: "3. Queue webhook event" 
+T -> T: "Skip webhook" 
 
 Q -> W: 4. Process webhook
 
-W -> n8n: "5. POST to webhook_url"
+W -> n8n: "5. POST to webhook_url" {
+  style.animated: true
+}
 # Timeout: 30 seconds
 n8n -> W: "6. Success response (2xx)"
 W -> T: "7. Mark delivered"
 # Log success
-n8n -> W: "Error or timeout" {style.stroke: red}
-W -> W: "Wait (exponential backoff)" {style.stroke-dash: 3}
+n8n -> W: "Error or timeout" 
+W -> W: "Wait (exponential backoff)" 
 # 1st: 1min 2nd: 5min 3rd: 15min
 
-W -> T: "8. Mark failed (All attempts failed)" {style.stroke: red}
+W -> T: "8. Mark failed (All attempts failed)" 
 # Alert administrators
 ```
 

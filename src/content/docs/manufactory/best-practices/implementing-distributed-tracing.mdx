@@ -4,6 +4,7 @@ description: Distributed tracing tracks single events as they cascade through mu
   hierarchical relationships that visualize the complete journey from initial trigger
   through processing stages like Tallyfy Manufactory ingestion routing and actor execution.
 id: c20b5263e6982fcfeced9bd059cd80a2
+lastUpdated: '2025-08-14'
 sidebar:
   order: 3
 title: Implementing distributed tracing for event workflows
@@ -25,7 +26,7 @@ Key components of distributed tracing include:
 *   **Span ID:** A unique identifier for an individual span.
 *   **Parent Span ID:** An identifier that links a span to its parent span, creating a chronological and hierarchical relationship.
 
-These relationships are often visualized using waterfall diagrams, which clearly show the sequence, duration, and dependencies of operations within a trace.
+These relationships are often visualized using waterfall diagrams[^2], which clearly show the sequence, duration, and dependencies of operations within a trace.
 
 ## Why distributed tracing is valuable for Tallyfy Manufactory
 
@@ -53,7 +54,7 @@ To effectively trace event workflows involving Tallyfy Manufactory, consider the
 *   **Context Propagation:** This is the most crucial aspect. The `Trace ID` and `Parent Span ID` (and other relevant trace context like sampling decisions) must be consistently passed along with events. This includes:
     *   When an event is initially sent to Tallyfy Manufactory.
     *   When Tallyfy Manufactory itself emits new events or triggers downstream actors or external systems.
-    *   Utilize standard propagation formats like W3C Trace Context or B3, typically embedded in HTTP headers (for REST API interactions with Manufactory) or message metadata (for message queue interactions).
+    *   Utilize standard propagation formats like W3C Trace Context or B3[^1], typically embedded in HTTP headers (for REST API interactions with Manufactory) or message metadata (for message queue interactions).
 *   **Instrumenting Services Interacting with Manufactory:**
     *   Services that send events to Tallyfy Manufactory should either start a new trace (if they are the originators) or continue an existing trace by creating a new child span.
     *   Actors within Tallyfy Manufactory, or external systems triggered by Manufactory events, should create their own child spans, linking back to the trace context of the event that triggered them.
@@ -84,73 +85,22 @@ If the customer later reports not receiving a welcome email, this distributed tr
 This diagram shows how trace context propagates through the entire event processing pipeline.
 
 ```d2
-M: "M"
-P: "P"
-PT: "PT"
-UAS: "UAS"
-User: "User"
-WE: "WE"
-User: User {
-  shape: person
-}
-UAS: UserAccountService (Span A) {
-  shape: rectangle
-}
-M: Manufactory Ingestion (Span B) {
-  shape: rectangle
-}
-P: Manufactory Project (Span C) {
-  shape: rectangle
-}
-WE: WelcomeEmail Actor (Span D) {
-  shape: hexagon
-}
-PT: ProvisionTrial Actor (Span E) {
-  shape: hexagon
-}
-
-User -> UAS: "1. Signup Request"
+M: M
+P: P
+PT: PT
+UAS: UAS
+User: User
+WE: WE
+shape: hexagon
 UAS.note: |md
-  Create Span A (Root)
-  Trace ID: xyz123
-  2. Create User Account
-|
-UAS -> M: "3. UserSignedUp Event + Trace Context\n(TraceID: xyz123, ParentID: A)"
-
+Trace ID: xyz123
 M.note: |md
-  Create Span B
-  Parent: Span A
-|
-M -> P: "4. Route to Onboarding Project\n(TraceID: xyz123, ParentID: B)"
 
-P.note: |md
-  Create Span C
-  Parent: Span B
-|
-
-parallel: Parallel Actor Execution {
-  style.stroke: "#FF6B6B"
-  style.stroke-width: 2
-  style.stroke-dash: 3
-  
-  P -> WE: "5. Trigger WelcomeEmailActor\n(TraceID: xyz123, ParentID: C)"
-  WE.note: |md
-    Create Span D
-    Parent: Span C
-    6. Send Email
-  |
-  
-  P -> PT: "5. Trigger ProvisionTrialActor\n(TraceID: xyz123, ParentID: C)"
-  PT.note: |md
-    Create Span E
-    Parent: Span C
-    6. Grant Access
-  |
-}
-
-footnote: |md
-  Complete Trace: Spans A→B→C→(D,E)
-|
+User -> UAS
+UAS -> M
+M -> P
+P -> WE
+P -> PT
 ```
 
 **What to notice:**
@@ -165,6 +115,10 @@ It's important to note that while Tallyfy Manufactory processes events that are 
 Tallyfy Manufactory's crucial role in this ecosystem is to faithfully carry forward any trace context it receives with an event and to allow its own operations (like actor executions) to be instrumented as part of that broader trace. Your instrumentation within services sending events to Manufactory, and within actors or services triggered by Manufactory, is key to achieving this end-to-end visibility. 
 
 import { CardGrid, LinkTitleCard } from "~/components";
+
+
+[^1]: Industry-standard formats for trace context propagation across distributed systems
+[^2]: Visual representation showing sequential operations as cascading horizontal bars with timing
 
 ## Related articles
 <CardGrid>

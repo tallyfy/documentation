@@ -4,6 +4,7 @@ description: This guide demonstrates how to create multi-level approval workflow
   while maintaining quality control across financial approvals content publishing
   and contract management processes.
 id: 9f1e5212f050eb3826befabe83b4c3f4
+lastUpdated: '2025-08-14'
 sidebar:
   order: 6
 title: Multi-level approval loops
@@ -29,24 +30,82 @@ Here's the magic - when someone rejects at any level, the work automatically bou
 Here's how your multi-level approval workflow flows with automatic rejection handling:
 
 ```d2
-COO: "COO"
-Complete: "Complete"
-Finance: "Finance"
-Create: "Create Request"
-Manager: "Manager Approval"
-Create -> Manager
-Manager -> Finance: "✅"
-Manager -> Create: "❌"
-Finance -> COO: "✅"
-Finance -> Create: "❌"
-COO -> Complete: "✅"
-COO -> Create: "❌"
+# Multi-Level Approval Workflow
+direction: down
 
+# Start
+Create: Create Request {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+# Approval Steps
+Manager: Manager Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Finance: Finance Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+COO: COO Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# End
+Complete: Complete {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Main Flow
+Create -> Manager: Submit for approval {
+  style.stroke: "#225930"
+}
+
+# Manager decisions
+Manager -> Finance: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+Manager -> Create: Rejected {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+# Finance decisions
+Finance -> COO: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+Finance -> Create: Rejected {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+# COO decisions
+COO -> Complete: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+COO -> Create: Rejected {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**
 - 🔄 Every rejection automatically re-opens the creation task - no manual tracking needed
-- 🎯 Later approvals only show after earlier ones pass (visibility rules control this)  
+- 🎯 Later approvals only show after earlier ones pass (visibility rules[^1] control this)  
 - 💡 COO rejection can re-open multiple steps simultaneously for faster corrections
 
 <Steps>
@@ -60,7 +119,7 @@ COO -> Create: "❌"
 
 2. **Create re-open rules for each approval level**
    
-   Next, set up what happens when someone hits reject. For each approval step, create a [status action](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
+   Next, set up what happens when someone hits reject. For each approval step, create a [status action[^2]](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
    
    **Rule 1: Manager rejection reopens creation**
    ```
@@ -111,20 +170,84 @@ THEN Show "Board approval required"
 What if legal, compliance, and finance all need to review at the same time? Here's how parallel approvals work:
 
 ```d2
-Initial: "Initial Review"
-Legal: "Legal Approval"
-Compliance: "Compliance Approval"
-Finance: "Finance Approval"
-Sync: "Sync Point"
-Final: "Final Implementation"
-Initial -> Legal
-Initial -> Compliance
-Initial -> Finance
-Legal -> Sync
-Compliance -> Sync
-Finance -> Sync
-Sync -> Final
-Sync -> Initial: "Any ❌"
+# Parallel Approval Workflow
+direction: down
+
+# Start
+Initial: Initial Review {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+# Parallel Approval Steps
+Legal: Legal Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Compliance: Compliance Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Finance: Finance Approval {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Synchronization
+Sync: Sync Point {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# End
+Final: Final Implementation {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Parallel triggers
+Initial -> Legal: Review request {
+  style.stroke: "#225930"
+}
+Initial -> Compliance: Review request {
+  style.stroke: "#225930"
+}
+Initial -> Finance: Review request {
+  style.stroke: "#225930"
+}
+
+# All approvals converge
+Legal -> Sync: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+Compliance -> Sync: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+Finance -> Sync: Approved {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Continue or restart
+Sync -> Final: All approved {
+  style.stroke: "#225930"
+  style.stroke-width: 3
+}
+Sync -> Initial: Any rejected {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**
@@ -204,6 +327,10 @@ Compliance -> Agent: "❌"
 Every listing hits the market looking perfect. Agents know exactly what to fix when something's off. No more "please see me" sticky notes.
 
 import { CardGrid, LinkTitleCard } from "~/components";
+
+
+[^1]: Tallyfy feature that controls when steps appear based on conditions like prior task completion
+[^2]: Automation that triggers actions when a task changes status, like reopening steps on rejection
 
 ## Related articles
 <CardGrid>

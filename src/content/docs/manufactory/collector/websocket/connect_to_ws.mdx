@@ -4,13 +4,14 @@ description: Tallyfy Manufactory establishes websocket connections through a two
   send authentication credentials including org ID project ID client UUID and actor
   profile ID to receive confirmation before transmitting events.
 id: 8e36d835de5e733708adecf532b21672
+lastUpdated: '2025-08-14'
 pcx_content_type: connect_to_ws
 sidebar:
   order: 2
 title: Connect to our web socket server
 ---
 
-After successful authentication and getting client UUID along with actor profile ID, you can connect to the Tallyfy Manufactory websocket server: `wss://collector.tallyfy.com/ws`
+After successful authentication and getting client UUID along with actor profile ID[^1], you can connect to the Tallyfy Manufactory websocket server: `wss://collector.tallyfy.com/ws`
 
 Once a websocket connection is established you will receive a message `Manufactory Collector ✅`
 
@@ -19,41 +20,64 @@ Once a websocket connection is established you will receive a message `Manufacto
 This diagram shows the complete authentication handshake between your client and the Manufactory WebSocket server.
 
 ```d2
-C: "C"
-WS: "WS"
-C: Client
-WS: WebSocket Server (collector.tallyfy.com)
+# WebSocket Authentication Flow
+direction: down
 
-C -> WS: "1. Connect to wss://collector.tallyfy.com/ws" {
-  style.stroke-dash: 0
+# Actors
+Client: Client Application {
+  shape: person
+  style.fill: "#e1f7e6"
 }
-WS -> C: "2. 'Manufactory Collector ✅'" {
+
+WebSocket: WebSocket Server {
+  shape: cloud
+  style.fill: "#f2faf4"
+  label: "WebSocket Server\n(collector.tallyfy.com)"
+}
+
+# Connection Phase
+Client -> WebSocket: 1. Connect to\nwss://collector.tallyfy.com/ws {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+WebSocket -> Client: 2. Connection established\n"Manufactory Collector ✅" {
+  style.stroke: "#225930"
   style.stroke-dash: 3
 }
 
-C -> WS: "3. Send auth message {type: 'auth', org_id, project_id, client_uuid, actor_profile_id}" {
-  style.stroke-dash: 0
+# Authentication Phase
+Client -> WebSocket: 3. Send auth message\n{type, org_id, project_id,\nclient_uuid, actor_profile_id} {
+  style.stroke: "#225930"
+  style.stroke-width: 3
 }
-WS -> WS: "4. Validate credentials" {
-  style.stroke-dash: 0
+
+WebSocket -> WebSocket: 4. Validate\ncredentials {
+  style.stroke: "#225930"
 }
-WS -> C: "5. {type: 'auth', status: 'ok'}" {
+
+WebSocket -> Client: 5. Auth confirmation\n{type: "auth", status: "ok"} {
+  style.stroke: "#225930"
   style.stroke-dash: 3
 }
 
-C.label: |md
-  Has client_uuid and
-  actor_profile_id from
-  prior authentication
-|
+# Ready State
+Ready: Ready to Send Events {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
 
-WS.label: |md
-  Connection authenticated
-  Ready to send events
-|
+WebSocket -> Ready: 6. Authentication\ncomplete {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
 
-C.shape: person
-WS.shape: cloud
+Client -> Ready: 7. Begin sending\nevents {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
 ```
 
 ### What to notice
@@ -94,6 +118,9 @@ The next step is that we need to pair the connection with the client/end-user. T
 Now we are able to send actor's generated events via the open websocket channel.
 
 import { CardGrid, LinkTitleCard } from "~/components";
+
+
+[^1]: A unique identifier for the authenticated user within the Tallyfy organization context
 
 ## Related articles
 <CardGrid>

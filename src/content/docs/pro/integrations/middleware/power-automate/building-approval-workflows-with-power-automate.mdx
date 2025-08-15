@@ -4,6 +4,7 @@ description: Power Automate approvals enable formal sign-off workflows for Tally
   external stakeholders and audit trails while updating Tallyfy tasks based on approval
   outcomes.
 id: 085e717e19039cb01c91462d686e59ef
+lastUpdated: '2025-08-14'
 sidebar:
   order: 8
 title: Building approval workflows with Power Automate
@@ -45,27 +46,104 @@ Let's build something real. We'll create a flow where completing a Tallyfy [task
 This diagram shows how the budget approval flow routes between Tallyfy and Power Automate based on the amount threshold.
 
 ```d2
-Start: "Tallyfy Task Completed: Submit"
-GetDetails: "Get Task Details"
-Check: "Amount > 5000?" {shape: diamond}
-SendApproval: "Send Approval Request"
-CheckApproval: "Approved?" {shape: diamond}
-UpdateApproved: "Update Task: Approved"
-UpdateRejected: "Update Task: Rejected"
-EmailSubmitter: "Email Submitter"
-End1: "Process Continues"
-End2: "Process Continues"
-End3: "Process Halted"
-Start -> GetDetails
-GetDetails -> Check
-Check -> End1: "No"
-Check -> SendApproval: "Yes"
-SendApproval -> CheckApproval
-CheckApproval -> UpdateApproved: "Yes"
-CheckApproval -> UpdateRejected: "No"
-UpdateApproved -> End2
-UpdateRejected -> EmailSubmitter
-EmailSubmitter -> End3
+direction: down
+
+# Start and End states
+Start: Task Completed {
+  shape: circle
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Continue: Process Continues {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Halted: Process Halted {
+  shape: circle
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+# Actions
+GetDetails: Get Task Details {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+SendApproval: Send Approval {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+UpdateApproved: Update Approved {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+UpdateRejected: Update Rejected {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+EmailSubmitter: Email Submitter {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+# Decision Points
+Check: Amount > $5000? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+CheckApproval: Approved? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+# Main flow
+Start -> GetDetails {
+  style.stroke: "#225930"
+}
+GetDetails -> Check {
+  style.stroke: "#225930"
+}
+
+Check -> Continue: No {
+  style.stroke: "#225930"
+}
+Check -> SendApproval: Yes {
+  style.stroke: "#225930"
+}
+
+SendApproval -> CheckApproval {
+  style.stroke: "#225930"
+}
+
+CheckApproval -> UpdateApproved: Yes {
+  style.stroke: "#225930"
+}
+CheckApproval -> UpdateRejected: No {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+UpdateApproved -> Continue {
+  style.stroke: "#225930"
+}
+UpdateRejected -> EmailSubmitter {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+EmailSubmitter -> Halted {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
 ```
 
 **What to notice:**

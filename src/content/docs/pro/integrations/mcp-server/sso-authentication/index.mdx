@@ -4,6 +4,7 @@ description: SSO integration with Model Context Protocol servers creates unified
   credentials and automatically access multiple integrated services without repeated
   login prompts.
 id: 886f31f99a9a826905f2790c69b808fd
+lastUpdated: '2025-08-14'
 sidebar:
   order: 25
 title: Using SSO with MCP servers
@@ -51,31 +52,96 @@ SSO integration with MCP uses standardized OAuth 2.1 flows. These flows delegate
 The following diagram illustrates how SSO authentication flows between your users, AI agents, MCP servers, and enterprise identity providers.
 
 ```d2
-U: User
-AI: AI Agent
-MCP: MCP Server
-IdP: Identity Provider (Azure AD/Okta)
-API: Target Service API
+# SSO Authentication Flow with MCP
+direction: down
 
-# SSO-MCP Authentication Flow
+# Actors
+User: User {
+  shape: person
+  style.fill: "#e1f7e6"
+}
 
-1: U -> AI: Request access to tool
-2: AI -> MCP: Forward request
-3: MCP -> U: Redirect to IdP login
-4: U -> IdP: Corporate credentials + MFA
-5: IdP -> IdP: Validate identity\nApply policies
-6: IdP -> U: Authorization code
-7: U -> MCP: Return with auth code
-8: MCP -> IdP: Exchange code for tokens
-9: IdP -> MCP: Access token + Refresh token
-10: MCP -> API: API request with Bearer token
-11: API -> MCP: Protected data
-12: MCP -> AI: Process response
-13: AI -> U: Display results
+AI_Agent: AI Agent {
+  shape: rectangle
+  style.fill: "#f2faf4"
+}
 
-# Notes
-SSO-MCP Authentication Flow: {near: top-center}
-Token lifecycle managed by MCP server: {near: bottom-center}
+MCP_Server: MCP Server {
+  shape: rectangle
+  style.fill: "#f2faf4"
+}
+
+IdP: Identity Provider {
+  shape: rectangle
+  style.fill: "#f2faf4"
+  label: "Identity Provider\n(Azure AD, Okta, etc.)"
+}
+
+API: Target Service API {
+  shape: cylinder
+  style.fill: "#f2faf4"
+}
+
+# Authentication Flow
+User -> AI_Agent: 1. Request access\nto tool {
+  style.stroke: "#225930"
+}
+
+AI_Agent -> MCP_Server: 2. Forward request {
+  style.stroke: "#225930"
+}
+
+MCP_Server -> User: 3. Redirect to IdP {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+User -> IdP: 4. Login with\ncorporate credentials {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+IdP -> IdP: 5. Validate MFA &\nAccess Policies {
+  style.stroke: "#225930"
+}
+
+IdP -> User: 6. Authorization code {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+User -> MCP_Server: 7. Return with code {
+  style.stroke: "#225930"
+}
+
+MCP_Server -> IdP: 8. Exchange code\nfor access token {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+IdP -> MCP_Server: 9. Access token {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+MCP_Server -> API: 10. API request\nwith token {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+API -> MCP_Server: 11. API response {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+MCP_Server -> AI_Agent: 12. Return data {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+
+AI_Agent -> User: 13. Present results {
+  style.stroke: "#225930"
+}
 ```
 
 **What to notice:**

@@ -5,6 +5,7 @@ description: Skyvern automates browser workflows using LLMs and computer vision 
   executed on dynamic websites while integrating with Tallyfy for structured process
   orchestration.
 id: 6fd51549bc07b785c1b9cffa88ce32b9
+lastUpdated: '2025-08-14'
 sidebar:
   order: 12
 title: Skyvern AI agents
@@ -25,28 +26,27 @@ Your step-by-step instructions for the AI agent to perform work go into the Tall
 This diagram illustrates how Tallyfy sends web automation tasks to Skyvern's AI agents, which use computer vision and LLMs to extract data and return structured results.
 
 ```d2
-A: "A"
-AC: "AC"
-D: "D"
-J: "J"
-N: "N"
-P: "P"
-S: "S"
-U: "U"
-V: "V"
-T: "Tallyfy Task"
-W: "Webhook"
+A: A
+AC: AC
+D: D
+J: J
+N: N
+P: P
+S: S
+U: U
+V: V
+T: Tallyfy Task
 T -> W
-W -> S: "Skyvern API"
-S -> A: "Analyze Task"
-A -> P: "Planner Agent"
-P -> AC: "Actor Agent"
-AC -> V: "Validator Agent"
-V -> D: "Success"
-V -> P: "Retry"
-D -> J: "JSON Results"
-J -> U: "Update Tallyfy"
-U -> N: "Next Task"
+W -> S
+S -> A
+A -> P
+P -> AC
+AC -> V
+V -> D
+V -> P
+D -> J
+J -> U
+U -> N
 ```
 
 **What to notice:**
@@ -93,16 +93,16 @@ The old version (Skyvern 1.0) only scored 45% on WebVoyager. Why? Not enough mem
 This shows how Skyvern's three core agents collaborate with continuous feedback loops to achieve 85.8% accuracy on complex web tasks.
 
 ```d2
-Actor: "Actor"
-Planner: "Planner"
-Validator: "Validator"
-Request: "Task Request"
-Complete: "Complete"
-Request -> Planner: "Planner Sets goals"
-Planner -> Actor: "Actor Executes actions"
-Actor -> Validator: "Validator Checks results"
-Validator -> Complete: "Success"
-Validator -> Planner: "Fail"
+Actor: Actor
+Planner: Planner
+Validator: Validator
+Request: Task Request
+Complete: Complete
+Request -> Planner
+Planner -> Actor
+Actor -> Validator
+Validator -> Complete
+Validator -> Planner
 ```
 
 **What to notice:**
@@ -182,58 +182,24 @@ Let's see how this works in practice. Say you need to check competitor pricing a
 This demonstrates how Tallyfy orchestrates Skyvern's browser automation with asynchronous API communication to extract competitor data.
 
 ```d2
-T: "Tallyfy Process"
-W: "Webhook/Middleware"
-S: "Skyvern API"
-P: "Planner Agent"
-A: "Actor Agent"
-D: "Data Agent"
-B: "Browser"
-
-T -> W: "1. Task starts with form data (URL, product name, schema)"
-W -> S: "2. POST /v1/tasks [url, prompt, data_schema]"
-S -> S: "3. Create task ID"
-S -> W: "4. [task_id: abc-123, status: queued]"
-W -> T: "5. Task initiated"
-
-# Async Processing Begins
-AsyncProcessing: "Async Processing" {
-  S -> P: "6. Analyze task requirements"
-  P -> P: "7. Break into sub-goals: 1. Navigate to page 2. Find product 3. Extract data"
-  P -> A: "8. Execute: Navigate to URL"
-  A -> B: "9. Browser automation (Playwright/Selenium)"
-  B -> A: "10. Page loaded"
-  P -> A: "11. Execute: Find 'MegaWidget Advanced'"
-  A -> B: "12. Locate element by text"
-  B -> A: "13. Product found"
-  P -> D: "14. Extract price & stock"
-  D -> B: "15. Parse DOM elements"
-  B -> D: "16. Raw data extracted"
-  D -> D: "17. Structure to JSON schema"
-}
-
-# Polling (every 2-5 seconds)
-PollingLoop: "Polling Loop" {
-  T -> W: "18. Check status"
-  W -> S: "19. GET /v1/tasks/abc-123"
-  S -> W: "20. [status: processing]"
-  W -> T: "21. Still processing..."
-}
-
-D -> S: "22. Task complete [product_name: MegaWidget Advanced, price: 99.99, stock_status: In Stock]"
-T -> W: "23. Check status"
-W -> S: "24. GET /v1/tasks/abc-123"
-S -> W: "25. [status: completed, data: ...]"
-W -> T: "26. JSON result"
-T -> T: "27. Update form fields: • Competitor Price = 99.99 • Stock Status = In Stock"
-T -> T: "28. Continue to next step"
-# Process continues with extracted data
+Tallyfy: Tallyfy
+Skyvern: Skyvern API
+Agents: 3 Agents
+Browser: Browser
+Tallyfy -> Skyvern
+Skyvern -> Agents
+Agents -> Browser
+Browser -> Agents
+Agents -> Skyvern
+Tallyfy -> Poll
+Poll -> Tallyfy
+Poll -> Tallyfy
 ```
 
 **What to notice:**
-- **Steps 1-5** show the asynchronous task creation, preventing Tallyfy from blocking while Skyvern works
-- **Steps 10-13** demonstrate the polling pattern that lets Tallyfy check completion status without maintaining an open connection
-- **Step 16** shows how the structured JSON response maps directly back to Tallyfy form fields for seamless data flow
+- Asynchronous task creation prevents Tallyfy from blocking while Skyvern works
+- Polling pattern lets Tallyfy check completion status without maintaining an open connection
+- Structured JSON response maps directly back to Tallyfy form fields for seamless data flow
 
 *   **Integration Steps (Conceptual - API route):**
     1.  When the Tallyfy task starts, a webhook or middleware calls the Skyvern API's endpoint for creating/running a task.

@@ -3,6 +3,7 @@ description: This content explains how to use Postman to launch and manage Tally
   workflow processes through API endpoints with template IDs kick-off form data and
   various automation patterns for efficient process creation and monitoring.
 id: 495f20325d8943c1a756b4f52f5c4119
+lastUpdated: '2025-08-14'
 sidebar:
   order: 3
 title: Working with templates and processes
@@ -26,78 +27,27 @@ This naming difference catches everyone. Just remember: Template → Process in 
 This diagram shows the complete API flow from listing templates to launching and managing processes.
 
 ```d2
-DB: "DB"
-P: "P"
-T: "T"
-# Template to Process Launch Flow
-
-P: Postman Client {
-  shape: rectangle
-}
-T: Tallyfy API {
-  shape: rectangle
-}
-DB: Tallyfy Database {
-  shape: cylinder
-}
-
-# List available templates
-P -> T: "1. GET /organizations/[org]/checklists"
-T -> DB: "2. Query templates"
-DB -> T: "3. Template list" {
-  style.stroke-dash: 3
-}
-T -> P: "4. Available templates [id, name, steps_count]" {
-  style.stroke-dash: 3
-}
-
-# Conditional template selection
-condition: "Evaluate conditions" {
-  shape: diamond
-  style.fill: "#f0f0f0"
-}
-P -> condition: "5. Check amount"
-condition -> P: "6. Amount < 1000\nSelect simple_template"
-condition -> P: "7. Amount < 10000\nSelect manager_approval_template"
-condition -> P: "8. Amount >= 10000\nSelect executive_approval_template"
-
-# Launch process with kick-off form
-P -> T: "9. POST /checklists/[template]/launch + preruns data"
-T -> T: "10. Validate kick-off fields"
-T -> DB: "11. Create process instance"
-DB -> T: "12. Process created" {
-  style.stroke-dash: 3
-}
-T -> P: "13. 201 Created {process_id, status: 'active'}" {
-  style.stroke-dash: 3
-}
-
-# Bulk launch pattern
-bulk_loop: "For each employee" {
-  shape: hexagon
-  style.fill: "#e8f4f8"
-}
-P -> bulk_loop: "14. Start bulk launch"
-bulk_loop -> P: "15. Wait 200ms (rate limit)"
-P -> T: "16. POST /checklists/{template}/launch"
-T -> P: "17. Process launched" {
-  style.stroke-dash: 3
-}
-
-# Process monitoring
-P -> T: "18. GET /runs?status=active"
-T -> P: "19. Active processes list" {
-  style.stroke-dash: 3
-}
-
-P -> T: "20. PUT /runs/{process}/archive"
-T -> DB: "21. Update status to archived"
-DB -> T: "22. Status updated" {
-  style.stroke-dash: 3
-}
-T -> P: "23. Process archived" {
-  style.stroke-dash: 3
-}
+DB: DB
+P: P
+T: T
+shape: hexagon
+style.stroke-dash: 3
+style.fill: #e8f4f8
+P -> T
+T -> DB
+DB -> T
+T -> P
+P -> condition
+condition -> P
+condition -> P
+condition -> P
+P -> T
+T -> T
+T -> DB
+DB -> T
+T -> P
+P -> bulk_loop
+bulk_loop -> P
 ```
 
 **What to notice:**
