@@ -179,6 +179,7 @@ jobs:
           repository: tallyfy/support-docs
           token: ${{ secrets.GH_TOKEN }}
           path: target-repo
+          ref: staging
 
       - name: Sync files
         run: |
@@ -189,6 +190,12 @@ jobs:
           cd target-repo
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
+          git config pull.rebase false
           git add src/content/docs
-          git commit -m "Sync docs from tallyfy/documentation"
-          git push --set-upstream origin HEAD
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Sync docs from tallyfy/documentation"
+            git pull origin staging --no-rebase || true
+            git push origin staging
+          fi
