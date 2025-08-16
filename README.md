@@ -427,110 +427,110 @@ See `/temporary/doc-updater/` for automation scripts and queue management tools.
 
 ### Overview
 
-This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. All diagrams are automatically generated at build time and served from our CDN.
+This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. **These diagrams are generated at build time during the documentation deployment process and are embedded directly into the documentation pages**.
 
 **Total Diagrams**: 63 diagrams across 49 documentation pages
 
-### Production URL Pattern
+### Important Note About D2 Diagrams
 
-All D2 diagrams are accessible via the following URL pattern:
-```
-https://tallyfy.com/products/d2-diagrams/[path]/[filename]-[index].svg
-```
+**D2 diagrams are NOT available as standalone assets at production URLs**. They are:
+- Generated dynamically at build time on Cloudflare Pages
+- Rendered server-side during the documentation build process
+- Embedded directly into the HTML of documentation pages
+- Not accessible as separate SVG files
 
-Where:
-- `[path]` = directory path from `/src/content/docs/` (e.g., `pro/integrations/middleware`)
-- `[filename]` = MDX filename without extension (e.g., `zapier`)
-- `[index]` = diagram number in the file, starting from 0
+The diagrams exist only as part of the rendered documentation pages and cannot be directly linked or embedded from external sources.
 
 ### Diagram Categories
 
 #### API Integration Flows (32 diagrams - 50.8%)
 Integration patterns, middleware connections, and API interactions
 
-**Key Examples:**
-- Zapier automation: `d2-diagrams/pro/integrations/middleware/zapier/how-to-automate-tasks-in-tallyfy-using-zaps-0.svg`
-- Power Automate workflows: `d2-diagrams/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate-0.svg`
-- n8n connections: `d2-diagrams/pro/integrations/middleware/n8n/connecting-n8n-to-tallyfy-0.svg`
-- Make.com automations: `d2-diagrams/pro/integrations/middleware/make/trigger-tallyfy-processes-from-make-0.svg`
+**Documentation Pages Containing These Diagrams:**
+- Zapier automation workflows
+- Power Automate integration guides
+- n8n connection documentation
+- Make.com automation guides
 
 #### Computer AI Agents (13 diagrams - 20.6%)
 AI agent integrations and computer use patterns
 
-**Key Examples:**
-- Claude computer use: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/claude-computer-use-0.svg` (3 diagrams)
-- OpenAI ChatGPT: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/openai-chatgpt-agent-0.svg` (3 diagrams)
-- Skyvern AI: `d2-diagrams/pro/integrations/computer-ai-agents/vendors/skyvern-0.svg` (3 diagrams)
-- Local agents: `d2-diagrams/pro/integrations/computer-ai-agents/local-computer-use-agents-0.svg` (3 diagrams)
+**Documentation Pages Containing These Diagrams:**
+- Claude computer use documentation (3 diagrams)
+- OpenAI ChatGPT agent guides (3 diagrams)
+- Skyvern AI integration (3 diagrams)
+- Local computer use agents (3 diagrams)
 
 #### Authentication & SSO (4 diagrams - 6.3%)
 SAML SSO configurations and authentication flows
 
-**Key Examples:**
-- Azure AD SSO: `d2-diagrams/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy-0.svg`
-- Okta SSO: `d2-diagrams/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy-0.svg`
-- OneLogin: `d2-diagrams/pro/integrations/authentication/how-to-integrate-onelogin-samlsso-with-tallyfy-0.svg`
-- Auth0: `d2-diagrams/pro/integrations/authentication/how-to-integrate-auth0-samlsso-with-tallyfy-0.svg`
+**Documentation Pages Containing These Diagrams:**
+- Azure AD SSO integration guide
+- Okta SSO setup documentation
+- OneLogin SAML configuration
+- Auth0 authentication setup
 
 #### Process Workflows (5 diagrams - 7.9%)
 Business process representations and approval flows
 
-**Key Examples:**
-- Multi-level approvals: `d2-diagrams/pro/documenting/templates/automations/examples/multi-level-approval-loops-0.svg` (3 diagrams)
-- RPA vs Computer agents: `d2-diagrams/pro/integrations/computer-ai-agents/rpa-vs-computer-use-agents-0.svg`
-- Process launching: `d2-diagrams/pro/launching/process-launching/launch-options-0.svg`
+**Documentation Pages Containing These Diagrams:**
+- Multi-level approval patterns (3 diagrams)
+- RPA vs Computer agents comparison
+- Process launching options
 
 #### Webhook Integrations (4 diagrams - 6.3%)
 Webhook-based integration patterns and event flows
 
-**Key Examples:**
-- Webhook triggers: `d2-diagrams/pro/integrations/webhooks/trigger-a-process-from-a-webhook-0.svg`
-- Azure runbooks: `d2-diagrams/pro/integrations/webhooks/trigger-azure-runbook-from-tallyfy-0.svg`
-- Basic webhooks: `d2-diagrams/pro/integrations/webhooks/use-webhooks-0.svg`
-- External webhook templates: `d2-diagrams/pro/integrations/webhooks/external-webhook-and-email-templates-0.svg`
+**Documentation Pages Containing These Diagrams:**
+- Webhook trigger documentation
+- Azure runbook integration
+- Basic webhook usage guide
+- External webhook templates
 
 #### System Architecture (2 diagrams - 3.2%)
 High-level system design and data flows
 
-**Key Examples:**
-- Distributed tracing: `d2-diagrams/manufactory/best-practices/implementing-distributed-tracing-0.svg`
-- WebSocket connections: `d2-diagrams/manufactory/collector/websocket/connect_to_ws-0.svg`
+**Documentation Pages Containing These Diagrams:**
+- Distributed tracing implementation
+- WebSocket connection guides
 
 ### Quick Reference by Product
 
 #### PRO Documentation (59 diagrams)
-- **Integrations**: 51 diagrams
-- **Launching**: 2 diagrams
-- **Documenting**: 3 diagrams
-- **Tutorials**: 3 diagrams
+- **Integrations**: 51 diagrams embedded in integration guides
+- **Launching**: 2 diagrams in process launching documentation
+- **Documenting**: 3 diagrams in template documentation
+- **Tutorials**: 3 diagrams in tutorial pages
 
 #### Manufactory Documentation (4 diagrams)
-- **Best Practices**: 3 diagrams
-- **Collector/WebSocket**: 1 diagram
+- **Best Practices**: 3 diagrams in best practices guides
+- **Collector/WebSocket**: 1 diagram in WebSocket documentation
 
-### Reusable Diagram Assets
+### Viewing D2 Diagrams
 
-These production-ready diagram URLs can be embedded in:
-- Marketing materials and blog posts
-- Sales presentations
-- Support documentation
-- Training materials
-- External integrations documentation
+To view these diagrams:
+1. Visit the documentation site at https://tallyfy.com/products/
+2. Navigate to the relevant documentation page
+3. The diagrams are embedded within the content of each page
 
-### Full Inventory Access
+**Note**: These diagrams are part of the documentation content itself and are not available as separate downloadable assets.
 
-For programmatic access to all diagram metadata:
-- **JSON format**: `/temporary/d2_inventory.json` (complete metadata)
-- **CSV format**: `/temporary/d2_inventory.csv` (spreadsheet-friendly)
-- **Markdown report**: `/temporary/d2_inventory_report.md` (categorized listing)
+### D2 Diagram Development Reference
+
+For developers working with D2 diagrams:
+- **Source files**: Located in MDX files throughout `/src/content/docs/`
+- **Build process**: Diagrams are rendered during the Cloudflare Pages build
+- **Local development**: Run `npm run dev` to see diagrams rendered locally
+- **Syntax reference**: See the D2 documentation section above for proper syntax
 
 ### AI Assistant Reference
 
-AI assistants working with this repository can reference the D2 diagrams inventory for:
-- Finding relevant visual assets for documentation updates
-- Understanding system architecture through diagrams
-- Cross-referencing diagram content with documentation text
-- Identifying gaps where diagrams might be helpful
+AI assistants working with this repository should understand that:
+- D2 diagrams are defined inline within MDX documentation files
+- Diagrams are rendered at build time, not stored as separate files
+- To update diagrams, edit the D2 code blocks within the MDX files
+- Follow the D2 syntax guidelines in this README for consistency
+- Test diagram changes locally before committing
 
 ## License
 
