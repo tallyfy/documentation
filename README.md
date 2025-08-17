@@ -427,19 +427,22 @@ See `/temporary/doc-updater/` for automation scripts and queue management tools.
 
 ### Overview
 
-This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. **These diagrams are generated at build time during the documentation deployment process and are embedded directly into the documentation pages**.
+This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. **These diagrams are generated at build time and served as external SVG files from our CDN**.
 
 **Total Diagrams**: 63 diagrams across 49 documentation pages
 
-### Important Note About D2 Diagrams
+### Production URL Access
 
-**D2 diagrams are NOT available as standalone assets at production URLs**. They are:
-- Generated dynamically at build time on Cloudflare Pages
-- Rendered server-side during the documentation build process
-- Embedded directly into the HTML of documentation pages
-- Not accessible as separate SVG files
+**D2 diagrams are available as standalone SVG assets** at:
+- **Base URL**: `https://tallyfy.com/products/d2-diagrams/docs/`
+- **Pattern**: `https://tallyfy.com/products/d2-diagrams/docs/[path]/[filename]-[index].svg`
+- **Important**: Note the `/docs/` prefix after `/d2-diagrams/` in the URL pattern
 
-The diagrams exist only as part of the rendered documentation pages and cannot be directly linked or embedded from external sources.
+These diagrams are:
+- Generated at build time on Cloudflare Pages
+- Served as external SVG files from our CDN
+- Available for embedding in any content (documentation, marketing, presentations)
+- Accessible via direct URLs for reuse across platforms
 
 ### Diagram Categories
 
@@ -506,14 +509,17 @@ High-level system design and data flows
 - **Best Practices**: 3 diagrams in best practices guides
 - **Collector/WebSocket**: 1 diagram in WebSocket documentation
 
-### Viewing D2 Diagrams
+### Accessing D2 Diagrams
 
-To view these diagrams:
-1. Visit the documentation site at https://tallyfy.com/products/
-2. Navigate to the relevant documentation page
-3. The diagrams are embedded within the content of each page
+You can access these diagrams in multiple ways:
+1. **Direct URL**: Use the production URLs like `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/middleware/zapier-integration-0.svg`
+2. **Within Documentation**: View them embedded in documentation pages at https://tallyfy.com/products/
+3. **For External Use**: Copy the SVG URLs to embed in presentations, marketing materials, or other content
 
-**Note**: These diagrams are part of the documentation content itself and are not available as separate downloadable assets.
+**Example URLs**:
+- Zapier Integration: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/middleware/zapier/how-to-automate-tasks-in-tallyfy-using-zaps-0.svg`
+- OAuth Flow: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/open-api/oauth-authorization-flow-0.svg`
+- Multi-level Approvals: `https://tallyfy.com/products/d2-diagrams/docs/pro/documenting/templates/automations/examples/multi-level-approval-loops-0.svg`
 
 ### D2 Diagram Development Reference
 
@@ -527,10 +533,12 @@ For developers working with D2 diagrams:
 
 AI assistants working with this repository should understand that:
 - D2 diagrams are defined inline within MDX documentation files
-- Diagrams are rendered at build time, not stored as separate files
+- Diagrams are rendered at build time and served as external SVG files
+- Production URLs follow the pattern: `https://tallyfy.com/products/d2-diagrams/docs/[path]/[filename]-[index].svg`
 - To update diagrams, edit the D2 code blocks within the MDX files
 - Follow the D2 syntax guidelines in this README for consistency
 - Test diagram changes locally before committing
+- Use the production URLs when referencing diagrams in other content
 
 ## License
 

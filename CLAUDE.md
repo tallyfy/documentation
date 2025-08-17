@@ -215,11 +215,28 @@ A production-ready system exists at `/temporary/footnote-annotator/` for batch p
 
 ## D2 Diagrams Resources
 
-**Pre-built Diagram Assets**: 63 D2 diagrams are available for reuse across documentation and marketing materials. See the **D2 Diagrams Inventory** section in `/README.md` for:
-- Production URLs for all rendered diagrams (https://tallyfy.com/products/d2-diagrams/...)
-- Categorized inventory by diagram type (API flows, authentication, workflows, etc.)
-- Quick reference guide for finding relevant diagrams
-- Full metadata available in `/temporary/d2_inventory.json`
+**Production-Ready Diagram Assets**: 63 D2 diagrams are available as external SVG files for reuse across all platforms. See the **D2 Diagrams Inventory** section in `/README.md` for complete details.
+
+### Quick Access Information:
+- **Base URL**: `https://tallyfy.com/products/d2-diagrams/docs/`
+- **URL Pattern**: `https://tallyfy.com/products/d2-diagrams/docs/[path]/[filename]-[index].svg`
+- **Important**: Note the `/docs/` prefix after `/d2-diagrams/` - this is required
+- **Full Metadata**: Available in `/temporary/d2_inventory.json`
+
+### Available Categories (63 Total):
+- **API Integration Flows** (32 diagrams - 50.8%): Zapier, Power Automate, n8n, Make.com workflows
+- **Computer AI Agents** (13 diagrams - 20.6%): Claude, ChatGPT, Skyvern, local agents
+- **Authentication & SSO** (4 diagrams - 6.3%): Azure AD, Okta, OneLogin, Auth0
+- **Process Workflows** (5 diagrams - 7.9%): Multi-level approvals, process launching
+- **Webhook Integrations** (4 diagrams - 6.3%): Event triggers, external integrations
+- **System Architecture** (2 diagrams - 3.2%): Distributed tracing, WebSocket connections
+- **Manufactory** (4 diagrams): Event lifecycle, collectors
+
+### Example Working URLs:
+- Zapier Integration: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/middleware/zapier/how-to-automate-tasks-in-tallyfy-using-zaps-0.svg`
+- OAuth Flow: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/open-api/oauth-authorization-flow-0.svg`
+- Multi-level Approvals: `https://tallyfy.com/products/d2-diagrams/docs/pro/documenting/templates/automations/examples/multi-level-approval-loops-0.svg`
+- Azure AD SSO: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy-0.svg`
 
 ## ROLE & PRIMARY OBJECTIVE
 
