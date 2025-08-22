@@ -42,7 +42,7 @@ jobs:
         run: |
           file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r ${{ github.sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
-            git pull
+            git pull --no-rebase
             python -m pip install --upgrade python-frontmatter requests
             python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
           else
@@ -55,7 +55,7 @@ jobs:
           if [[ -n "$file_changes" ]]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
-            git pull
+            git pull --no-rebase
             git add .
             git commit -m "Push Articles With snippet(s)" -a
             git push
@@ -79,7 +79,7 @@ jobs:
           python-version: '3.10'
       - name: Dump articles into JSON file
         run: |
-          git pull
+          git pull --no-rebase
           python -m pip install --upgrade python-frontmatter requests
           python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
         shell: bash
@@ -120,7 +120,7 @@ jobs:
           python-version: '3.10'
       - name: Update lastUpdated dates from Git history
         run: |
-          git pull
+          git pull --no-rebase
           python -m pip install --upgrade python-frontmatter
           python scripts/update-last-modified.py --dir=src/content/docs
         shell: bash
@@ -131,7 +131,7 @@ jobs:
             git config --local user.name "GitHub Action"
             git add .
             git commit -m "Update lastUpdated dates from Git history" -a
-            git pull
+            git pull --no-rebase
             git push
           else
             echo "No lastUpdated changes needed"
@@ -151,7 +151,7 @@ jobs:
           python-version: '3.10'
       - name: Generate related articles script
         run: |
-          git pull
+          git pull --no-rebase
           python -m pip install --upgrade python-frontmatter requests
           python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
         shell: bash
@@ -161,7 +161,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git commit -m "Push related articles" -a
-          git pull
+          git pull --no-rebase
           git push
 
   sync:
@@ -196,6 +196,6 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Sync docs from tallyfy/documentation"
-            git pull origin staging --no-rebase || true
+            git pull --no-rebase origin staging --no-rebase || true
             git push origin staging
           fi
