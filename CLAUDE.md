@@ -122,16 +122,6 @@ Hover annotations use littlefoot.js to display supplementary information as inte
    The template becomes a process[^6] when launched.
    [^6]: Running instance with tracked tasks, assignments, and deadlines - like a template brought to life
    ```
-   
-   ```markdown
-   Assign to job titles[^7] for dynamic routing.
-   [^7]: Role-based assignment that automatically finds the right person when the process runs
-   ```
-   
-   ```markdown
-   Use snippets[^8] to reuse content blocks.
-   [^8]: Centralized text fragments that update everywhere when edited once - perfect for legal disclaimers
-   ```
 
 #### ❌ NEVER Use Footnotes For:
 1. **Basic UI instructions** - "Click the button" explanations
@@ -591,11 +581,7 @@ This repository uses a sophisticated Python-based content automation system:
 5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
 
 ### Content Validation
-Run `python scripts/markdown-lint.py --dir src/content/docs` to validate:
-- Frontmatter YAML structure
-- Required fields presence
-- UUID format validation
-- Sidebar order requirements
+Run `python scripts/markdown-lint.py --dir src/content/docs` to validate frontmatter YAML structure, required fields, UUID format, and sidebar order requirements.
 
 ## WRITING STYLE GUIDELINES
 
@@ -942,7 +928,6 @@ The tracker view provides real-time visibility. Navigate to **Tracker** to see a
 - Structured formats (lists, tables, steps) for easy parsing
 - Semantic HTML: proper use of `<article>`, `<section>`, `<nav>`
 - Internal linking with descriptive anchor text (3-5 per article)
-- **CRITICAL**: Never fabricate statistics, percentages, or specific numbers - only use real, verifiable data from actual sources
 
 
 ### LLM-Specific Optimization Patterns
@@ -1006,27 +991,6 @@ When discussing any feature, include ALL related concepts:
 - Preventative measures when applicable
 - Link to support resources for complex issues
 
-## CONTENT MAINTENANCE
-
-
-### Best Practices
-- Test all instructions before publishing
-- Maintain consistent terminology throughout documentation
-- Write with accessibility in mind
-- Consider both human readers and AI systems
-- Keep examples realistic and relevant
-- Update content when features change
-
-
-## DEVELOPMENT WORKFLOW
-
-When working with content:
-
-1. Create/edit `.mdx` files in appropriate product directories
-2. Content IDs are assigned automatically server-side
-3. Run `python scripts/generate-snippets.py` to generate descriptions (requires API key)
-4. Run `python scripts/markdown-lint.py` to validate structure
-5. Use `npm run dev` to preview changes locally
 
 ## LAST UPDATED DATES SYSTEM
 
@@ -1070,14 +1034,6 @@ python scripts/update-last-modified.py --dir=src/content/docs
 - If a file has no Git history, it won't get a lastUpdated date
 - The rendering repository (/support-docs) uses these dates from frontmatter
 
-## AI INTEGRATION
-
-This repository extensively uses Claude AI for content automation:
-
-1. **Content Generation**: `generate-snippets.py` uses Claude API to create descriptions
-2. **Related Articles**: Integration with Tallyfy's Answers API for cross-references
-3. **Configuration**: AI settings in `.claude/settings.local.json`
-4. **Date Updates**: `update-last-modified.py` maintains lastUpdated dates from Git
 
 ## CLAUDE CODE AUTOMATION PHILOSOPHY
 
@@ -1274,14 +1230,6 @@ Decision -> End: No
    - ✅ RIGHT: `Check: "Amount > 5000?"`
    - D2 interprets `$` as start of variable substitution
 
-2. **Curly braces in labels cause substitution errors**:
-   - ❌ WRONG: `T -> S: "POST /api/tasks/{id}"`
-   - ✅ RIGHT: `T -> S: "POST /api/tasks/[id]"` or use parentheses
-   - D2 interprets `{...}` as variable substitution syntax
-
-3. **Double-double quotes break parsing**:
-   - ❌ WRONG: `Start: ""Agent Starts""`
-   - ✅ RIGHT: `Start: "Agent Starts"`
 
 4. **Invalid node syntax with square brackets**:
    - ❌ WRONG: `TallyfyInputs[Tallyfy Process]: { ... }`
@@ -1490,8 +1438,6 @@ Problem: "Text" {
   shape: rectangle
   near: center-right  # ❌ FATAL: near: inside blocks = build failure
 }
-A -> B: "Response {'data': 'value'}"  # ❌ FATAL: Curly braces in labels = substitution error
-Start: ""Text""   # ❌ FATAL: Double-double quotes = parse error
 ```
 
 #### Essential Syntax Rules:
@@ -1550,61 +1496,36 @@ Token Refresh: {
 
 #### For Process Triggers
 ```d2
-Start: Process Trigger {
-  shape: oval
-  style.bold: true
-}
-Check: Which Trigger? {
-  shape: diamond
-}
+Start: Process Trigger { shape: oval }
+Check: Which Trigger? { shape: diamond }
 
-M: User clicks Run { style.bold: true }
-A: POST /api/v1/processes/run { style.bold: true }
-S: Cron expression matches { style.bold: true }
-E: Email to process@ { style.bold: true }
-F: Public form submitted { style.bold: true }
-W: External webhook received { style.bold: true }
-P: Parent process triggers { style.bold: true }
+Manual: User clicks Run
+API: POST /api/v1/processes/run
+Schedule: Cron expression matches
+Email: Email to process@
+Form: Public form submitted
+Webhook: External webhook received
 
 Validate: Has Permission? { shape: diamond }
-Auth: Valid Token? { shape: diamond }
-Time: Is Active? { shape: diamond }
-Parse: Parse Email
-Data: Collect Form Data
-Verify: Valid Signature? { shape: diamond }
-Check2: Conditions Met? { shape: diamond }
+Launch: Launch Process
 
 Start -> Check
-Check -> M: Manual
-Check -> A: API
-Check -> S: Schedule
-Check -> E: Email
-Check -> F: Form
-Check -> W: Webhook
-Check -> P: Process
+Check -> Manual: Manual
+Check -> API: API
+Check -> Schedule: Schedule
+Check -> Email: Email
+Check -> Form: Form
+Check -> Webhook: Webhook
 
-M -> Validate
-A -> Auth
-S -> Time
-E -> Parse
-F -> Data
-W -> Verify
-P -> Check2
-    
-    Validate -->|"`Yes`"| Launch
-    Validate -->|"`No`"| Deny["`**Access Denied**`"]
-    Auth -->|"`Yes`"| Launch
-    Auth -->|"`No`"| Deny
-    Time -->|"`Yes`"| Launch
-    Time -->|"`No`"| Skip["`**Skip This Run**`"]
-    Parse --> Launch
-    Data --> Launch
-    Verify -->|"`Yes`"| Launch
-    Verify -->|"`No`"| Reject["`**Reject Webhook**`"]
-    Check2 -->|"`Yes`"| Launch
-    Check2 -->|"`No`"| Skip
-    
-    Launch(["`**Launch Process**`"])
+Manual -> Validate
+API -> Validate
+Schedule -> Launch
+Email -> Launch
+Form -> Launch
+Webhook -> Validate
+
+Validate -> Launch: Yes
+Validate -> Deny: No
 ```
 
 #### For Webhook Events
@@ -1653,69 +1574,31 @@ Final Failure: {
 
 #### For Automation Logic (Reflecting Actual System)
 ```d2
-Start: Event Triggers Automation {
-  shape: oval
-}
-Context: Determine Context\ntask completion/process start/etc
+Start: Event Triggers Automation { shape: oval }
+Context: Determine Context
 Rules: Load Rules by Position Order
-Rule1: Rule 1\nPosition: 1 {
-  shape: diamond
-}
-Op1: Logic Operator\nfor Rule 2? {
-  shape: diamond
-}
-Rule2AND: Rule 2 Met? {
-  shape: diamond
-}
-Rule2OR: Rule 2 Met? {
-  shape: diamond
-}
-Continue: Continue to Rule 3...
-NoAction: Skip Actions
-CheckActions: All Rules Evaluated
-Actions: Execute Actions\nby Position Order
-
-A1: Action 1: Show/Hide Task
-A2: Action 2: Set Deadline
-A3: Action 3: Assign Users
-A4: Action 4: Change Status
-
-Log: Log in automation_executions
-End: Complete {
-  shape: oval
-}
+Rule1: Rule 1 Met? { shape: diamond }
+Op1: Logic Operator? { shape: diamond }
+Rule2: Rule 2 Met? { shape: diamond }
+Actions: Execute Actions
 
 Start -> Context
 Context -> Rules
 Rules -> Rule1
 
-Rule1 -> Op1: Met
-Rule1 -> Op1: Not Met
+Rule1 -> Op1: Yes
+Rule1 -> NoAction: No
 
-Op1 -> Rule2AND: AND
-Op1 -> Rule2OR: OR
-Op1 -> CheckActions: None
+Op1 -> Rule2: AND/OR
+Op1 -> Actions: None
 
-Rule2AND -> Continue: Yes + Previous Yes
-Rule2AND -> NoAction: No
+Rule2 -> Actions: Yes
+Rule2 -> NoAction: No
 
-Rule2OR -> CheckActions: Yes
-Rule2OR -> NoAction: No + Previous No
+Actions -> End
+NoAction -> End
 
-CheckActions -> Actions
-Actions -> A1
-A1 -> A2
-A2 -> A3
-A3 -> A4
-A4 -> Log
-NoAction -> Log
-Log -> End
-
-note: |md
-  Rules evaluated sequentially
-  by position field, no parentheses
-  or complex precedence
-|
+note: Rules evaluated sequentially by position field
 ```
 
 ### Webhook and API Visualization Best Practices
@@ -2182,19 +2065,7 @@ All 17 diagram types are technically supported, but use these based on content n
 **PROBLEM**: Text appears white/invisible on light backgrounds in light mode.
 **SOLUTION**: Text color is now forced to black in light mode via global CSS. Never override this.
 
-#### 2. Near Positioning Inside Blocks (CAUSES BUILD FAILURES)
-**PROBLEM**: Using `near:` inside node definition blocks with other properties causes "unexpected text after map" errors.
-**SOLUTION**: NEVER use `near:` inside blocks with other properties. Only use as standalone positioning.
-
-#### 3. Curly Braces in Labels (CAUSES BUILD FAILURES)
-**PROBLEM**: Using `{}` in edge/node labels causes "substitutions must begin on {" errors.
-**SOLUTION**: Replace curly braces with square brackets `[]` or parentheses `()` for JSON-like data.
-
-#### 4. Double-Double Quotes (CAUSES BUILD FAILURES)
-**PROBLEM**: Using `""` in labels causes "unexpected text after double quoted string" errors.
-**SOLUTION**: Use single pair of quotes only: `"Text"` not `""Text""`.
-
-#### 5. Broken Hyperlinks (ALWAYS VERIFY)
+#### 2. Broken Hyperlinks (ALWAYS VERIFY)
 **PROBLEM**: Many click directives point to non-existent URLs (404 errors).
 **SOLUTION**: ALWAYS verify URLs exist before adding click directives:
 ```bash
@@ -2224,46 +2095,14 @@ Common correct URLs:
    - **Cause**: Labels too long for node width
    - **Fix**: Shorten to <15 characters or use abbreviations
    
-4. **"unexpected text after unquoted string" or "unexpected text after map"**:
-   - **Cause**: Using `near:` positioning inside node definition blocks with other properties
-   - **Example of INVALID syntax**:
-     ```d2
-     Problem: "Text" {
-       shape: rectangle
-       style.fill: "#ffcccc"
-       near: center-right  # ❌ INVALID - near: cannot be inside blocks
-     }
-     ```
-   - **Fix**: Remove positioning from inside blocks - only use `near:` as standalone:
-     ```d2
-     Problem: "Text" {
-       shape: rectangle
-       style.fill: "#ffcccc"
-     }
-     # Or use positioning as standalone (valid):
-     # SomeNode: {near: center-right}
-     ```
-   
-5. **404 errors on diagram links**:
+4. **404 errors on diagram links**:
    - **Cause**: Incorrect URL paths in link properties
    - **Fix**: Verify paths exist, include trailing slashes
 
-6. **Diagram not rendering**:
+5. **Diagram not rendering**:
    - **Cause**: Invalid D2 syntax or unsupported keywords
    - **Fix**: Ensure using only D2-supported syntax, no legacy diagramming keywords
 
-7. **"substitutions must begin on {"**:
-   - **Cause**: Using curly braces `{}` in labels (D2 treats them as variable substitution syntax)
-   - **Example of INVALID**: `A -> B: "JSON response {'status': 'ok'}"`
-   - **Fix**: Replace curly braces with square brackets or parentheses:
-     - `A -> B: "JSON response [status: ok]"`
-     - `A -> B: "JSON response (status=ok)"`
-
-8. **"unexpected text after double quoted string"**:
-   - **Cause**: Using double-double quotes `""` in node/edge labels
-   - **Example of INVALID**: `Start: ""Agent Starts""`
-   - **Fix**: Use single pair of quotes:
-     - `Start: "Agent Starts"`
 
 #### Debug Commands
 ```bash
