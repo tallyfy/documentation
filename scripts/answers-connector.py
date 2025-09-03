@@ -295,18 +295,18 @@ def process_mdx_file(file_path: str, root_directory: str) -> Optional[Dict[str, 
 		return None
 
 
-def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: str, api_key: str, base_url: str) -> bool:
+def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: str, api_key: str, base_urls: List[str]) -> bool:
 	"""
-    Upload content to Answers API.
+    Upload content to Answers API(s).
 
     Args:
         content_list: List of article data dictionaries
         collection_name: Name of the collection
         api_key: API key for authentication
-        base_url: Base URL of the Answers API
+        base_urls: List of base URLs of the Answers APIs
 
     Returns:
-        True if upload successful, False otherwise
+        True if all uploads successful, False otherwise
     """
 	try:
 		# Validate inputs
@@ -314,8 +314,8 @@ def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: s
 			logger.error("No content to upload")
 			return False
 
-		if not collection_name or not api_key:
-			logger.error("Missing collection name or API key")
+		if not collection_name or not api_key or not base_urls:
+			logger.error("Missing collection name, API key, or base URLs")
 			return False
 
 		# Save to JSON file first
@@ -328,37 +328,50 @@ def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: s
 			logger.error(f"Failed to save JSON file: {e}")
 			return False
 
-		# Upload to API
-		files = [
-			('data', (json_filename, open(json_filename, 'rb'), 'application/json'))
-		]
-
 		headers = {
 			"Authorization": api_key
 		}
 
-		url = f"{base_url}/collections/{collection_name}/batch"
-		logger.info(f"Uploading to {url}")
+		all_successful = True
+		
+		# Upload to each API endpoint
+		for base_url in base_urls:
+			logger.info(f"Uploading to {base_url}...")
+			
+			# Create fresh file handle for each upload
+			files = [
+				('data', (json_filename, open(json_filename, 'rb'), 'application/json'))
+			]
 
-		response = requests.post(url, files=files, headers=headers, timeout=300)
+			url = f"{base_url}/collections/{collection_name}/batch"
+			logger.info(f"Uploading to {url}")
 
-		# Close file handle
-		files[0][1][1].close()
-
-		if response.status_code == 200:
-			logger.info("Upload successful!")
-			return True
-		else:
-			logger.error(f"Upload failed with status {response.status_code}")
 			try:
-				error_details = response.json()
-				logger.error(f"Error details: {error_details}")
-			except:
-				logger.error(f"Response text: {response.text}")
-			return False
+				response = requests.post(url, files=files, headers=headers, timeout=300)
+
+				# Close file handle
+				files[0][1][1].close()
+
+				if response.status_code == 200:
+					logger.info(f"Upload to {base_url} successful!")
+				else:
+					logger.error(f"Upload to {base_url} failed with status {response.status_code}")
+					try:
+						error_details = response.json()
+						logger.error(f"Error details: {error_details}")
+					except:
+						logger.error(f"Response text: {response.text}")
+					all_successful = False
+					
+			except Exception as upload_error:
+				logger.error(f"Error uploading to {base_url}: {upload_error}")
+				files[0][1][1].close()  # Ensure file handle is closed
+				all_successful = False
+
+		return all_successful
 
 	except Exception as e:
-		logger.error(f"Error uploading to API: {e}")
+		logger.error(f"Error uploading to APIs: {e}")
 		return False
 
 
@@ -372,7 +385,7 @@ def main():
 	parser.add_argument('--dir', type=str, required=True, help='Directory containing MDX files')
 	parser.add_argument('--collection_name', type=str, required=True, help='Collection name in Answers')
 	parser.add_argument('--answers_api_key', type=str, required=True, help='Answers API key')
-	parser.add_argument('--base_url', type=str, default='https://answers.tallyfy.com', help='Answers API base URL')
+	parser.add_argument('--base_urls', type=str, nargs='+', default=['https://staging.answers.tallyfy.com', 'https://answers.tallyfy.com'], help='Answers API base URLs (space-separated)')
 	parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
 
 	args = parser.parse_args()
@@ -387,6 +400,7 @@ def main():
 
 	logger.info(f"Processing directory: {args.dir}")
 	logger.info(f"Collection: {args.collection_name}")
+	logger.info(f"Target APIs: {', '.join(args.base_urls)}")
 
 	# Find MDX files
 	skip_list = ["404.mdx"]
@@ -428,7 +442,7 @@ def main():
 		processed_content,
 		args.collection_name,
 		args.answers_api_key,
-		args.base_url
+		args.base_urls
 	)
 
 	if success:
