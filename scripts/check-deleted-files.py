@@ -69,7 +69,6 @@ def main():
 
 	tallyfy_answers_api = f'{TALLYFY_ANSWERS_API_BASE}{collection_name}/objects/'
 	committed_files_url = f'{GITHUB_API_BASE}commits/{commit_sha}'
-	file_by_sha_url = f'{GITHUB_API_BASE}git/blobs/'
 
 	# Headers
 	headers = {'Authorization': f'token {github_token}'}
@@ -77,29 +76,45 @@ def main():
 	# Fetch committed files
 	commit_data = fetch_github_data(committed_files_url, headers)
 	commit_files = commit_data.get('files', [])
+	
+	# Get parent commit SHA to access file content before deletion
+	parent_commits = commit_data.get('parents', [])
+	if not parent_commits:
+		logging.error("No parent commit found - cannot retrieve deleted file content")
+		return
+	
+	parent_sha = parent_commits[0]['sha']
+	logging.info(f"Using parent commit {parent_sha} to retrieve deleted file content")
 
 	for file in commit_files:
 		if file.get('status') == 'removed':
 			logging.info(f"Found removed file: {file['filename']}")
-			file_details_url = f"{file_by_sha_url}{file['sha']}"
-			file_details = fetch_github_data(file_details_url, headers)
-			encoded_content = file_details.get('content')
+			
+			# Get file content from parent commit before deletion
+			file_content_url = f"{GITHUB_API_BASE}contents/{file['filename']}?ref={parent_sha}"
+			try:
+				file_details = fetch_github_data(file_content_url, headers)
+				encoded_content = file_details.get('content')
 
-			if encoded_content:
-				decoded_content = decode_file_content(encoded_content)
-				if decoded_content:
-					try:
-						# Parse frontmatter metadata
-						data = frontmatter.loads(decoded_content)
-						uid = data.get('id')
-						if uid:
-							delete_object(uid, tallyfy_answers_api)
-						else:
-							logging.warning(f"No 'id' found in frontmatter metadata of file: {file['filename']}")
-					except Exception as e:
-						logging.error(f"Error parsing frontmatter for file: {file['filename']}: {e}")
-			else:
-				logging.error(f"No content found in removed file: {file['filename']}")
+				if encoded_content:
+					decoded_content = decode_file_content(encoded_content)
+					if decoded_content:
+						try:
+							# Parse frontmatter metadata
+							data = frontmatter.loads(decoded_content)
+							uid = data.get('id')
+							if uid:
+								delete_object(uid, tallyfy_answers_api)
+							else:
+								logging.warning(f"No 'id' found in frontmatter metadata of file: {file['filename']}")
+						except Exception as e:
+							logging.error(f"Error parsing frontmatter for file: {file['filename']}: {e}")
+					else:
+						logging.error(f"Failed to decode content for removed file: {file['filename']}")
+				else:
+					logging.error(f"No content found in removed file: {file['filename']}")
+			except Exception as e:
+				logging.error(f"Error retrieving content for deleted file {file['filename']}: {e}")
 
 if __name__ == '__main__':
 	main()
