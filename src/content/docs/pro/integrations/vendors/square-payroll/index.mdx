@@ -1,0 +1,632 @@
+---
+title: Square Payroll Integration Guide
+description: Connect Tallyfy with Square Payroll to automate payroll workflows and employee management for Square merchants
+sidebar:
+  label: Square Payroll
+  order: 14
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+
+## Overview
+
+Square Payroll is part of Square's comprehensive business management suite, designed primarily for small businesses already using Square for payments. While it offers seamless integration within the Square ecosystem, external integrations require special access and careful planning.
+
+<CardGrid>
+  <Card title="Platform Characteristics" icon="square">
+    - **Target Market**: Square merchants & small businesses
+    - **Integration**: Deep Square ecosystem integration
+    - **Employee Count**: Optimized for 1-50 employees
+    - **Pricing Model**: Per employee + contractor pricing
+  </Card>
+  <Card title="API Limitations" icon="warning">
+    - **Restricted Access**: Not automatically available
+    - **Approval Required**: Must contact Square sales
+    - **Limited Scope**: Payroll API has constraints
+    - **Rate Limits**: Undisclosed, conservative approach needed
+  </Card>
+</CardGrid>
+
+## Integration Overview
+
+### API Access Requirements
+
+<Aside type="caution" title="Important Notice">
+  The Square Payroll API is not automatically available to all developer accounts. You must:
+  
+  1. Contact Square's sales team or developer support
+  2. Explain your specific use case
+  3. Undergo approval process
+  4. Receive special API credentials
+</Aside>
+
+### Available APIs
+
+Square provides several APIs that work together for workforce management:
+
+<Tabs>
+  <TabItem label="Team API">
+    ### Team Management API
+    
+    Core employee and team member management:
+    
+    ```javascript
+    // Retrieve team members
+    const listTeamMembers = async () => {
+      const response = await fetch('https://connect.squareup.com/v2/team-members', {
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'Square-Version': '2024-12-18'
+        }
+      });
+      return response.json();
+    };
+    ```
+    
+    **Endpoints:**
+    - `GET /v2/team-members` - List all team members
+    - `GET /v2/team-members/{id}` - Get specific member
+    - `POST /v2/team-members` - Create team member
+    - `PUT /v2/team-members/{id}` - Update member
+  </TabItem>
+  
+  <TabItem label="Labor API">
+    ### Labor & Timekeeping API
+    
+    Time tracking and scheduling capabilities:
+    
+    ```javascript
+    // Create a shift
+    const createShift = async (employeeId, startAt, endAt) => {
+      const response = await fetch('https://connect.squareup.com/v2/labor/shifts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'Square-Version': '2024-12-18',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          shift: {
+            employee_id: employeeId,
+            start_at: startAt,
+            end_at: endAt,
+            wage: {
+              title: 'Cashier',
+              hourly_rate: {
+                amount: 1500, // $15.00
+                currency: 'USD'
+              }
+            }
+          }
+        })
+      });
+      return response.json();
+    };
+    ```
+    
+    **Features:**
+    - Shift management
+    - Timecard tracking
+    - Break recording
+    - Overtime calculations
+  </TabItem>
+  
+  <TabItem label="Jobs API (Beta)">
+    ### Jobs & Compensation API
+    
+    New in 2024, manage job assignments and wages:
+    
+    ```javascript
+    // Create a job role
+    const createJob = async () => {
+      const response = await fetch('https://connect.squareup.com/v2/labor/jobs', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'Square-Version': '2024-12-18',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          job: {
+            title: 'Store Manager',
+            hourly_rate: {
+              amount: 2500,
+              currency: 'USD'
+            },
+            is_tip_eligible: false
+          }
+        })
+      });
+      return response.json();
+    };
+    ```
+  </TabItem>
+</Tabs>
+
+## Authentication Setup
+
+<Steps>
+  1. **Create Square Application**
+     - Sign up at [developer.squareup.com](https://developer.squareup.com)
+     - Create new application
+     - Note: Payroll API requires additional approval
+  
+  2. **Request Payroll API Access**
+     ```email
+     To: developer-support@squareup.com
+     Subject: Payroll API Access Request
+     
+     Company: [Your Company]
+     Use Case: Integration with Tallyfy for workflow automation
+     Expected Volume: [Number of merchants]
+     Technical Contact: [Your email]
+     ```
+  
+  3. **Implement OAuth 2.0**
+     ```javascript
+     // OAuth authorization URL
+     const authUrl = `https://connect.squareup.com/oauth2/authorize?
+       client_id=${CLIENT_ID}&
+       response_type=code&
+       scope=EMPLOYEES_READ+EMPLOYEES_WRITE+TIMECARDS_READ+TIMECARDS_WRITE&
+       state=${STATE}`;
+     
+     // Token exchange
+     const getAccessToken = async (code) => {
+       const response = await fetch('https://connect.squareup.com/oauth2/token', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json'
+         },
+         body: JSON.stringify({
+           client_id: CLIENT_ID,
+           client_secret: CLIENT_SECRET,
+           grant_type: 'authorization_code',
+           code: code
+         })
+       });
+       return response.json();
+     };
+     ```
+  
+  4. **Test in Sandbox**
+     ```javascript
+     // Use sandbox URL for testing
+     const SANDBOX_URL = 'https://connect.squareupsandbox.com/v2';
+     const SANDBOX_TOKEN = 'EAAAEA...'; // Sandbox access token
+     
+     // Test API call
+     const testConnection = async () => {
+       const response = await fetch(`${SANDBOX_URL}/team-members`, {
+         headers: {
+           'Authorization': `Bearer ${SANDBOX_TOKEN}`,
+           'Square-Version': '2024-12-18'
+         }
+       });
+       return response.json();
+     };
+     ```
+</Steps>
+
+## Webhook Configuration
+
+Square provides webhooks for real-time notifications:
+
+```javascript
+// Register webhook subscription
+const createWebhook = async () => {
+  const response = await fetch('https://connect.squareup.com/v2/webhooks/subscriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${ACCESS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      subscription: {
+        name: 'Tallyfy Integration',
+        notification_url: 'https://app.tallyfy.com/webhooks/square',
+        event_types: [
+          'team_member.created',
+          'team_member.updated',
+          'shift.created',
+          'shift.updated',
+          'timecard.created',
+          'timecard.updated'
+        ]
+      }
+    })
+  });
+  return response.json();
+};
+
+// Webhook handler
+app.post('/webhooks/square', (req, res) => {
+  const signature = req.headers['x-square-signature'];
+  
+  // Verify webhook signature
+  if (verifySquareWebhook(req.body, signature)) {
+    const { type, data } = req.body;
+    
+    switch(type) {
+      case 'team_member.created':
+        handleNewEmployee(data.object.team_member);
+        break;
+      case 'shift.updated':
+        handleShiftChange(data.object.shift);
+        break;
+    }
+  }
+  
+  res.sendStatus(200);
+});
+```
+
+## Integration Patterns
+
+### Employee Onboarding
+
+```javascript
+class SquarePayrollIntegration {
+  async onboardNewEmployee(employeeData) {
+    // Step 1: Create team member in Square
+    const teamMember = await this.square.createTeamMember({
+      given_name: employeeData.firstName,
+      family_name: employeeData.lastName,
+      email_address: employeeData.email,
+      phone_number: employeeData.phone,
+      assigned_location_ids: [employeeData.locationId]
+    });
+    
+    // Step 2: Assign job and wage
+    const jobAssignment = await this.square.createJobAssignment({
+      team_member_id: teamMember.id,
+      job_id: employeeData.jobId,
+      pay_type: 'HOURLY',
+      hourly_rate: {
+        amount: employeeData.hourlyRate * 100,
+        currency: 'USD'
+      }
+    });
+    
+    // Step 3: Create onboarding process in Tallyfy
+    const process = await this.tallyfy.createProcess({
+      template: 'employee-onboarding',
+      data: {
+        employeeName: `${employeeData.firstName} ${employeeData.lastName}`,
+        squareTeamMemberId: teamMember.id,
+        startDate: employeeData.startDate,
+        position: employeeData.position
+      }
+    });
+    
+    return { teamMember, jobAssignment, process };
+  }
+}
+```
+
+### Timesheet Approval Workflow
+
+```javascript
+// Monitor timecard submissions
+const processTimecards = async () => {
+  // Get unapproved timecards
+  const timecards = await square.listTimecards({
+    limit: 50,
+    clockin_time_range: {
+      start_at: weekStart,
+      end_at: weekEnd
+    }
+  });
+  
+  for (const timecard of timecards) {
+    if (!timecard.approved) {
+      // Create approval process
+      await tallyfy.createProcess({
+        template: 'timecard-approval',
+        data: {
+          employeeId: timecard.employee_id,
+          hours: calculateHours(timecard),
+          overtime: calculateOvertime(timecard),
+          managerId: getManager(timecard.employee_id)
+        }
+      });
+    }
+  }
+};
+
+// Schedule weekly processing
+schedule.weekly(processTimecards);
+```
+
+## Rate Limiting Strategy
+
+<Aside type="caution" title="Undisclosed Limits">
+  Square doesn't publicly disclose rate limits. Follow these conservative practices:
+  
+  - Implement exponential backoff
+  - Monitor response headers
+  - Use batch operations where possible
+  - Cache frequently accessed data
+</Aside>
+
+```javascript
+class SquareRateLimiter {
+  constructor() {
+    this.queue = [];
+    this.processing = false;
+    this.delay = 100; // Start with 100ms between requests
+  }
+  
+  async execute(fn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ fn, resolve, reject });
+      this.process();
+    });
+  }
+  
+  async process() {
+    if (this.processing || this.queue.length === 0) return;
+    
+    this.processing = true;
+    
+    while (this.queue.length > 0) {
+      const { fn, resolve, reject } = this.queue.shift();
+      
+      try {
+        const result = await fn();
+        
+        // Check for rate limit headers
+        if (result.headers && result.headers['retry-after']) {
+          this.delay = parseInt(result.headers['retry-after']) * 1000;
+        } else {
+          // Gradually reduce delay on success
+          this.delay = Math.max(100, this.delay * 0.9);
+        }
+        
+        resolve(result);
+      } catch (error) {
+        if (error.status === 429) {
+          // Rate limited - increase delay
+          this.delay = Math.min(60000, this.delay * 2);
+          this.queue.unshift({ fn, resolve, reject }); // Retry
+        } else {
+          reject(error);
+        }
+      }
+      
+      await sleep(this.delay);
+    }
+    
+    this.processing = false;
+  }
+}
+```
+
+## Alternative Integration Methods
+
+### Using Unified APIs
+
+<CardGrid>
+  <LinkCard
+    title="Merge API"
+    description="Access Square Payroll through unified API"
+    href="https://merge.dev/integrations/square-payroll"
+  />
+  <LinkCard
+    title="Finch"
+    description="Employment API with Square Payroll support"
+    href="https://tryfinch.com"
+  />
+</CardGrid>
+
+### File-Based Integration
+
+For businesses without API access:
+
+```python
+# Export payroll data from Square
+# Process CSV files for Tallyfy
+
+import pandas as pd
+import requests
+from datetime import datetime
+
+class SquareCSVProcessor:
+    def __init__(self, tallyfy_api):
+        self.tallyfy = tallyfy_api
+    
+    def process_payroll_export(self, csv_file):
+        """Process Square Payroll export CSV"""
+        df = pd.read_csv(csv_file)
+        
+        for _, row in df.iterrows():
+            if row['Type'] == 'New Hire':
+                self.create_onboarding(row)
+            elif row['Type'] == 'Termination':
+                self.create_offboarding(row)
+            elif row['Hours'] > 40:
+                self.flag_overtime(row)
+    
+    def create_onboarding(self, employee):
+        """Create onboarding process for new hire"""
+        self.tallyfy.create_process({
+            'template': 'new-hire-onboarding',
+            'data': {
+                'name': employee['Employee Name'],
+                'start_date': employee['Start Date'],
+                'location': employee['Location'],
+                'position': employee['Position']
+            }
+        })
+```
+
+## Common Use Cases
+
+### Multi-Location Management
+
+```javascript
+// Sync employees across locations
+const syncMultiLocationTeam = async () => {
+  const locations = await square.listLocations();
+  
+  for (const location of locations) {
+    const teamMembers = await square.listTeamMembers({
+      location_id: location.id
+    });
+    
+    // Create location-specific processes
+    await tallyfy.createProcess({
+      template: 'location-staff-review',
+      data: {
+        location: location.name,
+        employeeCount: teamMembers.length,
+        employees: teamMembers.map(tm => ({
+          id: tm.id,
+          name: `${tm.given_name} ${tm.family_name}`,
+          role: tm.assigned_role
+        }))
+      }
+    });
+  }
+};
+```
+
+### Compliance Tracking
+
+```javascript
+// Monitor labor law compliance
+const checkCompliance = async () => {
+  const shifts = await square.listShifts({
+    begin_time: lastWeek,
+    end_time: now
+  });
+  
+  const violations = [];
+  
+  for (const shift of shifts) {
+    // Check for violations
+    if (shift.hours > 10) {
+      violations.push({
+        type: 'excessive_hours',
+        employee: shift.employee_id,
+        date: shift.start_at
+      });
+    }
+    
+    // Check break compliance
+    if (!shift.breaks || shift.breaks.length === 0) {
+      violations.push({
+        type: 'missing_break',
+        employee: shift.employee_id,
+        date: shift.start_at
+      });
+    }
+  }
+  
+  if (violations.length > 0) {
+    await tallyfy.createProcess({
+      template: 'compliance-review',
+      priority: 'high',
+      data: { violations }
+    });
+  }
+};
+```
+
+## Implementation Roadmap
+
+### Phase 1: Setup (Week 1)
+- [ ] Apply for Square Payroll API access
+- [ ] Set up sandbox environment
+- [ ] Implement OAuth flow
+- [ ] Test basic API calls
+
+### Phase 2: Core Integration (Week 2-3)
+- [ ] Build team member sync
+- [ ] Implement timecard processing
+- [ ] Create webhook handlers
+- [ ] Add error handling
+
+### Phase 3: Workflow Automation (Week 4)
+- [ ] Design Tallyfy templates
+- [ ] Connect Square events to processes
+- [ ] Test end-to-end workflows
+- [ ] Document procedures
+
+### Phase 4: Production (Week 5)
+- [ ] Security review
+- [ ] Performance testing
+- [ ] User training
+- [ ] Go-live
+
+## Troubleshooting
+
+### Common Issues
+
+<Tabs>
+  <TabItem label="API Access">
+    ### "Payroll API not available"
+    
+    **Solution:**
+    1. Contact Square developer support
+    2. Provide detailed use case
+    3. Consider using Team/Labor APIs as alternative
+    4. Explore unified API providers
+  </TabItem>
+  
+  <TabItem label="Rate Limits">
+    ### "429 Too Many Requests"
+    
+    **Solution:**
+    ```javascript
+    // Implement retry logic
+    const retryWithBackoff = async (fn, retries = 3) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await fn();
+        } catch (error) {
+          if (error.status === 429 && i < retries - 1) {
+            await sleep(Math.pow(2, i) * 1000);
+          } else {
+            throw error;
+          }
+        }
+      }
+    };
+    ```
+  </TabItem>
+  
+  <TabItem label="Webhook Issues">
+    ### "Webhooks not receiving"
+    
+    **Solution:**
+    1. Verify webhook URL is publicly accessible
+    2. Check webhook subscription status
+    3. Test with Square webhook testing tool
+    4. Verify signature validation
+  </TabItem>
+</Tabs>
+
+## Support Resources
+
+### Official Resources
+- [Square Developer Portal](https://developer.squareup.com)
+- [API Reference](https://developer.squareup.com/reference/square)
+- [Developer Forums](https://developer.squareup.com/forums)
+- [Status Page](https://status.squareup.com)
+
+### SDKs
+- [Node.js SDK](https://github.com/square/square-nodejs-sdk)
+- [Python SDK](https://github.com/square/square-python-sdk)
+- [PHP SDK](https://github.com/square/square-php-sdk)
+
+## Conclusion
+
+While Square Payroll offers powerful features within the Square ecosystem, external integration requires careful planning and potentially special approval. For quick implementation, consider unified API providers. For deeper integration, be prepared for the approval process and conservative rate limit management.
+
+<Aside type="note" title="Best Path Forward">
+  If you're already using Square for payments, the integration makes sense despite limitations. Otherwise, consider more integration-friendly alternatives like Gusto or Rippling for standalone payroll needs.
+</Aside>

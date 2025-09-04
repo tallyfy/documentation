@@ -1,0 +1,354 @@
+---
+title: "Loom Integration"
+description: "Connect Loom video messaging with Tallyfy to create video-powered workflows for training, feedback, and async communication"
+template: doc
+sidebar:
+  order: 17
+---
+
+import Aside from "@/components/Aside.astro"
+
+## Quick Summary
+
+We're integrating with Loom to transform async video communication into structured workflows. When someone records a Loom for training, feedback, or updates, Tallyfy automatically orchestrates the follow-up actions - acknowledgments, responses, task creation, and documentation - ensuring video content drives actual outcomes, not just views.
+
+<Aside type="caution" title="Limited API Access">
+Loom doesn't offer an open API currently, but provides an SDK for embedding recording capabilities. We work around this limitation using webhook automation and video link detection to trigger workflows.
+</Aside>
+
+## Why This Integration Matters
+
+Loom revolutionized async communication with quick video messages. But videos alone don't ensure action. Training videos need acknowledgment tracking. Feedback videos need response workflows. Update videos need task extraction. Documentation videos need organization.
+
+Our integration bridges this gap. Record in Loom, trigger workflows in Tallyfy. Your videos become the start of structured processes that ensure communication leads to completion.
+
+## What We're Building
+
+### Training and Onboarding Workflows
+
+Transform training videos into trackable programs:
+
+- **Video Course Management**: Loom recordings trigger learning path workflows
+- **Acknowledgment Tracking**: Ensure employees watch and confirm understanding
+- **Quiz Integration**: Video completion triggers knowledge checks
+- **Progress Monitoring**: Track who's completed which training modules
+
+### Feedback and Review Cycles
+
+Turn video feedback into action:
+
+- **Design Reviews**: Loom feedback triggers revision workflows
+- **Code Reviews**: Video walkthroughs trigger PR update tasks
+- **Performance Feedback**: Manager videos trigger improvement plans
+- **Customer Feedback**: Support Looms trigger resolution workflows
+
+### Documentation and Knowledge Management
+
+Organize video knowledge systematically:
+
+- **Process Documentation**: Loom tutorials trigger SOP creation
+- **Knowledge Base Updates**: New videos trigger categorization workflows
+- **FAQ Creation**: Common question videos trigger article workflows
+- **Update Notifications**: Documentation videos trigger team alerts
+
+## How to Connect Today
+
+### Option 1: Loom SDK Integration
+
+Embed recording directly in workflows:
+
+```javascript
+// Example: Embed Loom recording in Tallyfy workflow
+import { createInstance } from '@loomhq/loom-sdk';
+
+const initializeLoomInWorkflow = async (workflowStep) => {
+  // Initialize Loom SDK
+  const loomSDK = await createInstance({
+    appId: 'YOUR_LOOM_APP_ID',
+    buttonId: 'loom-record-button'
+  });
+  
+  // Handle recording completion
+  loomSDK.on('insert-click', async (video) => {
+    // Create follow-up workflow with video
+    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        template_id: 'video_followup',
+        name: `Review - ${video.title}`,
+        data: {
+          video_url: video.shareUrl,
+          video_id: video.id,
+          video_title: video.title,
+          duration: video.duration,
+          recorder_name: video.creatorName,
+          recording_date: new Date().toISOString(),
+          workflow_context: workflowStep.context,
+          required_viewers: workflowStep.assignedTo,
+          completion_deadline: workflowStep.dueDate
+        }
+      })
+    });
+    
+    return workflow.json();
+  });
+};
+```
+
+### Option 2: Link Detection Automation
+
+Detect Loom links and trigger workflows:
+
+```javascript
+// Monitor for Loom links in various channels
+const detectLoomAndCreateWorkflow = async (message) => {
+  const loomRegex = /(?:https?:\/\/)?(?:www\.)?loom\.com\/share\/([a-zA-Z0-9]+)/g;
+  const matches = message.content.match(loomRegex);
+  
+  if (matches) {
+    for (const loomUrl of matches) {
+      // Extract video ID
+      const videoId = loomUrl.split('/').pop();
+      
+      // Determine workflow type based on context
+      const workflowType = determineWorkflowType(message.channel, message.tags);
+      
+      // Create appropriate workflow
+      await createVideoWorkflow(loomUrl, videoId, workflowType, message);
+    }
+  }
+};
+```
+
+### Option 3: Integration Platforms
+
+Use automation tools for Loom workflows:
+
+- **Zapier**: Trigger on new Loom recordings
+- **Make.com**: Watch Loom folder for new videos
+- **Workato**: Create recipes with Loom triggers
+- **Power Automate**: Detect Loom links in communications
+
+### Option 4: Email/Slack Integration
+
+Capture Loom shares automatically:
+
+1. Configure Loom sharing to specific email/channel
+2. Monitor inbox/channel for Loom notifications
+3. Parse video details from notifications
+4. Trigger appropriate workflows
+5. Track completion and engagement
+
+## Real-World Use Cases
+
+### Remote Team Training
+
+A distributed company with 200 employees uses Loom + Tallyfy for:
+
+1. **Onboarding Videos**: New hire training tracked to completion
+2. **Product Updates**: Feature releases with acknowledgment workflows
+3. **Process Training**: SOPs recorded and tracked for compliance
+4. **Skills Development**: Video courses with progress tracking
+5. **Manager Training**: Leadership videos with action items
+
+Results: 100% training completion, 60% faster onboarding
+
+### Creative Agency Review Process
+
+A design agency managing 50+ projects:
+
+- **Client Feedback**: Video reviews trigger revision workflows
+- **Internal Reviews**: Creative director videos trigger updates
+- **Presentation Practice**: Pitch videos trigger feedback collection
+- **Case Studies**: Project videos trigger documentation workflows
+- **Team Updates**: Weekly videos trigger task extraction
+
+### Customer Support Excellence
+
+A support team handling complex products:
+
+- **Bug Reports**: Video reproductions trigger engineering workflows
+- **Feature Requests**: Customer videos trigger evaluation workflows
+- **Knowledge Base**: Support videos trigger article creation
+- **Training Library**: Solution videos trigger categorization
+- **Escalations**: Complex issue videos trigger specialist review
+
+## Technical Implementation Details
+
+### Loom SDK Capabilities
+
+Available SDK features:
+
+- **Embed Recording**: Add Loom button to any web interface
+- **Custom Buttons**: Styled recording triggers
+- **Event Handling**: Listen for recording events
+- **Video Metadata**: Access title, duration, URL
+- **Programmatic Control**: Start/stop recording via code
+
+### Video Data Extraction
+
+Information available from Loom:
+
+- Video URL and sharing link
+- Video title and description
+- Duration and thumbnail
+- Creator name and email
+- Recording date and time
+- View count and engagement
+
+### Workflow Triggers
+
+Common trigger patterns:
+
+- **New Recording**: SDK event triggers workflow
+- **Link Sharing**: Detect Loom URLs in messages
+- **Email Notification**: Parse Loom share emails
+- **Folder Watch**: Monitor shared Loom folders
+- **Tag-Based**: Specific tags trigger workflows
+
+### Tracking and Analytics
+
+Measure video workflow effectiveness:
+
+- View completion rates
+- Time to acknowledgment
+- Action item completion
+- Feedback response times
+- Training effectiveness scores
+
+## Why Loom Should Enable This
+
+Loom users need workflow automation:
+
+1. **Action from Communication**: Videos should drive outcomes, not just views
+2. **Enterprise Adoption**: Large companies need tracking and compliance
+3. **Competitive Differentiation**: Workflow integration sets Loom apart
+4. **User Retention**: Integrated workflows increase platform value
+5. **Use Case Expansion**: Enable new video-driven processes
+
+## Take Action Now
+
+### For Loom Users
+
+**Turn videos into outcomes:**
+
+1. [Schedule a demo](https://tallyfy.com/booking/)
+2. Show us your Loom use cases
+3. We'll design video workflows
+4. Test with real scenarios
+5. Deploy to your team
+
+**Want official integration?** Contact Loom support requesting Tallyfy integration and open API access.
+
+### For Training Teams
+
+Transform video training:
+
+- Track completion automatically
+- Ensure comprehension with quizzes
+- Generate certificates on completion
+- Monitor progress across teams
+- Focus on content, not administration
+
+### For Creative Teams
+
+Streamline video feedback:
+
+- Reviews trigger revision tasks
+- Comments become action items
+- Approvals tracked systematically
+- Versions managed automatically
+- Delivery confirmed and documented
+
+## Implementation Strategy
+
+### Phase 1: Basic Integration (Day 1-3)
+- Set up Loom SDK
+- Configure link detection
+- Create first video workflow
+- Test with pilot group
+
+### Phase 2: Core Workflows (Week 1)
+- Training acknowledgment flows
+- Feedback response workflows
+- Documentation processes
+- View tracking setup
+
+### Phase 3: Advanced Features (Week 2)
+- Multi-step video courses
+- Conditional workflows
+- Analytics dashboards
+- Integration with other tools
+
+### Phase 4: Scale (Ongoing)
+- Roll out organization-wide
+- Gather usage metrics
+- Optimize workflows
+- Add new use cases
+
+## Creative Use Cases
+
+### Async Standup Automation
+Daily video updates trigger:
+- Task extraction from mentions
+- Blocker identification and escalation
+- Progress tracking automation
+- Team dashboard updates
+
+### Video SOPs That Enforce Themselves
+Process videos that:
+- Require acknowledgment
+- Track completion steps
+- Verify understanding
+- Maintain compliance records
+
+### Customer Success Workflows
+Support videos that:
+- Create tickets automatically
+- Route to right team
+- Track resolution
+- Gather satisfaction scores
+
+## Workaround Solutions
+
+### Without Official API
+
+Until Loom provides open API:
+
+1. **Browser Extension**: Detect Loom recordings and trigger workflows
+2. **Email Integration**: Parse Loom share emails for automation
+3. **Slack Bot**: Monitor channels for Loom links
+4. **Manual Trigger**: Copy Loom URL into Tallyfy to start workflow
+5. **Scheduled Checks**: Regular scans of Loom folders
+
+### Hybrid Approach
+
+Combine multiple methods:
+- SDK for embedded recording
+- Webhooks for external shares
+- Email parsing for notifications
+- Manual triggers for exceptions
+
+## Get Started Today
+
+Every Loom video without a workflow is a missed opportunity for:
+- Ensuring action from communication
+- Tracking training completion
+- Managing feedback cycles
+- Building knowledge systematically
+- Driving actual outcomes
+
+**Transform video communication:** [Book your consultation](https://tallyfy.com/booking/)
+
+We'll show you:
+1. Video workflow templates
+2. Loom SDK integration
+3. Tracking and analytics
+4. ROI calculations
+5. Implementation plan
+
+Stop hoping videos get watched. Start ensuring they drive action.

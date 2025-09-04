@@ -1,0 +1,332 @@
+---
+title: "TriNet Integration"
+description: "Connect TriNet PEO services with Tallyfy for comprehensive HR workflow automation and compliance management"
+template: doc
+sidebar:
+  order: 13
+---
+
+import Aside from "@/components/Aside.astro"
+
+## Quick Summary
+
+We're integrating with TriNet to transform PEO data into automated workflows that handle everything from employee onboarding to compliance tracking. When you add employees, process payroll, or manage benefits in TriNet, Tallyfy automatically orchestrates all the surrounding business processes - ensuring nothing falls through the cracks while you focus on growing your business.
+
+<Aside type="note" title="New Marketplace Launch">
+TriNet launched their curated marketplace in June 2024 with pre-built integrations and expanded API access. While we work toward official partnership, you can integrate today using their customer APIs.
+</Aside>
+
+## Why This Integration Matters
+
+TriNet handles the complex world of HR compliance, payroll, and benefits for SMBs. But your business processes extend far beyond what any PEO can manage - onboarding checklists, equipment provisioning, training schedules, and operational workflows.
+
+Without integration, your team manually coordinates between TriNet and your other systems. Our integration makes TriNet events automatically trigger the right workflows, ensuring smooth operations without the manual work.
+
+## What We're Building
+
+### Complete Onboarding Automation
+
+Transform new hire chaos into organized execution:
+
+- **Pre-Start Preparation**: As soon as someone's entered in TriNet, trigger workspace setup, equipment orders, and team notifications
+- **First Day Excellence**: Pull role and department data to configure access, assign mentors, and schedule orientation
+- **Benefits Coordination**: Sync enrollment deadlines and choices with follow-up workflows
+- **Compliance Tracking**: Ensure I-9, handbook acknowledgments, and state requirements are met
+
+### Payroll and Time Management
+
+Connect payroll processing to business workflows:
+
+- **Timesheet Workflows**: Route approvals based on hours, projects, or exceptions
+- **Payroll Reconciliation**: Automate accounting entries and cost allocations
+- **Commission Processing**: Multi-tier approval workflows for variable compensation
+- **Expense Management**: Integrate expense reports with payroll processing
+
+### Global Workforce Support (New 2024)
+
+Leverage TriNet's new global partnerships:
+
+- **International Hiring**: Coordinate visa, relocation, and onboarding workflows
+- **Multi-Country Compliance**: Track requirements across jurisdictions
+- **Global Payroll Coordination**: Unified workflows for US and international employees
+- **Remote Work Management**: Equipment shipping and time zone coordination
+
+## How to Connect Today
+
+### Option 1: TriNet Developer APIs
+
+Direct integration using TriNet's five APIs:
+
+```javascript
+// Example: Create onboarding workflow from TriNet employee
+const handleNewEmployee = async (trinetEmployee) => {
+  // Get employee details from TriNet API
+  const employee = await trinetAPI.getEmployee(trinetEmployee.id);
+  const company = await trinetAPI.getCompany(employee.companyId);
+  
+  // Create comprehensive onboarding workflow
+  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      template_id: 'peo_onboarding',
+      name: `Onboarding - ${employee.firstName} ${employee.lastName}`,
+      data: {
+        // Employee information
+        employee_id: employee.id,
+        first_name: employee.firstName,
+        last_name: employee.lastName,
+        email: employee.workEmail,
+        
+        // Employment details
+        position: employee.jobTitle,
+        department: employee.department,
+        manager: employee.supervisorName,
+        employment_type: employee.employmentType,
+        
+        // PEO-specific data
+        start_date: employee.hireDate,
+        location: employee.workLocation,
+        state: employee.workState,
+        
+        // Benefits and payroll
+        benefits_class: employee.benefitsClass,
+        pay_frequency: employee.payFrequency,
+        
+        // Company context
+        company_name: company.name,
+        company_size: company.employeeCount
+      }
+    })
+  });
+  
+  return workflow.json();
+};
+```
+
+### Option 2: Integration Center Applications
+
+Use TriNet's pre-built integrations:
+
+1. Access Integration Center from TriNet platform
+2. Configure API credentials for third-party systems
+3. Map data fields between TriNet and Tallyfy
+4. Set up automated sync schedules
+5. Monitor integration health
+
+### Option 3: Partner Integration Platforms
+
+Connect through unified APIs:
+
+- **Merge**: Unified HRIS API with TriNet support
+- **Finch**: Employment API covering TriNet (Zenefits)
+- **Workato**: Enterprise automation recipes
+- **Make/Zapier**: Basic automation capabilities
+
+### Option 4: File-Based Integration
+
+For organizations without API access:
+
+1. Schedule TriNet reports (Employee Census, Payroll Register)
+2. Configure SFTP delivery to Tallyfy
+3. Parse files to extract changes
+4. Trigger workflows based on data updates
+5. Maintain processing logs
+
+## Real-World Use Cases
+
+### Tech Startup Scaling
+
+A 150-employee SaaS company uses TriNet + Tallyfy for:
+
+1. **Rapid Onboarding**: New engineers productive in 3 days vs 2 weeks
+2. **Equity Management**: Automated workflows for option grants
+3. **Compliance Tracking**: California-specific requirements automated
+4. **Performance Reviews**: Quarterly cycles triggered automatically
+5. **M&A Integration**: Smooth acquisition of 30-person team
+
+Results: 70% reduction in HR administrative time
+
+### Multi-State Healthcare Provider
+
+A healthcare services company across 8 states manages:
+
+- **License Verification**: Automated tracking and renewal reminders
+- **Background Checks**: Progressive screening workflows
+- **HIPAA Training**: Compliance workflows with attestation
+- **Credential Management**: Provider enrollment and updates
+- **Travel Nursing**: Complex multi-state compliance
+
+### Professional Services Firm
+
+A consulting firm leverages integration for:
+
+- **Project Staffing**: Match employees to projects based on skills
+- **Time Tracking**: Integrate billable hours with payroll
+- **Client Onboarding**: Coordinate background checks for client sites
+- **Expense Processing**: Complex approval matrices by project
+- **Utilization Tracking**: Monitor and optimize billable ratios
+
+## Technical Implementation Details
+
+### TriNet API Architecture
+
+Five core APIs available:
+
+1. **Employee API**: Access employee profiles and changes
+2. **Company API**: Organization structure and settings
+3. **Payroll API**: Compensation and deduction data
+4. **Money API**: Financial transactions and reports
+5. **Time Off API**: PTO balances and requests
+
+### Authentication and Access
+
+Security requirements:
+
+- **API Key Management**: Self-service credential generation
+- **OAuth 2.0**: For secure authentication
+- **Role-Based Access**: Integration Administrator privileges
+- **IP Whitelisting**: Additional security layer
+- **Audit Logging**: Complete API activity tracking
+
+### Marketplace Integration (2024)
+
+New capabilities include:
+
+- **Pre-built Integrations**: Maintained by TriNet
+- **Global Partners**: Oyster and Multiplier for international
+- **Accounting Systems**: QuickBooks, Xero, NetSuite
+- **Identity Management**: SSO and provisioning
+- **Talent Solutions**: ATS and performance tools
+
+### Data Synchronization
+
+What you can sync:
+
+- Employee demographics and contact info
+- Compensation and benefits elections
+- Time-off balances and requests
+- Organizational hierarchy
+- Payroll details and history
+- Compliance documentation
+- Custom fields and attributes
+
+## Why TriNet Should Prioritize This
+
+TriNet's SMB customers need workflow automation:
+
+1. **Resource Constraints**: Small HR teams need maximum efficiency
+2. **Growth Support**: Automation enables scaling without adding headcount
+3. **Compliance Complexity**: Multi-state operations require structured processes
+4. **Competitive Differentiation**: Stand out from other PEO providers
+5. **Customer Retention**: Integrated customers stay longer
+
+## Take Action Now
+
+### For TriNet Customers
+
+**Ready to automate HR operations?**
+
+1. [Schedule your demo](https://tallyfy.com/booking/)
+2. We'll connect to your TriNet account
+3. Map your critical workflows
+4. Build first automation together
+5. Deploy across your organization
+
+**Accelerate partnership:** Contact TriNet support requesting Tallyfy in their marketplace. Customer voices matter.
+
+### For HR Teams
+
+Stop drowning in manual coordination:
+
+- Employee data flows automatically
+- Onboarding runs itself
+- Compliance stays current
+- Managers get what they need
+- You focus on strategic work
+
+### For Operations Leaders
+
+Finally, unified operations:
+
+- PEO data drives business processes
+- Consistent execution across teams
+- Complete visibility into workflows
+- Reduced operational risk
+- Scalable growth infrastructure
+
+## Implementation Roadmap
+
+### Week 1: Foundation
+- Obtain TriNet API credentials
+- Configure authentication
+- Map employee data fields
+- Create pilot workflow
+
+### Week 2: Core Processes
+- Deploy onboarding automation
+- Set up payroll workflows
+- Configure approval chains
+- Test with real scenarios
+
+### Week 3: Expansion
+- Add department-specific workflows
+- Implement compliance tracking
+- Create reporting dashboards
+- Train team members
+
+### Ongoing: Optimization
+- Monitor workflow metrics
+- Gather user feedback
+- Refine processes
+- Add new automations
+
+## Security and Compliance
+
+Enterprise-grade protection:
+
+- **SOC 2 Type II** certified
+- **HIPAA compliant** infrastructure
+- **GDPR/CCPA** ready
+- **Encrypted data** transfer and storage
+- **Audit trails** for all activities
+- **Role-based** access control
+
+## ROI and Impact
+
+### Measurable Benefits
+- 5+ hours saved per employee event
+- 90% faster onboarding completion
+- 100% compliance documentation
+- 75% reduction in process errors
+- 50% decrease in HR inquiries
+
+### Strategic Value
+- Focus HR on strategic initiatives
+- Improve employee experience
+- Enable business scaling
+- Reduce compliance risk
+- Increase operational efficiency
+
+## Get Started Today
+
+Every day without integration means:
+- Manual data entry and errors
+- Delayed employee productivity
+- Compliance gaps and risks
+- Frustrated team members
+- Lost growth opportunities
+
+**Transform your PEO investment:** [Book your consultation](https://tallyfy.com/booking/) to see TriNet + Tallyfy in action.
+
+We'll demonstrate:
+1. Live TriNet data integration
+2. Pre-built PEO workflows
+3. ROI calculations for your company
+4. Implementation timeline
+5. Ongoing support options
+
+Stop coordinating manually. Start automating everything.

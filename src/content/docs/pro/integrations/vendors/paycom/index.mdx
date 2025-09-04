@@ -1,0 +1,153 @@
+---
+id: 0000000000000000000000000000000000
+title: Paycom integration with Tallyfy
+description: Learn about our plans to integrate with Paycom for seamless HR and payroll workflow automation
+sidebar:
+  order: 1
+lastUpdated: 2025-01-03
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+import { Steps } from '@astrojs/starlight/components';
+import PageTree from '@/components/PageTree.astro';
+
+## How we plan to connect Paycom with Tallyfy
+
+We're planning to build a native integration with Paycom that'll sync your employee data automatically - keeping your HR information and workflow assignments in perfect harmony. When someone joins your team in Paycom, they'll appear in Tallyfy with the right roles and permissions. When they leave, their access gets revoked instantly.
+
+Think of it this way: Paycom handles your people data (who's on the team, what department they're in, their job titles), while Tallyfy manages what those people actually do day-to-day. The integration will bridge that gap automatically.
+
+## Why connecting Paycom matters for workflow automation
+
+HR systems like Paycom are the source of truth for employee information, but they don't manage the actual work people do. That's where the disconnect happens - and where mistakes creep in.
+
+Here's what our planned integration will handle:
+
+| What Paycom does | What Tallyfy will sync | Why it matters |
+|------------------|------------------------|----------------|
+| Employee onboarding | Create user accounts automatically | New hires get instant access to their workflows |
+| Department assignments | Map to Tallyfy groups and roles | People see only the processes relevant to their job |
+| Position changes | Update workflow permissions | Promotions trigger new responsibilities automatically |
+| Time-off tracking | Reassign active tasks | Work doesn't pile up when someone's on vacation |
+| Employee offboarding | Revoke access and reassign work | Security stays tight, nothing falls through cracks |
+
+The integration will run continuously in the background, checking for changes every few minutes. No manual updates, no forgotten permissions, no security risks from former employees.
+
+## What we intend to build
+
+Our Paycom integration roadmap includes these specific features:
+
+<Steps>
+1. **Real-time employee sync** - Pull employee records from Paycom every 15 minutes to keep user lists current
+
+2. **Smart role mapping** - Match Paycom job titles and departments to Tallyfy workflow roles automatically
+
+3. **Organizational hierarchy sync** - Import reporting structures so approval workflows follow your actual chain of command
+
+4. **Compliance tracking** - Use Paycom's training and certification data to ensure only qualified people handle sensitive tasks
+
+5. **Time-off aware task routing** - Check Paycom's PTO calendar before assigning tasks, automatically finding backup assignees
+</Steps>
+
+We'll also support bi-directional updates where it makes sense. For example, when someone completes their onboarding workflow in Tallyfy, we can update their status in Paycom.
+
+## Current workaround: Connect through middleware
+
+While we build the native integration, you can connect Paycom and Tallyfy today using middleware platforms.
+
+### Using Zapier or Power Automate
+
+Since Paycom offers REST APIs and webhooks, you can create automated workflows right now:
+
+```javascript
+// Example webhook handler for new employee events
+app.post('/paycom-webhook', (req, res) => {
+  const employee = req.body;
+  
+  // Create user in Tallyfy
+  tallyfy.createUser({
+    email: employee.email,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    groups: [mapDepartmentToGroup(employee.department)]
+  });
+  
+  // Trigger onboarding workflow
+  tallyfy.startProcess('employee-onboarding', {
+    assignee: employee.email,
+    data: {
+      startDate: employee.hireDate,
+      position: employee.jobTitle
+    }
+  });
+});
+```
+
+### Direct API integration
+
+If you have development resources, you can build a direct connection using both platforms' APIs. Paycom provides comprehensive REST APIs for employee data, while Tallyfy's API handles user management and workflow automation.
+
+The main limitation? You'll need to handle authentication, error recovery, and scheduling yourself - which is why we're building the native integration.
+
+## Hurdles with Paycom's platform approach
+
+Here's the reality about getting listed in Paycom's marketplace - it's not exactly straightforward.
+
+Paycom maintains tight control over their integration ecosystem. Unlike open marketplaces where you can self-publish, Paycom requires:
+
+- **Partnership agreements** that can take months to negotiate
+- **Technical certification** of your integration before they'll even discuss listing
+- **Revenue thresholds** - they prefer working with established vendors
+- **Customer demand proof** - you need multiple joint customers requesting the integration
+
+The biggest challenge? Paycom doesn't have a self-serve marketplace where users can discover and install apps themselves. Each integration needs their approval and often requires professional services to implement.
+
+This means even after we build the integration, your Paycom administrator might need to work with their account manager to enable it - adding time and complexity to what should be a simple process.
+
+## Ready to discuss your integration needs?
+
+Every organization uses Paycom differently, and your workflow automation needs are unique. Let's talk about your specific requirements and explore the best path forward - whether that's using our API today or waiting for the native integration.
+
+[Schedule a consultation](https://tallyfy.com/booking/) to discuss:
+- Your current Paycom setup and data structure
+- Which workflows would benefit most from integration
+- Timeline for the native integration
+- Custom API solutions if you need something sooner
+
+We can also connect you with integration partners who specialize in Paycom connections if you need help implementing a middleware solution today.
+
+## What you can do today
+
+Don't wait for the perfect integration. Start preparing now:
+
+1. **Map your data fields** - Document which Paycom fields should sync to Tallyfy
+2. **Contact Paycom** - Ask your account manager about adding Tallyfy to their integration roadmap
+3. **Test with our API** - Try a proof-of-concept with a few employees first
+4. **Document your workflows** - Identify which processes need HR data most urgently
+
+The more demand we can show Paycom, the faster we'll get through their partnership process.
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard
+    href="/pro/integrations/open-api"
+    title="Tallyfy API documentation"
+    description="Complete guide to using our API for custom integrations"
+  />
+  <LinkTitleCard
+    href="/pro/integrations/middleware/zapier"
+    title="Connect through Zapier"
+    description="Step-by-step Zapier integration guide"
+  />
+  <LinkTitleCard
+    href="/pro/integrations/middleware/power-automate"
+    title="Microsoft Power Automate"
+    description="Integrate using Power Automate flows"
+  />
+  <LinkTitleCard
+    href="/pro/auth/sso"
+    title="Single sign-on setup"
+    description="Configure SSO for seamless authentication"
+  />
+</CardGrid>

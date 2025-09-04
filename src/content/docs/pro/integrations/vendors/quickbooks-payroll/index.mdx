@@ -1,0 +1,351 @@
+---
+title: "QuickBooks Payroll Integration"
+description: "Connect QuickBooks Payroll with Tallyfy to automate payroll workflows, financial processes, and employee management"
+template: doc
+sidebar:
+  order: 12
+---
+
+import Aside from "@/components/Aside.astro"
+
+## Quick Summary
+
+We're integrating with QuickBooks Payroll to automatically transform payroll data into intelligent workflows that handle everything from expense approvals to tax compliance. When you run payroll, add employees, or process timesheets in QuickBooks, Tallyfy orchestrates all the downstream processes - ensuring accurate financials, proper approvals, and complete compliance.
+
+<Aside type="caution" title="API Migration Required">
+QuickBooks requires migration to their new Payroll API by October 31, 2024. The new API offers improved capabilities but requires Intuit partnership approval for production access.
+</Aside>
+
+## Why This Integration Matters
+
+QuickBooks Payroll processes millions of paychecks, but payroll is just the start of numerous financial workflows. Every pay run needs accounting entries, tax filings, and benefit reconciliations. Every new employee triggers onboarding tasks across departments.
+
+Without integration, your team manually bridges QuickBooks with other systems - exporting reports, copying data, and chasing approvals. Our integration makes QuickBooks data automatically flow into structured workflows that ensure accuracy and compliance.
+
+## What We're Building
+
+### Payroll Processing Automation
+
+Transform payroll from scramble to smooth operation:
+
+- **Pre-Payroll Review**: Launch timesheet approval workflows before processing
+- **Exception Management**: Route overtime, bonuses, and adjustments for approval
+- **Post-Payroll Reconciliation**: Automate journal entries and department allocations
+- **Tax Compliance**: Trigger filing reminders and payment workflows
+
+### Employee Lifecycle Management
+
+Connect QuickBooks employee events to workflows:
+
+- **New Hire Onboarding**: Pull employee data to launch comprehensive onboarding
+- **Contractor Management**: 1099 setup, approval, and compliance workflows
+- **Termination Processing**: Final pay calculations and exit workflows
+- **Year-End Processes**: W-2/1099 distribution and corrections
+
+### Financial Integration Workflows
+
+Leverage QuickBooks data for financial processes:
+
+- **Expense Management**: Route employee expenses through approval chains
+- **Cash Flow Planning**: Trigger alerts when payroll impacts cash position
+- **Budget Tracking**: Monitor labor costs against departmental budgets
+- **Audit Preparation**: Maintain documentation for payroll audits
+
+## How to Connect Today
+
+### Option 1: QuickBooks Payroll API
+
+Direct integration with OAuth 2.0:
+
+```javascript
+// Example: Trigger workflow after payroll run
+const handlePayrollComplete = async (payrollData) => {
+  // Get payroll details from QuickBooks
+  const paycheck = await quickbooksAPI.getPaycheck(payrollData.paycheckId);
+  
+  // Create accounting reconciliation workflow
+  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      template_id: 'payroll_reconciliation',
+      name: `Payroll - ${paycheck.payDate}`,
+      data: {
+        pay_date: paycheck.payDate,
+        employee: paycheck.employee.displayName,
+        
+        // Earnings breakdown
+        regular_hours: paycheck.earnings.regular.hours,
+        regular_amount: paycheck.earnings.regular.amount,
+        overtime_hours: paycheck.earnings.overtime?.hours || 0,
+        overtime_amount: paycheck.earnings.overtime?.amount || 0,
+        
+        // Deductions
+        federal_tax: paycheck.deductions.federalTax,
+        state_tax: paycheck.deductions.stateTax,
+        benefits: paycheck.deductions.benefits,
+        
+        // Employer costs
+        employer_taxes: paycheck.employerTaxes,
+        employer_benefits: paycheck.employerBenefits,
+        
+        // Accounting
+        department: paycheck.class,
+        location: paycheck.location,
+        journal_entry_required: true
+      }
+    })
+  });
+  
+  return workflow.json();
+};
+```
+
+### Option 2: QuickBooks Webhooks
+
+Set up real-time event notifications:
+
+```javascript
+// Configure webhook endpoint
+app.post('/webhooks/quickbooks', async (req, res) => {
+  const notification = req.body;
+  
+  for (const event of notification.eventNotifications) {
+    if (event.dataChangeEvent.entities[0].name === 'Employee') {
+      // New employee added
+      await createOnboardingWorkflow(event.dataChangeEvent.entities[0].id);
+    } else if (event.dataChangeEvent.entities[0].name === 'Paycheck') {
+      // Payroll processed
+      await createReconciliationWorkflow(event.dataChangeEvent.entities[0].id);
+    }
+  }
+  
+  res.status(200).send('OK');
+});
+```
+
+### Option 3: Integration Platforms
+
+Use unified accounting APIs:
+
+- **Merge**: Unified Accounting API with QuickBooks support
+- **Finch**: Employment API including QuickBooks Payroll
+- **Knit**: QuickBooks-specific integration tools
+- **Apideck**: Unified APIs for accounting and HRIS
+
+### Option 4: Report-Based Integration
+
+For immediate needs without API approval:
+
+1. Schedule QuickBooks reports (Payroll Summary, Employee List)
+2. Export to CSV or Excel format
+3. Upload to Tallyfy for processing
+4. Trigger workflows based on data changes
+5. Maintain audit trail of all imports
+
+## Real-World Use Cases
+
+### Construction Company
+
+A contractor with 150 field employees uses QuickBooks + Tallyfy for:
+
+1. **Certified Payroll**: Automate prevailing wage compliance workflows
+2. **Job Costing**: Allocate labor to projects with approval chains
+3. **Union Reporting**: Generate and submit required union reports
+4. **Multi-State Compliance**: Handle varying state requirements
+5. **Equipment Time**: Track and bill equipment usage
+
+Results: 60% reduction in payroll processing time, zero compliance violations
+
+### Professional Services Firm
+
+An accounting firm managing payroll for 50 clients:
+
+- **Client Onboarding**: Standardized setup workflows for new clients
+- **Payroll Reviews**: Multi-level approval before processing
+- **Tax Filing Coordination**: Automated reminders and checklists
+- **Client Communications**: Triggered updates and reports
+- **Audit Support**: Complete documentation workflows
+
+### Restaurant Chain
+
+A 20-location restaurant group leverages integration for:
+
+- **Tip Calculations**: Complex tip pooling and distribution
+- **Multi-Location Processing**: Consolidated yet separated by location
+- **Minimum Wage Compliance**: Track and ensure compliance
+- **Schedule Integration**: Connect POS hours to payroll
+- **Franchise Reporting**: Automated royalty calculations
+
+## Technical Implementation Details
+
+### QuickBooks API Capabilities
+
+The new Payroll API provides:
+
+- **OAuth 2.0** authentication with refresh tokens
+- **RESTful endpoints** for modern integration
+- **Webhook notifications** for real-time updates
+- **Sandbox environment** for testing
+- **SDK support** in multiple languages
+- **Rate limiting** with proper throttling
+
+### Data Access Points
+
+Comprehensive payroll data including:
+
+- Employee profiles and tax setup
+- Paycheck details and history
+- Time activities and timesheets
+- Deductions and contributions
+- Tax payments and filings
+- Contractor (1099) information
+- Benefits and retirement data
+- Custom fields and classes
+
+### Integration Requirements
+
+Intuit partnership considerations:
+
+- **Development Account**: Required for API access
+- **Security Assessment**: Annual review required
+- **Production Approval**: Can take up to 2 months
+- **App Listing**: Optional marketplace presence
+- **Support Requirements**: Must maintain support channels
+
+### API Version Management
+
+Critical version considerations:
+
+- **Minor version parameter**: Essential for accessing new features
+- **Deprecation notices**: Monitor for API changes
+- **Migration deadlines**: October 31, 2024 for old API
+- **Backward compatibility**: Generally maintained
+- **Feature availability**: Varies by version
+
+## Why QuickBooks Should Accelerate This
+
+QuickBooks Payroll users need workflow automation:
+
+1. **Small Business Efficiency**: Time savings critical for small teams
+2. **Compliance Requirements**: Increasing regulatory complexity
+3. **Integration Expectations**: Users expect seamless connections
+4. **Competitive Pressure**: Other payroll providers offer automation
+5. **Customer Success**: Automated workflows reduce errors
+
+## Take Action Now
+
+### For QuickBooks Users
+
+**Automate your payroll workflows today:**
+
+1. [Schedule a consultation](https://tallyfy.com/booking/)
+2. We'll review your QuickBooks setup
+3. Identify automation opportunities
+4. Build your first workflow together
+5. Start saving hours weekly
+
+**Help partnership approval:** Contact QuickBooks support requesting official Tallyfy integration. Customer demand accelerates approval.
+
+### For Bookkeepers and Accountants
+
+Transform your practice with automation:
+
+- Eliminate manual journal entries
+- Ensure consistent processes across clients
+- Reduce payroll errors and corrections
+- Focus on advisory, not data entry
+- Scale without adding staff
+
+### For Business Owners
+
+Stop losing time to payroll administration:
+
+- Automatic approval routing
+- Accurate cost allocation
+- Complete audit trails
+- Reduced compliance risk
+- More time for growth
+
+## Implementation Approach
+
+### Phase 1: Setup (Day 1-3)
+- Create QuickBooks developer account
+- Configure OAuth authentication
+- Map data fields to workflows
+- Build pilot integration
+
+### Phase 2: Core Workflows (Week 1)
+- Payroll processing automation
+- Employee onboarding workflows
+- Timesheet approval chains
+- Exception handling
+
+### Phase 3: Financial Integration (Week 2)
+- Journal entry automation
+- Department cost allocation
+- Budget monitoring
+- Expense workflows
+
+### Phase 4: Optimization (Ongoing)
+- Monitor performance
+- Gather feedback
+- Refine workflows
+- Add new automations
+
+## Security and Compliance
+
+Enterprise-grade security:
+
+- **Bank-level encryption** for all data
+- **SOC 2 Type II** certified
+- **PCI compliant** for payment data
+- **GDPR/CCPA** ready
+- **Audit logging** of all actions
+- **Role-based access** control
+
+## Cost-Benefit Analysis
+
+### Time Savings
+- 4 hours per payroll cycle
+- 2 hours per new employee
+- 1 hour per termination
+- 30 minutes per expense report
+- 5 hours monthly on compliance
+
+### Error Reduction
+- 90% fewer data entry errors
+- 100% on-time tax filings
+- Zero missed deadlines
+- Complete documentation
+- Audit-ready records
+
+### ROI Calculation
+For a 50-employee company:
+- Time saved: 20+ hours monthly
+- Error costs avoided: $2,000+ monthly
+- Compliance risk reduction: Invaluable
+- Payback period: < 2 months
+
+## Get Started Today
+
+Every payroll cycle without automation means:
+- Hours of manual work
+- Risk of errors and penalties
+- Delayed financial reporting
+- Frustrated employees
+- Lost opportunity costs
+
+**Transform payroll operations:** [Book your demo](https://tallyfy.com/booking/) to see QuickBooks + Tallyfy in action.
+
+We'll demonstrate:
+1. Live QuickBooks integration
+2. Pre-built payroll workflows
+3. ROI for your business
+4. Implementation timeline
+5. Ongoing support options
+
+Stop drowning in payroll tasks. Start automating them.

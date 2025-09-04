@@ -1,0 +1,226 @@
+---
+title: BambooHR Integration - Sync Employee Data for Automated Workflows
+description: Connect BambooHR with Tallyfy to automatically sync employee data, departments, and roles for streamlined HR workflow automation. Real-time updates via webhooks and API.
+template: doc
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+## We're building a native BambooHR integration - here's exactly what you need to know
+
+When you connect BambooHR to Tallyfy, your employee data becomes the foundation for intelligent workflow automation. New hire joins your team? Their onboarding workflow launches automatically. Someone changes departments? Their access permissions update instantly. Employee leaves? Offboarding kicks off without anyone lifting a finger.
+
+The integration syncs employee profiles, departments, job roles, and organizational structure directly from BambooHR into Tallyfy. This means your workflows always have accurate, up-to-date information about who does what, where they sit in the org chart, and what they're responsible for.
+
+## Why connecting BambooHR to your workflows actually matters
+
+Think about how many workflows depend on accurate employee data. Onboarding needs to know someone's department, manager, and start date. Time-off requests need current reporting structures. Equipment provisioning needs job roles and locations. Performance reviews need tenure and team information.
+
+Right now, you're probably copying this data manually, or worse - letting it go stale in spreadsheets. When BambooHR talks directly to Tallyfy, every workflow automatically knows exactly who's who, what they do, and where they fit. No manual updates, no outdated org charts, no confusion about who approves what.
+
+The real magic happens with organizational changes. Someone gets promoted? Their new permissions and approval authority update everywhere instantly. Team restructuring? Workflows automatically route to the right people. Mass hiring event? Onboarding scales without breaking a sweat.
+
+## Here's exactly what we're building
+
+Our BambooHR integration will sync these critical data points in real-time:
+
+**Employee profiles** - Full names, emails, employee IDs, job titles, start dates, and employment status flow directly into Tallyfy's user database. Custom fields you've created in BambooHR come along too.
+
+**Organizational structure** - Departments, divisions, locations, and reporting relationships map perfectly to Tallyfy's groups and hierarchies. Your org chart becomes the backbone of workflow routing.
+
+**Role-based automation** - Job titles and positions trigger specific workflows. Senior engineers get different onboarding than junior ones. Managers automatically become approvers. Remote employees get location-specific tasks.
+
+**Real-time updates via webhooks** - When someone updates BambooHR, Tallyfy knows immediately. No polling, no delays, no sync schedules. Changes happen when changes happen.
+
+**Historical tracking** - Track changes over time for compliance and auditing. Know who had what access when, who approved what, and how organizational changes affected workflow execution.
+
+## Use it today with our API connector
+
+While we're building the native integration, you can connect BambooHR to Tallyfy right now using our middleware API. Here's a working example that syncs employee data:
+
+<Tabs>
+<TabItem label="Node.js">
+```javascript
+// Sync BambooHR employees to Tallyfy users
+const axios = require('axios');
+
+async function syncBambooHREmployees() {
+  // Fetch employees from BambooHR
+  const bambooResponse = await axios.get(
+    'https://api.bamboohr.com/api/gateway.php/[company]/v1/employees/directory',
+    {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Basic ${Buffer.from(bambooApiKey + ':x').toString('base64')}`
+      }
+    }
+  );
+
+  // Transform and sync each employee to Tallyfy
+  for (const employee of bambooResponse.data.employees) {
+    const tallyfyUser = {
+      email: employee.workEmail,
+      first_name: employee.firstName,
+      last_name: employee.lastName,
+      external_id: `bamboo_${employee.id}`,
+      metadata: {
+        department: employee.department,
+        job_title: employee.jobTitle,
+        location: employee.location,
+        manager_id: employee.supervisorId,
+        start_date: employee.hireDate,
+        employee_id: employee.employeeNumber
+      }
+    };
+
+    // Create or update user in Tallyfy
+    await axios.post(
+      'https://api.tallyfy.com/v1/users/sync',
+      tallyfyUser,
+      {
+        headers: {
+          'Authorization': `Bearer ${tallyfyApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+  
+  console.log(`Synced ${bambooResponse.data.employees.length} employees`);
+}
+
+// Set up webhook listener for real-time updates
+app.post('/bamboo-webhook', (req, res) => {
+  const signature = req.headers['x-bamboohr-signature'];
+  const timestamp = req.headers['x-bamboohr-timestamp'];
+  
+  // Verify webhook signature (BambooHR uses SHA-256 HMAC)
+  const expectedSignature = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(timestamp + JSON.stringify(req.body))
+    .digest('hex');
+  
+  if (signature !== expectedSignature) {
+    return res.status(401).send('Invalid signature');
+  }
+  
+  // Process the employee update
+  const { employees } = req.body;
+  employees.forEach(employee => {
+    // Update Tallyfy user with changes
+    updateTallyfyUser(employee);
+  });
+  
+  res.status(200).send('Webhook processed');
+});
+```
+</TabItem>
+
+<TabItem label="Python">
+```python
+import requests
+import base64
+from datetime import datetime
+import hashlib
+import hmac
+
+class BambooHRTallyfySync:
+    def __init__(self, bamboo_key, tallyfy_key, company_domain):
+        self.bamboo_auth = base64.b64encode(f"{bamboo_key}:x".encode()).decode()
+        self.tallyfy_key = tallyfy_key
+        self.company_domain = company_domain
+    
+    def sync_employees(self):
+        # Fetch from BambooHR (handles up to 400 fields per request)
+        headers = {
+            'Accept': 'application/json',
+            'Authorization': f'Basic {self.bamboo_auth}'
+        }
+        
+        # Get employee directory with custom fields
+        response = requests.get(
+            f'https://api.bamboohr.com/api/gateway.php/{self.company_domain}/v1/employees/directory',
+            headers=headers
+        )
+        
+        employees = response.json()['employees']
+        
+        # Sync each employee to Tallyfy
+        for emp in employees:
+            user_data = {
+                'email': emp.get('workEmail'),
+                'first_name': emp.get('firstName'),
+                'last_name': emp.get('lastName'),
+                'external_id': f"bamboo_{emp.get('id')}",
+                'groups': [emp.get('department')] if emp.get('department') else [],
+                'metadata': {
+                    'bamboo_id': emp.get('id'),
+                    'job_title': emp.get('jobTitle'),
+                    'location': emp.get('location'),
+                    'division': emp.get('division'),
+                    'hire_date': emp.get('hireDate'),
+                    'employee_number': emp.get('employeeNumber'),
+                    'reports_to': emp.get('supervisorId')
+                }
+            }
+            
+            # Create or update in Tallyfy
+            requests.post(
+                'https://api.tallyfy.com/v1/users/sync',
+                json=user_data,
+                headers={
+                    'Authorization': f'Bearer {self.tallyfy_key}',
+                    'Content-Type': 'application/json'
+                }
+            )
+        
+        return f"Synced {len(employees)} employees"
+    
+    def verify_webhook(self, signature, timestamp, body, secret):
+        """Verify BambooHR webhook signature"""
+        message = timestamp + body
+        expected = hmac.new(
+            secret.encode(),
+            message.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(signature, expected)
+
+# Usage
+syncer = BambooHRTallyfySync(
+    bamboo_key='your_bamboo_api_key',
+    tallyfy_key='your_tallyfy_api_key',
+    company_domain='yourcompany'
+)
+
+result = syncer.sync_employees()
+print(result)
+```
+</TabItem>
+</Tabs>
+
+## What BambooHR's marketplace means for you
+
+BambooHR runs a curated marketplace with over 140 integrations, but getting listed requires proving you have at least 25 mutual customers. They built their marketplace this way to ensure quality - every integration needs real customer demand before it gets the official stamp.
+
+Here's the challenge: They require partners to go through a formal application process, provide security audits, build comprehensive documentation, and connect through their partner platform Crossbeam for customer overlap visibility. The approval process takes time, and they want to see proven traction first.
+
+Their API itself is completely open - anyone can build an integration today without permission. But marketplace visibility (where most customers discover integrations) requires jumping through these hoops. We're working on meeting their requirements, but customer demand accelerates this process significantly.
+
+The technical side is straightforward. BambooHR provides RESTful APIs with OAuth and API key authentication, real-time webhooks with SHA-256 HMAC signatures, and support for custom fields and table data. They recently moved to event-driven architecture for instant updates and set a 400-field limit per API request for performance.
+
+## Ready to automate HR workflows with BambooHR data?
+
+If you're using BambooHR and want to eliminate manual data entry from your workflows, we should talk. We'll show you exactly how to connect the systems today using our API, help you map your employee data to workflow automation, and build custom sync logic for your specific needs.
+
+**[Schedule a consultation](https://tallyfy.com/booking/?utm_source=docs&utm_medium=integration&utm_campaign=bamboohr)** to see the integration in action. We'll walk through your specific use cases and show you what's possible right now.
+
+## Help us get into BambooHR's marketplace faster
+
+Want to see Tallyfy as an official BambooHR marketplace partner? You can help make it happen. Contact your BambooHR account manager or support team and let them know you want Tallyfy integration. Customer requests carry serious weight in their partnership decisions.
+
+Here's what to tell them: "We use Tallyfy for workflow automation and need native BambooHR integration for employee data sync. Please add Tallyfy to your marketplace so we can connect these systems without custom development."
+
+The more customers who ask, the faster we'll get official marketplace status. Your voice matters in making this integration a reality.

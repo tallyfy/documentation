@@ -1,0 +1,340 @@
+---
+title: Insperity Integration Guide
+description: Connect Tallyfy with Insperity's comprehensive PEO and HR outsourcing platform to streamline your enterprise HR processes
+sidebar:
+  label: Insperity
+  order: 12
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+
+## Overview
+
+Insperity is a leading Professional Employer Organization (PEO) that provides comprehensive HR outsourcing services for small and medium-sized businesses. Their platform handles everything from payroll and benefits administration to risk management and HR consulting, making them a crucial partner for businesses looking to outsource HR functions.
+
+<CardGrid>
+  <Card title="Platform Focus" icon="rocket">
+    - **Target Market**: SMBs with 5-5,000 employees
+    - **Service Model**: Full-service PEO with co-employment
+    - **Core Strength**: Comprehensive HR outsourcing
+    - **Technology**: Insperity Premier™ platform
+  </Card>
+  <Card title="Integration Reality" icon="warning">
+    - **API Status**: Limited public API access
+    - **Developer Resources**: Restricted documentation
+    - **Marketplace**: No public app marketplace
+    - **Integration Options**: Partner-only program
+  </Card>
+</CardGrid>
+
+## Why Integrate with Insperity?
+
+Insperity's full-service PEO model means they manage critical HR functions that often trigger business processes:
+
+- **Employee Onboarding**: New hire paperwork and orientation
+- **Benefits Enrollment**: Annual enrollment and life events
+- **Compliance Management**: HR compliance and risk mitigation
+- **Performance Management**: Reviews and career development
+- **Payroll Processing**: Semi-monthly payroll and tax filing
+
+## Integration Challenges
+
+<Aside type="caution" title="Reality Check">
+  Insperity operates primarily as a closed ecosystem with limited integration capabilities. Their focus on full-service HR outsourcing means they prefer to handle everything internally rather than integrate with external systems.
+</Aside>
+
+### Technical Limitations
+
+1. **No Public API**: Insperity doesn't offer a publicly accessible API
+2. **Limited Integration Points**: Few native integrations available
+3. **Partner Requirements**: Must join partner program for access
+4. **Data Export Restrictions**: Limited automated data export options
+
+### Business Model Conflicts
+
+- **PEO Model**: Co-employment structure complicates integrations
+- **Service-First Approach**: Emphasis on human service over tech
+- **Enterprise Focus**: Custom implementations for larger clients
+- **Compliance Concerns**: Strict data security requirements
+
+## Current Integration Options
+
+### 1. Workday Partnership (2024)
+
+Insperity partnered with Workday to provide a joint solution combining:
+- Workday's enterprise HCM platform
+- Insperity's PEO services
+- Limited data exchange capabilities
+
+<Aside type="note">
+  This partnership is primarily for enterprise clients and doesn't provide general API access.
+</Aside>
+
+### 2. General Ledger Export
+
+- **Format**: CSV or fixed-width files
+- **Frequency**: Manual export after each payroll
+- **Data**: Payroll journal entries only
+- **Automation**: Limited to SFTP delivery
+
+### 3. Standard Reports
+
+- **Access**: Through Insperity Premier portal
+- **Format**: PDF or Excel downloads
+- **Scheduling**: Limited automated delivery
+- **API Access**: Not available
+
+## Recommended Workarounds
+
+<Tabs>
+  <TabItem label="Data Sync Strategy">
+    ### Manual Export + Import
+    
+    Since Insperity lacks APIs, implement a semi-automated process:
+    
+    <Steps>
+      1. **Schedule Regular Exports**
+         - Work with Insperity account manager
+         - Set up recurring report delivery
+         - Use SFTP for file transfer
+      
+      2. **Build Import Scripts**
+         ```python
+         # Example: Process Insperity payroll export
+         import pandas as pd
+         from tallyfy_api import create_process
+         
+         def process_payroll_export(file_path):
+             df = pd.read_csv(file_path)
+             for _, row in df.iterrows():
+                 if row['pay_type'] == 'bonus':
+                     create_process('bonus-approval', {
+                         'employee_id': row['emp_id'],
+                         'amount': row['amount']
+                     })
+         ```
+      
+      3. **Monitor File Drops**
+         - Set up file watchers on SFTP
+         - Trigger Tallyfy processes on new files
+         - Send notifications for exceptions
+    </Steps>
+  </TabItem>
+  
+  <TabItem label="Portal Automation">
+    ### Browser Automation Approach
+    
+    Use web scraping for critical data when APIs aren't available:
+    
+    ```python
+    from playwright import sync_playwright
+    import schedule
+    import time
+    
+    def extract_insperity_data():
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            
+            # Login to Insperity Premier
+            page.goto('https://portal.insperity.com')
+            page.fill('#username', 'your_username')
+            page.fill('#password', 'your_password')
+            page.click('button[type="submit"]')
+            
+            # Navigate to reports section
+            page.wait_for_selector('.reports-menu')
+            page.click('.reports-menu')
+            
+            # Extract employee data
+            employees = page.query_selector_all('.employee-row')
+            for emp in employees:
+                process_employee_data(emp)
+            
+            browser.close()
+    
+    # Schedule daily extraction
+    schedule.every().day.at("09:00").do(extract_insperity_data)
+    ```
+    
+    <Aside type="caution">
+      Browser automation should be a last resort. Always check Insperity's terms of service and get written permission before implementing.
+    </Aside>
+  </TabItem>
+  
+  <TabItem label="Middleware Options">
+    ### Integration Platform Solutions
+    
+    Some iPaaS providers offer Insperity connectors:
+    
+    **Workato**
+    - Pre-built Insperity connector (enterprise only)
+    - Requires Insperity approval
+    - Custom recipe development needed
+    
+    **Dell Boomi**
+    - Limited Insperity support
+    - Custom connector development required
+    - File-based integration focus
+    
+    **Manual Middleware**
+    ```javascript
+    // Node.js middleware for file processing
+    const chokidar = require('chokidar');
+    const csv = require('csv-parser');
+    const fs = require('fs');
+    
+    // Watch Insperity export directory
+    const watcher = chokidar.watch('/sftp/insperity/*.csv', {
+      ignored: /^\./,
+      persistent: true
+    });
+    
+    watcher.on('add', path => {
+      fs.createReadStream(path)
+        .pipe(csv())
+        .on('data', (row) => {
+          // Process each row and trigger Tallyfy
+          processInsperityRecord(row);
+        });
+    });
+    ```
+  </TabItem>
+</Tabs>
+
+## Implementation Roadmap
+
+### Phase 1: Initial Setup (Week 1-2)
+
+<Steps>
+  1. **Contact Insperity Account Manager**
+     - Request data export options
+     - Discuss integration requirements
+     - Get SFTP credentials if available
+  
+  2. **Map Data Requirements**
+     - Identify critical data points
+     - Document update frequency needs
+     - Plan process triggers
+  
+  3. **Set Up File Processing**
+     - Configure SFTP monitoring
+     - Build CSV parsers
+     - Test with sample files
+</Steps>
+
+### Phase 2: Process Automation (Week 3-4)
+
+- Implement file watchers
+- Build data transformation scripts
+- Create Tallyfy process triggers
+- Set up error handling
+
+### Phase 3: Production Rollout (Week 5-6)
+
+- Deploy monitoring systems
+- Train HR team on limitations
+- Document manual procedures
+- Establish escalation paths
+
+## Alternative Solutions
+
+<CardGrid>
+  <LinkCard
+    title="Consider Rippling"
+    description="Modern HR platform with robust APIs and native Tallyfy integration"
+    href="/pro/integrations/vendors/rippling"
+  />
+  <LinkCard
+    title="Explore Gusto"
+    description="SMB-focused platform with developer-friendly APIs"
+    href="/pro/integrations/vendors/gusto"
+  />
+  <LinkCard
+    title="Try BambooHR"
+    description="Mid-market HRIS with good integration capabilities"
+    href="/pro/integrations/vendors/bamboohr"
+  />
+</CardGrid>
+
+## Best Practices
+
+### Working with PEOs
+
+1. **Understand the Relationship**
+   - PEO is co-employer of record
+   - They control data access
+   - Integration requires their approval
+
+2. **Focus on Key Touchpoints**
+   - New hire onboarding
+   - Termination processing
+   - Benefits changes
+   - Payroll exceptions
+
+3. **Build Robust Error Handling**
+   - Expect manual processes
+   - Plan for delays
+   - Create fallback procedures
+
+### Data Security
+
+<Aside type="tip" title="Security First">
+  When handling Insperity data:
+  - Encrypt all file transfers
+  - Implement audit logging
+  - Follow PCI compliance for payroll data
+  - Regular security reviews with Insperity
+</Aside>
+
+## Common Use Cases
+
+### New Employee Onboarding
+
+```yaml
+Trigger: Insperity new hire file received
+Actions:
+  1. Parse employee data from CSV
+  2. Create Tallyfy onboarding process
+  3. Assign tasks to managers
+  4. Track completion status
+  5. Update local HRIS records
+```
+
+### Benefits Enrollment
+
+```yaml
+Trigger: Annual enrollment period starts
+Actions:
+  1. Export eligible employee list
+  2. Generate enrollment checklists
+  3. Track submission deadlines
+  4. Flag missing enrollments
+  5. Compile completion reports
+```
+
+## Support Resources
+
+### Getting Help
+
+- **Insperity Support**: Contact your account manager
+- **Technical Issues**: Limited developer support available
+- **Integration Partners**: Work through approved consultants
+- **Tallyfy Support**: We can help with workarounds
+
+### Useful Links
+
+- [Insperity Premier Portal](https://portal.insperity.com)
+- [Insperity Service Center](https://www.insperity.com/support/)
+- [File Format Documentation](https://www.insperity.com/resources/) (request from account manager)
+
+## Conclusion
+
+While Insperity doesn't offer modern API capabilities, integration is still possible through creative workarounds. The key is setting realistic expectations and building robust file-based integration patterns. For organizations requiring deeper integration, consider evaluating alternative HR platforms with better API support.
+
+<Aside type="note" title="Future Outlook">
+  Insperity's 2024 Workday partnership suggests they're recognizing the need for better integration capabilities. However, meaningful API access for general developers remains unlikely in the near term.
+</Aside>

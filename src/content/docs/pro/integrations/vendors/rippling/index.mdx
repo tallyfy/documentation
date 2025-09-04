@@ -1,0 +1,342 @@
+---
+title: "Rippling Integration"
+description: "Connect Rippling's unified workforce platform with Tallyfy for automated HR, IT, and finance workflow orchestration"
+template: doc
+sidebar:
+  order: 11
+---
+
+import Aside from "@/components/Aside.astro"
+
+## Quick Summary
+
+We're integrating with Rippling to transform their unified workforce management platform into the engine that powers all your business workflows. When someone joins your company in Rippling, Tallyfy automatically orchestrates everything - from ordering their laptop to setting up benefits to scheduling training - all while Rippling handles the core HR, IT, and finance operations.
+
+<Aside type="note" title="Modern API Platform">
+Rippling provides enterprise-grade REST APIs with field expansion, pagination, and platform-level standards. They actively support integrations through their App Shop and developer program.
+</Aside>
+
+## Why This Integration Matters
+
+Rippling revolutionized workforce management by unifying HR, IT, and Finance. But even with Rippling's automation, countless processes still require human coordination - equipment approvals, training schedules, project assignments, and compliance tasks.
+
+Our integration bridges this gap. Rippling handles the systems. Tallyfy handles the processes. Together, they create truly automated operations where nothing requires manual follow-up.
+
+## What We're Building
+
+### Unified Onboarding Workflows
+
+Go beyond basic provisioning to complete readiness:
+
+- **Pre-Arrival Preparation**: As soon as someone signs their offer in Rippling, trigger workspace setup, equipment ordering, and team notifications
+- **Device Configuration**: Rippling provisions the laptop, Tallyfy ensures it's configured with project-specific tools and access
+- **Team Integration**: Automatically schedule meet-and-greets, assign mentors, and create first-week agendas
+- **Progressive Onboarding**: 30/60/90-day check-ins triggered by hire date with manager reviews
+
+### IT Operations Orchestration
+
+Extend Rippling's IT management with process workflows:
+
+- **Access Requests**: Route non-standard access requests through approval chains
+- **Equipment Lifecycle**: Track laptop refresh cycles, warranty expirations, and replacement workflows
+- **Security Incidents**: When Rippling detects issues, Tallyfy orchestrates the response
+- **Software Approvals**: Manage requests for tools outside standard stack
+
+### Finance Process Automation
+
+Connect Rippling's finance features to workflows:
+
+- **Expense Approvals**: Route expense reports through complex approval matrices
+- **Corporate Card Management**: Orchestrate card requests, limit changes, and violation reviews
+- **Budget Workflows**: Trigger processes when headcount or spending approaches limits
+- **Vendor Management**: Coordinate new vendor setup and compliance
+
+## How to Connect Today
+
+### Option 1: Rippling REST API
+
+Direct integration using Rippling's modern APIs:
+
+```javascript
+// Example: Create comprehensive onboarding from Rippling hire
+const createOnboardingWorkflow = async (ripplingEmployee) => {
+  // Use field expansion to get all needed data in one call
+  const employee = await ripplingAPI.get(`/employees/${ripplingEmployee.id}`, {
+    expand: ['department', 'manager', 'compensation', 'equipment']
+  });
+  
+  // Determine workflow template based on role
+  const template = determineTemplate(employee.jobTitle, employee.department);
+  
+  // Create workflow with full context
+  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      template_id: template,
+      name: `Onboarding - ${employee.fullName}`,
+      data: {
+        // Employee details from Rippling
+        employee_id: employee.id,
+        name: employee.fullName,
+        email: employee.workEmail,
+        personal_email: employee.personalEmail,
+        
+        // Role and organization
+        title: employee.jobTitle,
+        department: employee.department.name,
+        team: employee.team,
+        manager: employee.manager.name,
+        
+        // Logistics
+        start_date: employee.startDate,
+        work_location: employee.workLocation,
+        remote_type: employee.employmentType,
+        
+        // Equipment from Rippling
+        laptop_model: employee.equipment.laptop?.model,
+        needs_monitor: employee.workLocation === 'OFFICE',
+        
+        // Compensation tier (for equipment/perk decisions)
+        level: employee.compensation.level
+      }
+    })
+  });
+  
+  return workflow.json();
+};
+```
+
+### Option 2: Rippling App Shop
+
+Publish integration in Rippling's marketplace:
+
+1. Develop integration using Rippling's developer kit
+2. Implement SSO for seamless authentication
+3. Use Rippling's API for bidirectional sync
+4. Submit for App Shop review and listing
+5. Enable one-click installation for customers
+
+### Option 3: Partner Platforms
+
+Use unified API providers:
+
+- **Merge**: First partner to integrate with Rippling
+- **Finch**: Access through unified employment API
+- **Workato**: Pre-built Rippling connectors
+- **Zapier**: Basic automation capabilities
+
+### Option 4: Webhook Automation
+
+Configure real-time event processing:
+
+```javascript
+// Handle Rippling webhook events
+app.post('/webhooks/rippling', async (req, res) => {
+  const event = req.body;
+  
+  switch(event.type) {
+    case 'employee.created':
+      await createOnboardingWorkflow(event.data);
+      break;
+    case 'employee.terminated':
+      await createOffboardingWorkflow(event.data);
+      break;
+    case 'employee.updated':
+      await handleEmployeeChange(event.data);
+      break;
+    case 'device.assigned':
+      await createDeviceSetupWorkflow(event.data);
+      break;
+  }
+  
+  res.status(200).send('OK');
+});
+```
+
+## Real-World Use Cases
+
+### High-Growth Tech Startup
+
+A startup scaling from 50 to 500 employees uses Rippling + Tallyfy:
+
+1. **Instant Onboarding**: New hire in Rippling triggers 15 parallel workflows
+2. **Equipment Management**: Laptop orders route through finance approval
+3. **Access Provisioning**: AWS, GitHub, Slack configured based on role
+4. **Training Paths**: Automatic enrollment in role-specific training
+5. **Cultural Integration**: Buddy assignment and team lunch scheduling
+
+Results: Reduced time-to-productivity from 2 weeks to 3 days
+
+### Distributed Remote Company
+
+A fully remote company with 200 employees across 30 countries:
+
+- **Global Compliance**: Country-specific onboarding requirements
+- **Equipment Shipping**: International logistics coordination
+- **Time Zone Coordination**: Automatic meeting scheduling adjustments
+- **Contractor Conversion**: Workflows for transitioning to full-time
+- **Virtual Team Building**: Automated remote culture activities
+
+### Multi-Entity Corporation
+
+A company with multiple subsidiaries manages:
+
+- **Entity-Specific Processes**: Different workflows per legal entity
+- **Intercompany Transfers**: Complex workflow orchestration
+- **Consolidated Reporting**: Aggregated metrics across entities
+- **Shared Services**: Centralized HR/IT with local workflows
+- **M&A Integration**: Acquire and onboard entire teams
+
+## Technical Implementation Details
+
+### Rippling API Architecture
+
+Enterprise-grade features include:
+
+- **RESTful design** for simplicity and scalability
+- **Pagination** for efficient data handling
+- **Field expansion** to reduce API calls
+- **Platform-level standards** ensuring consistency
+- **V1 and V2 endpoints** with V2 exclusive to customers
+- **OAuth 2.0** authentication
+
+### Integration Capabilities
+
+What you can sync:
+
+- Employee profiles and organizational data
+- Compensation and benefits information
+- Device and software assignments
+- Time-off balances and requests
+- Expense reports and receipts
+- Performance review data
+- Custom fields and attributes
+
+### Rippling Platform Features
+
+Leverage Rippling's unique capabilities:
+
+- **Unity**: Run reports across third-party app data
+- **Workflow Triggers**: Automate based on any data change
+- **Custom Permissions**: Granular access control
+- **Supergroups**: Dynamic employee grouping
+- **App Management**: Centralized SaaS administration
+
+### Security and Compliance
+
+Enterprise security standards:
+
+- **SOC 2 Type II** compliance
+- **GDPR/CCPA** ready
+- **HIPAA** compliant infrastructure
+- **ISO 27001** certification
+- **Encrypted data** in transit and at rest
+- **Audit logging** of all activities
+
+## Why Rippling Should Fast-Track This
+
+Rippling's unified platform vision aligns perfectly with workflow automation:
+
+1. **Customer Demand**: Users expect process automation, not just system automation
+2. **Competitive Edge**: Extend beyond HR/IT/Finance into operations
+3. **Platform Value**: Workflow automation increases stickiness
+4. **Market Leadership**: Set the standard for workforce platform integration
+5. **Revenue Growth**: Integrated customers have higher LTV
+
+## Take Action Now
+
+### For Rippling Customers
+
+**Unlock Rippling's full potential:**
+
+1. [Schedule a demo](https://tallyfy.com/booking/) to see the integration
+2. We'll connect to your Rippling sandbox
+3. Build your first automated workflow live
+4. Test with real scenarios
+5. Deploy across your organization
+
+**Want official integration?** Message Rippling support requesting Tallyfy in their App Shop. Customer requests drive roadmap.
+
+### For Operations Leaders
+
+Stop coordinating between systems. Let automation handle it:
+
+- Employee data flows seamlessly
+- Processes trigger automatically
+- Approvals route intelligently
+- Compliance maintains itself
+- You focus on strategy
+
+### For IT Teams
+
+Finally, true IT automation:
+
+- Provision beyond just accounts
+- Orchestrate complex access requests
+- Manage equipment lifecycle completely
+- Automate security responses
+- Reduce ticket volume dramatically
+
+## Implementation Strategy
+
+### Quick Start (Week 1)
+- Connect Rippling API
+- Map employee data fields
+- Create first workflow (usually onboarding)
+- Test with upcoming hires
+
+### Core Deployment (Week 2-3)
+- Build essential workflows
+- Configure approval chains
+- Set up notifications
+- Train key users
+
+### Advanced Automation (Week 4+)
+- Add complex routing rules
+- Implement conditional logic
+- Create department variants
+- Build reporting dashboards
+
+### Continuous Optimization
+- Monitor workflow performance
+- Gather user feedback
+- Refine based on data
+- Expand use cases
+
+## The Rippling + Tallyfy Advantage
+
+### Unified Operations
+- Single source of truth (Rippling)
+- Automated process execution (Tallyfy)
+- No data silos or manual bridges
+- Complete operational visibility
+
+### Scalability
+- Grow from 10 to 10,000 employees
+- Workflows adapt automatically
+- No process debt accumulation
+- Maintain compliance at scale
+
+### Employee Experience
+- Smooth, consistent processes
+- Faster response times
+- Less bureaucracy
+- Better first impressions
+
+## Start Your Integration
+
+The average Rippling customer still spends 5+ hours per employee on manual coordination. Our integration eliminates this waste.
+
+**Ready to automate everything?** [Book your implementation call](https://tallyfy.com/booking/):
+
+1. Review your Rippling configuration
+2. Map your critical processes
+3. Design integration architecture
+4. Build pilot workflow together
+5. Get deployment timeline
+
+Stop managing handoffs. Start automating everything.
