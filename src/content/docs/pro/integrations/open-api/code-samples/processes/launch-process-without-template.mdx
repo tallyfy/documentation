@@ -6,15 +6,23 @@ id: 1c3bfbb408c27782972640531cb3fb17
 lastUpdated: 2025-08-15
 sidebar:
   order: 45
-title: Launch Processes Without Templates
+title: Launch projects
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
 import { Aside, Card, TabItem, Tabs } from "@astrojs/starlight/components";
 
-# Launch Processes Without Templates
+# Launch a process as an "empty shell" - effectively a "project"
 
-Create processes in Tallyfy without requiring a predefined template. This powerful feature enables AI assistants, automation tools, and integrations to create ad-hoc collections of tasks that are tracked together as a single process.
+Normally in Tallyfy - you would create a template and then launch it. 
+
+Sometimes however you need to launch an ad-hoc project - just a one-time set of tasks and you want to track that just like you track a process.
+
+We offer the ability to launch an "empty process" with no tasks in it. This give you then ability to then add one-off tasks to it and track it just like a process.
+
+To put it more simply - Tallyfy offers the ability to run simple one-off projects, not just repeatable processes from a pre-made template.
+
+Here's how you can launch a process without requiring a predefined template. This powerful feature enables AI assistants, automation tools, and integrations to create ad-hoc collections of tasks that are tracked together as a single process.
 
 <Aside type="tip">
   This feature is perfect for scenarios where you need to create dynamic, one-time processes programmatically, such as bulk task assignments or AI-driven workflows.
@@ -24,11 +32,11 @@ Create processes in Tallyfy without requiring a predefined template. This powerf
 
 Tallyfy's API supports creating processes without templates through a special parameter in the task creation endpoint. When you set `separate_task_for_each_assignee: true`, the system automatically:
 
-1. Creates an empty process (using the internal MISC system checklist)
+1. Creates an empty process (using the internal MISC system template)
 2. Creates individual tasks for each assignee
 3. Links all tasks to the same process for unified tracking
 
-This eliminates the need to create templates for one-time or dynamic processes, making it ideal for automation and AI assistant integrations.
+This eliminates the need to create templates for one-time or dynamic processes.
 
 ## API Endpoint
 
@@ -65,15 +73,30 @@ When set to `true`, this parameter triggers the creation of an empty process con
   "summary": "Optional task description",
   "owners": {
     "users": ["userId1", "userId2", "userId3"],
-    "guests": ["guestId1"],
+    "guests": ["guest@example.com"],
     "groups": ["groupId1"]
   },
   "separate_task_for_each_assignee": true,
-  "status": "not-started",
   "task_type": "task",
   "deadline": "2024-12-31 17:00:00",
   "everyone_must_complete": false,
-  "is_soft_start_date": true
+  "is_soft_start_date": true,
+  "started_at": "2024-12-01 09:00:00",
+  "prevent_guest_comment": false,
+  "can_complete_only_assignees": false,
+  "max_assignable": 0,
+  "webhook": "https://your-webhook.com/endpoint",
+  "tags": ["tagId1", "tagId2"],
+  "top_secret": false,
+  "form_fields": [
+    {
+      "label": "Project Name",
+      "field_type": "text",
+      "required": true,
+      "guidance": "Enter the project name",
+      "position": 1
+    }
+  ]
 }
 ```
 
@@ -81,15 +104,41 @@ When set to `true`, this parameter triggers the creation of an empty process con
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `title` | string | Yes | Title for the process and all tasks |
+| `title` | string | Yes | Title for the process and all tasks (max 600 characters) |
 | `summary` | string | No | Description or instructions for the tasks |
 | `owners` | object | Yes | Contains arrays of users, guests, and/or groups |
 | `separate_task_for_each_assignee` | boolean | Yes | Must be `true` to create process without template |
-| `status` | string | No | Initial status (default: "not-started") |
-| `task_type` | string | No | Type of task (default: "task") |
-| `deadline` | string | No | Deadline in "YYYY-MM-DD HH:MM:SS" format |
-| `everyone_must_complete` | boolean | No | Set to `false` for independent task completion |
-| `is_soft_start_date` | boolean | No | Whether the start date is flexible |
+| `task_type` | string | Yes | Type of task: "task", "approval", "expiring", "email", or "expiring_email" |
+| `deadline` | string | Yes | Deadline in "YYYY-MM-DD HH:MM:SS" format |
+| `everyone_must_complete` | boolean | No | Set to `false` for independent task completion (default: false) |
+| `is_soft_start_date` | boolean | No | Whether the start date is flexible (default: false) |
+| `started_at` | string | No | Start date in "YYYY-MM-DD HH:MM:SS" format (defaults to current time) |
+| `prevent_guest_comment` | boolean | No | Prevent guests from commenting (default: false) |
+| `can_complete_only_assignees` | boolean | No | Only assignees can complete the task (default: false) |
+| `max_assignable` | integer | No | Maximum number of assignees (default: 0, meaning unlimited) |
+| `webhook` | string | No | URL for webhook notifications on task events |
+| `tags` | array | No | Array of tag IDs (32-character strings) |
+| `top_secret` | boolean | No | Mark task as confidential (default: false) |
+| `form_fields` | array | No | Array of form field definitions for data collection |
+
+### Form Fields Structure
+
+When including `form_fields`, each field object must contain:
+
+| Field Property | Type | Required | Description |
+|----------------|------|----------|-------------|
+| `label` | string | Yes | Display label for the form field |
+| `field_type` | string | Yes | Type of field: "text", "textarea", "radio", "dropdown", "multiselect", "number", "email", "url", "date", "time", "datetime", "checkbox", "file" |
+| `required` | boolean | Yes | Whether the field is mandatory |
+| `options` | array | Conditional | Required for "radio", "dropdown", and "multiselect" field types |
+| `guidance` | string | No | Help text for the field |
+| `position` | integer | No | Display order of the field |
+
+**Important Notes:**
+- Guest assignees must be email addresses, not IDs
+- The API returns only the first created task, but creates tasks for all assignees
+- When groups are specified, tasks are created for each member of the group
+- The process uses a system "MISC" template that exists in every organization
 
 ## Implementation Examples
 
@@ -112,9 +161,8 @@ async function createProcessWithoutTemplate(orgId, accessToken, taskData) {
           users: taskData.userIds || []
         },
         separate_task_for_each_assignee: true, // Critical parameter
-        status: 'not-started',
-        task_type: 'task',
-        deadline: taskData.deadline || getDefaultDeadline(),
+        task_type: 'task', // Required
+        deadline: taskData.deadline || getDefaultDeadline(), // Required
         everyone_must_complete: false,
         is_soft_start_date: true
       })
@@ -198,8 +246,7 @@ class TallyfyProcessCreator:
                 "users": user_ids
             },
             "separate_task_for_each_assignee": True,  # Key parameter
-            "status": "not-started",
-            "task_type": "task",
+            "task_type": "task",  # Required
             "deadline": deadline_str,
             "everyone_must_complete": False,
             "is_soft_start_date": True
@@ -272,8 +319,7 @@ class TallyfyProcessCreator {
                 'users' => $userIds
             ],
             'separate_task_for_each_assignee' => true, // Key parameter
-            'status' => 'not-started',
-            'task_type' => 'task',
+            'task_type' => 'task', // Required
             'deadline' => $deadline,
             'everyone_must_complete' => false,
             'is_soft_start_date' => true
@@ -344,8 +390,7 @@ class TallyfyProcessCreator
         users: user_ids
       },
       separate_task_for_each_assignee: true, # Key parameter
-      status: 'not-started',
-      task_type: 'task',
+      task_type: 'task', # Required
       deadline: deadline,
       everyone_must_complete: false,
       is_soft_start_date: true
@@ -420,8 +465,7 @@ async function createMultiStageProcess(orgId, accessToken, tasks) {
         summary: firstTask.description,
         owners: { users: firstTask.userIds },
         separate_task_for_each_assignee: true,
-        status: 'not-started',
-        task_type: 'task',
+        task_type: 'task', // Required
         deadline: firstTask.deadline
       })
     }
@@ -450,8 +494,7 @@ async function createMultiStageProcess(orgId, accessToken, tasks) {
           summary: task.description,
           owners: { users: task.userIds },
           run_id: processId,  // Attach to existing process
-          status: 'not-started',
-          task_type: 'task',
+          task_type: 'task', // Required
           deadline: task.deadline,
           position: i + 1
         })
@@ -524,8 +567,7 @@ def create_multi_stage_process(self, tasks: List[Dict]) -> str:
                 "users": task['userIds']
             },
             "run_id": process_id,  # Attach to existing process
-            "status": "not-started",
-            "task_type": "task",
+            "task_type": "task",  # Required
             "deadline": task.get('deadline', self._get_default_deadline()),
             "position": i
         }
@@ -645,6 +687,29 @@ for _, row in df.iterrows():
         deadline=datetime.strptime(row['due_date'], '%Y-%m-%d')
     )
 ```
+
+## API Response
+
+The API returns a single task object (the first task created) even though it creates tasks for all assignees. The response includes:
+
+```json
+{
+  "data": {
+    "id": "task_id",
+    "title": "Task title",
+    "status": "not-started",
+    "deadline": "2024-12-31 17:00:00",
+    "run": {
+      "id": "process_id",
+      "name": "Task title",
+      "permalink": "https://app.tallyfy.com/...",
+      "started_at": "2024-12-01 09:00:00"
+    }
+  }
+}
+```
+
+To track all created tasks, you'll need to query the process using the returned `run.id`.
 
 ## Important Considerations
 
