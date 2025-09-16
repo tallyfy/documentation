@@ -1,0 +1,261 @@
+---
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 19
+description: Learn about Tallyfy's upcoming scanner and RFID integration features for automatic data capture in form fields. Discover how keyboard wedge mode and webhook patterns will enable seamless hardware integration without manual data entry.
+title: Scanner and RFID integration for form fields
+lastUpdated: 2025-09-16
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## How scanners and RFID readers will work with Tallyfy form fields
+
+Scanner and RFID integration with Tallyfy form fields will work through keyboard wedge mode - your scanner acts like a keyboard, instantly filling form fields when you scan. This feature is currently in development and will enable automatic data capture without manual typing.
+
+Here's the thing - most businesses already use barcode scanners or RFID readers for inventory, asset tracking, or employee badges. Right now, you're probably typing those codes manually into Tallyfy. That's about to change.
+
+## Current status and development timeline
+
+**Important**: Scanner and RFID integration is not available yet. We're actively working on this feature based on customer feedback.
+
+Our engineering team has completed the technical analysis and identified that no major infrastructure changes are needed. The implementation will leverage existing form field capabilities with enhanced input detection. You'll see this feature rolling out progressively - starting with basic keyboard wedge support, then adding advanced detection features.
+
+## How the integration will work
+
+### Direct keyboard wedge input (simplest approach)
+
+Your scanner will work just like typing on a keyboard. Click into any Tallyfy form field, scan your barcode or RFID tag, and watch the data appear instantly. No configuration needed on Tallyfy's side.
+
+Here's what you'll need to do:
+1. Configure your scanner in USB HID (Human Interface Device) mode
+2. Set it to add an Enter key after each scan
+3. Focus on the Tallyfy form field you want to fill
+4. Scan - data appears immediately
+
+Most USB scanners work this way out of the box. You can test it right now with Notepad - if you see text appear when you scan, it'll work with Tallyfy.
+
+### Smart field detection (coming next)
+
+We're developing JavaScript-based detection that recognizes scanner input automatically. The system will know when data comes from a scanner versus manual typing by measuring input speed - scanners typically send characters in under 20 milliseconds, while humans type much slower.
+
+This means:
+- Scanned data can trigger automatic field advancement
+- Different barcode patterns can fill different fields
+- The system can validate scanner input in real-time
+
+For example, scanning an employee badge starting with "EMP" could automatically fill the assignee field, while a product code starting with "SKU" goes to the product field.
+
+### Webhook integration for mobile scanners
+
+Not everyone has USB scanners at every location. That's why we're building webhook support for mobile scanning apps. Your phone becomes the scanner.
+
+The flow works like this:
+1. Use any scanning app that supports webhooks (many free options exist)
+2. Scan with your phone
+3. App sends data to Tallyfy via webhook
+4. Form field updates automatically
+5. Real-time updates show the scanned data immediately
+
+This approach works great for field teams, remote workers, or locations where USB scanners aren't practical.
+
+## Supported scanner types and configurations
+
+### Hardware compatibility
+
+These scanner types will work with Tallyfy:
+- **USB barcode scanners** - Any HID-compatible model (99% of USB scanners)
+- **Bluetooth scanners** - Paired to your computer or mobile device  
+- **RFID readers** - Must support keyboard wedge mode
+- **Mobile device cameras** - Through webhook-enabled apps
+- **2D/QR code scanners** - Same as barcode scanners
+
+### Required scanner settings
+
+You'll configure these on your scanner (check your scanner's manual):
+- **Interface mode**: USB HID Keyboard or Bluetooth HID
+- **Suffix character**: CR (Carriage Return/Enter) or Tab
+- **Inter-character delay**: 5ms if you experience issues
+- **Prefix**: Optional, but useful for identifying scan source
+
+Quick test: Open any text editor, scan something. See text? You're ready.
+
+## Real-world use cases we're designing for
+
+### Warehouse receiving
+Picture this workflow:
+1. Open the "Receiving" process in Tallyfy
+2. Scan the pallet barcode - Pallet ID field fills automatically
+3. Scan each item - they add to your items table
+4. Scan the storage location QR code - location field updates
+5. Process completes when you scan an "END" barcode
+
+No typing. No errors. Just scan and go.
+
+### Employee time tracking
+Employees scan their badge at a kiosk. Tallyfy recognizes the employee ID pattern, creates a "Clock In" task, assigns it to that employee, and logs the timestamp. Clock out works the same way. Simple.
+
+### Quality control checkpoints
+1. Scan product serial number - loads the inspection checklist
+2. Scan "PASS" or "FAIL" QR codes for each checkpoint
+3. Scan inspector badge to sign off
+4. System advances to next product automatically
+
+Each scan creates an audit trail. Management sees real-time quality metrics.
+
+### Asset management
+Scan an asset tag, Tallyfy pulls up its history. Scan a location QR code on the wall, asset location updates. The system knows what's where without manual data entry. Perfect for IT equipment, tools, or medical devices.
+
+## Technical implementation details
+
+### Phase 1: Basic keyboard wedge support
+
+This is what we're building first:
+- Direct input into focused form fields
+- Support for all standard barcode formats
+- Tab/Enter suffix handling for field navigation
+- Works with existing form field types (text, number, tables)
+
+No special configuration needed. If your scanner works with other software, it'll work with Tallyfy.
+
+### Phase 2: Enhanced detection system
+
+Next, we add intelligence:
+- Automatic scanner detection based on input timing
+- Pattern matching for different code types
+- Auto-routing to appropriate fields
+- Visual indicators showing scan readiness
+- Batch scanning support for multiple items
+
+The system learns your scanning patterns and optimizes the workflow accordingly.
+
+### Phase 3: Advanced integration features
+
+Finally, the complete solution:
+- Webhook endpoints for external scanners
+- Mobile app scanning support
+- Real-time synchronization across devices
+- Offline scanning with sync when connected
+- Custom validation rules for scanned data
+
+## Configuration and setup (when available)
+
+### For IT administrators
+
+You won't need special software or drivers. The setup process:
+1. Configure scanners in HID mode (usually default)
+2. Test with any text editor first
+3. Train users on which fields to scan into
+4. Create naming conventions for your barcodes
+
+We'll provide detailed guides for popular scanner models like Zebra, Honeywell, and Symbol.
+
+### For end users
+
+It's straightforward:
+1. Click in the form field
+2. Scan your barcode or RFID
+3. Data appears instantly
+4. Press Tab or let auto-advance move you to the next field
+
+That's the entire process. No training needed beyond "click and scan."
+
+### For process designers
+
+You'll set up templates with scanner-ready fields:
+- Mark fields as "scanner input expected"
+- Configure auto-advance rules
+- Set validation patterns for different barcode types
+- Design the workflow around scanning efficiency
+
+Think about the physical flow - where are scanners located? What order makes sense for scanning? Design accordingly.
+
+## Security and data validation
+
+### Input validation
+
+Every scanned input goes through the same validation as manual entry:
+- Format checking (ensuring barcode patterns match expected formats)
+- Length validation
+- Character restrictions
+- Business rule validation
+
+Invalid scans get rejected immediately with clear error messages.
+
+### Security measures
+
+We're implementing:
+- Rate limiting to prevent scan flooding
+- Input sanitization to prevent injection attacks
+- Audit logging of all scanner inputs
+- Permission-based field access (same as manual entry)
+
+Your data stays secure whether typed or scanned.
+
+## Benefits over manual data entry
+
+Let's talk about why this matters:
+
+**Speed** - Scanning takes under a second. Typing a 12-digit code? 5-10 seconds if you're fast. Multiply that by hundreds of items daily.
+
+**Accuracy** - Humans make typos. Scanners don't. Especially with long alphanumeric codes, scanning eliminates transcription errors completely.
+
+**Efficiency** - Workers stay focused on their actual job, not data entry. Warehouse staff can receive shipments faster. Quality inspectors move through checkpoints quicker.
+
+**Audit trail** - Every scan gets timestamped and logged. You know exactly when something was scanned and by whom.
+
+## Common questions about scanner integration
+
+### Will my existing scanner work?
+
+If it works with Microsoft Word or Notepad, it'll work with Tallyfy. Most USB and Bluetooth scanners are compatible.
+
+### Do I need special software?
+
+No. Scanners work through keyboard emulation. No drivers, no special software, no plugins.
+
+### Can I use my phone as a scanner?
+
+Yes, through webhook-enabled scanning apps. Several free options exist for iOS and Android.
+
+### What about RFID tags?
+
+RFID readers that support keyboard wedge mode work exactly like barcode scanners. Tap the tag, data appears in the field.
+
+### How do I prevent scanning into the wrong field?
+
+The enhanced detection system (Phase 2) will recognize scan patterns and route data to the correct fields automatically. Until then, users click the field before scanning.
+
+## Next steps and updates
+
+We're actively developing this feature. Here's what you can do now:
+
+**Prepare your hardware** - Ensure your scanners support HID mode. Test them with a text editor to confirm they work as keyboards.
+
+**Plan your workflows** - Think about where scanning would save time. Which processes involve manual code entry? Those are your targets.
+
+**Standardize your codes** - Consistent barcode formats make integration smoother. Consider prefixes like "EMP" for employees or "SKU" for products.
+
+**Stay informed** - Watch for updates in your Tallyfy dashboard. We'll announce beta testing opportunities for early adopters.
+
+(Want to be a beta tester? Contact our support team and mention your interest in scanner integration.)
+
+## Technical support and resources
+
+When this feature launches, you'll have:
+- Scanner configuration guides for major brands
+- Video tutorials showing setup and usage
+- Troubleshooting documentation
+- Direct support for implementation
+
+We're committed to making this as smooth as possible. Your existing workflows won't change - they'll just get faster.
+
+Remember - this isn't about new technology. It's about making your existing scanners work seamlessly with Tallyfy. No complicated integrations. No expensive middleware. Just scan and go.
+
+## Related articles
+
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Form fields overview</b>" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > Understanding different types of form fields and how to configure them for data collection in your workflows. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Default content for fields</b>" href="/products/pro/tracking-and-tasks/tasks/how-to-set-default-content-for-form-fields/" > Learn how to pre-populate form fields with default values to speed up data entry and ensure consistency. </LinkTitleCard>
+<LinkTitleCard header="<b>API > Webhook integration</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Set up webhooks to receive data from external systems and update Tallyfy form fields automatically. </LinkTitleCard>
+</CardGrid>
