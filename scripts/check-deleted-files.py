@@ -18,8 +18,11 @@ def delete_object(uid, tallyfy_answers_api):
 	"""
     Delete an object from the Tallyfy Answers API by its UID.
     """
+	headers = {
+		"Authorization": f"Bearer {ANSWERS_API_KEY}"
+	}
 	try:
-		response = requests.delete(f'{tallyfy_answers_api}{uid}')
+		response = requests.delete(f'{tallyfy_answers_api}{uid}', headers=headers)
 		if response.status_code == 200:
 			logging.info(f"Successfully deleted object with UID: {uid}")
 		else:
