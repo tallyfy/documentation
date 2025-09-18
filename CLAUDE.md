@@ -832,7 +832,8 @@ These patterns are effective when used intentionally with substance:
 ### Internal Links
 - **Format**: Absolute paths without .mdx extension
 - **Example**: `/products/pro/tracking-and-tasks/processes/`
-- **Public URLs**: Base URL is `https://tallyfy.com/products/`
+- **Public Production URL**: Base URL is `https://tallyfy.com/products/`
+- **Public Staging URL**: Base URL is `https://staging.products.tallyfy.com/products/`
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`
