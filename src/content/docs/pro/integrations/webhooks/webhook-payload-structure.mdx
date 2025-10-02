@@ -1,0 +1,531 @@
+---
+title: Webhook payload structure
+description: Complete reference showing the exact JSON structure and all data elements included in Tallyfy webhook payloads for both process-level and task-level webhooks with real examples from the API codebase.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 3
+lastUpdated: 2025-10-02
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Understanding webhook payload structure
+
+When Tallyfy sends a webhook to your endpoint, it delivers a JSON payload containing comprehensive data about the event. The exact structure varies based on webhook type - **process-level webhooks** (fired when a process launches or completes) versus **task-level webhooks** (fired when a specific task completes).
+
+This reference shows the complete, verified structure produced by Tallyfy's actual API code, not theoretical examples.
+
+## Process-level webhook payload
+
+Process-level webhooks fire when someone launches a new process or when a process completes. These webhooks include the full process state and all kick-off form data.
+
+### Top-level structure
+
+```
+Process Webhook Payload
+├── Process Information (from RunTransformer)
+│   ├── id, increment_id, name, summary
+│   ├── status, progress, whole_progress
+│   ├── checklist_id, checklist_title
+│   ├── created_at, started_at, completed_at
+│   ├── owner_id, started_by
+│   ├── collaborators (array of user IDs)
+│   └── Kick-off form data
+│       ├── prerun (structured form field values)
+│       ├── prerun_status, prerun_completed_at
+│       └── prerun_submitted_by
+│
+├── process-tasks
+│   └── Map of task alias => task ID
+│
+├── ko-form-fields
+│   └── Map of field alias => field value
+│
+├── guest-links ⭐ NEW
+│   └── Map of guest email => {link_for_guest: URL}
+│
+└── launcher
+    └── User who launched the process
+```
+
+### Complete example
+
+```json
+{
+  "id": "abc123def456ghi789jkl012mno345pq",
+  "increment_id": 1234,
+  "checklist_id": "template789xyz123abc",
+  "checklist_title": "Vendor Contract Review Workflow",
+  "name": "Vendor Contract Review - ACME Corp",
+  "summary": "Complete vendor contract review and approval workflow",
+  "status": "in-progress",
+  "progress": 60,
+  "whole_progress": 60,
+  "started_by": "user123abc456",
+  "owner_id": "user123abc456",
+
+  "prerun": {
+    "vendor-name": "Widget Suppliers Inc",
+    "contract-type": "Service Agreement",
+    "estimated-value": "50000",
+    "urgency": "normal"
+  },
+  "prerun_status": "completed",
+  "prerun_completed_at": "2025-10-01T09:15:00Z",
+  "prerun_completed_by": "user123abc456",
+  "prerun_length": 4,
+
+  "created_at": "2025-10-01T09:00:00Z",
+  "started_at": "2025-10-01T09:15:00Z",
+  "last_updated": "2025-10-02T14:30:00Z",
+  "completed_at": null,
+
+  "collaborators": ["user123", "user456", "user789"],
+  "late_tasks": 0,
+  "due_soon": true,
+  "due_date": "2025-10-15T17:00:00Z",
+
+  "users": [
+    {"user_id": "user123", "full_name": "John Smith"},
+    {"user_id": "user456", "full_name": "Jane Doe"}
+  ],
+  "groups": [
+    {"group_id": "group123", "name": "Legal Team"}
+  ],
+
+  "process-tasks": {
+    "initial-review": "task001abc",
+    "legal-review": "task002def",
+    "review-contract": "task003ghi",
+    "execute-contract": "task004jkl"
+  },
+
+  "ko-form-fields": {
+    "vendor-name": "Widget Suppliers Inc",
+    "contract-type": "Service Agreement",
+    "estimated-value": "50000",
+    "urgency": "normal"
+  },
+
+  "guest-links": {
+    "external.reviewer@vendor.com": {
+      "link_for_guest": "https://go.tallyfy.com/guest-all-task/org789xyz123/guestcode123abc"
+    },
+    "compliance@vendor.com": {
+      "link_for_guest": "https://go.tallyfy.com/guest-all-task/org789xyz123/guestcode456def"
+    }
+  },
+
+  "launcher": {
+    "id": "user123abc456",
+    "email": "john@acmecorp.com",
+    "full_name": "John Smith"
+  }
+}
+```
+
+## Task-level webhook payload
+
+Task-level webhooks fire when a specific task completes. These contain detailed information about the completed task, all process data collected so far, and the next task in the sequence.
+
+### Top-level structure
+
+```
+Task Webhook Payload
+├── this_task
+│   ├── id, title, alias, status, summary
+│   ├── deadline, position
+│   ├── completed_at, completed_by
+│   ├── owners (users array + guests array)
+│   ├── captures (form fields in THIS task)
+│   │   └── {timeline_id: {alias, label, value}}
+│   └── assets (files uploaded to this task)
+│
+├── launcher
+│   └── User who launched the process
+│
+├── completer
+│   └── User who completed this task
+│
+├── process-tasks
+│   └── Map of task alias/id => task ID
+│
+├── form-fields
+│   └── ALL form fields from ALL tasks (flat structure)
+│       └── {field_alias: value}
+│
+├── template
+│   └── id, title, alias, summary
+│
+├── process
+│   ├── id, organization_id, name, summary
+│   ├── status, progress, created_at
+│   ├── ClientURL (link to process in Tallyfy)
+│   ├── prerun (kick-off form values)
+│   ├── process_forms (all fields by step_id)
+│   │   └── {step_id: {timeline_id: {alias, label, value}}}
+│   └── tags
+│
+├── guest-links ⭐ NEW
+│   └── Map of guest email => {link_for_guest: URL}
+│
+└── next_task
+    ├── id, title, alias, status
+    ├── summary, position, deadline
+    ├── owners (users + guests)
+    └── captures (empty until task is worked on)
+```
+
+### Complete example
+
+```json
+{
+  "this_task": {
+    "id": "task003ghi789xyz",
+    "title": "Review Contract",
+    "alias": "review-contract",
+    "status": "completed",
+    "summary": "Review the vendor contract for accuracy",
+    "deadline": "2025-10-15T17:00:00Z",
+    "position": 3,
+    "completed_at": "2025-10-02T14:30:00Z",
+    "completed_by": {
+      "id": "user123",
+      "email": "john@acmecorp.com",
+      "full_name": "John Smith"
+    },
+    "captures": {
+      "capture123timeline": {
+        "alias": "contract-value",
+        "label": "Contract Value",
+        "value": "50000"
+      },
+      "capture456timeline": {
+        "alias": "approval-notes",
+        "label": "Approval Notes",
+        "value": "All terms look good. Approved for signature."
+      }
+    },
+    "owners": {
+      "users": [
+        {
+          "id": "user123",
+          "email": "john@acmecorp.com",
+          "full_name": "John Smith"
+        }
+      ],
+      "guests": [
+        "external.reviewer@vendor.com"
+      ]
+    },
+    "assets": [
+      {
+        "id": "asset123",
+        "filename": "signed-contract.pdf",
+        "version": "1",
+        "public_link": "https://api.tallyfy.com/organizations/org789/file/asset123/dl"
+      }
+    ]
+  },
+
+  "launcher": {
+    "id": "user123",
+    "email": "john@acmecorp.com",
+    "full_name": "John Smith"
+  },
+
+  "completer": {
+    "id": "user123",
+    "email": "john@acmecorp.com",
+    "full_name": "John Smith"
+  },
+
+  "process-tasks": {
+    "initial-review": "task001abc",
+    "legal-review": "task002def",
+    "review-contract": "task003ghi",
+    "task004jkl": "task004jkl"
+  },
+
+  "form-fields": {
+    "initial-review-notes": "Contract appears standard. Needs legal review.",
+    "risk-assessment": "Low",
+    "legal-review-status": "Approved",
+    "contract-value": "50000",
+    "approval-notes": "All terms look good. Approved for signature.",
+    "approval-date": "2025-10-02"
+  },
+
+  "template": {
+    "id": "template123abc",
+    "title": "Vendor Contract Review Workflow",
+    "alias": "vendor-contract-review",
+    "summary": "Standard workflow for reviewing and approving vendor contracts"
+  },
+
+  "process": {
+    "id": "run123abc456",
+    "organization_id": "org789xyz123",
+    "name": "Vendor Contract Review - ACME Corp",
+    "summary": "Complete vendor contract review and approval workflow",
+    "status": "in-progress",
+    "progress": 60,
+    "created_at": "2025-10-01T09:00:00Z",
+    "ClientURL": "https://go.tallyfy.com/tracker/run123abc456",
+    "prerun": {
+      "vendor-name": "Widget Suppliers Inc",
+      "contract-type": "Service Agreement",
+      "estimated-value": "50000"
+    },
+    "process_forms": {
+      "step001": {
+        "capture001timeline": {
+          "alias": "initial-review-notes",
+          "label": "Initial Review Notes",
+          "value": "Contract appears standard."
+        }
+      },
+      "step002": {
+        "capture002timeline": {
+          "alias": "legal-review-status",
+          "label": "Legal Review Status",
+          "value": "Approved"
+        }
+      }
+    },
+    "tags": [
+      {
+        "id": "tag123",
+        "name": "High Priority",
+        "color": "#FF6B6B"
+      }
+    ]
+  },
+
+  "guest-links": {
+    "external.reviewer@vendor.com": {
+      "link_for_guest": "https://go.tallyfy.com/guest-all-task/org789xyz123/guestcode123abc"
+    },
+    "compliance@vendor.com": {
+      "link_for_guest": "https://go.tallyfy.com/guest-all-task/org789xyz123/guestcode456def"
+    }
+  },
+
+  "next_task": {
+    "id": "task004jkl",
+    "title": "Execute Contract",
+    "alias": "execute-contract",
+    "status": "not-started",
+    "summary": "Send final contract for execution",
+    "position": 4,
+    "deadline": "2025-10-20T17:00:00Z",
+    "captures": {},
+    "owners": {
+      "users": [
+        {
+          "id": "user789",
+          "email": "legal@acmecorp.com",
+          "full_name": "Legal Team"
+        }
+      ],
+      "guests": []
+    }
+  }
+}
+```
+
+## Guest links feature
+
+The `guest-links` object provides direct access URLs for all guest assignees in a process. This feature enables external systems to send personalized emails or SMS notifications to guests with direct links to their assigned tasks.
+
+### Structure
+
+```json
+"guest-links": {
+  "guest.email@company.com": {
+    "link_for_guest": "https://go.tallyfy.com/guest-all-task/{org_id}/{guest_code}"
+  }
+}
+```
+
+### Key characteristics
+
+- **Included in both webhook types**: Process-level and task-level webhooks
+- **All unique guests**: Includes every unique guest assigned anywhere in the process
+- **Direct access**: Links bypass login - guests click and see their assigned tasks
+- **Persistent codes**: Guest codes remain stable across the process lifecycle
+
+### Common use cases
+
+- **Custom email notifications**: Build your own notification system using Zapier/Make
+- **SMS integration**: Send task reminders via Twilio with direct access links
+- **CRM integration**: Update external CRM records with guest task links
+- **Client portals**: Embed guest task links in customer-facing dashboards
+
+## Form field structures
+
+Form fields appear in webhooks using different structures depending on context.
+
+### In `this_task.captures` - detailed structure
+
+Task-specific form fields use the complete structure with timeline IDs as keys:
+
+```json
+"captures": {
+  "capture_timeline_123": {
+    "alias": "contract-value",
+    "label": "Contract Value",
+    "value": "50000"
+  },
+  "capture_timeline_456": {
+    "alias": "approval-notes",
+    "label": "Approval Notes",
+    "value": "All terms look good."
+  }
+}
+```
+
+### In `form-fields` - flat structure
+
+All process form fields use a simplified flat structure with aliases as keys:
+
+```json
+"form-fields": {
+  "contract-value": "50000",
+  "approval-notes": "All terms look good.",
+  "initial-review-notes": "Contract appears standard.",
+  "legal-review-status": "Approved"
+}
+```
+
+### In `process.process_forms` - organized by step
+
+Form fields grouped by which step they belong to:
+
+```json
+"process_forms": {
+  "step001": {
+    "capture_timeline_001": {
+      "alias": "initial-review-notes",
+      "label": "Initial Review Notes",
+      "value": "Contract appears standard."
+    }
+  },
+  "step002": {
+    "capture_timeline_002": {
+      "alias": "legal-review-status",
+      "label": "Legal Review Status",
+      "value": "Approved"
+    }
+  }
+}
+```
+
+## Date field formatting
+
+Date fields in captures respect your organization's webhook date format setting. Tallyfy supports two formats:
+
+**ISO 8601 format** (default):
+```json
+"start-date": {
+  "alias": "start-date",
+  "label": "Contract Start Date",
+  "value": "2025-10-15"
+}
+```
+
+**Localized format** (if configured as `d/m/Y h:i A T`):
+```json
+"start-date": {
+  "alias": "start-date",
+  "label": "Contract Start Date",
+  "value": "15/10/2025 09:00 AM UTC"
+}
+```
+
+The format applies to all date fields across the webhook payload.
+
+## Task assignment information
+
+Task owners appear in the `owners` object containing both organization members and external guests.
+
+```json
+"owners": {
+  "users": [
+    {
+      "id": "user123",
+      "email": "john@acmecorp.com",
+      "full_name": "John Smith"
+    },
+    {
+      "id": "user456",
+      "email": "jane@acmecorp.com",
+      "full_name": "Jane Doe"
+    }
+  ],
+  "guests": [
+    "external.reviewer@vendor.com",
+    "compliance@vendor.com"
+  ]
+}
+```
+
+**Important differences**:
+- `users` contains full objects with ID, email, and name
+- `guests` contains only email addresses as strings
+- Use `guest-links` to get access URLs for guests
+
+## Common integration patterns
+
+### Sending custom emails to guests
+
+Use the `guest-links` object to send personalized emails:
+
+```javascript
+// In your webhook handler (e.g., Zapier, Make, n8n)
+const guestLinks = webhookPayload['guest-links'];
+
+for (const [email, linkData] of Object.entries(guestLinks)) {
+  sendEmail({
+    to: email,
+    subject: `New task assigned: ${webhookPayload.this_task.title}`,
+    body: `You have a new task. Click here to access: ${linkData.link_for_guest}`
+  });
+}
+```
+
+### Extracting all collected data
+
+Get all form data collected across the entire process:
+
+```javascript
+// Flat structure - simplest for most integrations
+const allFormData = webhookPayload['form-fields'];
+// Example: { "contract-value": "50000", "approval-notes": "..." }
+
+// Or get kick-off form data specifically
+const kickoffData = webhookPayload.process.prerun;
+// Example: { "vendor-name": "Widget Suppliers Inc", ... }
+```
+
+### Triggering follow-up actions
+
+Use the `next_task` object to prepare for upcoming steps:
+
+```javascript
+const nextTask = webhookPayload.next_task;
+
+if (nextTask && nextTask.title === "Execute Contract") {
+  // Prepare contract execution system
+  // Notify legal team
+  // Update external tracking system
+}
+```
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Webhooks > Details about webhooks</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Tallyfy webhooks enable real-time workflow automation by sending JSON data to external systems when specific events occur with configuration options at both template and step levels including retry mechanisms security headers and integration examples for platforms like Slack. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks > Webhook scenarios</b>" href="/products/pro/integrations/webhooks/how-can-i-use-tallyfys-webhooks-feature/" > Tallyfy webhooks automatically send comprehensive JSON data to external systems when workflow events occur providing real-time integration capabilities that trigger immediate actions across your technology ecosystem while carrying all process information collected up to that specific point. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Webhooks</b>" href="/products/pro/integrations/webhooks/" > Tallyfy webhooks enable real-time system integration by automatically sending structured JSON messages to external systems whenever specific workflow events occur eliminating the need for constant polling and transforming Tallyfy into a reactive automation hub that triggers immediate actions across your entire technology ecosystem. </LinkTitleCard>
+<LinkTitleCard header="<b>Open API > Authentication</b>" href="/products/pro/integrations/open-api/authentication/" > Tallyfy uses OAuth 2.0 authorization code flow for API authentication requiring client credentials application registration and secure token management with automatic refresh capabilities for maintaining long-term API access. </LinkTitleCard>
+</CardGrid>
