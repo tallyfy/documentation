@@ -1113,23 +1113,136 @@ for feature in features:
         generate_doc_for_feature(feature)
 ```
 
-### Best Practices for Documentation Automation
+### Claude AI Best Practices (2025 Edition)
 
-1. **Atomic Tasks**: Each prompt should create/update one article or section
-2. **Clear Context**: Reference specific files and follow CLAUDE.md guidelines
-3. **Validation Steps**: Include prompts to validate generated content
-4. **Incremental Updates**: Work on small batches to maintain quality
+### CRITICAL: Core Requirements for Every Session
 
-Example atomic prompts:
-```
-# Good: Specific and bounded
-"Update the API authentication article at /products/pro/integrations/open-api/oauth-authorization-flow.mdx to include the new OAuth 2.0 flow changes from changelog 2025-03-31"
+#### 1. ALWAYS Use Ultrathinking
+- **MANDATORY**: Every task requires deep thinking ("ultrathink") before action
+- **Think First**: Use extended thinking modes for complex problems
+- **Multi-Step Analysis**: Break down problems systematically before coding
+- **Reasoning Transparency**: Make your reasoning process visible and auditable
 
-# Bad: Too broad
-"Update all API documentation"
-```
+#### 2. ALWAYS Plan and Create Todo Lists
+- **Before ANY Task**: Create a comprehensive todo list breaking down the work
+- **Track Progress**: Mark items as in_progress when starting, completed when done
+- **Atomic Tasks**: Each todo item should be a single, specific, completable action
+- **Sequential Execution**: Complete current task before starting the next
 
-### Common Documentation Automation Patterns
+#### 3. Work Sequentially to Avoid Tool Errors
+- **One Tool at a Time**: Execute tools sequentially unless operations are truly independent
+- **Avoid Parallel Conflicts**: Don't run multiple file edits or dependent operations simultaneously
+- **Chain Dependencies**: Use && for dependent bash commands, separate calls for independent ones
+- **Verify Before Proceeding**: Check outputs before moving to next step
+
+### Preventing Hallucinations and Ensuring Accuracy
+
+#### Verification Strategies
+- **Search Online When Uncertain**: Use WebSearch to verify facts, APIs, or current best practices
+- **Cross-Reference Documentation**: Always check official docs for library usage
+- **Test Code Before Finalizing**: Run tests to verify functionality
+- **Quote Sources**: When referencing documentation, quote exact text
+
+#### Anti-Hallucination Techniques
+- **Admit Uncertainty**: Say "I need to verify this" rather than guessing
+- **Extract Quotes First**: For long documents, extract verbatim quotes before analysis
+- **Multiple Verification Passes**: Run same prompt multiple times to check consistency
+- **Ground in Actual Files**: Always read existing code before modifying
+
+### Code Quality and Safety Patterns
+
+#### Test-Driven Development (TDD)
+- **Write Tests First**: Create tests based on requirements before implementation
+- **Verify Test Failures**: Run tests to confirm they fail before implementing
+- **Small Iterations**: Keep changes under 200 lines per iteration
+- **Continuous Validation**: Run tests after each change
+
+#### Security Best Practices
+- **Never Include Secrets**: Keep API keys, passwords, credentials out of code
+- **Validate All Inputs**: Sanitize and validate user inputs
+- **Least Privilege**: Use minimal permissions required
+- **Audit Trail**: Log significant operations for security monitoring
+
+#### Error Handling
+- **Comprehensive Try-Catch**: Handle all potential failure points
+- **Specific Error Messages**: Provide actionable error information
+- **Graceful Degradation**: Fail safely without crashing
+- **Recovery Strategies**: Implement retry logic with exponential backoff
+
+### Workflow Optimization
+
+#### Context Management
+- **Keep Context Focused**: Work with 100-200 lines maximum per operation
+- **Clear Regularly**: Use /clear to reset context when switching tasks
+- **Localize Rules**: Use per-folder CLAUDE.md for specific subsystem rules
+- **Prune File Sets**: Only keep relevant files in context
+
+#### Planning and Execution
+- **3-Step Plans**: Propose concise plans with small, testable changes
+- **Get Approval First**: Present plan before implementation
+- **Use Checkpoints**: Save state at key milestones
+- **Provide Feedback Loops**: Request test results and adjust accordingly
+
+### Code Generation Best Practices
+
+#### Code Structure
+- **Extend, Don't Duplicate**: Modify existing code rather than creating new files
+- **Consistent Patterns**: Follow established patterns in the codebase
+- **Clear Naming**: Use descriptive, self-documenting names
+- **Modular Design**: Create reusable, single-purpose functions
+
+#### Documentation
+- **Inline Comments**: Explain complex logic and non-obvious decisions
+- **Docstrings**: Use appropriate style for all functions and classes
+- **Update Immediately**: Modify documentation alongside code changes
+- **Examples**: Include usage examples in docstrings
+
+### Performance and Optimization
+
+#### Efficient Processing
+- **Batch Operations**: Group related operations when possible
+- **Lazy Loading**: Load resources only when needed
+- **Cache Results**: Store expensive computations
+- **Profile First**: Measure before optimizing
+
+#### Resource Management
+- **Context Managers**: Use appropriate resource cleanup patterns
+- **Memory Awareness**: Clean up large objects when done
+- **Connection Pooling**: Reuse connections when possible
+- **Async Operations**: Use async/await for I/O operations
+
+### Collaboration and Maintenance
+
+#### Code Review Readiness
+- **Small, Focused Changes**: Keep PRs under 200 lines when possible
+- **Clear Commit Messages**: Explain the "why" not just the "what"
+- **Test Coverage**: Include tests with new features
+- **Breaking Changes**: Document and communicate API changes
+
+#### Long-term Maintainability
+- **Avoid Clever Code**: Prioritize readability over brevity
+- **Document Decisions**: Explain architectural choices
+- **Deprecation Paths**: Provide migration guides for changes
+- **Version Compatibility**: Maintain backward compatibility when feasible
+
+### Critical Reminders
+
+1. **ALWAYS create a todo list before starting any multi-step task**
+2. **ALWAYS use ultrathinking for complex problems**
+3. **ALWAYS verify uncertain information through online search**
+4. **NEVER skip sequential processing to avoid tool conflicts**
+5. **NEVER guess when you can verify**
+6. **NEVER include secrets or credentials in code**
+7. **ALWAYS run tests to validate changes**
+8. **ALWAYS update documentation immediately after code changes**
+
+### When in Doubt
+
+- **Ask for Clarification**: Request more details rather than assuming
+- **Search and Verify**: Use WebSearch to check current best practices
+- **Test Incrementally**: Validate each step before proceeding
+- **Document Uncertainty**: Note areas that need review
+- **Seek Human Review**: Flag critical decisions for human validation## Common Documentation Automation Patterns
 
 1. **Changelog-Driven Updates**: Automatically update docs based on changelog entries
 2. **Screenshot Updates**: Generate prompts to update screenshots when UI changes
