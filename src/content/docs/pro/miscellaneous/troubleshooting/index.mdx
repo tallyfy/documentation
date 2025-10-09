@@ -82,6 +82,162 @@ Authentication loops typically occur when:
 - Browser extensions interfere with authentication cookies
 :::
 
+#### Nuclear option: Complete browser data wipe script
+
+If the standard logout URL and cache clearing don't resolve persistent login or signout issues, you can use this comprehensive script to wipe all Tallyfy-related data from your browser. This removes every trace of cookies, localStorage, sessionStorage, IndexedDB, cache storage, and service workers.
+
+:::caution[Important limitations]
+This script cannot wipe data across all Tallyfy origins (e.g., `go.tallyfy.com`, `account.tallyfy.com`) in a single execution because browsers enforce origin-based security. You'll need to run it on each Tallyfy domain you use. Additionally, HttpOnly cookies (server-only) cannot be removed by JavaScript - you'll need to use Chrome's site data settings for those.
+:::
+
+**How to use this script:**
+
+<Steps>
+1. **Open DevTools Console** on any Tallyfy page (press F12, then click Console tab)
+2. **Paste the script below** and press Enter
+3. **Repeat on each Tallyfy origin** you use:
+   - Run once at `https://go.tallyfy.com`
+   - Run again at `https://account.tallyfy.com`
+   - Run on any other Tallyfy subdomain you access
+4. **(Optional) Clear HttpOnly cookies** using Chrome's site data manager:
+   - Chrome Settings → Privacy and Security → See all site data and permissions
+   - Search "tallyfy" and remove site data
+</Steps>
+
+**The script:**
+
+```js
+(async () => {
+  const log = (...a) => console.log("[tallyfy-all-origins]", ...a);
+
+  // ---- Cookie helpers
+  const cookieNames = document.cookie
+    .split(";")
+    .map(c => c.trim())
+    .filter(Boolean)
+    .map(c => c.split("=")[0]);
+
+  // Build domain candidates: current host chain plus .tallyfy.com (site-wide)
+  const host = location.hostname; // e.g., go.tallyfy.com
+  const parts = host.split(".");
+  const domains = new Set([host, "." + host, ".tallyfy.com"]);
+  for (let i = 1; i < parts.length - 1; i++) {
+    const d = parts.slice(i).join(".");
+    domains.add(d);
+    domains.add("." + d);
+  }
+
+  // Build path candidates from deep to root
+  const segs = location.pathname.split("/").filter(Boolean);
+  const paths = new Set(["/"]);
+  let acc = "";
+  for (const s of segs) { acc += "/" + s; paths.add(acc); }
+  const pathList = Array.from(paths).reverse();
+
+  const expire = (name, domain, path) => {
+    const pieces = [
+      `${encodeURIComponent(name)}=`,
+      "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+      "Max-Age=0",
+      `Path=${path}`
+    ];
+    if (domain) pieces.push(`Domain=${domain}`);
+    document.cookie = pieces.join("; ");
+  };
+
+  try {
+    log(`Attempting cookie deletions for ${cookieNames.length} visible (non-HttpOnly) cookie(s).`);
+    for (const name of cookieNames) {
+      // host-only attempt
+      for (const p of pathList) expire(name, null, p);
+      // domain/path permutations (incl. .tallyfy.com if applicable)
+      for (const d of domains) for (const p of pathList) expire(name, d, p);
+    }
+    log("Cookie deletion attempts complete (covers host-only & domain-scoped variants where JS-visible).");
+  } catch (e) {
+    console.warn("[tallyfy-all-origins] cookie error:", e);
+  }
+
+  // ---- Web Storage
+  try { localStorage.clear(); sessionStorage.clear(); log("Cleared localStorage & sessionStorage."); }
+  catch (e) { console.warn("[tallyfy-all-origins] storage error:", e); }
+
+  // ---- IndexedDB
+  try {
+    if (indexedDB && indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      if (Array.isArray(dbs)) {
+        for (const db of dbs) {
+          if (!db?.name) continue;
+          await new Promise(res => {
+            const req = indexedDB.deleteDatabase(db.name);
+            req.onsuccess = req.onerror = req.onblocked = () => res();
+          });
+        }
+      }
+      log("Deleted IndexedDB databases for this origin.");
+    } else {
+      log("indexedDB.databases() unsupported here; cannot enumerate DBs.");
+    }
+  } catch (e) {
+    console.warn("[tallyfy-all-origins] indexedDB error:", e);
+  }
+
+  // ---- Cache Storage (PWA caches)
+  try {
+    if (self.caches?.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      log("Cleared Cache Storage for this origin.");
+    }
+  } catch (e) {
+    console.warn("[tallyfy-all-origins] cache error:", e);
+  }
+
+  // ---- Service workers
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+    await Promise.all(regs.map(r => r.unregister()));
+    log(`Unregistered ${regs.length} service worker(s) for this origin.`);
+  } catch (e) {
+    console.warn("[tallyfy-all-origins] service worker error:", e);
+  }
+
+  log("Done on this origin. Repeat on any other Tallyfy origins you use (e.g., go.tallyfy.com, account.tallyfy.com).");
+})();
+```
+
+**What this script clears:**
+
+- **JavaScript-accessible cookies** for the current origin and `.tallyfy.com` domain
+- **localStorage and sessionStorage** data
+- **IndexedDB databases** (if your browser supports enumeration)
+- **Cache Storage** (Progressive Web App caches)
+- **Service workers** registered for the current origin
+
+**Why you must run per origin:**
+
+Browser security (same-origin policy) prevents JavaScript running on one domain from accessing another domain's storage. Each Tallyfy subdomain maintains separate storage that can only be cleared when you're actually visiting that subdomain.
+
+**HttpOnly cookies limitation:**
+
+HttpOnly cookies are invisible to JavaScript for security reasons. To remove these, use Chrome's built-in site data manager after running the script:
+
+1. Chrome Settings → Privacy and Security → See all site data and permissions
+2. Search "tallyfy"
+3. Click "Remove" for tallyfy.com
+
+This removes all site data including HttpOnly cookies across all Tallyfy subdomains.
+
+:::tip[When to use the nuclear option]
+Use this comprehensive script when:
+- The standard logout URL doesn't resolve authentication loops
+- Clearing cache through browser settings hasn't worked
+- You're experiencing persistent session conflicts across multiple Tallyfy origins
+- You need to completely reset your Tallyfy browser state for troubleshooting
+- You're switching between multiple organizations with conflicting sessions
+:::
+
 ### Why am I seeing rate limit errors in Tallyfy?
 
 Tallyfy implements rate limiting to prevent system abuse and ensure platform stability. When you exceed these limits within specific timeframes, you may encounter temporary restriction errors:
@@ -114,7 +270,7 @@ Follow these specific steps to properly reset your password when experiencing th
 7. After setting the new password, you'll be automatically logged in and should see your organization
 </Steps>
 
-::::note[Why this happens]
+:::note[Why this happens]
 This issue can occur when browser sessions aren't properly cleared or when there's confusion between member account states. The logout step ensures a clean session before initiating the password reset process.
 :::
 
