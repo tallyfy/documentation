@@ -1,0 +1,252 @@
+---
+description: Looker Studio connects to Tallyfy data through Amazon Athena using third-party connectors enabling users to create free dashboards and reports from workflow data without enterprise BI platform costs.
+id: 0000000000000000000000000000000000
+lastUpdated: 2025-08-15
+sidebar:
+  order: 2
+title: Connecting Looker Studio to analytics data
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## How can I connect Looker Studio to my Tallyfy data?
+
+You can connect Looker Studio (formerly Google Data Studio) to Tallyfy in about 10-15 minutes using a third-party connector. Once connected, you'll create free, shareable dashboards and reports from your workflow data without paying for an enterprise BI platform.
+
+:::note[Looker Studio vs Looker]
+This guide covers **Looker Studio** (the free visualization tool). Looking for **Looker** (Google Cloud's enterprise BI platform)? Check out the [Looker connection guide](/products/pro/integrations/analytics/looker/how-to-connect-looker-to-tallyfy-data/) instead.
+:::
+
+### Requirements
+
+Before you start, make sure you have:
+
+- Tallyfy Analytics subscription activated for your organization
+- Free Looker Studio account (sign up at [lookerstudio.google.com](https://lookerstudio.google.com))
+- Authentication credentials provided by Tallyfy Support
+- Third-party connector subscription (CData or OWOX)
+
+:::caution[No Native Athena Support]
+Unlike the enterprise Looker platform, Looker Studio doesn't have built-in Amazon Athena connectivity. You'll need a third-party connector to bridge the gap. The good news? Setup is still quick and straightforward.
+:::
+
+## Authentication Overview
+
+Amazon Athena (which hosts Tallyfy Analytics data) offers two authentication methods:
+
+| Method | Description | Best For |
+|--------|-------------|----------|
+| IAM Username/Password | Web console access credentials | AWS Console access only |
+| Access Key/Secret | Token-based authentication | Connector authentication (recommended) |
+
+:::caution[Important Note]
+When Tallyfy provisions your Analytics account, you'll receive two distinct credential sets:
+- **AWS IAM login** - Use only for accessing the AWS web console
+- **Access Key + Secret Access Key** - Use for connecting Looker Studio connectors
+:::
+
+## Connector Options
+
+Two reliable connectors support Athena-to-Looker Studio integration:
+
+### Option 1: CData Connect Cloud
+
+**Best For**: Organizations needing robust data connectivity with minimal setup
+
+- **Pricing**: Subscription-based (check [CData pricing](https://www.cdata.com/pricing/))
+- **Setup Time**: 10-15 minutes
+- **Features**: Direct cloud-to-cloud connectivity, automatic query optimization, no data replication
+- **Support**: Enterprise-grade technical support
+
+### Option 2: OWOX BI Connector
+
+**Best For**: Marketing teams already using OWOX for analytics
+
+- **Pricing**: Part of OWOX BI suite (check [OWOX pricing](https://www.owox.com/products/athena-to-looker-studio-connector))
+- **Setup Time**: 10-15 minutes
+- **Features**: Seamless AWS integration, no intermediate processing steps
+- **Support**: Email and documentation support
+
+:::tip[Choosing a Connector]
+Both connectors work well with Tallyfy Analytics. Choose CData if you need broader data connectivity options beyond Athena. Choose OWOX if you're already in their ecosystem for marketing analytics.
+:::
+
+## Setup Process with CData Connect Cloud
+
+### Step 1: Configure CData Connection
+
+<Steps>
+1. Sign up for a [CData Connect Cloud account](https://www.cdata.com/drivers/athena/cloud/)
+2. Log into your CData Connect dashboard
+3. Click **Add Connection** and select **Amazon Athena**
+4. Configure the connection parameters:
+   - **Connection Name**: Give it a descriptive name (e.g., "Tallyfy Analytics")
+   - **AWS Region**: `us-east-1` (or your specific region)
+   - **S3 Staging Directory**: Your staging bucket path from Tallyfy (e.g., `s3://tallyfy-athena-results/`)
+   - **Database**: Your assigned database name (typically your organization name)
+5. Enter authentication credentials:
+   - **Access Key ID**: Your Tallyfy-provided Access Key
+   - **Secret Access Key**: Your Tallyfy-provided Secret Access Key
+6. Click **Test Connection** to verify
+7. Save the connection once verified
+</Steps>
+
+### Step 2: Connect Looker Studio to CData
+
+<Steps>
+1. Open [Looker Studio](https://lookerstudio.google.com)
+2. Click **Create** > **Data Source**
+3. Search for and select **CData Connect Cloud**
+4. Sign in to your CData account when prompted
+5. Select your Athena connection from the list
+6. Choose the database and tables you want to visualize
+7. Click **Connect**
+</Steps>
+
+### Step 3: Build Your First Report
+
+<Steps>
+1. In Looker Studio, click **Create** > **Report**
+2. Select your CData Athena data source
+3. Click **Add to Report**
+4. Start dragging dimensions and metrics to build visualizations
+5. Customize charts, add filters, and configure date ranges
+6. Share the report URL with stakeholders
+</Steps>
+
+## Setup Process with OWOX Connector
+
+### Step 1: Configure OWOX Connection
+
+<Steps>
+1. Sign up for an [OWOX BI account](https://www.owox.com/products/athena-to-looker-studio-connector)
+2. Navigate to **Connectors** > **Amazon Athena**
+3. Click **Create New Connection**
+4. Configure the connection:
+   - **Connection Name**: Descriptive name (e.g., "Tallyfy Workflows")
+   - **AWS Region**: `us-east-1` (or your specific region)
+   - **Database**: Your assigned database name
+   - **Workgroup**: Use default or specify if Tallyfy provided one
+5. Enter IAM credentials:
+   - **Access Key ID**: Your Access Key from Tallyfy
+   - **Secret Access Key**: Your Secret Access Key from Tallyfy
+6. Specify S3 bucket for query results
+7. Test and save the connection
+</Steps>
+
+### Step 2: Connect Looker Studio to OWOX
+
+<Steps>
+1. Open [Looker Studio](https://lookerstudio.google.com)
+2. Click **Create** > **Data Source**
+3. Search for and select **OWOX BI Amazon Athena**
+4. Authorize OWOX to access your Looker Studio account
+5. Select your configured Athena connection
+6. Choose tables to include in your data source
+7. Click **Connect**
+</Steps>
+
+## Working with Tallyfy Data in Looker Studio
+
+### Available Data Tables
+
+Tallyfy Analytics provides four main tables:
+
+- **processes** - Completed and in-progress workflow instances with start/end times
+- **steps** - Individual task data within processes including assignments and durations
+- **form_fields** - Form field values collected during workflows
+- **users** - User activity and participation metrics across all processes
+
+### Creating Effective Visualizations
+
+What can you actually build? Here are popular dashboards our customers create:
+
+1. **Process Volume Trends** - Line charts showing processes launched over time
+2. **Completion Rate Scorecards** - Big numbers showing percentage of on-time completions
+3. **Task Duration Heatmaps** - Identify bottlenecks by visualizing average task durations
+4. **User Activity Tables** - Leaderboards showing top performers by completion rate
+5. **Form Response Analysis** - Pivot tables and charts exploring form field data patterns
+
+:::caution[Interpreting time metrics]
+Duration and handling time metrics show elapsed calendar time between task assignment and completion. This includes weekends, holidays, and waiting periods. For actual effort tracking, see [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
+:::
+
+## Performance Tips
+
+Make your Looker Studio reports faster:
+
+- **Use Date Range Controls** - Don't pull all historical data every time
+- **Apply Filters Early** - Filter at the data source level, not in charts
+- **Limit Table Rows** - Show top 10 or 20, not thousands of rows
+- **Cache Reports** - Enable data freshness caching (reports update every 12-24 hours)
+- **Optimize Queries** - Pre-aggregate data in Athena views when possible
+
+:::tip[Data Freshness]
+Looker Studio caches data to improve performance. If you need real-time data, adjust the data freshness setting in your data source configuration. For most workflow analytics, daily updates work perfectly fine.
+:::
+
+## Sharing and Collaboration
+
+One of Looker Studio's best features? Sharing is dead simple:
+
+- **View Access** - Share report URLs with anyone who needs to see insights
+- **Edit Access** - Let team members modify reports and create new visualizations
+- **Embed Reports** - Drop reports into websites or internal portals with iframe embeds
+- **Schedule Emails** - Auto-send report snapshots on your preferred schedule
+- **Mobile Friendly** - All reports work great on phones and tablets
+
+## Troubleshooting Connection Issues
+
+Connection not working? Let's fix it. Check these things in order:
+
+- **Verify Credentials** - Double-check your Access Key and Secret Access Key (even one wrong character breaks everything)
+- **Check Permissions** - Ensure your credentials have `AmazonAthenaFullAccess` and `AmazonS3FullAccess` policies attached
+- **Validate S3 Path** - Confirm your S3 staging directory path is exactly as provided by Tallyfy
+- **Test in AWS Console** - Try running a query in the Athena web console to rule out credential issues
+- **Check Connector Status** - Verify your CData or OWOX subscription is active
+- **Review Region Settings** - Ensure you're using the correct AWS region (typically `us-east-1`)
+
+Still stuck? Contact your connector provider's support team first (they'll diagnose connection issues), then reach out to Tallyfy Support if the issue appears to be with your Analytics account.
+
+## Cost Considerations
+
+Let's talk money - what does this setup actually cost?
+
+| Component | Cost | Notes |
+|-----------|------|-------|
+| Looker Studio | **Free** | Unlimited reports and dashboards |
+| Tallyfy Analytics | Subscription | Contact Tallyfy for pricing |
+| CData Connect Cloud | Subscription | Starts around $49/month |
+| OWOX Connector | Subscription | Part of OWOX BI suite pricing |
+| AWS Query Costs | Pay-per-query | Typically $5-10/month for normal usage |
+
+:::tip[Optimizing AWS Costs]
+Athena charges based on data scanned. Reduce costs by:
+- Using date range filters in reports
+- Partitioning data by date (Tallyfy does this automatically)
+- Caching report data in Looker Studio
+- Limiting the number of columns you query
+:::
+
+## Comparison: Looker Studio vs Enterprise Looker
+
+Not sure which option fits your needs? Here's the breakdown:
+
+| Feature | Looker Studio | Enterprise Looker |
+|---------|---------------|-------------------|
+| **Cost** | Free + connector fee | Subscription-based |
+| **Setup Complexity** | Simple (10-15 min) | Moderate (15-20 min) |
+| **Data Modeling** | Basic | Advanced (LookML) |
+| **Embedded Analytics** | iframe embeds | Full API |
+| **Collaboration** | Share links | Role-based access |
+| **Best For** | Small teams, basic dashboards | Large teams, complex analytics |
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Analytics > Looker</b>" href="/products/pro/integrations/analytics/looker/" > Looker integration transforms Tallyfy workflow data into interactive visualizations and embedded analytics through Amazon Athena connectivity enabling real-time process monitoring data exploration and collaborative decision-making with enterprise-grade business intelligence capabilities. </LinkTitleCard>
+<LinkTitleCard header="<b>Looker > Connect Looker</b>" href="/products/pro/integrations/analytics/looker/how-to-connect-looker-to-tallyfy-data/" > Looker connects to Tallyfy data through Amazon Athena using Access Key authentication and JDBC drivers enabling users to create interactive dashboards and explore workflow data in approximately 15-20 minutes. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy Analytics</b>" href="/products/pro/integrations/analytics/" > Tallyfy Analytics is an add-on service that copies workflow data to a dedicated analytical infrastructure enabling users to connect business intelligence tools like Tableau and Power BI for custom reporting advanced SQL queries trend analysis and deep process insights through secure Amazon Athena integration. </LinkTitleCard>
+<LinkTitleCard header="<b>Tableau > Connecting Tableau to analytics data</b>" href="/products/pro/integrations/analytics/tableau/how-can-i-connect-tableau-to-my-tallyfy-data/" > Tableau connects to Tallyfy data through Amazon Athena using Access Key authentication and JDBC drivers allowing users to create visual dashboards from workflow data in approximately 15 minutes. </LinkTitleCard>
+</CardGrid>
