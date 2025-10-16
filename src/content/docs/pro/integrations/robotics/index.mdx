@@ -12,563 +12,161 @@ title: Robotics
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Physical robotics integration with Tallyfy
+## Understanding robotics workflow challenges
 
-Tallyfy bridges the gap between physical robots and workflow management. Robots can query process documentation, mark tasks complete, and enable real-time visibility into automated operations - creating seamless human-robot collaboration.
+This section explores how workflow management applies to physical robotics operations - focusing on the real challenges organizations face when coordinating robot systems with human teams.
 
-```d2
-direction: down
+Industrial and commercial robots operate using proprietary control systems and communication protocols. Connecting these systems to broader business workflows requires middleware, protocol translation, and careful architecture planning.
 
-Robot: Industrial Robot
-Protocol: Protocol Layer {
-  style.fill: "#f2faf4"
-}
-Tallyfy: Tallyfy API {
-  style.fill: "#e1f7e6"
-}
-Dashboard: Real-time Dashboard
-
-Documentation: Process Documentation {
-  style.fill: "#f2faf4"
-}
-Tasks: Task Management {
-  style.fill: "#e1f7e6"
-}
-Events: Event Stream
-
-Robot -> Protocol: OPC UA/ROS/MQTT
-Protocol -> Tallyfy: REST API calls
-
-Documentation -> Robot: Query instructions
-Robot -> Tasks: Mark complete
-Tasks -> Events: Status updates
-Events -> Dashboard: Live tracking
-```
-
-**What to notice:**
-- Robots communicate through standard industrial protocols (OPC UA, ROS, MQTT)
-- Tallyfy provides queryable documentation that robots can follow
-- Task completion happens automatically as robots perform work
-
-## How robots interact with Tallyfy
-
-Industrial robots and collaborative robots (cobots) connect to Tallyfy through middleware that translates between industrial protocols and REST APIs. Here's the typical flow:
-
-1. **Robot queries documentation** - Before starting work, the robot requests its current task instructions from Tallyfy using `GET /api/v1/tasks/{id}`
-2. **Process execution** - The robot performs physical operations following the retrieved instructions
-3. **Status reporting** - As work progresses, the robot sends updates: `PATCH /api/v1/tasks/{id}/complete`
-4. **Exception handling** - If issues arise, robots can pause tasks or request human intervention
-
-The magic happens through protocol translation. Your robot speaks OPC UA or ROS, while Tallyfy speaks REST. A lightweight middleware service (often running on an edge server near the robot) handles this translation.
-
-## Supported robot communication protocols
+## Common robotics communication protocols
 
 ### OPC UA (Open Platform Communications Unified Architecture)
-Most industrial robots from ABB, KUKA, FANUC, and Siemens support OPC UA. This protocol provides secure, reliable communication with built-in data modeling. Connect through standard OPC UA clients that translate robot states to Tallyfy API calls.
+Industrial standard used by major robot manufacturers (ABB, KUKA, FANUC, Siemens). Provides secure, reliable machine-to-machine communication with built-in data modeling and service-oriented architecture.
 
 ### ROS/ROS2 (Robot Operating System)
-Open-source robotics middleware used by research institutions and modern collaborative robots. ROS nodes can directly call Tallyfy's REST API using standard HTTP libraries. The ROS2 DDS layer ensures reliable message delivery even in unstable network conditions.
+Open-source robotics middleware widely used in research and development. ROS2 uses DDS (Data Distribution Service) for real-time communication between nodes. Common in academic settings and newer collaborative robots.
 
 ### MQTT (Message Queuing Telemetry Transport)
-Lightweight protocol perfect for IoT-enabled robots and cobots. MQTT brokers can forward robot telemetry to Tallyfy webhooks, enabling event-driven task updates. Popular with Universal Robots and smaller collaborative systems.
+Lightweight publish-subscribe protocol designed for IoT devices. Used for robot telemetry and event-driven communication. Lower bandwidth requirements than OPC UA.
 
-### Custom protocols via edge computing
-Legacy robots using proprietary protocols connect through edge computing devices (like industrial PCs or gateways) that translate between the robot's native language and Tallyfy's API.
+### Proprietary protocols
+Many robot manufacturers use proprietary communication methods requiring vendor-specific SDKs or edge devices for translation to standard protocols.
 
-## Implementation architecture
+## Integration architecture considerations
 
-### Basic integration setup
-```json
-{
-  "robot_id": "UR10e_Cell_4",
-  "tallyfy_config": {
-    "api_endpoint": "https://api.tallyfy.com/v1",
-    "auth_token": "Bearer {token}",
-    "process_id": "warehouse_picking_abc123",
-    "webhook_url": "https://factory.example.com/robot-events"
-  },
-  "protocol_config": {
-    "type": "opcua",
-    "server": "opc.tcp://192.168.1.10:4840",
-    "update_interval_ms": 1000
-  }
-}
-```
+### Network topology
+Robot systems typically require network segregation between operational technology (OT) and information technology (IT) networks. Integration points usually occur through:
 
-### Task documentation structure for robots
-Tallyfy stores structured instructions that robots can parse and execute. Each task includes:
+- DMZ (demilitarized zone) with controlled access
+- Edge computing devices that bridge OT and IT networks
+- API gateways with rate limiting and authentication
+- Message queues for asynchronous communication
 
-- **Operation parameters** - Speed, force, positions, tolerances
-- **Safety boundaries** - Keep-out zones, speed limits near humans
-- **Quality checks** - Measurement points, acceptance criteria
-- **Error recovery** - What to do when things go wrong
-- **Handoff points** - When to involve human operators
+### Security requirements
+When connecting robots to external systems:
 
-### Real-time progress tracking
-As robots work, they continuously update task status:
-
-1. **Task started** - Robot begins operation, marks task "in_progress"
-2. **Milestone updates** - Reports completion percentages (25%, 50%, 75%)
-3. **Quality data** - Sends measurement results, vision inspection outcomes
-4. **Task completion** - Marks done with final quality metrics
-5. **Exception reporting** - Flags issues requiring human intervention
-
-This creates complete visibility into robotic operations. Plant managers see exactly which robots are working on what, current progress, and any bottlenecks - all through Tallyfy's dashboard.
+- Network isolation between robot control and business networks
+- Authentication and authorization for all API calls
+- TLS encryption for data in transit
+- Fail-safe mechanisms if connectivity is lost
+- Air-gapped operation capability for safety-critical systems
 
 ## Human-robot collaboration workflows
 
-Modern manufacturing increasingly relies on humans and robots working together. Tallyfy orchestrates these collaborative workflows by managing handoffs and ensuring safety compliance.
+Modern industrial environments increasingly combine automated and manual work. Managing these mixed workflows requires coordination between robot control systems and human task management.
 
-### Typical collaborative scenarios
+### Common workflow patterns
 
-**Assembly operations**: Robot performs heavy lifting and precise positioning while human handles delicate components. Tallyfy tracks which tasks are robot-assigned versus human-assigned, ensuring smooth transitions.
+**Assembly operations** - Robots handle heavy lifting and precise positioning while humans manage delicate components requiring dexterity.
 
-**Quality inspection**: Robot performs initial measurements, flags anomalies for human review. Human inspectors receive notifications in Tallyfy when their expertise is needed.
+**Quality inspection** - Automated measurement systems perform initial checks, routing exceptions to human inspectors for review.
 
-**Maintenance workflows**: Robots run diagnostic routines and report issues. Maintenance technicians get assigned tasks with detailed robot-generated diagnostic data.
+**Maintenance workflows** - Diagnostic routines generate data that maintenance teams use for troubleshooting and repair.
 
-### Safety compliance and ISO standards
+### Safety and compliance considerations
 
-Integration follows ISO 10218-1:2025 requirements for collaborative applications. Tallyfy maintains audit trails showing:
+Industrial robot deployments must follow relevant safety standards:
 
-- Who (human or robot) performed each task
-- Safety validations completed before robot operations
-- Speed and force limiting compliance during collaboration
-- Emergency stop events and recovery procedures
-- Cybersecurity measures protecting robot control systems
+- ISO 10218 (Robots and robotic devices - Safety requirements for industrial robots)
+- ISO/TS 15066 (Collaborative robots)
+- ANSI/RIA R15.06 (North American industrial robot safety)
 
-## Setting up robot integration
+Documentation and audit trails help demonstrate compliance during safety assessments.
 
-### Prerequisites
-- Tallyfy organization with API access enabled
-- Robot controller with network connectivity
-- Edge server or industrial PC for protocol translation
-- IT/OT network bridge configured for secure communication
+## Integration planning considerations
 
-### Step-by-step implementation
+When planning robot-workflow integration:
 
-1. **Generate API credentials** in Tallyfy organization settings
-2. **Install middleware** on edge server (options include Node-RED, Kepware, or custom service)
-3. **Configure robot communication** - Set up OPC UA server or ROS nodes on robot controller
-4. **Map robot operations to tasks** - Define which robot programs correspond to Tallyfy tasks
-5. **Test in simulation** - Verify API calls work correctly before live deployment
-6. **Deploy with safety validation** - Ensure all safety systems active during integration testing
-7. **Monitor and optimize** - Use Tallyfy analytics to identify bottlenecks and optimize cycle times
+### Technical requirements
+- API access and authentication mechanisms
+- Network connectivity and bandwidth
+- Protocol translation capabilities
+- Edge computing or middleware needs
+- Data synchronization and latency requirements
 
-## Advanced automation patterns
-
-### Event-driven robot triggering
-```javascript
-// Webhook receiver for robot activation
-app.post('/webhook/tallyfy', async (req, res) => {
-  const { task_id, action, metadata } = req.body;
-  
-  if (action === 'task_ready' && metadata.robot_capable) {
-    // Trigger robot program
-    await robotController.startProgram({
-      program: metadata.robot_program,
-      parameters: metadata.operation_params,
-      task_id: task_id
-    });
-  }
-  
-  res.status(200).send('Robot triggered');
-});
-```
-
-### Multi-robot coordination
-When multiple robots work on the same process, Tallyfy manages dependencies and prevents conflicts. Robot A completes welding, triggering Robot B to start painting - all coordinated through task dependencies in Tallyfy.
-
-### Predictive maintenance integration
-Robots report operational metrics (cycle counts, motor temperatures, vibration levels) as task metadata. Tallyfy's automation rules trigger maintenance tasks when thresholds are exceeded, preventing unexpected downtime.
+### Organizational readiness
+- IT and operations team collaboration
+- Clear ownership of robot systems
+- Change management processes
+- Training for maintenance personnel
+- Incident response procedures
 
 ## Industry applications
 
-### Manufacturing and assembly
-- Automotive production lines with mixed human-robot stations
-- Electronics assembly with collaborative pick-and-place operations
-- Furniture manufacturing with CNC machines and robot finishing
+Robotics workflow management applies across various sectors:
 
-### Warehouse and logistics
-- Autonomous mobile robots (AMRs) for inventory movement
-- Robotic picking systems with human packing stations
-- Automated guided vehicles (AGVs) coordinated with loading crews
+### Manufacturing
+Automotive assembly, electronics production, material handling, CNC coordination, quality inspection systems
 
-### Food and pharmaceutical
-- Robotic packaging lines with human quality control
-- Cleanroom operations with minimal human presence
-- Batch processing with automated sampling and testing
+### Logistics and warehousing
+Autonomous mobile robots (AMRs), automated guided vehicles (AGVs), picking and packing systems, inventory management
 
-### Healthcare and laboratory
-- Surgical robots with procedure documentation
-- Laboratory automation with sample tracking
-- Pharmacy robots dispensing medications
+### Healthcare
+Laboratory automation, pharmacy dispensing, sample tracking, diagnostic equipment coordination
 
-## Benefits of robot-Tallyfy integration
+### Food and beverage
+Packaging lines, batch processing, cleanroom operations, quality control systems
 
-**Complete process visibility** - See exactly what robots and humans are doing in real-time. No more walking the floor to check robot status.
+## Workflow management challenges
 
-**Automatic documentation** - Every robot action is logged with timestamps, creating comprehensive audit trails for compliance and continuous improvement.
+### Common integration challenges
 
-**Flexible work allocation** - Dynamically assign tasks to robots or humans based on availability, capabilities, and current workload.
+**Protocol complexity** - Translating between industrial protocols and business systems requires specialized middleware and expertise.
 
-**Rapid exception handling** - When robots encounter issues, the right human expert gets notified immediately with all diagnostic data.
+**Network security** - Maintaining proper OT/IT segregation while enabling data flow.
 
-**Performance analytics** - Compare cycle times between robots, identify bottlenecks, and optimize workflows using actual production data.
+**Latency sensitivity** - Real-time robot control versus asynchronous workflow updates require different architectural approaches.
 
-**Seamless scaling** - Add new robots or production cells without disrupting existing workflows. Just configure the new robot to query Tallyfy for its tasks.
+**Legacy systems** - Older robot controllers may lack modern connectivity options.
 
-## Security considerations
+**Vendor lock-in** - Proprietary systems can limit integration flexibility.
 
-### Network segregation
-Keep robot control networks (OT) separated from business networks (IT) using DMZ architecture. Tallyfy API calls happen through secured gateways, never direct robot-to-internet connections.
+### Documentation and knowledge management
 
-### Authentication and authorization
-Use separate API credentials for each robot or production cell. Implement role-based access control limiting robots to specific processes and tasks. Rotate tokens regularly and monitor for unusual activity patterns.
+Organizations managing robot fleets face challenges in:
 
-### Data encryption
-All communication between robots and Tallyfy uses TLS encryption. Store sensitive operation parameters and quality data using field-level encryption in Tallyfy.
+- Maintaining up-to-date operational procedures
+- Sharing improvements across multiple robot installations
+- Tracking which procedures were followed for compliance
+- Managing procedure versions as operations evolve
+- Coordinating human and automated tasks effectively
 
-### Fail-safe mechanisms
-Robots must maintain local operation capability if Tallyfy connection is lost. Implement store-and-forward patterns to sync data once connectivity restores. Never make safety systems dependent on cloud connectivity.
+## Robotics vendor resources
 
-## Vendor-specific integration guides
+This section includes vendor-specific documentation exploring workflow management considerations for different robot platforms:
 
-We've conducted deep analysis of major robotics platforms to identify how Tallyfy fills critical gaps in their workflow management capabilities. Each vendor page provides:
+- **[Universal Robots](/products/pro/integrations/robotics/universal-robots/)** - Collaborative robot (cobot) platform
+- **[KUKA](/products/pro/integrations/robotics/kuka/)** - Industrial robot systems
+- **[Boston Dynamics](/products/pro/integrations/robotics/boston-dynamics/)** - Mobile inspection robots
+- **[Unitree Robotics](/products/pro/integrations/robotics/unitree/)** - Quadruped and humanoid platforms
+- **[AppTronik Apollo](/products/pro/integrations/robotics/apptronik/)** - Humanoid robot platform
 
-- Current capabilities and limitations analysis
-- Specific workflow gaps and how Tallyfy addresses them
-- Technical integration architecture
-- Real-world use cases and ROI calculations
-- Implementation roadmaps
+**Note**: These resources explore potential integration patterns and workflow management challenges. Specific implementation details depend on individual organizational requirements, robot configurations, and network architecture.
 
-### Robotics vendor ecosystem
+## Important disclaimer
 
-We're analyzing the entire robotics ecosystem to show how Tallyfy addresses critical workflow gaps across all major vendors and applications:
+**Information currency**: This documentation provides general information about robotics workflow integration concepts and challenges. The robotics industry evolves rapidly, with frequent changes in:
 
-#### Industrial manufacturing robots
-- **[Universal Robots](/products/pro/integrations/robotics/universal-robots/)** - 75,000+ collaborative robots lacking dynamic SOPs
-- **[KUKA](/products/pro/integrations/robotics/kuka/)** - KRL file-based robots with zero adaptability
-- **ABB Robotics** (coming soon) - RobotStudio and ABB Ability platform
-- **FANUC** (coming soon) - FIELD platform and CNC synchronization
-- **Yaskawa Motoman** (coming soon) - MLX300 controller integration
+- Vendor product capabilities and APIs
+- Communication protocols and standards
+- Safety regulations and compliance requirements
+- Market positioning and company ownership
 
-#### Mobile inspection robots
-- **[Boston Dynamics](/products/pro/integrations/robotics/boston-dynamics/)** - Extend Spot's static missions with adaptive procedures
-- **[Unitree Robotics](/products/pro/integrations/robotics/unitree/)** - Transform $1,600 quadrupeds into knowledge-driven fleets
-- **ANYbotics** (coming soon) - ANYmal industrial inspection workflows
+**Verification required**: Before making any technical or business decisions:
 
-#### Warehouse & logistics AMRs
-- **Fetch Robotics/Zebra** (coming soon) - Symmetry platform workflow orchestration
-- **Locus Robotics** (coming soon) - LocusONE multi-bot coordination
-- **6 River Systems** (coming soon) - Chuck robot fleet management
-- **Geek+** (coming soon) - RoboShuttle and sorting robots
-- **Mobile Industrial Robots (MiR)** (coming soon) - Fleet management integration
+- Verify current vendor capabilities through official documentation
+- Consult with robot manufacturers for specific integration requirements
+- Review current safety standards and compliance obligations
+- Assess your organization's specific technical and operational needs
 
-#### Agricultural robots
-- **Harvest Automation** (coming soon) - Greenhouse material handling
-- **FarmWise** (coming soon) - Precision weeding workflows
-- **Blue River Technology** (coming soon) - See & Spray procedures
-- **Burro** (coming soon) - Autonomous harvest support
+**No guarantees**: This documentation does not constitute:
 
-#### Medical & surgical robots
-- **Intuitive Surgical** (coming soon) - da Vinci surgical procedure management
-- **Stryker Mako** (coming soon) - Orthopedic surgery workflows
-- **CMR Surgical** (coming soon) - Versius modular procedures
+- Promises of specific integration capabilities
+- Technical specifications or service level agreements
+- Endorsements of particular vendors or products
+- Professional advice for your specific situation
 
-#### Humanoid robots (emerging)
-- **Figure AI** (coming soon) - Figure 02 manufacturing SOPs
-- **Agility Robotics** (coming soon) - Digit warehouse workflows
-- **Tesla Optimus** (planned) - General-purpose task management
-- **Sanctuary AI** (planned) - Phoenix human-like manipulation
-
-### What all vendors are missing
-
-After analyzing 20+ major robotics platforms, we've identified universal gaps:
-
-**No living knowledge base**: Robots can't query "how to" for unfamiliar tasks
-**No cross-robot learning**: Improvements stay isolated to individual units
-**No audit trails**: Can't prove which procedures were followed for compliance
-**No version control**: SOPs don't evolve based on operational experience
-**No exception workflows**: No structured escalation when robots encounter edge cases
-
-## Getting started
-
-Ready to connect your robots to Tallyfy? Start with a pilot project:
-
-1. **Choose a simple process** - Pick one robot performing repetitive tasks
-2. **Review vendor guide** - Check our vendor-specific integration documentation
-3. **Document the workflow** - Create the process template in Tallyfy
-4. **Implement basic integration** - Start with just task completion reporting
-5. **Validate and expand** - Once proven, add more robots and complex workflows
-
-Contact Tallyfy support for robotics integration guidance and example middleware configurations for your specific robot models.
-
-## The critical gap: Living SOPs for robotic operations
-
-### What robot vendors provide vs. what's missing
-
-After deep analysis of major robotics platforms, we've identified a critical gap across the entire industry. While robot manufacturers excel at hardware control and low-level programming, they universally lack comprehensive workflow management for real-world commercial operations.
-
-**What vendors provide:**
-- **Hardware control**: SDKs for movement, sensors, manipulation
-- **Programming interfaces**: Visual programming, scripting languages, simulation tools
-- **Basic task execution**: Simple sequential operations, point-to-point navigation
-- **Fleet monitoring**: Location tracking, battery status, error reporting
-
-**What's consistently missing:**
-- **Living SOP repository**: Dynamic procedures that evolve with operational experience
-- **Cross-robot knowledge sharing**: Learnings from one robot improving all robots
-- **Human-robot workflow integration**: Seamless handoffs between automated and manual tasks
-- **Compliance documentation**: Audit trails showing exactly what procedures robots followed
-- **Procedure versioning**: Track how SOPs change over time based on real-world feedback
-- **Exception handling workflows**: Structured escalation when robots encounter edge cases
-
-### Three core ways robots use Tallyfy
-
-#### 1. Knowledge lookup: "How do I do this?"
-
-When robots encounter tasks they haven't been explicitly programmed for, they query Tallyfy's knowledge base for procedures. Instead of failing or requiring reprogramming, robots dynamically fetch instructions.
-
-**Example scenario**: A Unitree Go2 robot assigned to inspect solar panels encounters a new panel type. It queries Tallyfy: "How to inspect Tesla Solar Roof tiles?" and receives step-by-step inspection procedures including measurement points, photo angles, and defect criteria.
-
-#### 2. Continuous improvement: "I found a better way"
-
-Robots don't just consume procedures - they improve them. When robots discover optimizations or encounter edge cases, they update Tallyfy with enhanced procedures, photos, videos, and performance data.
-
-**Example scenario**: A Boston Dynamics Spot robot performing pipeline inspections discovers that approaching valves from a 45-degree angle reduces inspection time by 30%. It updates the SOP in Tallyfy with video evidence, and all other Spot robots immediately benefit from this optimization.
-
-#### 3. Real-time tracking: "Here's what I'm doing"
-
-Robots launch processes in Tallyfy and update task status in real-time, creating comprehensive audit trails. Every action is logged with timestamps, sensor data, and outcomes - critical for compliance and continuous improvement.
-
-**Example scenario**: A Universal Robots cobot assembling medical devices launches a process for each batch. It marks each assembly step complete with torque measurements, vision inspection results, and cycle times. Quality managers see real-time progress and have complete traceability for FDA compliance.
-
-### How the three capabilities work together
-
-```d2
-Robot: Robot
-Tallyfy: Tallyfy Platform
-Manager: Operations Manager
-
-# 1. Knowledge Lookup Flow
-Unknown: Unknown Task
-Robot -> Tallyfy: 1. "How to inspect valve type X?"
-Tallyfy -> Robot: Return inspection SOP
-Robot -> Robot: Execute procedure
-
-# 2. Real-time Tracking
-Launch: Launch Process
-Robot -> Tallyfy: 2. Start inspection process #1234
-Robot -> Tallyfy: Mark Step 1 complete (photo attached)
-Robot -> Tallyfy: Mark Step 2 complete (measurement: 2.3mm)
-Tallyfy -> Manager: Real-time dashboard update
-
-# 3. Continuous Improvement
-Discovery: Optimization Found
-Robot -> Tallyfy: 3. "Found 30% faster method"
-Robot -> Tallyfy: Upload video evidence
-Tallyfy -> Manager: Review proposed change
-Manager -> Tallyfy: Approve SOP update
-Tallyfy -> Tallyfy: Publish v2.4
-Tallyfy -> Robot: Broadcast to all robots
-
-Complete: Audit Trail Created
-```
-
-**What to notice:**
-- Each robot interaction creates valuable data for the organization
-- Managers have complete visibility into robotic operations
-- Knowledge continuously improves across the entire fleet
-
-## Vendor-specific integration roadmap (Planned)
-
-After extensive research and strategic planning, here's our roadmap for integrating with major robotics vendors across B2B industrial and consumer sectors. These integrations are currently in planning phase, with implementation prioritized based on customer demand and technical feasibility.
-
-### Industrial robot integrations (B2B)
-
-#### FANUC Corporation
-**Market position**: 11% global market share, over 750,000 robots installed worldwide
-**Integration approach**:
-- Primary protocol: FANUC's FIELD (FANUC Intelligent Edge Link and Drive) platform
-- Secondary: Direct OPC UA server integration via FANUC Robot Interface
-- Tallyfy connector: Native FIELD app publishing to FANUC app marketplace
-- Key features: CNC synchronization, multi-robot cell coordination, predictive maintenance triggers
-- Timeline: Q2 2026 for pilot customers
-
-#### ABB Robotics
-**Market position**: $402B market cap, 500,000+ robots deployed globally
-**Integration approach**:
-- Primary protocol: ABB Ability platform with OPC UA Robotics Companion
-- Secondary: RobotStudio SDK for simulation-based testing
-- Tallyfy connector: ABB Ability marketplace application
-- Key features: RobotWare integration, SafeMove2 safety validation, OmniCore controller support
-- Special capability: Direct integration with ABB's IoT Gateway for MQTT/OPC UA bridging
-- Timeline: Q1 2026 for early access
-
-#### KUKA AG
-**Market position**: Leader in automotive robotics, 500kg payload capacity
-**Integration approach**:
-- Primary protocol: KUKA.Connect cloud platform via REST APIs
-- Secondary: KRL (KUKA Robot Language) extensions for direct control
-- Tallyfy connector: iiQoT (KUKA's IIoT platform) module
-- Key features: KUKA.Sim integration for offline programming, smartPAD teach pendant notifications
-- Timeline: Q3 2026 for select industries
-
-#### Universal Robots (Teradyne)
-**Market position**: Collaborative robot leader, 75,000+ cobots deployed
-**Integration approach**:
-- Primary protocol: UR+ platform with URCap plugin architecture
-- Secondary: Real-time data exchange via RTDE (Real-Time Data Exchange)
-- Tallyfy connector: Published URCap in UR+ ecosystem
-- Key features: Polyscope UI integration, force/torque feedback logging, safety plane configuration
-- Special focus: No-code integration for SMB manufacturers
-- Timeline: Q4 2025 pilot program
-
-#### Yaskawa Motoman
-**Market position**: 8% market share, leader in arc welding applications
-**Integration approach**:
-- Primary protocol: MLX300 controller with Ethernet/IP
-- Secondary: MotoPlus SDK for custom applications
-- Tallyfy connector: i3-Mechatronics digital solution integration
-- Key features: Smart Pendant app, multi-robot synchronization, vision system coordination
-- Timeline: Q2 2026 for pilot customers
-
-### Emerging industrial platforms
-
-#### Unitree Robotics (China)
-**Market position**: Fastest growing quadruped manufacturer, G1 humanoid at $16k
-**Current capabilities**:
-- Hardware excellence: Go2 ($1,600), B2 industrial, G1 humanoid ($16k)
-- SDKs: unitree_sdk2 (C++), unitree_sdk2_python, ROS/ROS2 packages
-- Simulation: MuJoCo, Isaac Lab integration
-- Use cases: Power inspection, fire rescue, research
-
-**Critical gaps identified**:
-- **No SOP management**: Robots lack access to standardized operational procedures
-- **No workflow sequencing**: Complex multi-step operations require custom coding
-- **No knowledge sharing**: Each robot operates in isolation without learning transfer
-- **Limited commercial tooling**: Focus on research/simulation vs. production deployment
-- **No audit trails**: No record of what procedures robots followed for compliance
-
-**Tallyfy integration approach**:
-- Primary protocol: unitree_sdk2 with Python bindings connecting to Tallyfy REST API
-- Secondary: ROS2 integration via unitree_ros2 for distributed deployments
-- Tallyfy connector: Middleware service translating between SDK and Tallyfy's workflow engine
-- Key features: 
-  - Go2/B2/H1 robots query Tallyfy for inspection checklists
-  - Real-time SOP updates pushed to all deployed units
-  - Exception reporting when robots encounter undefined scenarios
-  - Automatic documentation of completed procedures for compliance
-- Special capability: Educational institutions can share procedure libraries across research teams
-- Timeline: Q1 2026 beta program
-
-#### Boston Dynamics
-**Market position**: 1,500+ Spot robots deployed, premium industrial segment
-**Integration approach**:
-- Primary protocol: Spot SDK with gRPC-based API
-- Secondary: Network Compute Bridge for ML model integration
-- Tallyfy connector: Spot API client library extension
-- Key features: Manipulation API for arm control, autowalk mission integration, payload coordination
-- Special focus: Inspection and surveillance workflow templates
-- Timeline: Q3 2026 for enterprise customers
-
-#### Agility Robotics
-**Market position**: Digit humanoid for logistics, Amazon partnership
-**Integration approach**:
-- Primary protocol: Agility Cloud API (under development)
-- Secondary: ROS2-based control interface
-- Tallyfy connector: Warehouse management system bridge
-- Key features: Package handling workflows, dynamic path planning, human collaboration zones
-- Timeline: Q4 2026 aligned with commercial deployment
-
-### Consumer robot integrations
-
-#### iRobot (Amazon)
-**Market position**: 50 million Roomba units sold, market leader in home robotics
-**Integration approach**:
-- Primary protocol: iRobot Home app API (limited access)
-- Secondary: Matter/Thread smart home integration
-- Tallyfy connector: Smart home hub integration via AWS IoT Core
-- Key features: Cleaning schedule coordination, room-specific task assignment, maintenance reminders
-- Consumer benefit: Integrate cleaning into home routines and checklists
-- Timeline: Q2 2026 pending API access approval
-
-#### Tesla Optimus
-**Market position**: Planned sub-$20k humanoid, leveraging FSD technology
-**Integration approach**:
-- Primary protocol: Tesla API (anticipated, based on vehicle API patterns)
-- Secondary: Local network control via Tesla app framework
-- Tallyfy connector: Tesla Fleet API integration (when available)
-- Key features: Task learning from demonstrations, natural language instructions, safety zones
-- Special capability: Integration with Tesla Energy for optimized charging schedules
-- Timeline: 2027+ aligned with consumer availability
-
-#### Amazon Astro
-**Market position**: $1,449 home monitoring robot, Ring ecosystem integration
-**Integration approach**:
-- Primary protocol: Alexa Skills Kit with Astro-specific APIs
-- Secondary: AWS IoT Events for automation triggers
-- Tallyfy connector: Published Alexa skill with Astro capabilities
-- Key features: Patrol route workflows, visitor check-in processes, medication reminders
-- Timeline: Q3 2025 pilot with select customers
-
-#### Anki Vector (Digital Dream Labs)
-**Market position**: Consumer companion robot, community-driven development
-**Integration approach**:
-- Primary protocol: Vector SDK (Python) with cloud API
-- Secondary: Local REST API via Vector Explorer
-- Tallyfy connector: Community-maintained integration
-- Key features: Reminder notifications, simple task confirmations, presence detection
-- Timeline: Q4 2025 as open-source project
-
-### Educational and research platforms
-
-#### DJI RoboMaster
-**Market position**: Leading educational robotics platform in Asia
-**Integration approach**:
-- Primary protocol: RoboMaster SDK with competition framework
-- Secondary: DJI Assistant 2 for programming
-- Tallyfy connector: Educational workflow templates
-- Key features: Competition task management, team collaboration, skill assessment tracking
-- Timeline: Q1 2026 for educational institutions
-
-#### Figure AI
-**Market position**: Figure 02 humanoid, BMW manufacturing partnership
-**Integration approach**:
-- Primary protocol: Proprietary API (under development)
-- Secondary: Industrial Ethernet protocols
-- Tallyfy connector: Manufacturing execution system (MES) bridge
-- Key features: Assembly line integration, quality inspection workflows, training mode capture
-- Timeline: 2027+ aligned with production deployment
-
-### Integration architecture patterns
-
-Each vendor integration follows a three-layer approach:
-
-1. **Protocol layer** - Native robot communication (OPC UA, ROS, proprietary SDKs)
-2. **Translation layer** - Tallyfy middleware converting robot data to workflow events
-3. **Orchestration layer** - Tallyfy managing tasks, dependencies, and human handoffs
-
-### Development priorities
-
-Our integration roadmap prioritizes based on:
-- **Customer demand** - Direct requests from enterprise customers
-- **Technical readiness** - Vendor API maturity and documentation quality
-- **Market impact** - Number of deployed robots and growth trajectory
-- **Safety compliance** - ISO standard adherence and certification requirements
-- **ROI potential** - Clear value proposition for workflow automation
-
-### Partnership opportunities
-
-We're actively seeking partnerships with:
-- **System integrators** specializing in robotics deployment
-- **Robot manufacturers** interested in workflow orchestration
-- **Industrial IoT platforms** for protocol translation
-- **Educational institutions** for research collaborations
-- **Safety certification bodies** for compliance validation
-
-This roadmap represents our current planning based on market research and customer feedback. Actual implementation timelines may vary based on vendor cooperation, technical challenges, and market conditions.
+Contact Tallyfy support to discuss your specific robotics integration requirements and current capabilities.
 
 ## Related articles
 <CardGrid>
