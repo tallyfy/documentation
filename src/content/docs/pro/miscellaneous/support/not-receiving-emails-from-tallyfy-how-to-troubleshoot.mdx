@@ -43,6 +43,157 @@ If your IT team needs specific guidance on allowlisting Tallyfy emails, these of
 *   [Allowlist in Office 365 / Microsoft 365](https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/create-safe-sender-lists-in-office-365)
 *   For other email systems, refer to their specific documentation on adding email addresses or domains to a safe sender list (allowlist).
 
+## Troubleshooting Microsoft email systems
+
+Microsoft email systems (Outlook.com, Hotmail, Office 365, Exchange Online) use sophisticated spam filtering that sometimes blocks legitimate emails. Here's how to diagnose and resolve these issues.
+
+### Understanding Microsoft's two email systems
+
+Microsoft operates two separate email infrastructures - understanding which one applies to your situation is critical:
+
+**Consumer services** (Outlook.com, Hotmail, Live, MSN):
+- Personal email accounts ending in @outlook.com, @hotmail.com, @live.com, @msn.com
+- Sender reputation monitored through SNDS (Smart Network Data Services)
+- Users can mark emails as spam or not spam
+- Governed by Microsoft's consumer email policies
+
+**Business services** (Office 365, Exchange Online, Microsoft 365):
+- Corporate and educational email domains like @yourcompany.com or @university.edu
+- Uses Exchange Online Protection (EOP) spam filtering
+- Managed by organization IT administrators
+- Separate filtering policies and controls
+
+The troubleshooting steps differ significantly depending on which system is blocking your emails.
+
+### For consumer services - Checking sender reputation
+
+If emails aren't reaching Outlook.com or Hotmail addresses, check Tallyfy's sending reputation:
+
+**Microsoft SNDS portal**:
+1. Visit [SNDS](https://sendersupport.olc.protection.outlook.com/snds/)<a href="https://sendersupport.olc.protection.outlook.com/snds/" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>
+2. Sign in with a Microsoft Account
+3. Request access to Tallyfy's sending IP addresses
+4. Check daily traffic light indicators (green = good, yellow = warning, red = blocked)
+5. Monitor spam complaint rates and trap hits
+
+**What the indicators mean**:
+- Green status: Good sender reputation, emails should deliver normally
+- Yellow status: Some issues detected, delivery may be degraded
+- Red status: Significant problems, emails likely blocked
+- Trap hits above zero: Emails sent to inactive addresses (list hygiene issue)
+- Complaint rate above 0.1%: Users marking emails as spam
+
+Note that SNDS only covers consumer services - it won't help diagnose Office 365 delivery issues.
+
+### For business services - Working with IT administrators
+
+Office 365 and Exchange Online filtering happens at the organization level. Your IT administrator has tools to diagnose why Tallyfy emails aren't arriving:
+
+**Message Trace** (primary diagnostic tool):
+Your IT admin can run Message Trace in the Exchange Admin Center to see:
+- Whether Tallyfy emails reached Microsoft servers
+- Spam Confidence Level (SCL) scores assigned to emails
+- Specific filtering rules that blocked delivery
+- Whether emails went to inbox, junk folder, or quarantine
+
+**Typical findings**:
+- SCL 5-6: Email marked as spam, delivered to Junk folder
+- SCL 7-9: High confidence spam, quarantined or rejected
+- Authentication failures: SPF, DKIM, or DMARC checks failed
+- Policy blocks: Organization rules preventing delivery
+
+**What IT can do to allow Tallyfy emails**:
+1. Add tallyfy.com to the Tenant Allow/Block List
+2. Create Mail Flow Rule to bypass spam filtering for Tallyfy
+3. Add to organization-wide Safe Senders list
+4. Adjust anti-spam policy thresholds
+5. Release emails from quarantine and mark as not spam
+
+### Checking authentication status
+
+Microsoft requires proper email authentication (especially after May 2025 for bulk senders). Here's how to verify Tallyfy's authentication is working:
+
+**Using mail-tester.com**:
+1. Visit [mail-tester.com](https://www.mail-tester.com/)<a href="https://www.mail-tester.com/" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>
+2. Note the test email address provided
+3. Send a Tallyfy email to that address (create a test task assigned to yourself)
+4. Check your score (should be 10/10)
+5. Review any authentication issues flagged
+
+**What to look for**:
+- SPF record: Should show "pass" for Tallyfy's domain
+- DKIM signature: Should be present and valid
+- DMARC policy: Should align with SPF and DKIM
+- Spam score: Should be low (under 3.0)
+
+If authentication issues appear, contact Tallyfy support - these are infrastructure-level configurations we manage.
+
+### If your IP is blocklisted
+
+Sometimes Microsoft blocklists sending IP addresses due to spam complaints or suspicious activity. Here's how to check and resolve:
+
+**Check blocklist status**:
+1. Visit [Microsoft sender support](https://sender.office.com/)<a href="https://sender.office.com/" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a>
+2. Enter the sending IP address (Tallyfy support can provide this)
+3. Review blocklist status
+4. Submit mitigation request if blocked
+
+**Delist process**:
+- Provide detailed explanation of issue resolution
+- Wait 24-48 hours for Microsoft review
+- Monitor SNDS for reputation improvement
+- Consider requesting dedicated sending IP from Tallyfy for isolated reputation
+
+Note: Delisting only works after addressing the root cause (typically spam complaints or sending to invalid addresses).
+
+### Understanding email headers
+
+If you receive a Tallyfy email in your Junk folder, the email headers contain diagnostic information:
+
+**Key headers to review**:
+- `X-Forefront-Antispam-Report`: Shows SCL score, SPF/DKIM/DMARC results
+- `Authentication-Results`: Detailed authentication check results
+- `X-MS-Exchange-Organization-SCL`: Spam confidence level (0-9 scale)
+- `Received-SPF`: SPF check pass/fail status
+
+Your IT administrator can extract and interpret these headers through Message Trace or by viewing the email source.
+
+### Preventative measures
+
+Beyond reactive troubleshooting, these practices help maintain good email deliverability:
+
+**For users**:
+- Never mark Tallyfy emails as spam - use notification preferences instead
+- Add no-reply@tallyfy.com to your personal Safe Senders list
+- If using Focused Inbox, move Tallyfy to Focused tab
+- Report persistent issues to your IT team promptly
+
+**For IT administrators**:
+- Allowlist tallyfy.com domain rather than individual addresses
+- Monitor quarantine for false positives
+- Review spam policies quarterly
+- Document Tallyfy as approved business system
+- Consider tenant-wide Mail Flow Rules for critical workflow systems
+
+**For Tallyfy administrators in your organization**:
+- Use reliable, permanent email addresses for [members](/products/pro/documenting/members/) and [guests](/products/pro/documenting/guests/)
+- Avoid disposable or temporary email services
+- Maintain clean lists - remove bounced addresses
+- Monitor notification settings to prevent overload
+- Test new processes with small user groups first
+
+### When to contact Tallyfy support
+
+Reach out to [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) if you experience:
+
+- Emails blocked despite IT allowlisting Tallyfy domain
+- Consistent authentication failures in mail-tester.com
+- High spam scores (over 5.0) in testing tools
+- Widespread delivery issues across multiple organizations
+- Blocklist issues that persist after delisting
+
+We can investigate infrastructure-level issues, coordinate with Mailgun (our email provider), and escalate to Microsoft if needed.
+
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
