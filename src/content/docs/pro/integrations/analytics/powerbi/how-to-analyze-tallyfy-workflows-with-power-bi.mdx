@@ -172,6 +172,28 @@ You're connected! Now you can explore these data tables:
 The completion times in the `steps` table show elapsed time, not actual working time. A "3-day" task might be 30 minutes of work interrupted by a weekend. For accurate effort metrics, implement time tracking fields as described in [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
 :::
 
+:::tip[Calculating accurate process completion times]
+The `process_last_modified` field updates whenever a process is edited, archived, or modified - not just when it's completed. For accurate completion time calculations, use the maximum `completed_on` timestamp from all tasks in the process instead.
+
+**DAX Formula:**
+```dax
+Process_Actual_Completion =
+CALCULATE(
+    MAXX(
+        FILTER(
+            'Query1',
+            'Query1'[process_id] = EARLIER('Query1'[process_id])
+            && 'Query1'[type] = "process_task"
+            && NOT(ISBLANK('Query1'[completed_on]))
+        ),
+        DATEVALUE('Query1'[completed_on])
+    )
+)
+```
+
+This calculates when the last task was completed, which represents the true process completion timestamp regardless of subsequent edits or archiving.
+:::
+
 ### Important Configuration Notes
 
 Here's what catches most people off guard:
