@@ -188,7 +188,7 @@ CALCULATE(
             && NOT(ISBLANK('Query1'[completed_on]))
             && 'Query1'[completed_on] <> "nan"
         ),
-        DATEVALUE('Query1'[completed_on])
+        DATEVALUE('Query1'[completed_on]) + TIMEVALUE('Query1'[completed_on])
     )
 )
 ```
@@ -214,7 +214,7 @@ ADDCOLUMNS (
                 NOT(ISBLANK('Query1'[assigned_or_shown_on]))
                 && 'Query1'[assigned_or_shown_on] <> "nan"
             ),
-            DATEVALUE('Query1'[assigned_or_shown_on])
+            DATEVALUE('Query1'[assigned_or_shown_on]) + TIMEVALUE('Query1'[assigned_or_shown_on])
         )
     ),
     "Last_Task_Completed_Date",
@@ -225,7 +225,7 @@ ADDCOLUMNS (
                 NOT(ISBLANK('Query1'[completed_on]))
                 && 'Query1'[completed_on] <> "nan"
             ),
-            DATEVALUE('Query1'[completed_on])
+            DATEVALUE('Query1'[completed_on]) + TIMEVALUE('Query1'[completed_on])
         )
     )
 )
@@ -241,6 +241,7 @@ AVERAGEX (
 ```
 
 **Key Points:**
+- **Timestamp Precision**: Using `DATEVALUE() + TIMEVALUE()` preserves exact completion times down to the second. Using `DATEVALUE()` alone would only give day-level precision, losing hours, minutes, and seconds - resulting in fractional days for sub-day durations (e.g., 2.3 days instead of just 2 days)
 - Groups by `process_id` ONLY (not by `assigned_or_shown_on`) to avoid duplicate rows
 - Filters out both ISBLANK and "nan" string values
 - Calculates when the last task was completed, representing the true process completion timestamp
