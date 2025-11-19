@@ -172,10 +172,12 @@ You're connected! Now you can explore these data tables:
 The completion times in the `steps` table show elapsed time, not actual working time. A "3-day" task might be 30 minutes of work interrupted by a weekend. For accurate effort metrics, implement time tracking fields as described in [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
 :::
 
-:::tip[Calculating accurate process completion times]
+:::tip[Calculating accurate process completion times with NaN handling]
 The `process_last_modified` field updates whenever a process is edited, archived, or modified - not just when it's completed. For accurate completion time calculations, use the maximum `completed_on` timestamp from all tasks in the process instead.
 
-**DAX Formula:**
+**Important**: Date fields may contain the string "NaN" when the original database value was NULL. Always filter these out to prevent errors.
+
+**DAX Formula (Calculated Column) - Process Completion Timestamp:**
 ```dax
 Process_Actual_Completion =
 CALCULATE(
@@ -185,13 +187,67 @@ CALCULATE(
             'Query1'[process_id] = EARLIER('Query1'[process_id])
             && 'Query1'[type] = "process_task"
             && NOT(ISBLANK('Query1'[completed_on]))
+            && 'Query1'[completed_on] <> "nan"
         ),
         DATEVALUE('Query1'[completed_on])
     )
 )
 ```
 
-This calculates when the last task was completed, which represents the true process completion timestamp regardless of subsequent edits or archiving.
+**DAX Formula (Measure) - Average Process Completion Time:**
+```dax
+Average_Process_Completion_Time =
+VAR ProcessCompletions =
+ADDCOLUMNS (
+    SUMMARIZE (
+        FILTER (
+            'Query1',
+            'Query1'[process_status] = "complete"
+            && 'Query1'[type] = "process_task"
+        ),
+        'Query1'[process_id]
+    ),
+    "First_Assigned_Date",
+    CALCULATE (
+        MINX (
+            FILTER (
+                'Query1',
+                NOT(ISBLANK('Query1'[assigned_or_shown_on]))
+                && 'Query1'[assigned_or_shown_on] <> "nan"
+            ),
+            DATEVALUE('Query1'[assigned_or_shown_on])
+        )
+    ),
+    "Last_Task_Completed_Date",
+    CALCULATE (
+        MAXX (
+            FILTER (
+                'Query1',
+                NOT(ISBLANK('Query1'[completed_on]))
+                && 'Query1'[completed_on] <> "nan"
+            ),
+            DATEVALUE('Query1'[completed_on])
+        )
+    )
+)
+RETURN
+AVERAGEX (
+    FILTER (
+        ProcessCompletions,
+        NOT(ISBLANK([First_Assigned_Date]))
+        && NOT(ISBLANK([Last_Task_Completed_Date]))
+    ),
+    DATEDIFF([First_Assigned_Date], [Last_Task_Completed_Date], DAY)
+)
+```
+
+**Key Points:**
+- Groups by `process_id` ONLY (not by `assigned_or_shown_on`) to avoid duplicate rows
+- Filters out both ISBLANK and "nan" string values
+- Calculates when the last task was completed, representing the true process completion timestamp
+- Works correctly even if processes are archived/unarchived later
+
+**Why NaN Appears**: NULL database values → Pandas conversion → Parquet export → string "NaN"
 :::
 
 ### Important Configuration Notes

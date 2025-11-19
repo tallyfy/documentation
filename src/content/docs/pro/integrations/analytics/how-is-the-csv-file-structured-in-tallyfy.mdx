@@ -80,6 +80,37 @@ Some column names use the term "Blueprint". That's the technical/API name for wh
 *   **completed_by**: ID of person who completed the task.
 *   **assigned_or_shown_on**: Date task appeared/was assigned.
 *   **due_by**: Task deadline date/time.
+*   **completed_on**: When the task was completed (also appears in Comments section).
+
+:::caution[NaN Values in Date Fields]
+When using Tallyfy Analytics with Power BI, Tableau, or other tools, you may see the string **"NaN"** in date fields like `completed_on`, `assigned_or_shown_on`, and `due_by`. This happens when the original database value was NULL.
+
+**Why this occurs**:
+1. NULL database values are exported to CSV
+2. Pandas (Python data processing) converts NULL → NaN (Not a Number)
+3. During Parquet conversion, NaN values become the literal string "NaN"
+4. Your analytics tool sees "NaN" as text, not a valid date
+
+**How to handle in DAX (Power BI)**:
+```dax
+FILTER(
+    'Query1',
+    NOT(ISBLANK('Query1'[completed_on]))
+    && 'Query1'[completed_on] <> "nan"
+)
+```
+
+**How to handle in Tableau**:
+```sql
+CASE
+  WHEN completed_on = 'nan' OR completed_on IS NULL
+  THEN NULL
+  ELSE completed_on
+END
+```
+
+Always filter out both ISBLANK/NULL values AND the string "nan" to ensure accurate date calculations.
+:::
 
 #### Form field info (Columns 36-39)
 *(These columns only have data if the row `type` is `process_task_data`)*
@@ -97,7 +128,6 @@ Some column names use the term "Blueprint". That's the technical/API name for wh
 *   **total_comments**: Number of regular comments on the task.
 *   **comment**: The text of the comment (if `type` is `process_task_comment`).
 *   **last_modified**: When this row's data was last updated.
-*   **completed_on**: When the task was completed.
 
 ### Note on Dates for Reporting Tools
 
