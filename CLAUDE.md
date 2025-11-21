@@ -2118,6 +2118,292 @@ done
 ```
 
 
+## DOCUMENTATION ASSET MANAGEMENT
+
+### Overview
+
+All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. A dedicated Claude Code skill automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
+
+**📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process.
+
+### Asset Storage Architecture
+
+**Storage Location**: Cloudflare R2 bucket (`screenshots`)
+**Public CDN**: `https://screenshots.tallyfy.com/`
+**Inventory**: `/documentation/documentation_assets.csv` (master catalog)
+**Skill Location**: `~/.claude/skills/documentation-asset-manager/`
+
+### Asset URL Patterns
+
+**Structured Naming (Preferred)**:
+```
+https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-{action}-{context}.png
+```
+
+Examples:
+- `tallyfy/pro/desktop-light-assign-task.png`
+- `tallyfy/pro/desktop-light-sidebar-numerated.png`
+- `manufactory-triggers-v2.png`
+
+**Auto-Generated IDs** (Legacy):
+```
+https://screenshots.tallyfy.com/file-{randomID}.png
+```
+
+### Using the Documentation Asset Manager Skill
+
+The `documentation-asset-manager` skill provides automated workflows for all asset operations:
+
+#### Upload New Screenshot
+
+```bash
+# Automatic workflow: upload + AI captions + inventory update
+python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+  --file /path/to/screenshot.png \
+  --key "tallyfy/pro/desktop-light-new-feature.png" \
+  --article-ids "pro-feature-guide,pro-getting-started"
+```
+
+**Returns**:
+- Public URL: `https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-new-feature.png`
+- AI-generated alt text, descriptive, and SEO captions
+- Automatic inventory CSV update
+
+#### Replace Existing Screenshot
+
+```bash
+# Same key overwrites existing file
+python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+  --file /path/to/updated-screenshot.png \
+  --key "tallyfy/pro/desktop-light-existing-feature.png" \
+  --article-ids "pro-feature-guide"
+```
+
+#### Upload Without Captions (Quick Upload)
+
+```bash
+python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+  --file /path/to/screenshot.png \
+  --key "tallyfy/pro/desktop-light-quick-upload.png" \
+  --skip-captions
+```
+
+### AI-Generated Captions
+
+The skill automatically generates three types of captions using Claude Vision:
+
+1. **Alt Text** (Accessibility):
+   - Concise, 1-2 sentences
+   - Describes what the image shows directly
+   - No phrases like "screenshot of" or "image showing"
+
+2. **Descriptive** (Detailed):
+   - 2-4 sentences
+   - Specific UI elements, functionality demonstrated
+   - Key visual details and interface elements
+
+3. **SEO** (Search Optimized):
+   - Feature names, UI elements, user actions
+   - Keywords for documentation search
+   - Natural phrasing for search engines
+
+### Master Asset Inventory
+
+**Location**: `/documentation/documentation_assets.csv`
+
+**CSV Schema**:
+- `filename` - Asset filename
+- `r2_key` - Full R2 bucket path
+- `production_url` - Public CDN URL
+- `source_type` - `native` (used in docs) | `orphaned` (not referenced) | `missing` (404)
+- `file_type` - File extension
+- `file_size` - Human-readable size
+- `file_size_bytes` - Size in bytes
+- `url_exists` - Boolean (URL accessible)
+- `article_ids` - Comma-separated article IDs
+- `article_count` - Number of articles referencing
+- `last_modified` - Last modified timestamp
+- `etag` - R2 ETag checksum
+- `ai_caption_alt` - Alt text caption
+- `ai_caption_descriptive` - Detailed caption
+- `ai_caption_seo` - SEO-optimized caption
+- `needs_caption` - `yes`|`no` (based on file type)
+
+**Current Inventory Stats**:
+- Total assets: 812
+- Active (used in docs): 290
+- Orphaned (not referenced): 499
+- Missing (404s): 23
+- With AI captions: 288+
+
+### Credentials and Configuration
+
+**Required Credentials**: `/cloudflare_credentials.json`
+
+```json
+{
+  "account_id": "cloudflare-account-id",
+  "r2_api_token": "R2-specific-api-token"
+}
+```
+
+**Skill Scripts**:
+- `r2_uploader.py` - Upload files to R2
+- `image_captioner.py` - Generate AI captions with Claude Vision
+- `asset_inventory.py` - Manage CSV inventory
+- `orchestrator.py` - Complete workflow automation
+
+### Asset Management Best Practices
+
+#### Screenshot Naming Conventions
+
+**DO**:
+- ✅ Use descriptive, structured names: `desktop-light-assign-task.png`
+- ✅ Include theme/context: `desktop-light-` or `mobile-dark-`
+- ✅ Keep names under 50 characters
+- ✅ Use hyphens for word separation
+
+**DON'T**:
+- ❌ Use generic names: `screenshot1.png`, `image.png`
+- ❌ Include dates in filenames: `screenshot-2025-01-15.png`
+- ❌ Use spaces or special characters
+- ❌ Create duplicate names in different paths
+
+#### Image Optimization
+
+Before uploading:
+1. **Resolution**: Capture at 2x resolution for Retina displays
+2. **Format**: Use PNG for UI screenshots, JPG for photos/charts
+3. **Compression**: Optimize file size without quality loss
+4. **Cropping**: Remove unnecessary chrome/whitespace
+
+#### Inventory Maintenance
+
+**Regular Tasks**:
+- **Weekly**: Verify inventory CSV integrity
+- **Monthly**: Review orphaned assets for cleanup
+- **Quarterly**: Audit missing images (404s) and fix references
+- **As needed**: Regenerate captions for improved quality
+
+**Verification Commands**:
+```bash
+# Check inventory statistics
+python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py --stats
+
+# Find specific asset
+python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py \
+  --action find \
+  --filename "desktop-light-assign-task.png"
+
+# List all assets
+python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py --action list
+```
+
+### Troubleshooting Asset Issues
+
+#### "Image not found" (404)
+
+1. **Check inventory**: Verify asset exists in `documentation_assets.csv`
+2. **Verify R2**: Confirm file uploaded successfully
+3. **CDN propagation**: Wait 30-60s for CDN cache
+4. **URL encoding**: Ensure special characters are URL-encoded
+
+#### Upload Failures
+
+1. **Credentials**: Verify `/cloudflare_credentials.json` exists
+2. **R2 token**: Ensure `r2_api_token` has write permissions
+3. **File size**: R2 has 5GB single file limit
+4. **Network**: Check connection to Cloudflare
+
+#### Caption Generation Issues
+
+1. **Claude Code**: Captions use native Claude vision (no external API needed)
+2. **Image format**: Supports PNG, JPG, GIF, WEBP
+3. **File accessibility**: Image must be downloadable from URL
+4. **Rate limits**: Automatic 1-2 second delays between captions
+
+### Automated Workflows
+
+#### Batch Upload Multiple Screenshots
+
+```bash
+#!/bin/bash
+# Upload all screenshots in directory
+for img in /docs/screenshots/*.png; do
+    filename=$(basename "$img")
+    python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+        --file "$img" \
+        --key "tallyfy/pro/$filename" \
+        --batch-mode
+    sleep 2  # Rate limiting
+done
+```
+
+#### Generate Captions for Existing Assets
+
+```bash
+# Regenerate captions for specific image
+python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
+    --url "https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-tasks.png" \
+    --type all
+```
+
+#### Cleanup Orphaned Assets
+
+```bash
+# List orphaned assets (not referenced in any documentation)
+python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py \
+    --action list | jq '.assets[] | select(.source_type == "orphaned")'
+```
+
+### Integration with Documentation Workflow
+
+#### In Article Creation
+
+When adding screenshots to articles:
+
+1. **Capture screenshot** at appropriate resolution
+2. **Upload via skill**: Use orchestrator for complete workflow
+3. **Copy public URL**: Use returned `production_url` in markdown
+4. **Use AI captions**: Apply generated alt text to image
+
+Example in MDX:
+```markdown
+![Task assignment interface](https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-assign-task.png)
+```
+
+#### In Article Updates
+
+When replacing outdated screenshots:
+
+1. **Use same R2 key**: Maintains URL consistency
+2. **Regenerate captions**: Ensure descriptions match new image
+3. **Update inventory**: Automatic via orchestrator
+4. **No markdown changes needed**: URL remains the same
+
+### Asset Security and Access Control
+
+**R2 Bucket Configuration**:
+- Private bucket with custom domain mapping
+- Public read access via `screenshots.tallyfy.com`
+- Write access restricted to authenticated API tokens
+- No direct bucket URL exposure
+
+**API Token Management**:
+- R2-specific tokens stored in parent directory
+- Skill reads credentials via relative path (`../cloudflare_credentials.json`)
+- No credentials embedded in skill files
+- Token permissions: Object Read & Write on `screenshots` bucket only
+
+### Future Enhancements
+
+**Planned Features**:
+- Automatic screenshot version history
+- Bulk caption regeneration workflows
+- Asset usage analytics across documentation
+- Automated orphan cleanup scheduling
+- Integration with documentation build process
+
 ## QUICK REFERENCE CHECKLIST
 
 Before submitting documentation:
