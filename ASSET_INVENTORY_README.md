@@ -231,7 +231,7 @@ head -2 $GITHUB_ROOT/documentation/documentation_assets.csv
 - **User Guide**: `ASSET_MANAGEMENT_GUIDE.md` - Day-to-day usage
 - **Technical Docs**: `BUILD_TIME_ALT_TEXT_INTEGRATION.md` - Build integration
 - **CLAUDE.md Section**: Search for "DOCUMENTATION ASSET MANAGEMENT"
-- **Skill Reference**: `~/.claude/skills/documentation-asset-manager/SKILL.md`
+- **Scripts Directory**: `scripts/asset_management/`
 
 ---
 
