@@ -36,7 +36,7 @@ This guide shows you how to add, update, and manage screenshots and images in th
 Run the orchestrator script to upload, generate captions, and update inventory:
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file /path/to/your/screenshot.png \
   --key "tallyfy/pro/desktop-light-your-feature.png" \
   --article-ids "article-id-1,article-id-2"
@@ -49,7 +49,7 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 
 **Example**:
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file ~/Desktop/desktop-light-create-template.png \
   --key "tallyfy/pro/desktop-light-create-template.png" \
   --article-ids "pro-templates-overview,pro-getting-started"
@@ -84,7 +84,7 @@ When you need to update an outdated screenshot:
 Using the **same R2 key** keeps the URL consistent:
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file ~/Desktop/updated-screenshot.png \
   --key "tallyfy/pro/desktop-light-existing-feature.png" \
   --article-ids "existing-article-ids"
@@ -101,7 +101,7 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 If the screenshot shows a significantly different feature:
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file ~/Desktop/new-screenshot.png \
   --key "tallyfy/pro/desktop-light-new-feature-name.png" \
   --article-ids "article-id"
@@ -278,7 +278,7 @@ grep "your-image-path.png" $GITHUB_ROOT/documentation/documentation_assets.csv
 **Solution**:
 ```bash
 # Skip captions and upload only
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file /path/to/image.png \
   --key "tallyfy/pro/image.png" \
   --skip-captions
@@ -286,7 +286,7 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 
 Then generate captions separately:
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
+python3 scripts/asset_management/image_captioner.py \
   --url "https://screenshots.tallyfy.com/tallyfy/pro/image.png" \
   --type all
 ```
@@ -331,7 +331,7 @@ Upload all screenshots in a directory:
 #!/bin/bash
 for img in ~/Desktop/screenshots/*.png; do
     filename=$(basename "$img" .png)
-    python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+    python3 scripts/asset_management/orchestrator.py \
         --file "$img" \
         --key "tallyfy/pro/$filename.png" \
         --article-ids "batch-upload" \
@@ -346,7 +346,7 @@ Then generate captions for batch:
 #!/bin/bash
 cd $GITHUB_ROOT
 cat documentation_assets.csv | grep "batch-upload" | while IFS=',' read -r url rest; do
-    python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
+    python3 scripts/asset_management/image_captioner.py \
         --url "$url" \
         --type all
     sleep 2
@@ -358,7 +358,7 @@ done
 If you want to improve caption quality with a better prompt:
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
+python3 scripts/asset_management/image_captioner.py \
   --url "https://screenshots.tallyfy.com/tallyfy/pro/image.png" \
   --type alt_text \
   --custom-prompt "Generate alt text focusing on accessibility for visually impaired users"
@@ -432,7 +432,7 @@ with open('documentation_assets.csv') as f:
 
 **Upload new screenshot**:
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file /path/to/image.png \
   --key "tallyfy/pro/feature-name.png" \
   --article-ids "article-1,article-2"
@@ -440,7 +440,7 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 
 **Replace existing (same URL)**:
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+python3 scripts/asset_management/orchestrator.py \
   --file /path/to/updated-image.png \
   --key "tallyfy/pro/existing-feature.png" \
   --article-ids "article-1"
@@ -448,7 +448,7 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 
 **Generate captions only**:
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
+python3 scripts/asset_management/image_captioner.py \
   --url "https://screenshots.tallyfy.com/path/to/image.png" \
   --type all
 ```
@@ -468,7 +468,7 @@ wc -l $GITHUB_ROOT/documentation/documentation_assets.csv
 | Item | Location |
 |------|----------|
 | **Master inventory** | `$GITHUB_ROOT/documentation/documentation_assets.csv` |
-| **Skill scripts** | `~/.claude/skills/documentation-asset-manager/scripts/` |
+| **Skill scripts** | `scripts/asset_management/` |
 | **Credentials** | `$GITHUB_ROOT/cloudflare_credentials.json` |
 | **Documentation files** | `$GITHUB_ROOT/documentation/src/content/docs/` |
 | **Build integration docs** | `$GITHUB_ROOT/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` |
@@ -495,7 +495,7 @@ wc -l $GITHUB_ROOT/documentation/documentation_assets.csv
 
 - **Technical details**: `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md`
 - **CLAUDE.md asset section**: `/documentation/CLAUDE.md` (search for "ASSET MANAGEMENT")
-- **Skill reference**: `~/.claude/skills/documentation-asset-manager/SKILL.md`
+- **Scripts README**: `/documentation/scripts/asset_management/README.md`
 
 ### Common Questions
 

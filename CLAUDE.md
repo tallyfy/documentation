@@ -2122,7 +2122,7 @@ done
 
 ### Overview
 
-All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. A dedicated Claude Code skill automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
+All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
 
 **📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process.
 
@@ -2131,7 +2131,7 @@ All documentation screenshots and media assets are hosted on Cloudflare R2 stora
 **Storage Location**: Cloudflare R2 bucket (`screenshots`)
 **Public CDN**: `https://screenshots.tallyfy.com/`
 **Inventory**: `/documentation/documentation_assets.csv` (master catalog)
-**Skill Location**: `~/.claude/skills/documentation-asset-manager/`
+**Scripts Location**: `/documentation/scripts/asset_management/`
 
 ### Asset URL Patterns
 
@@ -2150,18 +2150,19 @@ Examples:
 https://screenshots.tallyfy.com/file-{randomID}.png
 ```
 
-### Using the Documentation Asset Manager Skill
+### Using the Documentation Asset Management System
 
-The `documentation-asset-manager` skill provides automated workflows for all asset operations:
+The asset management scripts in `scripts/asset_management/` provide automated workflows for all asset operations:
 
 #### Upload New Screenshot
 
 ```bash
 # Automatic workflow: upload + AI captions + inventory update
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+cd /documentation/scripts/asset_management
+python3 orchestrator.py upload \
   --file /path/to/screenshot.png \
   --key "tallyfy/pro/desktop-light-new-feature.png" \
-  --article-ids "pro-feature-guide,pro-getting-started"
+  --articles "pro-feature-guide,pro-getting-started"
 ```
 
 **Returns**:
@@ -2173,16 +2174,17 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
 
 ```bash
 # Same key overwrites existing file
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+cd /documentation/scripts/asset_management
+python3 orchestrator.py replace \
   --file /path/to/updated-screenshot.png \
-  --key "tallyfy/pro/desktop-light-existing-feature.png" \
-  --article-ids "pro-feature-guide"
+  --key "tallyfy/pro/desktop-light-existing-feature.png"
 ```
 
 #### Upload Without Captions (Quick Upload)
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+cd /documentation/scripts/asset_management
+python3 orchestrator.py upload \
   --file /path/to/screenshot.png \
   --key "tallyfy/pro/desktop-light-quick-upload.png" \
   --skip-captions
@@ -2287,16 +2289,16 @@ Before uploading:
 
 **Verification Commands**:
 ```bash
+cd /documentation/scripts/asset_management
+
 # Check inventory statistics
-python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py --stats
+python3 orchestrator.py stats
 
 # Find specific asset
-python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py \
-  --action find \
-  --filename "desktop-light-assign-task.png"
+python3 asset_inventory.py find --filename "desktop-light-assign-task.png"
 
-# List all assets
-python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py --action list
+# Verify configuration
+python3 orchestrator.py verify
 ```
 
 ### Troubleshooting Asset Issues
@@ -2329,12 +2331,14 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py 
 ```bash
 #!/bin/bash
 # Upload all screenshots in directory
+cd /documentation/scripts/asset_management
+
 for img in /docs/screenshots/*.png; do
     filename=$(basename "$img")
-    python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+    python3 orchestrator.py upload \
         --file "$img" \
         --key "tallyfy/pro/$filename" \
-        --batch-mode
+        --skip-captions  # Generate captions separately for batch
     sleep 2  # Rate limiting
 done
 ```
@@ -2343,17 +2347,17 @@ done
 
 ```bash
 # Regenerate captions for specific image
-python3 ~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py \
-    --url "https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-tasks.png" \
-    --type all
+cd /documentation/scripts/asset_management
+python3 orchestrator.py caption \
+    --url "https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-tasks.png"
 ```
 
 #### Cleanup Orphaned Assets
 
 ```bash
 # List orphaned assets (not referenced in any documentation)
-python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py \
-    --action list | jq '.assets[] | select(.source_type == "orphaned")'
+cd /documentation/scripts/asset_management
+python3 asset_inventory.py stats
 ```
 
 ### Integration with Documentation Workflow
@@ -2363,9 +2367,9 @@ python3 ~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py 
 When adding screenshots to articles:
 
 1. **Capture screenshot** at appropriate resolution
-2. **Upload via skill**: Use orchestrator for complete workflow
+2. **Upload via orchestrator**: Use asset management system for complete workflow
 3. **Copy public URL**: Use returned `production_url` in markdown
-4. **Use AI captions**: Apply generated alt text to image
+4. **Use AI captions**: AI-generated alt text is automatically injected at build time
 
 Example in MDX:
 ```markdown
