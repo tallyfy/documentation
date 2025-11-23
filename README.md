@@ -91,6 +91,44 @@ git push origin improve-docs-topic-name
 - Follow American English spelling
 - Bold UI elements using `**text**`
 
+### Asset Management System
+
+This repository includes a complete asset management system for uploading, captioning, and managing documentation screenshots and images.
+
+#### Quick Start
+
+```bash
+cd scripts/asset_management
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure credentials
+cp .env.example .env
+# Edit .env with your Cloudflare credentials
+
+# Upload a screenshot
+python3 orchestrator.py upload \
+  --file screenshot.png \
+  --key "tallyfy/pro/feature-name.png" \
+  --articles "article-1,article-2"
+
+# View inventory statistics
+python3 orchestrator.py stats
+```
+
+#### Features
+
+- **R2 Cloud Storage**: Automatic upload to Cloudflare R2 with CDN delivery
+- **AI Caption Generation**: Three caption types (alt text, descriptive, SEO)
+- **Inventory Management**: 812 assets tracked in `documentation_assets.csv`
+- **Build Integration**: AI captions automatically injected at build time
+
+For complete documentation, see:
+- `scripts/asset_management/README.md` - User guide with examples
+- `ASSET_MANAGEMENT_GUIDE.md` - Complete reference documentation
+- `BUILD_TIME_ALT_TEXT_INTEGRATION.md` - Technical implementation details
+
 #### Using D2 Diagrams
 
 We use D2 diagrams to visualize complex workflows, API interactions, and system architectures. D2 (Declarative Diagramming) enables you to create diagrams using simple text-based syntax with better layout algorithms and more intuitive notation than traditional diagramming tools.

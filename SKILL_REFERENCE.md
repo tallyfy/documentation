@@ -4,7 +4,7 @@
 
 This technical reference provides complete documentation for the `documentation-asset-manager` Claude Code skill, including script internals, API specifications, configuration options, and advanced usage patterns.
 
-**Skill Location**: `~/.claude/skills/documentation-asset-manager/`
+**Skill Location**: `scripts/asset_management/`
 **Version**: 1.0.0
 **Author**: Tallyfy Dev Team
 
@@ -69,7 +69,7 @@ This technical reference provides complete documentation for the `documentation-
 
 **Purpose**: Main workflow coordinator for complete asset management pipeline
 
-**Location**: `~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py`
+**Location**: `scripts/asset_management/orchestrator.py`
 
 #### Command-Line Interface
 
@@ -130,7 +130,7 @@ python3 orchestrator.py \
 
 **Purpose**: Upload files to Cloudflare R2 bucket via REST API
 
-**Location**: `~/.claude/skills/documentation-asset-manager/scripts/r2_uploader.py`
+**Location**: `scripts/asset_management/r2_uploader.py`
 
 #### Command-Line Interface
 
@@ -195,7 +195,7 @@ result = uploader.upload_file(
 
 **Purpose**: Generate AI-powered captions using Claude Vision
 
-**Location**: `~/.claude/skills/documentation-asset-manager/scripts/image_captioner.py`
+**Location**: `scripts/asset_management/image_captioner.py`
 
 #### Command-Line Interface
 
@@ -282,7 +282,7 @@ and the user action being documented.
 
 **Purpose**: Manage master CSV inventory of all documentation assets
 
-**Location**: `~/.claude/skills/documentation-asset-manager/scripts/asset_inventory.py`
+**Location**: `scripts/asset_management/asset_inventory.py`
 
 #### Command-Line Interface
 
@@ -689,7 +689,7 @@ Output includes:
 
 ## References
 
-- **SKILL.md**: `~/.claude/skills/documentation-asset-manager/SKILL.md`
+- **SKILL.md**: `scripts/asset_management/SKILL.md`
 - **User Guide**: `/documentation/ASSET_MANAGEMENT_GUIDE.md`
 - **Build Integration**: `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md`
 - **CLAUDE.md**: `/documentation/CLAUDE.md` (asset management section)
