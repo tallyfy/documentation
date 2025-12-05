@@ -5,6 +5,47 @@ import argparse
 import os
 from pathlib import Path
 
+# Shiki-supported languages (subset of 200+ - these are commonly used)
+# Full list: https://shiki.style/languages
+SUPPORTED_LANGUAGES = {
+    # Core web
+    'javascript', 'js', 'typescript', 'ts', 'json', 'json5', 'jsonc',
+    'html', 'css', 'scss', 'less', 'xml', 'yaml', 'yml', 'toml', 'ini',
+    # Programming
+    'python', 'py', 'java', 'kotlin', 'go', 'rust', 'c', 'cpp', 'csharp', 'cs',
+    'ruby', 'rb', 'php', 'swift', 'scala', 'r', 'perl', 'lua', 'dart',
+    # Shell/CLI
+    'bash', 'sh', 'shell', 'zsh', 'fish', 'powershell', 'ps1', 'bat', 'cmd',
+    # Web frameworks
+    'jsx', 'tsx', 'vue', 'svelte', 'astro', 'mdx', 'markdown', 'md',
+    # Data/Query
+    'sql', 'graphql', 'csv', 'dax',
+    # Config/DevOps
+    'dockerfile', 'docker', 'nginx', 'apache', 'makefile', 'cmake',
+    # Specialized
+    'd2', 'mermaid', 'http', 'diff', 'git-commit', 'git-rebase',
+    # Fallback/plain
+    'text', 'txt', 'plain', 'ansi',
+}
+
+
+def validate_code_block_languages(content, file_path):
+    """Check for unsupported code block languages."""
+    # Find all code block language identifiers
+    pattern = r'```(\w+(?:-\w+)*)'
+    matches = re.findall(pattern, content)
+
+    invalid_langs = []
+    for lang in matches:
+        if lang.lower() not in SUPPORTED_LANGUAGES:
+            invalid_langs.append(lang)
+
+    if invalid_langs:
+        print(f"Unsupported code block language(s): {set(invalid_langs)}")
+        print(f"  Use 'text' for plain output, or check https://shiki.style/languages")
+        return False
+    return True
+
 
 def validate_mdx_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -67,6 +108,10 @@ def validate_mdx_file(file_path):
     related_articles_pattern = r'## Related articles\s+<CardGrid>\s*(<LinkTitleCard[\s\S]*?)+</CardGrid>'
     if not re.search(related_articles_pattern, rest_content):
         print("Missing or malformed 'Related articles' section.")
+        return False
+
+    # Validate code block languages
+    if not validate_code_block_languages(content, file_path):
         return False
 
     return True
