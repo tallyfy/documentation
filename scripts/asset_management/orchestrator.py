@@ -27,8 +27,13 @@ Usage examples:
 
 import sys
 import argparse
+import subprocess
+import re
 from pathlib import Path
 from typing import Optional
+
+# Maximum dimension for images (Claude API limit for multi-image requests)
+MAX_IMAGE_DIMENSION = 2000
 
 try:
     from r2_uploader import R2Uploader
@@ -49,6 +54,66 @@ class AssetOrchestrator:
         self.uploader = R2Uploader()
         self.captioner = ImageCaptioner()
         self.inventory = AssetInventory()
+
+    def ensure_max_dimension(self, file_path: Path, max_dim: int = MAX_IMAGE_DIMENSION) -> Path:
+        """
+        Resize image if any dimension exceeds max_dim.
+
+        This prevents Claude API errors when processing multiple images,
+        which enforces a 2000px maximum dimension limit.
+
+        Args:
+            file_path: Path to the image file
+            max_dim: Maximum allowed dimension (default: 2000)
+
+        Returns:
+            Path: Original path (file is modified in place if resized)
+        """
+        # Only process image files
+        if file_path.suffix.lower() not in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
+            return file_path
+
+        # Get image dimensions using 'file' command
+        try:
+            result = subprocess.run(
+                ['file', str(file_path)],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Parse "1234 x 5678" from file output
+            match = re.search(r'(\d+)\s*x\s*(\d+)', result.stdout)
+            if not match:
+                print(f"   ⚠️  Could not determine dimensions for {file_path.name}")
+                return file_path
+
+            width, height = int(match.group(1)), int(match.group(2))
+
+            if width > max_dim or height > max_dim:
+                print(f"   ⚠️  Image exceeds {max_dim}px limit: {width}x{height}")
+                print(f"   🔄 Auto-resizing to max {max_dim}px...")
+
+                # Use sips (macOS) to resize
+                subprocess.run(
+                    ['sips', '--resampleHeightWidthMax', str(max_dim), str(file_path)],
+                    capture_output=True,
+                    timeout=30
+                )
+
+                # Verify new dimensions
+                result2 = subprocess.run(['file', str(file_path)], capture_output=True, text=True)
+                match2 = re.search(r'(\d+)\s*x\s*(\d+)', result2.stdout)
+                if match2:
+                    new_w, new_h = int(match2.group(1)), int(match2.group(2))
+                    print(f"   ✅ Resized to: {new_w}x{new_h}")
+
+        except subprocess.TimeoutExpired:
+            print(f"   ⚠️  Timeout checking image dimensions")
+        except Exception as e:
+            print(f"   ⚠️  Error checking dimensions: {e}")
+
+        return file_path
 
     def upload_asset(
         self,
@@ -73,6 +138,10 @@ class AssetOrchestrator:
         """
         print(f"📤 Starting upload workflow for: {Path(file_path).name}")
         print(f"   R2 key: {r2_key}")
+
+        # Step 0: Auto-resize if needed (prevents Claude API 2000px limit errors)
+        file_path_obj = Path(file_path)
+        self.ensure_max_dimension(file_path_obj)
 
         # Step 1: Upload to R2
         print("\n[1/3] Uploading to R2...")
@@ -107,8 +176,7 @@ class AssetOrchestrator:
         # Step 3: Update inventory
         print("\n[3/3] Updating inventory...")
 
-        # Prepare asset record
-        file_path_obj = Path(file_path)
+        # Prepare asset record (file_path_obj already set at step 0)
         asset_data = {
             'filename': file_path_obj.name,
             'r2_key': r2_key,
