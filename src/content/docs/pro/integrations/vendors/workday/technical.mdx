@@ -1,0 +1,111 @@
+---
+description: Technical implementation details for connecting Workday with Tallyfy
+  including API integration examples, webhook handling, data mapping, and authentication
+  configuration for enterprise deployments.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 2
+title: Workday technical integration
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Integration options
+
+Workday provides several integration methods. Choose based on your technical requirements and partnership status.
+
+### Workday Integration Cloud (XML)
+
+Use Workday's native integration platform for scheduled data sync:
+
+```xml
+<integration>
+  <source>
+    <workday-report id="New_Hires_Today"/>
+  </source>
+  <transformation>
+    <map-to-tallyfy>
+      <field source="Employee_ID" target="employee_id"/>
+      <field source="Legal_Name" target="full_name"/>
+      <field source="Job_Profile" target="position"/>
+      <field source="Supervisory_Organization" target="department"/>
+    </map-to-tallyfy>
+  </transformation>
+  <target>
+    <tallyfy-api>
+      <endpoint>https://api.tallyfy.com/v1/workflows</endpoint>
+      <template>enterprise_onboarding</template>
+    </tallyfy-api>
+  </target>
+</integration>
+```
+
+### REST API integration
+
+For approved partners with Workday REST API access:
+
+```javascript
+const processWorkdayEvent = async (event) => {
+  if (event.type === 'WORKER_HIRED') {
+    const worker = await workdayAPI.getWorker(event.workerId);
+
+    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        template_id: 'enterprise_onboarding',
+        data: {
+          employee_id: worker.employeeID,
+          name: worker.legalName,
+          email: worker.workEmail,
+          cost_center: worker.costCenter,
+          location: worker.primaryWorkLocation,
+          job_profile: worker.jobProfile,
+          manager: worker.manager
+        }
+      })
+    });
+
+    return workflow.json();
+  }
+};
+```
+
+## Data mapping
+
+Common Workday fields to map to Tallyfy workflow variables:
+
+| Workday Field | Tallyfy Variable | Description |
+|---------------|------------------|-------------|
+| `employeeID` | `employee_id` | Unique employee identifier |
+| `legalName` | `full_name` | Employee full name |
+| `workEmail` | `email` | Work email address |
+| `costCenter` | `cost_center` | Cost center code |
+| `businessUnit` | `business_unit` | Business unit name |
+| `primaryWorkLocation` | `location` | Office location |
+| `jobProfile` | `job_title` | Job title/role |
+| `manager` | `manager_name` | Direct manager |
+| `workerType` | `employee_type` | Full-time, contractor, etc. |
+
+## Authentication
+
+Workday uses OAuth 2.0 with JWT for API authentication. Store credentials securely and never expose them in client-side code.
+
+## iPaaS alternatives
+
+If direct API access is unavailable, use integration platforms:
+
+- **Celigo**: NetSuite-native with Workday connectors
+- **Workato**: Enterprise automation recipes
+- **MuleSoft**: Anypoint Platform connectors
+- **Boomi**: Dell Boomi AtomSphere
+
+## Related articles
+
+<CardGrid>
+<LinkTitleCard header="<b>Open API > REST API</b>" href="/products/pro/integrations/open-api/" > Tallyfy provides a comprehensive REST API for custom integrations and automation. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks > Setup</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Configure webhooks to receive real-time notifications when workflow events occur. </LinkTitleCard>
+</CardGrid>

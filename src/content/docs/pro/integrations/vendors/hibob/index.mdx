@@ -1,379 +1,77 @@
 ---
-description: Tallyfy integrates with HiBob to automatically orchestrate comprehensive
-  people workflows triggered by HR platform events like new hires time-off requests
-  and role changes while maintaining HiBob as the central people data platform.
+description: Connect HiBob with Tallyfy to orchestrate cross-department workflows
+  triggered by HR events - coordinating IT, Facilities, and operational teams while
+  HiBob remains your central people platform.
 id: cea7f1071ad5f800bbc39ee3a611cf91
 sidebar:
   order: 16
-template: doc
 title: HiBob
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap HiBob cannot fill
 
-## Quick Summary
+HiBob (Bob) excels at modern HR - beautiful interfaces, employee self-service, and smart automation within HR. But people processes extend beyond HR data management to coordination across every department.
 
-We're integrating with HiBob to transform their modern HR platform into the engine for all your people workflows. When employees join, request time off, or change roles in Bob, Tallyfy automatically orchestrates every related process - from equipment provisioning to manager approvals to compliance tracking - all while maintaining Bob as your central people platform.
+When someone joins in Bob, the HR system handles onboarding paperwork. But IT needs to provision accounts and equipment. Facilities needs to prepare workspace. Finance needs to set up expense access. These cross-department processes require coordination that Bob cannot orchestrate.
 
-<Aside type="tip" title="Developer-Friendly Platform">
-HiBob provides comprehensive REST APIs with webhooks, OAuth 2.0 authentication, and SDKs in multiple languages. Their Developer Hub offers excellent documentation and sandbox environments for testing.
+**What HiBob manages:**
+
+- Modern HR interface and employee self-service
+- Time-off management and approvals
+- Performance cycles and reviews
+- Employee records and organizational structure
+
+**What falls through the cracks:**
+
+- Cross-department process coordination
+- IT provisioning and access management
+- Equipment ordering and delivery tracking
+- Multi-stakeholder approval chains
+- External vendor and contractor workflows
+
+HiBob serves your HR team beautifully. But employee processes span every department. Tallyfy orchestrates workflows across ALL your teams - not just one.
+
+## How Tallyfy fills this gap
+
+When a HiBob employee event fires - hire, role change, time-off request, departure - Tallyfy launches a structured workflow that coordinates every downstream team.
+
+### Employee onboarding
+
+When Bob records a new hire, Tallyfy orchestrates:
+- IT account setup and equipment provisioning
+- Facilities workspace and building access
+- Training schedule and compliance tracking
+- Finance expense account configuration
+- Team introduction and buddy assignment
+
+### Time-off coordination
+
+When Bob approves time-off, Tallyfy handles:
+- Coverage arrangement workflows
+- Knowledge transfer for extended leave
+- Return-to-work preparation
+- Task reassignment during absence
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native HiBob integration is planned. HiBob provides comprehensive REST APIs with webhooks, OAuth 2.0, and SDKs for integration.
 </Aside>
 
-## Why This Integration Matters
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Make](/products/pro/integrations/middleware/make/), or [Workato](/products/pro/integrations/middleware/workato/).
 
-HiBob excels at modern HR - beautiful interfaces, employee self-service, and smart automation. But people processes extend beyond HR data management. Every new hire needs IT setup, training schedules, and team integration. Every promotion triggers compensation reviews, access changes, and announcement workflows.
+**HR Integration Platforms**: Merge and Apideck offer unified API access including HiBob.
 
-Our integration bridges this gap. Bob manages the people data. Tallyfy orchestrates the processes. Together, they create a seamless employee experience from hire to retire.
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with HiBob's REST APIs and webhooks.
 
-## What We're Building
+## Get started
 
-### Smart Onboarding Flows
-
-Transform new hire chaos into smooth experiences:
-
-- **Pre-Boarding Magic**: As soon as someone's added to Bob, trigger equipment orders, account setup, and welcome communications
-- **First Day Delight**: Pull role, team, and location data to orchestrate personalized onboarding experiences
-- **Cultural Integration**: Automatically assign buddies, schedule coffee chats, and trigger team introductions
-- **Progressive Onboarding**: 30/60/90-day check-ins based on start date with manager feedback loops
-
-### Time-Off Orchestration
-
-Go beyond approval to full coordination:
-
-- **Coverage Workflows**: Time-off requests trigger coverage arrangement workflows
-- **Handoff Processes**: Extended leave triggers knowledge transfer workflows
-- **Return Planning**: PTO end dates trigger return-to-work preparation
-- **Balance Management**: Low balance alerts trigger policy reminder workflows
-
-### Employee Lifecycle Automation
-
-Connect Bob events to comprehensive workflows:
-
-- **Promotion Workflows**: Role changes trigger comp reviews, announcement, and access updates
-- **Transfer Management**: Department moves trigger equipment, access, and introduction workflows
-- **Performance Cycles**: Review periods trigger multi-step evaluation workflows
-- **Offboarding Excellence**: Terminations trigger IT, knowledge transfer, and exit workflows
-
-## How to Connect Today
-
-### Option 1: HiBob REST API
-
-Direct integration using Bob's modern APIs:
-
-```javascript
-// Example: Create onboarding workflow from Bob new hire
-const handleBobNewHire = async (employeeData) => {
-  // Get complete employee profile from Bob
-  const employee = await bobAPI.get(`/people/${employeeData.id}`, {
-    includeCustomFields: true,
-    includeWorkHistory: true
-  });
-  
-  // Get manager and team information
-  const manager = await bobAPI.get(`/people/${employee.reportsTo.id}`);
-  const team = await bobAPI.get(`/teams/${employee.team.id}`);
-  
-  // Create personalized onboarding workflow
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'bob_smart_onboarding',
-      name: `Onboarding - ${employee.displayName}`,
-      data: {
-        // Bob employee data
-        employee_id: employee.id,
-        display_name: employee.displayName,
-        email: employee.email,
-        personal_email: employee.personalEmail,
-        
-        // Role and team
-        job_title: employee.work.title,
-        department: employee.work.department,
-        team_name: team.name,
-        team_members: team.members,
-        
-        // Manager details
-        manager_name: manager.displayName,
-        manager_email: manager.email,
-        skip_level: employee.work.reportsToIdSecondary,
-        
-        // Location and setup
-        work_location: employee.work.location,
-        site: employee.work.site,
-        desk_location: employee.work.custom.desk_number,
-        
-        // Start details
-        start_date: employee.work.startDate,
-        contract_type: employee.work.employmentType,
-        
-        // Custom fields from Bob
-        shirt_size: employee.custom.shirt_size,
-        dietary_restrictions: employee.custom.dietary_needs,
-        equipment_preferences: employee.custom.equipment_prefs
-      }
-    })
-  });
-  
-  return workflow.json();
-};
-```
-
-### Option 2: Bob Webhooks
-
-Real-time event processing:
-
-```javascript
-// Handle Bob webhook events
-app.post('/webhooks/bob', async (req, res) => {
-  const event = req.body;
-  
-  switch(event.type) {
-    case 'employee.created':
-      await createOnboardingWorkflow(event.employee);
-      break;
-      
-    case 'timeoff.requested':
-      await createCoverageWorkflow(event.timeoff);
-      break;
-      
-    case 'employee.updated':
-      if (event.changes.includes('work.title')) {
-        await createPromotionWorkflow(event.employee);
-      }
-      break;
-      
-    case 'employee.terminated':
-      await createOffboardingWorkflow(event.employee);
-      break;
-  }
-  
-  res.status(200).json({ received: true });
-});
-```
-
-### Option 3: Integration Platforms
-
-Use unified HR platforms:
-
-- **Merge**: Comprehensive HiBob integration via unified API
-- **Apideck**: Single API for multiple HRIS including Bob
-- **Bindbee**: Connect to 50+ HRIS platforms including Bob
-- **Workato**: Pre-built Bob recipes for automation
-
-### Option 4: Bob Marketplace Apps
-
-Deploy through Bob's integration marketplace:
-
-1. Build integration using Bob's API
-2. Package as marketplace app
-3. Submit for Bob review
-4. Enable one-click installation for customers
-5. Maintain and support integration
-
-## Real-World Use Cases
-
-### Scale-Up Tech Company
-
-A 300-person SaaS company uses Bob + Tallyfy for:
-
-1. **Remote Onboarding**: Equipment ships automatically based on location
-2. **Team Rituals**: New hires automatically added to team ceremonies
-3. **Performance Management**: OKR cycles triggered quarterly
-4. **Culture Programs**: Birthday/anniversary workflows automated
-5. **Exit Interviews**: Consistent offboarding regardless of reason
-
-Results: 90% employee satisfaction, 50% faster time-to-productivity
-
-### Global Marketing Agency
-
-An agency with 500 employees across 10 countries:
-
-- **Localized Onboarding**: Country-specific workflows for compliance
-- **Project Staffing**: Skills in Bob trigger assignment workflows
-- **Time-Off Coverage**: Creative teams coordinate coverage automatically
-- **Client Access**: Background checks triggered for client work
-- **Freelancer Management**: Contractor-to-FTE conversion workflows
-
-### High-Growth Startup
-
-A startup scaling from 50 to 250 employees:
-
-- **Rapid Hiring**: Bulk onboarding workflows for cohorts
-- **Role Evolution**: Frequent title/responsibility change workflows
-- **Equity Management**: Stock option workflows integrated with Bob
-- **Culture Scaling**: Automated culture programs as team grows
-- **Manager Training**: New manager promotion triggers training
-
-## Technical Implementation Details
-
-### Bob API Capabilities
-
-Comprehensive API access:
-
-- **Employee Data**: Full CRUD operations on people records
-- **Time Off**: Policies, requests, balances, and approvals
-- **Documents**: Upload and manage employee documents
-- **Tasks**: Create and track tasks and checklists
-- **Reports**: Access and generate custom reports
-- **Custom Fields**: Full support for custom data
-
-### Developer Resources
-
-Bob provides excellent developer support:
-
-- **SDKs Available**: Node.js, Python, PHP, .NET
-- **Sandbox Environment**: Test safely with synthetic data
-- **API Explorer**: Interactive API documentation
-- **Webhooks**: Real-time event notifications
-- **Code Samples**: Ready-to-use integration examples
-- **Virtual Support**: Responsive developer assistance
-
-### Authentication & Security
-
-Enterprise-grade security:
-
-- **OAuth 2.0**: Industry-standard authentication
-- **Service Accounts**: Secure API-only access
-- **Rate Limiting**: Prevents overload and ensures stability
-- **Encryption**: Data encrypted in transit and at rest
-- **Audit Logs**: Complete API activity tracking
-- **GDPR Compliant**: Privacy-first architecture
-
-### Data Synchronization
-
-What you can sync:
-
-- Employee profiles and custom fields
-- Organizational structure and teams
-- Time-off balances and requests
-- Documents and attachments
-- Compensation and benefits data
-- Performance review cycles
-- Company policies and handbooks
-
-## Why HiBob Should Prioritize This
-
-Bob's modern platform users expect modern automation:
-
-1. **Customer Expectations**: Bob users are tech-forward and demand integrations
-2. **Competitive Edge**: Workflow automation differentiates from traditional HRIS
-3. **Platform Stickiness**: Deep integrations increase retention
-4. **Market Expansion**: Automation appeals to larger enterprises
-5. **Employee Experience**: Complete automation delivers on Bob's UX promise
-
-## Take Action Now
-
-### For Bob Customers
-
-**Automate your people operations:**
-
-1. [Book a demo](https://tallyfy.com/booking/) tailored to Bob users
-2. We'll connect to your Bob sandbox
-3. Map your people workflows
-4. Build first automation live
-5. Deploy to your team
-
-**Want marketplace integration?** Request Tallyfy in Bob's marketplace through your account manager.
-
-### For People Teams
-
-Elevate beyond HR administration:
-
-- Employee journeys run automatically
-- Managers get exactly what they need
-- Nothing falls through cracks
-- Compliance maintains itself
-- You focus on culture and strategy
-
-### For IT Teams
-
-Finally, HR data that flows:
-
-- Provision based on Bob roles
-- Automate access management
-- Reduce ticket volume
-- Maintain security compliance
-- Enable true zero-touch IT
-
-## Implementation Roadmap
-
-### Week 1: Connection
-- Set up Bob API access
-- Configure webhooks
-- Map custom fields
-- Build first workflow
-
-### Week 2: Core Flows
-- Deploy onboarding automation
-- Create time-off workflows
-- Set up offboarding
-- Test with real data
-
-### Week 3: Expansion
-- Add role change workflows
-- Build performance cycles
-- Create culture programs
-- Train managers
-
-### Ongoing: Excellence
-- Monitor adoption metrics
-- Gather feedback
-- Optimize workflows
-- Add new automations
-
-## Metrics and ROI
-
-### Efficiency Metrics
-- 75% reduction in onboarding time
-- 90% faster time-off processing
-- 100% task completion rate
-- 50% fewer HR tickets
-- 80% manager satisfaction
-
-### Business Impact
-- Higher employee retention
-- Faster time-to-productivity
-- Better compliance posture
-- Improved employee experience
-- Scalable HR operations
-
-### Cost Savings
-- 10+ hours saved per hire
-- 5 hours saved per departure
-- 30 minutes saved per time-off request
-- Reduced compliance risk
-- Lower HR operational costs
-
-## Start Today
-
-Every day without integration is another day of:
-- Manual task coordination
-- Delayed employee experiences
-- Missed onboarding steps
-- Manager frustration
-- HR team overload
-
-**Transform your Bob investment:** [Schedule your consultation](https://tallyfy.com/booking/)
-
-We'll show you:
-1. Live Bob API integration
-2. Pre-built people workflows
-3. ROI for your organization
-4. Security framework
-5. Implementation timeline
-
-Stop managing tasks. Start delivering experiences.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting HiBob with your Tallyfy workflows.
 
 ## Related articles
+
 <CardGrid>
-<LinkTitleCard header="<b>Vendors > Paylocity</b>" href="/products/pro/integrations/vendors/paylocity/" > Tallyfy is building native integration with Paylocity to automatically transform HCM data into intelligent workflows that orchestrate the complete employee lifecycle from application to termination including automated onboarding payroll processing compliance tracking and IT provisioning without manual handoffs or compliance gaps. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > BambooHR</b>" href="/products/pro/integrations/vendors/bamboohr/" > Tallyfy is building a native BambooHR integration that syncs employee data in real-time to automate workflows like onboarding offboarding and organizational changes while offering immediate API-based connection options and marketplace partnership plans. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Workday</b>" href="/products/pro/integrations/vendors/workday/" > Tallyfy is building enterprise integration with Workday to automatically transform HCM and financial data into intelligent workflows that orchestrate downstream processes from IT provisioning to compliance tracking without manual intervention for Fortune 500 companies. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Rippling</b>" href="/products/pro/integrations/vendors/rippling/" > Tallyfy integrates with Rippling to transform their unified workforce management platform into automated business workflows that orchestrate everything from equipment ordering to training schedules while Rippling handles core HR IT and finance operations. </LinkTitleCard>
 </CardGrid>

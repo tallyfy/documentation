@@ -1,0 +1,244 @@
+---
+description: Technical implementation details for connecting Microsoft Teams with Tallyfy
+  including Adaptive Cards, Graph API examples, Power Automate patterns, and Bot Framework
+  configuration for workflow integration.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 2
+title: Teams technical integration
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Integration options
+
+Microsoft Teams integration uses Microsoft Graph API, Adaptive Cards, and Power Automate. Choose based on your integration requirements.
+
+### Power Automate (recommended)
+
+The simplest path uses Power Automate as middleware between Teams and Tallyfy:
+
+```text
+Trigger: When a message is posted to a channel
+Action: HTTP POST to Tallyfy API
+Action: Post Adaptive Card to Teams with workflow link
+```
+
+### Adaptive Cards for task notifications
+
+Send rich, interactive cards to Teams channels when Tallyfy tasks are assigned:
+
+```json
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "New Task Assigned",
+      "weight": "Bolder",
+      "size": "Medium"
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        { "title": "Task:", "value": "${taskTitle}" },
+        { "title": "Process:", "value": "${processName}" },
+        { "title": "Due:", "value": "${dueDate}" },
+        { "title": "Assigned by:", "value": "${assignedBy}" }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${taskDescription}",
+      "wrap": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Open in Tallyfy",
+      "url": "${taskUrl}"
+    },
+    {
+      "type": "Action.Submit",
+      "title": "Mark Complete",
+      "data": {
+        "action": "complete",
+        "taskId": "${taskId}"
+      }
+    }
+  ]
+}
+```
+
+### Microsoft Graph API integration
+
+Post workflow updates to Teams channels using Graph API:
+
+```javascript
+const { Client } = require('@microsoft/microsoft-graph-client');
+
+const postToTeamsChannel = async (channelId, teamId, message, card) => {
+  const client = Client.init({
+    authProvider: (done) => done(null, accessToken)
+  });
+
+  await client
+    .api(`/teams/${teamId}/channels/${channelId}/messages`)
+    .post({
+      body: {
+        contentType: 'html',
+        content: message
+      },
+      attachments: [{
+        contentType: 'application/vnd.microsoft.card.adaptive',
+        content: JSON.stringify(card)
+      }]
+    });
+};
+
+// Example: Post when Tallyfy workflow completes
+const notifyWorkflowComplete = async (workflow) => {
+  const card = {
+    type: 'AdaptiveCard',
+    version: '1.4',
+    body: [{
+      type: 'TextBlock',
+      text: `✅ Workflow Complete: ${workflow.name}`,
+      weight: 'Bolder'
+    }, {
+      type: 'FactSet',
+      facts: [
+        { title: 'Completed by:', value: workflow.completedBy },
+        { title: 'Duration:', value: workflow.duration },
+        { title: 'Tasks:', value: `${workflow.completedTasks}/${workflow.totalTasks}` }
+      ]
+    }]
+  };
+
+  await postToTeamsChannel(channelId, teamId, 'Workflow completed', card);
+};
+```
+
+### Incoming webhooks
+
+For simpler scenarios, use Teams incoming webhooks:
+
+```javascript
+const postToTeamsWebhook = async (webhookUrl, message) => {
+  await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      '@type': 'MessageCard',
+      '@context': 'http://schema.org/extensions',
+      summary: message.title,
+      themeColor: '0076D7',
+      title: message.title,
+      sections: [{
+        activityTitle: message.subtitle,
+        facts: message.facts,
+        text: message.body
+      }],
+      potentialAction: [{
+        '@type': 'OpenUri',
+        name: 'View in Tallyfy',
+        targets: [{ os: 'default', uri: message.url }]
+      }]
+    })
+  });
+};
+```
+
+## Bot Framework integration
+
+Build a custom Teams bot for richer interaction:
+
+```javascript
+const { TeamsActivityHandler, CardFactory } = require('botbuilder');
+
+class TallyfyBot extends TeamsActivityHandler {
+  constructor() {
+    super();
+
+    this.onMessage(async (context, next) => {
+      const text = context.activity.text.toLowerCase();
+
+      if (text.includes('launch workflow')) {
+        const workflowName = text.replace('launch workflow', '').trim();
+        const workflow = await launchTallyfyWorkflow(workflowName);
+
+        await context.sendActivity({
+          attachments: [CardFactory.adaptiveCard(createWorkflowCard(workflow))]
+        });
+      }
+
+      if (text.includes('my tasks')) {
+        const tasks = await getTallyfyTasks(context.activity.from.aadObjectId);
+        await context.sendActivity({
+          attachments: [CardFactory.adaptiveCard(createTaskListCard(tasks))]
+        });
+      }
+
+      await next();
+    });
+  }
+
+  async handleTeamsTaskSubmit(context, taskModuleRequest) {
+    const { action, taskId } = taskModuleRequest.data;
+
+    if (action === 'complete') {
+      await completeTallyfyTask(taskId);
+      return { task: { type: 'message', value: 'Task marked complete!' }};
+    }
+  }
+}
+```
+
+## Authentication
+
+Teams integration uses Azure AD OAuth 2.0. Configure in Azure portal:
+
+1. Register app in Azure AD
+2. Add Microsoft Graph API permissions
+3. Configure redirect URIs for your integration
+4. Use client credentials flow for server-to-server calls
+
+```javascript
+const { ConfidentialClientApplication } = require('@azure/msal-node');
+
+const msalConfig = {
+  auth: {
+    clientId: process.env.AZURE_CLIENT_ID,
+    clientSecret: process.env.AZURE_CLIENT_SECRET,
+    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}`
+  }
+};
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+const getGraphToken = async () => {
+  const result = await cca.acquireTokenByClientCredential({
+    scopes: ['https://graph.microsoft.com/.default']
+  });
+  return result.accessToken;
+};
+```
+
+## iPaaS alternatives
+
+If custom development is not available:
+
+- **Power Automate**: Microsoft's native automation platform
+- **Zapier**: Pre-built Teams triggers and actions
+- **Workato**: Enterprise automation with Teams connector
+- **Make**: Visual workflow builder with Teams integration
+
+## Related articles
+
+<CardGrid>
+<LinkTitleCard header="<b>Power Automate > Integrating Power Automate approvals with Microsoft Teams</b>" href="/products/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams/" > Integrating Power Automate approvals with Microsoft Teams centralizes Tallyfy approval notifications within Teams. </LinkTitleCard>
+<LinkTitleCard header="<b>Open API > REST API</b>" href="/products/pro/integrations/open-api/" > Tallyfy provides a comprehensive REST API for custom integrations and automation. </LinkTitleCard>
+</CardGrid>

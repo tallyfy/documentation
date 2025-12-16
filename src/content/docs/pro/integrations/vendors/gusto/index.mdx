@@ -1,230 +1,75 @@
 ---
-description: Tallyfy is developing a native Gusto integration to automate HR and payroll
-  workflows for small businesses by syncing employee data bidirectionally triggering
-  workflows based on payroll events and automating onboarding processes while offering
-  current API-based workarounds and guidance through their partnership approval process.
+description: Connect Gusto with Tallyfy to orchestrate cross-department workflows
+  like onboarding and IT provisioning that Gusto cannot coordinate - bridging payroll
+  data with operational processes across teams.
 id: 1208505f39b8a4fcef2600318e9dd2b0
 sidebar:
-  label: Overview
   order: 60
 title: Gusto
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Card, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+## The gap Gusto cannot fill
 
-## What we're building for Gusto
+Gusto handles payroll, benefits, and HR for small and mid-sized businesses. But Gusto's modules require manual reconciliation, and it cannot coordinate the IT provisioning, training, and facilities setup that new hires need.
 
-We're developing a native integration with Gusto to help small businesses automate their HR and payroll workflows without the manual data entry that kills productivity. Here's the reality - your team spends hours copying employee information between systems, manually triggering payroll runs, and tracking onboarding tasks across spreadsheets. That stops now.
+When someone is hired in Gusto, the system processes their payroll and benefits. But it cannot tell IT to create their email account. It cannot schedule their orientation or set up their expense access. These coordination tasks happen in separate systems through manual handoffs.
 
-Our Gusto integration will sync employee data bidirectionally, trigger workflows based on payroll events, and automate the entire onboarding experience from offer letter to first paycheck. When someone joins your company in Gusto, Tallyfy automatically kicks off your onboarding process - IT equipment requests, training assignments, document collection, the works. When payroll runs, we'll trigger approval workflows, expense reconciliations, and compliance checks automatically.
+**What Gusto manages:**
 
-## Why this matters for your business
+- Payroll processing and tax filing
+- Benefits administration
+- Time-off tracking
+- Basic onboarding paperwork (offer letters, e-signatures)
 
-Small business owners lose 5-10 hours per week on HR administration. You're copying the same employee data into multiple systems. You're manually tracking who completed their I-9 forms. You're chasing down timesheets before every payroll run. Your accounting team is reconciling payroll expenses by hand.
+**What falls through the cracks:**
 
-With Tallyfy and Gusto connected, employee data flows automatically between systems. New hire onboarding becomes a guided, trackable process instead of a scramble. Payroll approval workflows ensure accuracy before money moves. Time-off requests sync automatically with payroll calculations. Your team focuses on strategic work, not data entry.
+- IT provisioning and system account setup
+- Module synchronization requiring manual reconciliation
+- Timesheet exceptions and complex shift handling
+- Cross-department coordination for Facilities and Training
+- Structured workflows beyond basic onboarding checklists
 
-## Specific features we're implementing
+Gusto serves your HR and payroll needs. But employee processes span every department. Tallyfy orchestrates workflows across ALL your teams - not just one.
 
-### Employee data synchronization
-We'll pull your complete employee roster from Gusto including names, emails, departments, job titles, employment status, and compensation details. When you update someone's role in Gusto, it reflects in Tallyfy instantly. Add a new team member in Tallyfy, and we'll push their information to Gusto for payroll setup.
+## How Tallyfy fills this gap
 
-### Automated onboarding workflows
-The moment you add a new employee in Gusto, we'll trigger your customized onboarding workflow in Tallyfy. This includes document collection (W-4, I-9, direct deposit), equipment provisioning, system access requests, training assignments, and first-day scheduling. Each step is assigned to the right person with automatic reminders and escalations.
+When a Gusto employee event fires - hire, termination, status change - Tallyfy launches a structured workflow that coordinates every downstream team.
 
-### Payroll processing automation
-Before each payroll run, Tallyfy initiates approval workflows pulling in hours from Gusto's time tracking, flagging exceptions, and routing to managers for review. After payroll processes, we trigger expense categorization workflows for your accounting team and compliance documentation for record keeping.
+### Employee onboarding
 
-### Benefits enrollment tracking
-During open enrollment or new hire benefits selection, Tallyfy manages the entire process - sending reminders, collecting elections, tracking completion, and syncing final selections back to Gusto for benefits administration.
+When Gusto records a new hire, Tallyfy orchestrates:
+- IT email and system account creation
+- Equipment provisioning based on role
+- Training schedule and compliance tracking
+- Finance expense account setup
+- Manager introduction workflows
 
-### Time-off request workflows
-Employees submit PTO requests in Tallyfy which route through appropriate approval chains based on your rules. Once approved, the time-off automatically syncs to Gusto for accurate payroll calculations and balance tracking.
+### Payroll coordination
 
-## Current workaround using our API
+When Gusto processes payroll events, Tallyfy handles:
+- Exception approval workflows for overtime
+- Expense report routing and approval chains
+- Benefits change validations
+- Multi-step approval for compensation adjustments
 
-While we build the native integration, you can connect Gusto and Tallyfy today using our REST API and Gusto's webhook system. Here's a practical example that creates a Tallyfy process when a new employee is added to Gusto:
+## Connect today
 
-<Tabs>
-<TabItem label="Node.js Implementation">
-```javascript
-// Webhook endpoint to receive Gusto employee.created events
-app.post('/webhooks/gusto/employee-created', async (req, res) => {
-  const { employee } = req.body;
-  
-  // Create onboarding process in Tallyfy
-  const response = await fetch('https://api.tallyfy.com/v1/processes', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.TALLYFY_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'employee-onboarding-template',
-      name: `Onboarding - ${employee.first_name} ${employee.last_name}`,
-      data: {
-        employee_id: employee.id,
-        full_name: `${employee.first_name} ${employee.last_name}`,
-        email: employee.email,
-        department: employee.department,
-        job_title: employee.job_title,
-        start_date: employee.start_date,
-        manager_email: employee.manager_email
-      }
-    })
-  });
-  
-  const process = await response.json();
-  console.log(`Created onboarding process: ${process.id}`);
-  
-  res.status(200).send('OK');
-});
+<Aside type="note" title="Integration Status">
+Native Gusto integration is planned. Gusto offers APIs for partners and customers.
+</Aside>
 
-// Sync employee updates from Gusto to Tallyfy
-async function syncEmployeeData() {
-  // Fetch employees from Gusto
-  const gustoResponse = await fetch('https://api.gusto.com/v1/companies/123/employees', {
-    headers: {
-      'Authorization': `Bearer ${process.env.GUSTO_ACCESS_TOKEN}`
-    }
-  });
-  
-  const employees = await gustoResponse.json();
-  
-  // Update Tallyfy members
-  for (const employee of employees) {
-    await fetch(`https://api.tallyfy.com/v1/members/${employee.email}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${process.env.TALLYFY_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        external_id: employee.id,
-        department: employee.department,
-        job_title: employee.job_title,
-        metadata: {
-          gusto_id: employee.id,
-          employment_status: employee.employment_status
-        }
-      })
-    });
-  }
-}
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Power Automate](/products/pro/integrations/middleware/power-automate/), or [Make](/products/pro/integrations/middleware/make/).
 
-// Run sync every hour
-setInterval(syncEmployeeData, 3600000);
-```
-</TabItem>
-<TabItem label="Python Implementation">
-```python
-import requests
-from flask import Flask, request
-import os
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with Gusto's REST APIs.
 
-app = Flask(__name__)
+## Get started
 
-@app.route('/webhooks/gusto/payroll-paid', methods=['POST'])
-def handle_payroll_paid():
-    """Trigger reconciliation workflow when payroll is processed"""
-    payroll_data = request.json
-    
-    # Create reconciliation process in Tallyfy
-    tallyfy_response = requests.post(
-        'https://api.tallyfy.com/v1/processes',
-        headers={
-            'Authorization': f"Bearer {os.getenv('TALLYFY_API_KEY')}",
-            'Content-Type': 'application/json'
-        },
-        json={
-            'template_id': 'payroll-reconciliation',
-            'name': f"Payroll Reconciliation - {payroll_data['pay_period']}",
-            'data': {
-                'payroll_id': payroll_data['payroll_id'],
-                'pay_period': payroll_data['pay_period'],
-                'total_gross_pay': payroll_data['totals']['gross_pay'],
-                'total_net_pay': payroll_data['totals']['net_pay'],
-                'employee_count': len(payroll_data['employees'])
-            }
-        }
-    )
-    
-    return 'OK', 200
-
-def pull_time_off_requests():
-    """Sync time-off requests from Gusto to Tallyfy"""
-    # Fetch time-off requests from Gusto
-    response = requests.get(
-        'https://api.gusto.com/v1/companies/123/time_off_requests',
-        headers={'Authorization': f"Bearer {os.getenv('GUSTO_ACCESS_TOKEN')}"}
-    )
-    
-    for request in response.json():
-        if request['status'] == 'pending':
-            # Create approval workflow in Tallyfy
-            requests.post(
-                'https://api.tallyfy.com/v1/processes',
-                headers={
-                    'Authorization': f"Bearer {os.getenv('TALLYFY_API_KEY')}",
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'template_id': 'time-off-approval',
-                    'name': f"PTO Request - {request['employee_name']}",
-                    'data': {
-                        'request_id': request['id'],
-                        'employee': request['employee_name'],
-                        'dates': f"{request['start_date']} to {request['end_date']}",
-                        'type': request['time_off_type']
-                    }
-                }
-            )
-```
-</TabItem>
-</Tabs>
-
-## Understanding Gusto's developer ecosystem
-
-Gusto operates two distinct API programs that we're navigating. Their App Integrations API lets us build for their marketplace of 164+ apps, while Gusto Embedded allows deeper payroll functionality. Getting listed requires jumping through hoops - production pre-approval, quality reviews, security audits, and scope restrictions that limit what data we can access.
-
-The approval process typically takes 1-2 months. We need to demonstrate our integration solves real problems for mutual customers, pass their QA review, and comply with their strict OAuth2 implementation. They enforce API scopes aggressively - any call outside approved permissions gets rejected immediately.
-
-Their rate limit of 200 requests per minute is manageable for most SMB use cases, but we'll implement intelligent caching and batch operations to stay well within limits. All testing happens in their demo environment since they don't provide production test accounts, which means extra validation work before launch.
-
-## The hurdles we're working through
-
-Gusto's platform has quirks that complicate integration development. They don't support direct API access for individual Gusto customers - everything must go through their formal partner program. This means you can't just grab an API key and start building; we need full partnership approval first.
-
-Their strict access token requirement (v2023-05-01 and later) means we handle authentication differently for each company. Multi-company support is mandatory since many users manage multiple businesses through one Gusto account. We're building company-switching functionality to handle this cleanly.
-
-The webhook infrastructure requires endpoint verification before events flow, and their webhook payloads don't always include complete data - often requiring follow-up API calls to get full details. We're implementing robust webhook handling with automatic retries and fallback polling for missed events.
-
-OAuth2 implementation doesn't support wildcard redirect URIs, complicating our multi-tenant architecture. We're working with their developer relations team on approved patterns for handling our customer domains securely.
-
-## What you can do right now
-
-Stop waiting for perfect automation. While we finalize the native Gusto integration, our API-based workaround gets you 80% of the value today. Your development team can implement the connection in a few hours using the code examples above.
-
-[Schedule a consultation](https://tallyfy.com/booking/) with our integration team to map out your specific Gusto workflows. We'll show you exactly how other SMBs are automating their HR and payroll processes, and help you implement either the API workaround or prepare for the native integration launch.
-
-## Help us get approved faster
-
-Gusto listens to their customers. If you want Tallyfy in Gusto's app marketplace, tell them directly. Contact your Gusto account manager or support team and request Tallyfy integration. Mention specific workflows you need automated - employee onboarding, payroll approvals, time-off management. Customer demand accelerates partnership approvals.
-
-When enough Gusto users request Tallyfy, it moves us up their priority list for marketplace inclusion and potentially unlocks additional API scopes for deeper functionality. Your voice matters in making this integration more powerful.
-
-<Card title="Ready to connect Gusto and Tallyfy?" icon="rocket">
-  Our integration specialists will guide you through implementation, from API setup to workflow design. Get your HR and payroll automation running in days, not months.
-  
-  **[Book your integration session →](https://tallyfy.com/booking/)**
-</Card>
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting Gusto with your Tallyfy workflows.
 
 ## Related articles
+
 <CardGrid>
-<LinkTitleCard header="<b>Vendors > Justworks</b>" href="/products/pro/integrations/vendors/justworks/" > Tallyfy is building deep integration with Justworks to automatically sync employee data and trigger workflows based on HR events like hiring and terminations while eliminating manual data entry between your PEO platform and business processes. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Paylocity</b>" href="/products/pro/integrations/vendors/paylocity/" > Tallyfy is building native integration with Paylocity to automatically transform HCM data into intelligent workflows that orchestrate the complete employee lifecycle from application to termination including automated onboarding payroll processing compliance tracking and IT provisioning without manual handoffs or compliance gaps. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > BambooHR</b>" href="/products/pro/integrations/vendors/bamboohr/" > Tallyfy is building a native BambooHR integration that syncs employee data in real-time to automate workflows like onboarding offboarding and organizational changes while offering immediate API-based connection options and marketplace partnership plans. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Rippling</b>" href="/products/pro/integrations/vendors/rippling/" > Tallyfy integrates with Rippling to transform their unified workforce management platform into automated business workflows that orchestrate everything from equipment ordering to training schedules while Rippling handles core HR IT and finance operations. </LinkTitleCard>
 </CardGrid>

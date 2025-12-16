@@ -1,345 +1,90 @@
 ---
-description: Tallyfy is building enterprise integration with Workday to automatically
-  transform HCM and financial data into intelligent workflows that orchestrate downstream
-  processes from IT provisioning to compliance tracking without manual intervention
-  for Fortune 500 companies.
+description: Connect Workday with Tallyfy to orchestrate cross-department processes
+  like onboarding, role changes, and compliance workflows that Workday cannot coordinate
+  on its own - spanning IT, Facilities, Training, and Finance teams.
 id: 59c839e6bf1955b61d89cfa3a840c6f0
 sidebar:
   order: 9
-template: doc
 title: Workday
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap Workday cannot fill
 
-## Quick Summary
+Workday centralizes HR and financial data for large enterprises. But the moment someone is hired in Workday, a cascade of coordination begins that Workday doesn't handle.
 
-We're building enterprise integration with Workday to automatically transform your HCM and financial data into intelligent workflows. When employees join, change roles, or submit expenses in Workday, Tallyfy orchestrates every downstream process - from IT provisioning to budget approvals to compliance tracking - without manual intervention.
+Workday cannot tell IT to order a laptop. It cannot tell Facilities to assign a desk. It cannot schedule orientation with Training or notify Finance to create an expense account. These handoffs happen in emails, spreadsheets, and chat threads - untracked and invisible.
 
-<Aside type="caution" title="Enterprise Platform">
-Workday is an enterprise platform with complex integration requirements. Their new "Built on Workday" program launched in 2024, but access requires partnership approval. We can integrate today using Workday Integration Cloud or certified partners.
+**What Workday manages:**
+
+- Employee records and organizational structure
+- Payroll processing and compensation data
+- Benefits administration and time tracking
+- Financial transactions and reporting
+
+**What falls through the cracks:**
+
+- Cross-department coordination for onboarding and offboarding
+- Multi-stakeholder approval chains spanning HR, IT, Finance, and Legal
+- Real-time visibility into process completion across teams
+- Conditional routing based on role, location, or department
+- Structured handoffs with clear ownership and deadlines
+- Process improvement from historical completion data
+
+Workday serves your HR and Finance teams. But employee lifecycle processes span every department. Tallyfy orchestrates workflows across ALL your teams - not just one.
+
+## How Tallyfy fills this gap
+
+When a Workday employee event fires - hire, termination, role change - Tallyfy launches a structured workflow that coordinates every downstream action. Every step has an owner, a deadline, and escalation rules if something stalls.
+
+### Employee onboarding
+
+When Workday records a new hire, Tallyfy orchestrates:
+- IT equipment provisioning and system access
+- Facilities desk assignment and building access
+- Training schedule and compliance certifications
+- Finance expense account and corporate card setup
+- Manager introductions and team integration
+
+### Role changes and transfers
+
+When Workday records a promotion or transfer, Tallyfy coordinates:
+- Access permission updates across systems
+- Equipment changes for new responsibilities
+- Training requirements for the new role
+- Announcement and knowledge transfer workflows
+
+### Offboarding
+
+When Workday records a termination, Tallyfy ensures:
+- IT access revocation on the correct date
+- Equipment return tracking
+- Knowledge transfer completion
+- Exit interview scheduling
+- Final payroll coordination
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native Workday integration is planned. Workday's "Built on Workday" program requires partnership approval.
 </Aside>
 
-## Why This Integration Matters
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Power Automate](/products/pro/integrations/middleware/power-automate/), [Workato](/products/pro/integrations/middleware/workato/), or [Celigo](/products/pro/integrations/middleware/celigo/).
 
-Workday powers HR and finance for 60% of Fortune 500 companies, but it's just the system of record. The real work happens in hundreds of surrounding processes - onboarding checklists, approval chains, compliance workflows, and operational tasks.
+**iPaaS Partners**: MuleSoft and Boomi have pre-built Workday connectors that can trigger Tallyfy workflows.
 
-Without integration, your teams spend hours copying data, chasing approvals, and coordinating handoffs. Our integration makes Workday events automatically trigger the right workflows, ensuring nothing falls through cracks while your team focuses on strategic work.
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with Workday's REST APIs or Integration Cloud.
 
-## What We're Building
+For technical implementation details including code examples and data mapping, see [Workday technical integration](/products/pro/integrations/vendors/workday/technical/).
 
-### Enterprise Onboarding Orchestration
+## Get started
 
-Transform complex enterprise hiring into smooth operations:
-
-- **Requisition-to-Ready**: From job req approval in Workday to day-one readiness, orchestrate every step
-- **Global Onboarding**: Handle country-specific requirements, visa workflows, and relocation processes
-- **Security Clearance**: Coordinate background checks, drug screens, and credential verification
-- **Cross-Functional Coordination**: IT, Facilities, Finance, and Legal workflows triggered automatically
-
-### Financial Process Automation
-
-Connect Workday Financials to operational workflows:
-
-- **Expense Management**: Route expense reports through approval chains based on amount, type, and policy
-- **Budget Approvals**: Trigger workflows when spending approaches thresholds
-- **Vendor Onboarding**: Orchestrate vendor setup, compliance checks, and payment terms
-- **Period Close**: Automate month-end tasks, reconciliations, and reporting
-
-### Advanced HR Operations
-
-Leverage Workday HCM for sophisticated workflows:
-
-- **Reorganizations**: Mass update workflows for org changes
-- **Performance Management**: Coordinate review cycles, calibrations, and compensation adjustments
-- **Succession Planning**: Trigger development plans and readiness assessments
-- **M&A Integration**: Onboard acquired employees with specialized workflows
-
-## How to Connect Today
-
-### Option 1: Workday Integration Cloud
-
-Use Workday's native integration platform:
-
-```xml
-<!-- Example: Workday Studio Integration -->
-<integration>
-  <source>
-    <workday-report id="New_Hires_Today"/>
-  </source>
-  <transformation>
-    <map-to-tallyfy>
-      <field source="Employee_ID" target="employee_id"/>
-      <field source="Legal_Name" target="full_name"/>
-      <field source="Job_Profile" target="position"/>
-      <field source="Supervisory_Organization" target="department"/>
-    </map-to-tallyfy>
-  </transformation>
-  <target>
-    <tallyfy-api>
-      <endpoint>https://api.tallyfy.com/v1/workflows</endpoint>
-      <template>enterprise_onboarding</template>
-    </tallyfy-api>
-  </target>
-</integration>
-```
-
-### Option 2: REST API Integration
-
-Use Workday's REST APIs (for approved partners):
-
-```javascript
-// Example: Process Workday webhook for new hire
-const processWorkdayEvent = async (event) => {
-  if (event.type === 'WORKER_HIRED') {
-    const worker = await workdayAPI.getWorker(event.workerId);
-    
-    // Create comprehensive onboarding workflow
-    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        template_id: 'enterprise_onboarding',
-        data: {
-          // Worker details
-          employee_id: worker.employeeID,
-          name: worker.legalName,
-          email: worker.workEmail,
-          
-          // Organization
-          cost_center: worker.costCenter,
-          business_unit: worker.businessUnit,
-          location: worker.primaryWorkLocation,
-          
-          // Position
-          job_profile: worker.jobProfile,
-          job_family: worker.jobFamily,
-          management_level: worker.managementLevel,
-          
-          // Manager chain
-          manager: worker.manager,
-          skip_level: worker.skipLevelManager,
-          
-          // Compliance
-          worker_type: worker.workerType,
-          regulatory_region: worker.regulatoryRegion
-        }
-      })
-    });
-    
-    return workflow.json();
-  }
-};
-```
-
-### Option 3: Certified Integration Partners
-
-Work with Workday-approved partners:
-
-- **Merge API**: Unified API with Workday support
-- **Workato**: Enterprise automation platform with Workday recipes
-- **MuleSoft**: Anypoint Platform with Workday connectors
-- **Boomi**: Dell Boomi with pre-built Workday integration
-
-### Option 4: Report-Based Integration
-
-Use Workday Custom Reports:
-
-1. Create custom reports in Workday Report Writer
-2. Schedule delivery via SFTP or web service
-3. Process reports to extract changes
-4. Trigger workflows based on data changes
-5. Maintain audit trail of all processing
-
-## Real-World Use Cases
-
-### Global Technology Company
-
-A 50,000-employee tech giant uses Workday + Tallyfy for:
-
-1. **Complex Approvals**: Multi-tier approval chains for compensation changes
-2. **Compliance Management**: SOX controls for financial processes
-3. **Global Mobility**: Visa, relocation, and tax equalization workflows
-4. **Contractor Conversion**: Automated workflows for contractor-to-FTE transitions
-5. **Exit Management**: Orchestrated offboarding across 30+ systems
-
-Results: 60% reduction in process time, 99.9% compliance rate
-
-### Healthcare System Network
-
-A healthcare network with 25 hospitals manages:
-
-- **Physician Credentialing**: Automated verification across multiple facilities
-- **Nurse Float Pool**: Dynamic staffing workflows based on census
-- **Grant Management**: Research position funding and compliance
-- **Union Contracts**: Complex pay rules and benefit calculations
-- **Joint Commission**: Compliance workflows for accreditation
-
-### Financial Services Enterprise
-
-An investment bank leverages integration for:
-
-- **Regulatory Filings**: FINRA, SEC, and international requirements
-- **Compensation Planning**: Bonus pools, deferrals, and clawbacks
-- **Trading Floor Access**: Physical and system access provisioning
-- **Insider Trading**: Restricted list management and attestations
-- **Separation Agreements**: Complex termination workflows
-
-## Technical Implementation Details
-
-### Workday Platform Capabilities
-
-The Workday ecosystem provides:
-
-- **600+ prebuilt integrations** ready for deployment
-- **100M+ integrations** run monthly with 99.9% SLA
-- **SOAP and REST APIs** for custom development
-- **Cloud Connect** for integration logic and transformation
-- **Workday Studio** for complex orchestrations
-- **Enterprise Interface Builder** (EIB) for data import/export
-
-### Built on Workday (2024 Launch)
-
-The new program enables:
-
-- **Build once, distribute to many** approach for apps
-- **Workday Marketplace** distribution to thousands of customers
-- **Native platform integration** without middleware
-- **AI-powered solutions** leveraging Workday data
-- **Certified integration badges** for quality assurance
-
-### Integration Certification Levels
-
-Workday offers three certification tiers:
-
-1. **Workday Approved**: Meets minimum security and interoperability requirements
-2. **Workday Certified**: Satisfies 90% of standard use cases
-3. **Workday Built**: Co-designed and supported by Workday
-
-### Data Access and Security
-
-Enterprise-grade capabilities:
-
-- **OAuth 2.0** authentication with JWT
-- **Field-level security** respecting Workday permissions
-- **Encrypted data transfer** using TLS 1.3
-- **GDPR/CCPA compliance** built-in
-- **Audit logging** of all API calls
-- **Rate limiting** to prevent overload
-
-## Why Workday Should Accelerate This
-
-Workday customers demand sophisticated automation:
-
-1. **Enterprise Expectations**: Fortune 500 companies expect best-in-class integrations
-2. **Digital Transformation**: Workflow automation is core to enterprise modernization
-3. **Competitive Pressure**: SAP, Oracle, and Microsoft offer extensive automation
-4. **Customer Success**: Automated workflows drive Workday adoption and satisfaction
-5. **Platform Value**: Deep integrations increase switching costs and lifetime value
-
-## Take Action Now
-
-### For Workday Customers
-
-**Ready for enterprise automation?**
-
-1. [Schedule an enterprise consultation](https://tallyfy.com/booking/) 
-2. We'll analyze your Workday configuration
-3. Identify high-impact automation opportunities
-4. Design solution architecture
-5. Provide implementation roadmap
-
-**Accelerate partnership:** Contact your Workday account team and request Tallyfy integration. Enterprise customer requests drive partner priorities.
-
-### For HR Leaders
-
-Transform HR from administrative burden to strategic enabler:
-
-- Eliminate manual data entry and handoffs
-- Ensure 100% process compliance
-- Reduce time-to-productivity for new hires
-- Focus on employee experience, not paperwork
-- Demonstrate ROI through efficiency metrics
-
-### For IT Leaders
-
-Finally, seamless integration between Workday and your tech stack:
-
-- Automatic provisioning based on Workday data
-- Zero-day access revocation on termination
-- Maintain accurate identity management
-- Reduce helpdesk tickets significantly
-- Ensure security compliance
-
-## Enterprise Implementation Approach
-
-### Phase 1: Discovery and Design
-- Analyze current Workday configuration
-- Map critical business processes
-- Identify integration points
-- Design security architecture
-- Build proof of concept
-
-### Phase 2: Core Integration
-- Establish Workday connectivity
-- Implement authentication and security
-- Build data synchronization
-- Create foundational workflows
-- Test with subset of data
-
-### Phase 3: Process Automation
-- Deploy employee lifecycle workflows
-- Implement financial process automation
-- Create approval chains and escalations
-- Build exception handling
-- Validate with business users
-
-### Phase 4: Scale and Optimize
-- Roll out to all business units
-- Add advanced workflows
-- Implement analytics and reporting
-- Optimize based on metrics
-- Continuous improvement program
-
-## Security and Compliance
-
-Enterprise-grade security throughout:
-
-- **SOC 2 Type II** certified platform
-- **ISO 27001** compliance
-- **HIPAA/HITECH** ready for healthcare
-- **FedRAMP** authorized for government
-- **PCI DSS** compliant for financial data
-- **Complete audit trails** for all activities
-
-## Transform Your Enterprise
-
-Workday gives you the data. We give you the automation. Together, they transform how your enterprise operates.
-
-Every day without integration means:
-- Hours of manual coordination
-- Delayed employee productivity
-- Compliance risks and audit findings
-- Frustrated employees and managers
-- Lost opportunities for efficiency
-
-**Start your transformation:** [Book an enterprise demo](https://tallyfy.com/booking/) to see how Workday + Tallyfy revolutionizes your operations.
-
-We'll demonstrate:
-1. Live Workday integration capabilities
-2. Enterprise workflow templates
-3. ROI calculations for your organization
-4. Security and compliance framework
-5. Implementation methodology and timeline
-
-Stop managing complexity. Start automating it.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting Workday with your Tallyfy workflows. We'll analyze your current Workday configuration and identify high-impact automation opportunities.
 
 ## Related articles
+
 <CardGrid>
 <LinkTitleCard header="<b>Vendors > Paylocity</b>" href="/products/pro/integrations/vendors/paylocity/" > Tallyfy is building native integration with Paylocity to automatically transform HCM data into intelligent workflows that orchestrate the complete employee lifecycle from application to termination including automated onboarding payroll processing compliance tracking and IT provisioning without manual handoffs or compliance gaps. </LinkTitleCard>
 <LinkTitleCard header="<b>Vendors > Rippling</b>" href="/products/pro/integrations/vendors/rippling/" > Tallyfy integrates with Rippling to transform their unified workforce management platform into automated business workflows that orchestrate everything from equipment ordering to training schedules while Rippling handles core HR IT and finance operations. </LinkTitleCard>

@@ -1,334 +1,75 @@
 ---
-description: Tallyfy integrates with ADP Run to automatically transform small business
-  payroll and HR data into orchestrated workflows that handle everything from new
-  hire onboarding to tax compliance without manual coordination.
+description: Connect ADP Run with Tallyfy to orchestrate cross-department workflows
+  like onboarding and offboarding that ADP cannot coordinate - spanning IT, Facilities,
+  and Finance teams beyond the HR portal.
 id: 1051b3547b33e8572f1bf602e8cc7f6a
 sidebar:
   order: 18
-template: doc
 title: ADP Run
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap ADP Run cannot fill
 
-## Quick Summary
+ADP Run handles payroll processing and basic HR for small businesses. But the moment someone is hired in ADP, a cascade of manual coordination begins across systems that don't talk to each other.
 
-We're integrating with ADP Run to transform small business payroll data into automated workflows that handle everything from new hire onboarding to tax compliance. When you process payroll, add employees, or manage benefits in ADP Run, Tallyfy automatically orchestrates all related business processes - ensuring accuracy, compliance, and efficiency for your growing business.
+ADP Run cannot tell IT to set up email accounts. It cannot notify Facilities to prepare a workspace. It cannot trigger training enrollment or expense account setup. Teams must manually coordinate these handoffs between separate portals and systems.
 
-<Aside type="note" title="API Central Access">
-ADP provides API Central for custom integrations, which can be activated within minutes. However, becoming an ADP Marketplace partner requires approval, making it a gated API for third-party developers.
+**What ADP Run manages:**
+
+- Payroll processing and tax filing
+- Basic employee records
+- Time and attendance tracking
+- Benefits administration
+
+**What falls through the cracks:**
+
+- Cross-department coordination between HR, IT, and Finance
+- Portal-switching friction between disconnected systems
+- Multi-step approval workflows spanning teams
+- Real-time visibility into onboarding completion
+- Structured handoffs with clear ownership and deadlines
+
+ADP Run serves your HR and payroll needs. But employee processes span every department. Tallyfy orchestrates workflows across ALL your teams - not just one.
+
+## How Tallyfy fills this gap
+
+When an ADP Run employee event fires - hire, termination, role change - Tallyfy launches a structured workflow that coordinates every downstream action across your organization.
+
+### Employee onboarding
+
+When ADP Run records a new hire, Tallyfy orchestrates:
+- IT account setup and equipment provisioning
+- Facilities workspace and access preparation
+- Training schedule and compliance tracking
+- Finance expense account configuration
+
+### Offboarding
+
+When ADP Run records a termination, Tallyfy ensures:
+- IT access revocation on the correct date
+- Equipment return tracking
+- Final payroll coordination
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native ADP Run integration is planned. ADP provides API Central for custom integrations.
 </Aside>
 
-## Why This Integration Matters
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Power Automate](/products/pro/integrations/middleware/power-automate/), or [Make](/products/pro/integrations/middleware/make/).
 
-ADP Run simplifies payroll for small businesses, but payroll is just one piece of your operations puzzle. Every new hire needs equipment, training, and accounts beyond just getting paid. Every pay run triggers accounting tasks, tax filings, and reporting needs.
+**HR Integration Platforms**: Finch and Flexspring offer pre-built ADP Run connectors.
 
-Our integration makes ADP Run data automatically flow into structured workflows, eliminating manual coordination and ensuring nothing falls through the cracks as you grow.
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with ADP's API Central.
 
-## What We're Building
+## Get started
 
-### Small Business Onboarding
-
-Streamline hiring without the enterprise complexity:
-
-- **Simple Start**: New employee in ADP triggers welcome email, equipment order, and first-day checklist
-- **Compliance Made Easy**: I-9 reminders, handbook acknowledgments, and state requirements tracked automatically
-- **Role-Based Setup**: Different workflows for different positions - all triggered from ADP Run data
-- **First Payroll Prep**: Ensure all setup complete before first pay run
-
-### Payroll Process Automation
-
-Transform payroll from deadline scramble to smooth operation:
-
-- **Pre-Payroll Checks**: Timesheet approval workflows before processing
-- **Exception Handling**: Overtime or unusual amounts trigger review workflows
-- **Post-Payroll Tasks**: Accounting entries, report distribution, and filing reminders
-- **Tax Compliance**: Quarter-end and year-end workflows triggered automatically
-
-### Benefits and Time-Off Management
-
-Coordinate beyond basic tracking:
-
-- **PTO Approvals**: Request workflows with coverage planning
-- **Benefits Changes**: Life events trigger enrollment workflows
-- **Open Enrollment**: Automated communication and tracking
-- **Leave Management**: FMLA and state leave compliance workflows
-
-## How to Connect Today
-
-### Option 1: ADP API Central
-
-Direct integration for ADP Run customers:
-
-```javascript
-// Example: Create onboarding workflow from ADP Run
-const handleADPNewHire = async (event) => {
-  // Get employee details from ADP Run
-  const employee = await adpAPI.getWorker(event.workerId);
-  
-  // Create small business onboarding workflow
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'small_business_onboarding',
-      name: `Onboarding - ${employee.legalName.formattedName}`,
-      data: {
-        // ADP Run employee data
-        employee_id: employee.associateOID,
-        name: employee.legalName.formattedName,
-        email: employee.emails[0].emailUri,
-        
-        // Job information
-        position: employee.workerAssignments[0].jobTitle,
-        department: employee.workerAssignments[0].organizationalUnits[0].nameCode,
-        
-        // Payroll setup
-        start_date: employee.workerAssignments[0].hireDate,
-        pay_rate: employee.workerAssignments[0].baseRemuneration.hourlyRateAmount,
-        
-        // Location for compliance
-        work_state: employee.workerAssignments[0].workLocation.address.countrySubdivisionLevel1
-      }
-    })
-  });
-  
-  return workflow.json();
-};
-```
-
-### Option 2: File-Based Integration
-
-For businesses without API access:
-
-```javascript
-// Process ADP Run payroll export
-const processADPExport = async (csvFile) => {
-  const employees = parseCSV(csvFile);
-  
-  for (const employee of employees) {
-    if (employee.status === 'NEW') {
-      // Trigger onboarding workflow
-      await createOnboardingWorkflow(employee);
-    } else if (employee.status === 'TERMINATED') {
-      // Trigger offboarding workflow
-      await createOffboardingWorkflow(employee);
-    }
-  }
-};
-```
-
-### Option 3: Partner Integrations
-
-Connect through integration platforms:
-
-- **Finch**: Unified employment API with ADP Run support
-- **Flexspring**: ADP-specific integration platform
-- **Zapier**: Basic automation for ADP Run
-- **API Central Partners**: Pre-approved integration providers
-
-## Real-World Use Cases
-
-### Growing Restaurant Chain
-
-A 10-location restaurant uses ADP Run + Tallyfy for:
-
-1. **Rapid Hiring**: Bulk onboarding for seasonal staff
-2. **Tip Compliance**: Complex tip pooling calculations and reporting
-3. **Multi-State Operations**: State-specific compliance workflows
-4. **Schedule Integration**: POS hours flow to payroll with approval
-5. **Franchise Reporting**: Automated labor cost reports per location
-
-Results: 70% reduction in payroll errors, 100% compliance rate
-
-### Professional Services Startup
-
-A 50-person consulting firm manages:
-
-- **Project-Based Comp**: Commission calculations with approvals
-- **Contractor Conversion**: 1099 to W-2 transition workflows
-- **Client Billing**: Timesheet data triggers invoice workflows
-- **Expense Management**: Receipt processing and reimbursement
-- **Growth Planning**: Headcount workflows tied to revenue
-
-### Non-Profit Organization
-
-A non-profit with 30 employees leverages integration for:
-
-- **Grant Compliance**: Time allocation and reporting workflows
-- **Volunteer Coordination**: Onboarding flows for regular volunteers
-- **Donor Reporting**: Payroll data feeds impact reports
-- **Budget Management**: Automatic alerts on labor costs
-- **Board Reporting**: Simplified executive dashboards
-
-## Technical Implementation Details
-
-### ADP API Central Features
-
-Available capabilities:
-
-- **Quick Activation**: Set up within minutes online
-- **Robust API Library**: Comprehensive payroll and HR endpoints
-- **Developer Resources**: Templates, documentation, code samples
-- **Security**: OAuth 2.0 and OpenID Connect
-- **Virtual Support**: Responsive developer assistance
-- **Sandbox Testing**: Test with synthetic data
-
-### Data Access Points
-
-What you can integrate:
-
-- Employee demographics and status
-- Payroll runs and check details
-- Time and attendance data
-- Benefits enrollment
-- Tax withholdings and filings
-- Direct deposit information
-- Reports and analytics
-
-### Small Business Considerations
-
-Tailored for SMB needs:
-
-- Simple setup without IT teams
-- Pre-built workflows for common scenarios
-- Automatic compliance updates
-- Scalable as you grow
-- Affordable integration options
-
-## Why ADP Should Accelerate This
-
-Small businesses need automation more than enterprises:
-
-1. **Resource Constraints**: No HR departments to handle manual work
-2. **Growth Enablement**: Automation allows scaling without hiring admin staff
-3. **Compliance Risk**: Small businesses can't afford penalties
-4. **Competitive Necessity**: Modern small businesses expect automation
-5. **Customer Success**: Integrated customers stay longer and grow faster
-
-## Take Action Now
-
-### For ADP Run Customers
-
-**Automate your HR operations today:**
-
-1. [Book a consultation](https://tallyfy.com/booking/)
-2. We'll review your ADP Run setup
-3. Identify quick wins for automation
-4. Build your first workflow together
-5. Start saving hours weekly
-
-**Want faster access?** Contact ADP support requesting Tallyfy marketplace partnership.
-
-### For Small Business Owners
-
-Focus on growth, not administration:
-
-- Eliminate payroll scrambles
-- Ensure compliance automatically
-- Onboard employees smoothly
-- Reduce costly mistakes
-- Scale without adding overhead
-
-### For Office Managers
-
-Become the hero of efficiency:
-
-- No more chasing timesheets
-- Automatic report generation
-- Simplified benefits administration
-- Clear audit trails
-- More time for strategic work
-
-## Implementation Roadmap
-
-### Day 1-3: Quick Start
-- Activate ADP API Central
-- Connect to Tallyfy
-- Set up first workflow (usually onboarding)
-- Test with next hire
-
-### Week 1: Core Processes
-- Payroll approval workflows
-- Time-off management
-- Basic compliance tracking
-- Report automation
-
-### Week 2: Optimization
-- Custom workflows for your business
-- Multi-step approvals
-- Exception handling
-- Employee self-service options
-
-### Ongoing: Growth
-- Add workflows as needed
-- Optimize based on data
-- Scale with your business
-- Maintain compliance automatically
-
-## Security and Compliance
-
-Small business-appropriate security:
-
-- **Bank-level encryption** for data
-- **Simple access controls** 
-- **Audit trails** for compliance
-- **Automatic updates** for regulations
-- **No IT required** for maintenance
-
-## ROI for Small Business
-
-### Time Savings
-- 5 hours per week on payroll tasks
-- 3 hours per new hire
-- 2 hours on monthly reporting
-- 10 hours quarterly on taxes
-- 40 hours annually on compliance
-
-### Cost Avoidance
-- Fewer payroll errors
-- No compliance penalties
-- Reduced accounting fees
-- Lower HR consulting costs
-- Avoided bad hires
-
-### Growth Enablement
-- Scale without admin staff
-- Faster employee onboarding
-- Better employee experience
-- Professional processes
-- Competitive advantage
-
-## Get Started Simply
-
-You don't need an IT team or complex setup:
-
-1. **Connect**: Link ADP Run to Tallyfy (15 minutes)
-2. **Configure**: Choose pre-built workflows (30 minutes)
-3. **Customize**: Adjust for your business (1 hour)
-4. **Launch**: Start automating immediately
-5. **Save**: Hours every week, starting now
-
-**Ready to simplify?** [Schedule your demo](https://tallyfy.com/booking/)
-
-We'll show you:
-- ADP Run integration in action
-- Pre-built small business workflows
-- Simple setup process
-- Clear ROI for your business
-- Ongoing support options
-
-Stop drowning in admin work. Start growing your business.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting ADP Run with your Tallyfy workflows.
 
 ## Related articles
+
 <CardGrid>
-<LinkTitleCard header="<b>Vendors > ADP Workforce Now</b>" href="/products/pro/integrations/vendors/adp-workforce-now/" > Tallyfy integrates with ADP Workforce Now to transform comprehensive HR data into intelligent automated workflows that orchestrate multi-department processes like onboarding approvals compliance tracking and operational coordination across your entire organization while maintaining ADP as your system of record. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Rippling</b>" href="/products/pro/integrations/vendors/rippling/" > Tallyfy integrates with Rippling to transform their unified workforce management platform into automated business workflows that orchestrate everything from equipment ordering to training schedules while Rippling handles core HR IT and finance operations. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Paylocity</b>" href="/products/pro/integrations/vendors/paylocity/" > Tallyfy is building native integration with Paylocity to automatically transform HCM data into intelligent workflows that orchestrate the complete employee lifecycle from application to termination including automated onboarding payroll processing compliance tracking and IT provisioning without manual handoffs or compliance gaps. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Paychex</b>" href="/products/pro/integrations/vendors/paychex/" > Tallyfy is building native integration with Paychex Flex to automatically sync payroll and HR data into intelligent workflows that orchestrate follow-up actions across organizations when payroll runs or employee statuses change. </LinkTitleCard>
 </CardGrid>

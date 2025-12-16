@@ -1,384 +1,91 @@
 ---
-description: Tallyfy integrates with NetSuite SuitePeople to transform unified business
-  data into automated workflows spanning HR finance and operations while maintaining
-  NetSuite as your single source of truth.
+description: Connect NetSuite with Tallyfy to orchestrate multi-stakeholder approvals,
+  month-end close coordination, and vendor onboarding workflows that NetSuite's single-record
+  workflows cannot handle across departments.
 id: 14da7445385a2356bc989e5811869b7d
 sidebar:
   order: 14
-template: doc
 title: NetSuite
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap NetSuite cannot fill
 
-## Quick Summary
+NetSuite is your financial system of record. But NetSuite workflows operate on single records - they cannot coordinate an invoice approval that spans Accounts Payable, the department manager, and the CFO in sequence. Each approval must be a separate workflow.
 
-We're integrating with NetSuite SuitePeople to transform your unified business data into automated workflows that span HR, finance, and operations. When employees are hired, expenses submitted, or projects launched in NetSuite, Tallyfy orchestrates every downstream process - from approvals to provisioning to compliance - all while maintaining NetSuite as your single source of truth.
+NetSuite records transactions. It does not orchestrate the human decisions around them. Who reviews the expense? Who approves the PO? Who verifies vendor compliance before the first payment? These coordination activities happen outside NetSuite - in email threads, spreadsheets, and meetings.
 
-<Aside type="tip" title="REST API Now Preferred">
-NetSuite 2024.1 release emphasizes REST APIs as the preferred integration method, with improved performance and OpenAPI 3.0 support, making integration faster and more reliable than ever.
+**What NetSuite manages:**
+
+- Financial transactions and GL entries
+- Employee records via SuitePeople
+- Inventory and order management
+- Multi-subsidiary consolidation
+
+**What falls through the cracks:**
+
+- Multi-stakeholder approval chains that span departments
+- Month-end close coordination across Accounting, Operations, and Compliance
+- Vendor onboarding with legal review, risk assessment, and payment setup
+- Exception handling when invoices don't match POs
+- Cross-department budget approval workflows
+- Audit preparation and compliance documentation
+
+NetSuite serves your Finance team. But financial processes require coordination across Sales, Operations, Legal, and Compliance. Tallyfy orchestrates workflows across ALL your teams - not just one.
+
+## How Tallyfy fills this gap
+
+When a NetSuite event fires - new employee, expense submitted, PO created - Tallyfy launches a structured workflow that coordinates every stakeholder. Every approval has an owner, a deadline, and escalation if someone doesn't respond.
+
+### Invoice approvals
+
+When NetSuite receives an invoice, Tallyfy orchestrates:
+- Three-way match validation (PO, receipt, invoice)
+- Department manager approval for their cost center
+- Finance review for GL coding and policy compliance
+- CFO approval for amounts above threshold
+- Exception routing when matches fail
+
+### Month-end close
+
+When period close begins, Tallyfy coordinates:
+- Reconciliation task assignment across teams
+- Journal entry review and approval chain
+- Accrual posting verification
+- Consolidation checklist completion
+- Compliance sign-off before close
+
+### Vendor onboarding
+
+When Procurement requests a new vendor, Tallyfy orchestrates:
+- Risk assessment and compliance verification
+- Legal contract review and approval
+- Tax documentation collection (W-9, etc.)
+- Banking information validation
+- NetSuite master data creation approval
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native NetSuite integration is planned. NetSuite 2024.1 emphasizes REST APIs as the preferred integration method.
 </Aside>
 
-## Why This Integration Matters
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Power Automate](/products/pro/integrations/middleware/power-automate/), or [Make](/products/pro/integrations/middleware/make/).
 
-NetSuite SuitePeople provides a unified platform for HR within your ERP, but business processes extend far beyond data management. Every hire needs equipment, training, and system access. Every expense needs multi-tier approvals. Every project needs resource allocation and task coordination.
+**iPaaS Partners**: [Celigo](/products/pro/integrations/middleware/celigo/) and [Workato](/products/pro/integrations/middleware/workato/) have native NetSuite connectors optimized for ERP integration.
 
-Without integration, teams manually bridge NetSuite with operational workflows. Our integration makes NetSuite events automatically trigger intelligent workflows that ensure consistent execution across your entire organization.
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with NetSuite's REST APIs or SuiteScript.
 
-## What We're Building
+For technical implementation details including code examples and SuiteScript samples, see [NetSuite technical integration](/products/pro/integrations/vendors/netsuite/technical/).
 
-### Enterprise HR Orchestration
+## Get started
 
-Transform SuitePeople data into comprehensive workflows:
-
-- **Global Onboarding**: Pull employee, role, and subsidiary data to orchestrate location-specific onboarding
-- **Compensation Management**: Route salary changes, bonuses, and equity through complex approval matrices
-- **Performance Workflows**: Trigger review cycles, calibrations, and succession planning
-- **Workforce Planning**: Automate requisition approvals and headcount management
-
-### Financial Process Automation
-
-Connect NetSuite financials to operational workflows:
-
-- **Expense Management**: Intelligent routing based on amount, type, GL coding, and policy
-- **Purchase Approvals**: Multi-tier workflows for POs based on vendor, amount, and budget
-- **Project Workflows**: Resource allocation, milestone tracking, and billing automation
-- **Period Close**: Orchestrate month-end tasks across departments
-
-### Cross-Module Integration
-
-Leverage NetSuite's unified data model:
-
-- **Customer Onboarding**: Sales win triggers implementation workflows
-- **Vendor Management**: Procurement triggers compliance and setup workflows
-- **Inventory Processes**: Stock levels trigger purchasing and allocation workflows
-- **Revenue Recognition**: Contract changes trigger accounting workflows
-
-## How to Connect Today
-
-### Option 1: NetSuite REST API (Recommended 2024)
-
-Use the modern REST API with OAuth 2.0:
-
-```javascript
-// Example: Create workflow when employee hired in SuitePeople
-const handleEmployeeHire = async (employeeData) => {
-  // Get complete employee record from NetSuite
-  const employee = await netsuiteAPI.get(`/employee/${employeeData.id}`, {
-    expand: ['department', 'location', 'subsidiary', 'supervisor']
-  });
-  
-  // Get custom fields for role-specific workflows
-  const customFields = await netsuiteAPI.get(`/employee/${employeeData.id}/customfields`);
-  
-  // Create comprehensive onboarding workflow
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'netsuite_enterprise_onboarding',
-      name: `Onboarding - ${employee.entityId} - ${employee.firstName} ${employee.lastName}`,
-      data: {
-        // Core employee data
-        employee_id: employee.id,
-        entity_id: employee.entityId,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        email: employee.email,
-        
-        // Organization structure
-        subsidiary: employee.subsidiary.name,
-        department: employee.department.name,
-        location: employee.location.name,
-        supervisor: employee.supervisor.name,
-        
-        // Role and compensation
-        job_title: employee.title,
-        employee_type: employee.employeeType,
-        pay_frequency: employee.payFrequency,
-        
-        // NetSuite-specific
-        class: employee.class,
-        cost_center: customFields.custentity_cost_center,
-        project_codes: customFields.custentity_project_codes,
-        
-        // Compliance
-        work_authorization: employee.isJobExempt,
-        labor_cost: employee.laborCost
-      }
-    })
-  });
-  
-  return workflow.json();
-};
-```
-
-### Option 2: SuiteScript Integration
-
-Build native NetSuite scripts:
-
-```javascript
-/**
- * @NApiVersion 2.1
- * @NScriptType UserEventScript
- */
-define(['N/https', 'N/record'], function(https, record) {
-  function afterSubmit(context) {
-    if (context.type === context.UserEventType.CREATE) {
-      const employee = context.newRecord;
-      
-      // Send to Tallyfy
-      https.post({
-        url: 'https://api.tallyfy.com/v1/workflows',
-        headers: {
-          'Authorization': 'Bearer YOUR_KEY',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          template_id: 'employee_onboarding',
-          data: {
-            employee_id: employee.id,
-            name: employee.getValue('entityid')
-          }
-        })
-      });
-    }
-  }
-  
-  return { afterSubmit: afterSubmit };
-});
-```
-
-### Option 3: SuiteTalk SOAP API
-
-For legacy integrations:
-
-```xml
-<!-- Get employee data via SOAP -->
-<soap:Body>
-  <platformMsgs:get>
-    <platformMsgs:baseRef xsi:type="platformCore:RecordRef" 
-                         type="employee" 
-                         internalId="12345"/>
-  </platformMsgs:get>
-</soap:Body>
-```
-
-### Option 4: iPaaS Platforms
-
-Use integration platforms:
-
-- **Celigo**: NetSuite-native integration platform
-- **Workato**: Enterprise automation with NetSuite recipes
-- **Boomi**: Dell Boomi AtomSphere with NetSuite connectors
-- **MuleSoft**: Anypoint Platform with NetSuite support
-
-## Real-World Use Cases
-
-### Global Manufacturing Company
-
-A manufacturer with 5,000 employees across 15 subsidiaries:
-
-1. **Multi-Entity Onboarding**: Subsidiary-specific workflows with local compliance
-2. **Transfer Management**: Complex workflows for inter-company moves
-3. **Project Resource Allocation**: Automated assignment based on skills and availability
-4. **Vendor Onboarding**: Procurement triggers compliance and setup workflows
-5. **Quality Workflows**: Non-conformance triggers investigation processes
-
-Results: 50% reduction in process time, 100% audit compliance
-
-### Professional Services Firm
-
-A consulting company with 500 consultants manages:
-
-- **Project Staffing**: Match consultants to projects based on skills/availability
-- **Time & Expense**: Complex approval routing by project and client
-- **Revenue Recognition**: Milestone completion triggers billing workflows
-- **Resource Planning**: Forecast utilization and trigger hiring workflows
-- **Client Onboarding**: Sales close triggers implementation workflows
-
-### E-Commerce Business
-
-An online retailer leverages integration for:
-
-- **Drop-Ship Coordination**: Order triggers vendor and fulfillment workflows
-- **Inventory Management**: Stock levels trigger purchasing workflows
-- **Customer Service**: Return requests trigger refund/replacement workflows
-- **Seasonal Hiring**: Demand forecasts trigger recruitment workflows
-- **Financial Reconciliation**: Daily settlement and reconciliation workflows
-
-## Technical Implementation Details
-
-### NetSuite 2024.1 REST Enhancements
-
-Latest improvements include:
-
-- **Preferred REST approach** for new integrations
-- **OpenAPI 3.0** definitions for rich metadata
-- **OAuth 2.0** authentication standard
-- **SuiteQL** for high-performance queries
-- **JSON format** for all data exchange
-- **Beta records** now generally available
-
-### SuitePeople HCM Modules
-
-Accessible via API:
-
-- Employee records and organizational structure
-- Time-off management and balances
-- Compensation tracking and history
-- Benefits administration
-- Performance management
-- Workforce scheduling and time tracking
-
-### Integration Architecture
-
-Best practices for NetSuite:
-
-- **Token-based authentication** for security
-- **Sandbox testing** before production
-- **Record type filtering** to avoid timeouts
-- **Batch processing** for large datasets
-- **Error handling** with retry logic
-- **Audit trails** for compliance
-
-### SuiteCloud Platform
-
-Leverage platform capabilities:
-
-- **Customization** without breaking upgrades
-- **Real-time sync** with other NetSuite modules
-- **Role-based permissions** maintained
-- **Multi-subsidiary** support
-- **Currency handling** for global operations
-- **Custom fields** and records support
-
-## Why NetSuite Should Prioritize This
-
-NetSuite customers expect comprehensive automation:
-
-1. **Unified Platform Promise**: Workflows complete the unified vision
-2. **Enterprise Requirements**: Large customers demand process automation
-3. **Competitive Pressure**: SAP and Workday offer extensive workflow capabilities
-4. **ROI Maximization**: Automation multiplies NetSuite's value
-5. **Ecosystem Growth**: Partners and customers benefit from integration
-
-## Take Action Now
-
-### For NetSuite Administrators
-
-**Maximize your NetSuite investment:**
-
-1. [Book a technical demo](https://tallyfy.com/booking/)
-2. We'll connect to your sandbox
-3. Map your workflows to NetSuite data
-4. Build proof of concept
-5. Plan production rollout
-
-**Request official partnership:** Contact your NetSuite account manager about Tallyfy integration. Enterprise customers drive partnership priorities.
-
-### For Finance Teams
-
-Transform financial operations:
-
-- Automate approval workflows
-- Ensure SOX compliance
-- Accelerate month-end close
-- Improve audit readiness
-- Reduce manual reconciliation
-
-### For HR Leaders
-
-Elevate people operations:
-
-- Streamline global onboarding
-- Automate compliance tracking
-- Orchestrate performance management
-- Simplify benefits administration
-- Focus on strategic initiatives
-
-## Implementation Approach
-
-### Phase 1: Discovery (Week 1)
-- Analyze NetSuite configuration
-- Map data model and custom fields
-- Identify integration points
-- Design security model
-- Build technical proof of concept
-
-### Phase 2: Core Integration (Week 2-3)
-- Set up authentication
-- Configure REST API access
-- Map data fields
-- Build foundational workflows
-- Test with sandbox data
-
-### Phase 3: Process Automation (Week 4-6)
-- Deploy employee lifecycle workflows
-- Implement financial approvals
-- Create cross-module workflows
-- Add error handling
-- Conduct user training
-
-### Phase 4: Optimization (Ongoing)
-- Monitor performance metrics
-- Gather user feedback
-- Refine workflows
-- Add advanced automation
-- Scale across subsidiaries
-
-## Security and Compliance
-
-Enterprise-grade security:
-
-- **SOC 2 Type II** certified
-- **ISO 27001** compliant
-- **Token-based auth** with NetSuite
-- **Field-level permissions** respected
-- **Encrypted data** transfer
-- **Complete audit logs**
-
-## ROI Metrics
-
-### Efficiency Gains
-- 60% reduction in process time
-- 80% fewer manual handoffs
-- 90% faster approvals
-- 100% process compliance
-- 50% reduction in errors
-
-### Business Impact
-- Faster employee productivity
-- Improved financial control
-- Better resource utilization
-- Enhanced audit readiness
-- Scalable operations
-
-## Start Your Integration
-
-Every day without automation means:
-- Manual data reconciliation
-- Delayed processes
-- Compliance risks
-- Resource inefficiency
-- Lost productivity
-
-**Transform NetSuite into a workflow powerhouse:** [Schedule your consultation](https://tallyfy.com/booking/)
-
-We'll demonstrate:
-1. Live NetSuite REST API integration
-2. SuitePeople workflow templates
-3. Cross-module automation examples
-4. ROI calculation for your organization
-5. Implementation roadmap
-
-Stop managing data. Start automating processes.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting NetSuite with your Tallyfy workflows. We'll map your approval chains and identify processes that need cross-department coordination.
 
 ## Related articles
+
 <CardGrid>
 <LinkTitleCard header="<b>Vendors > Workday</b>" href="/products/pro/integrations/vendors/workday/" > Tallyfy is building enterprise integration with Workday to automatically transform HCM and financial data into intelligent workflows that orchestrate downstream processes from IT provisioning to compliance tracking without manual intervention for Fortune 500 companies. </LinkTitleCard>
 <LinkTitleCard header="<b>Vendors > TriNet</b>" href="/products/pro/integrations/vendors/trinet/" > Tallyfy integrates with TriNet to automatically transform PEO data into orchestrated business workflows that handle employee onboarding compliance tracking and operational processes while eliminating manual coordination between HR systems and business operations. </LinkTitleCard>

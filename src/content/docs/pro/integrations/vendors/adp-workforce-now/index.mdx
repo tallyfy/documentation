@@ -1,315 +1,75 @@
 ---
-description: Tallyfy integrates with ADP Workforce Now to transform comprehensive
-  HR data into intelligent automated workflows that orchestrate multi-department processes
-  like onboarding approvals compliance tracking and operational coordination across
-  your entire organization while maintaining ADP as your system of record.
+description: Connect ADP Workforce Now with Tallyfy to orchestrate enterprise approval
+  workflows and cross-department coordination that ADP cannot handle on its own -
+  spanning HR, IT, Finance, and Compliance teams.
 id: 842378892a39e058677483b58d7333c4
 sidebar:
   order: 19
-template: doc
 title: ADP Workforce Now
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap ADP Workforce Now cannot fill
 
-## Quick Summary
+ADP Workforce Now provides comprehensive HR, payroll, and talent management. But the moment employee events occur, coordination across multiple departments requires manual intervention.
 
-We're integrating with ADP Workforce Now to transform your comprehensive HR data into intelligent workflows that span your entire organization. When employees are hired, promoted, or request time off in ADP, Tallyfy automatically orchestrates every related process - from multi-tier approvals to compliance tracking to operational coordination - all while maintaining ADP as your system of record.
+ADP Workforce Now cannot orchestrate IT provisioning when someone is hired. It cannot coordinate Facilities for workspace setup. It cannot route complex approvals through multiple departments for compensation changes. These cross-system handoffs happen through email and manual tracking.
 
-<Aside type="tip" title="API Central Platform">
-ADP Workforce Now offers extensive API access through API Central, with robust libraries for payroll, HR, time tracking, and benefits. Quick activation and comprehensive developer resources make integration straightforward.
+**What ADP Workforce Now manages:**
+
+- Comprehensive payroll and tax services
+- HR administration and employee records
+- Talent management and recruiting
+- Benefits and time management
+
+**What falls through the cracks:**
+
+- Cross-department approval routing for compensation and role changes
+- IT and Facilities coordination during onboarding
+- Multi-stakeholder workflows spanning HR, Finance, and Legal
+- Real-time process visibility across the organization
+- Structured escalation when approvals stall
+
+ADP Workforce Now serves your HR organization. But enterprise processes require coordination across every department. Tallyfy orchestrates workflows across ALL your teams - not just one.
+
+## How Tallyfy fills this gap
+
+When an ADP Workforce Now event fires - hire, promotion, termination - Tallyfy launches a structured workflow with clear ownership, deadlines, and escalation.
+
+### Enterprise onboarding
+
+When ADP records a new hire, Tallyfy orchestrates:
+- IT equipment provisioning and system access
+- Facilities workspace and building access
+- Compliance training and certification tracking
+- Finance expense and corporate card setup
+- Security clearance and background check coordination
+
+### Approval workflows
+
+When ADP records changes requiring approval, Tallyfy handles:
+- Multi-level compensation change approvals
+- Role change routing through HR, Finance, and Legal
+- Promotion workflows with budget validation
+- Exception handling when approvals are delayed
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native ADP Workforce Now integration is planned. ADP offers APIs through their marketplace program.
 </Aside>
 
-## Why This Integration Matters
+**Middleware**: Connect via [Zapier](/products/pro/integrations/middleware/zapier/), [Power Automate](/products/pro/integrations/middleware/power-automate/), or [Workato](/products/pro/integrations/middleware/workato/).
 
-ADP Workforce Now manages the full employee lifecycle for mid-size companies, but HR data alone doesn't run your business. Every status change triggers dozens of tasks across departments. Every payroll run needs approvals, allocations, and reporting. Every compliance requirement needs tracking and documentation.
+**API**: Build custom integration using [Tallyfy's API](/products/pro/integrations/open-api/) with ADP's REST APIs.
 
-Our integration transforms ADP from a data repository into an automation engine, ensuring every HR event triggers the right workflows across your organization.
+## Get started
 
-## What We're Building
-
-### Enterprise Onboarding Orchestration
-
-Complex onboarding made simple:
-
-- **Multi-Department Coordination**: HR entry in ADP triggers IT provisioning, facilities setup, finance systems, and department-specific workflows
-- **Role-Based Complexity**: Different paths for executives, managers, individual contributors, contractors, and interns
-- **Compliance Excellence**: Background checks, I-9 verification, license tracking, and certification workflows
-- **Progressive Integration**: Day 1, week 1, month 1, and quarter 1 milestone workflows
-
-### Advanced Workforce Management
-
-Beyond basic time and attendance:
-
-- **Complex Approval Chains**: Multi-tier approvals based on amount, type, department, and policy
-- **Project Time Allocation**: Automatic distribution to cost centers with variance workflows
-- **Shift Management**: Coverage workflows when employees call out or swap shifts
-- **Labor Budget Tracking**: Real-time alerts when approaching thresholds
-
-### Comprehensive Compliance Automation
-
-Stay ahead of regulations:
-
-- **Multi-State Compliance**: State-specific workflows for taxes, leave laws, and reporting
-- **ACA Management**: Track hours, manage eligibility, and generate required reports
-- **Certification Tracking**: Professional licenses, clearances, and training expiry workflows
-- **Audit Preparedness**: Automatic documentation collection and organization
-
-## How to Connect Today
-
-### Option 1: ADP API Central Direct Integration
-
-Full API access for Workforce Now customers:
-
-```javascript
-// Example: Complex onboarding from ADP Workforce Now
-const handleWorkforceNowHire = async (event) => {
-  // Get comprehensive employee data
-  const worker = await adpAPI.getWorker(event.aoid);
-  const assignments = await adpAPI.getWorkAssignments(event.aoid);
-  const compensation = await adpAPI.getCompensation(event.aoid);
-  
-  // Determine workflow complexity
-  const workflowTemplate = determineTemplate(
-    worker.workerStatus.statusCode,
-    assignments[0].jobCode,
-    assignments[0].managementPositionIndicator
-  );
-  
-  // Create orchestrated onboarding
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: workflowTemplate,
-      name: `Onboarding - ${worker.legalName.formattedName}`,
-      priority: assignments[0].managementPositionIndicator ? 'high' : 'normal',
-      data: {
-        // Core employee data
-        aoid: worker.associateOID,
-        employee_id: worker.workerID.idValue,
-        name: worker.legalName.formattedName,
-        
-        // Contact information
-        work_email: worker.businessCommunication.emails[0].emailUri,
-        personal_email: worker.personalCommunication.emails[0].emailUri,
-        mobile: worker.businessCommunication.mobiles[0].formattedNumber,
-        
-        // Position details
-        job_title: assignments[0].jobTitle,
-        job_code: assignments[0].jobCode,
-        department: assignments[0].organizationalUnits[0].nameCode,
-        reports_to: assignments[0].reportsTo[0].associateOID,
-        
-        // Location and logistics
-        work_location: assignments[0].workLocation.nameCode,
-        remote_indicator: assignments[0].remoteWorkerIndicator,
-        
-        // Compensation for equipment tiers
-        salary_band: compensation.baseRemuneration.effectiveDate,
-        is_manager: assignments[0].managementPositionIndicator,
-        
-        // Compliance requirements
-        background_check_required: assignments[0].jobCode.includes('FIN'),
-        licenses_required: assignments[0].licenses,
-        
-        // Benefits and payroll
-        benefits_eligible: assignments[0].benefitsEligible,
-        pay_frequency: compensation.payFrequency
-      }
-    })
-  });
-  
-  return workflow.json();
-};
-```
-
-### Option 2: Real-Time Webhook Processing
-
-Event-driven automation:
-
-```javascript
-// Configure ADP webhooks for real-time processing
-app.post('/webhooks/adp-workforce-now', async (req, res) => {
-  const event = req.body;
-  
-  switch(event.eventNameCode) {
-    case 'worker.hire':
-      await createComprehensiveOnboarding(event.data);
-      break;
-      
-    case 'worker.rehire':
-      await createRehireWorkflow(event.data);
-      break;
-      
-    case 'worker.leave.request':
-      await createLeaveManagementWorkflow(event.data);
-      break;
-      
-    case 'worker.termination':
-      await createOffboardingWorkflow(event.data);
-      break;
-      
-    case 'position.change':
-      await createTransferWorkflow(event.data);
-      break;
-  }
-  
-  res.status(200).json({ processed: true });
-});
-```
-
-### Option 3: Batch Processing Integration
-
-For large-scale operations:
-
-1. Schedule ADP reports via API
-2. Process employee changes in batches
-3. Trigger workflows based on changes
-4. Maintain sync status dashboard
-5. Handle exceptions separately
-
-## Real-World Use Cases
-
-### Healthcare Network
-
-A 2,000-employee healthcare system uses integration for:
-
-1. **Credential Management**: License tracking across multiple states
-2. **Shift Coverage**: Complex scheduling with float pool management
-3. **Compliance Tracking**: OSHA, Joint Commission, state requirements
-4. **Training Coordination**: Role-specific certifications and continuing education
-5. **Union Management**: Contract-specific workflows and reporting
-
-Results: 100% compliance rate, 50% reduction in scheduling conflicts
-
-### Manufacturing Company
-
-A manufacturer with 1,500 employees manages:
-
-- **Safety Certification**: OSHA training tracking and renewal workflows
-- **Shift Management**: 24/7 operations with complex handoffs
-- **Skills Matrix**: Qualification tracking for equipment operation
-- **Temp-to-Perm**: Conversion workflows for contract workers
-- **Multi-Site Coordination**: Transfers and temporary assignments
-
-### Financial Services Firm
-
-A financial company leverages integration for:
-
-- **Background Screening**: Progressive checks based on role sensitivity
-- **License Management**: Series 7, 66, insurance licenses tracking
-- **Insider Trading**: Quarterly attestation workflows
-- **Client Access**: Approval workflows for client data access
-- **Audit Support**: SOX compliance and documentation
-
-## Technical Implementation Details
-
-### ADP API Central Capabilities
-
-Comprehensive API access:
-
-- **Worker Management**: Full CRUD on employee records
-- **Payroll APIs**: Pay statements, earnings, deductions
-- **Time Management**: Punches, schedules, time-off
-- **Benefits Administration**: Enrollments, life events, dependents
-- **HR Events**: Hires, terminations, status changes
-- **Reporting APIs**: Custom reports and analytics
-
-### Security and Authentication
-
-Enterprise security standards:
-
-- **OAuth 2.0 / OpenID Connect** authentication
-- **Certificate-based** security for API calls
-- **Encrypted transport** using TLS 1.2+
-- **IP whitelisting** for additional security
-- **Rate limiting** to prevent overload
-- **Audit logging** of all API activity
-
-### Integration Patterns
-
-Best practices for enterprise integration:
-
-- **Event-driven**: Webhooks for immediate response
-- **Scheduled sync**: Batch processing for non-urgent updates
-- **Hybrid approach**: Combine real-time and batch
-- **Error handling**: Comprehensive retry logic
-- **Monitoring**: Real-time dashboard of sync status
-
-## Why ADP Should Prioritize This
-
-Workforce Now customers demand sophisticated automation:
-
-1. **Enterprise Expectations**: Mid-size companies expect enterprise capabilities
-2. **Competitive Pressure**: Workday and others offer extensive automation
-3. **Customer Retention**: Deep integrations prevent churn
-4. **Upsell Opportunities**: Automation drives adoption of premium features
-5. **Market Leadership**: Set the standard for HR automation
-
-## Take Action Now
-
-### For HR Leaders
-
-**Transform HR operations:**
-
-1. [Schedule an enterprise demo](https://tallyfy.com/booking/)
-2. We'll analyze your ADP configuration
-3. Map critical processes
-4. Design automation strategy
-5. Provide implementation roadmap
-
-**Accelerate partnership:** Contact your ADP account manager requesting official Tallyfy integration.
-
-### For IT Teams
-
-Finally, HR integration that works:
-
-- Enterprise-grade security
-- Minimal maintenance required
-- Automatic provisioning/deprovisioning
-- Reduced helpdesk tickets
-- Complete audit trails
-
-### For Operations Leaders
-
-Drive operational excellence:
-
-- Consistent process execution
-- Real-time compliance tracking
-- Reduced manual coordination
-- Better resource utilization
-- Data-driven insights
-
-## Get Started Today
-
-Every day without integration costs you:
-- Hours of manual data entry
-- Compliance risks
-- Process inconsistencies
-- Employee frustration
-- Lost productivity
-
-**Transform your workforce management:** [Book your consultation](https://tallyfy.com/booking/)
-
-We'll demonstrate:
-1. Live ADP Workforce Now integration
-2. Enterprise workflow templates
-3. ROI calculation for your organization
-4. Security and compliance framework
-5. Phased implementation approach
-
-Stop managing data. Start automating operations.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting ADP Workforce Now with your Tallyfy workflows.
 
 ## Related articles
+
 <CardGrid>
-<LinkTitleCard header="<b>Vendors > ADP Run</b>" href="/products/pro/integrations/vendors/adp-run/" > Tallyfy integrates with ADP Run to automatically transform small business payroll and HR data into orchestrated workflows that handle everything from new hire onboarding to tax compliance without manual coordination. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Paylocity</b>" href="/products/pro/integrations/vendors/paylocity/" > Tallyfy is building native integration with Paylocity to automatically transform HCM data into intelligent workflows that orchestrate the complete employee lifecycle from application to termination including automated onboarding payroll processing compliance tracking and IT provisioning without manual handoffs or compliance gaps. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Workday</b>" href="/products/pro/integrations/vendors/workday/" > Tallyfy is building enterprise integration with Workday to automatically transform HCM and financial data into intelligent workflows that orchestrate downstream processes from IT provisioning to compliance tracking without manual intervention for Fortune 500 companies. </LinkTitleCard>
-<LinkTitleCard header="<b>Vendors > Rippling</b>" href="/products/pro/integrations/vendors/rippling/" > Tallyfy integrates with Rippling to transform their unified workforce management platform into automated business workflows that orchestrate everything from equipment ordering to training schedules while Rippling handles core HR IT and finance operations. </LinkTitleCard>
 </CardGrid>

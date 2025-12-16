@@ -537,10 +537,48 @@ python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated d
 3. **Content Hierarchy**:
    - Start with H2 (`##`), never H1
    - Don't skip heading levels (H2 → H3 → H4)
-   - All headings use sentence case (lowercase except proper nouns)
    - **Remove trademark symbols**: Never use Tallyfy<sup>®</sup> - always just "Tallyfy" without any trademark notation
 
-4. **Related Articles Section** (CRITICAL RULES):
+4. **Heading Sentence Case Rules** (MANDATORY):
+
+   All headings at ALL levels (##, ###, ####) MUST use sentence case. This makes content look less AI-generated and more human-written.
+
+   **What sentence case means:**
+   - Only the FIRST word is capitalized
+   - Proper nouns remain capitalized
+   - Acronyms remain ALL CAPS
+   - Everything else is lowercase
+
+   **Always capitalize:**
+   - First word of the heading
+   - **Proper nouns**: Tallyfy, Microsoft, Windows, Google, Azure, Zapier, Power Automate, SharePoint, Chrome, Firefox, Safari, AWS, etc.
+   - **Product names**: Claude, ChatGPT, OpenAI, GitHub, Salesforce, HubSpot, Slack, Teams, etc.
+   - **Acronyms**: API, RPA, SSO, OAuth, HTTP, ID, CSV, JSON, SQL, SLM, VRAM, CRM, ERP, etc.
+
+   **Never capitalize (unless first word):**
+   - Generic terms: workflow, process, task, template, automation, integration
+   - Descriptive words: advanced, basic, comprehensive, complete, simple
+   - Actions: creating, using, understanding, getting, building
+   - After colons: the word following a colon is lowercase unless it's a proper noun
+
+   **Examples:**
+
+   ✅ CORRECT:
+   - `## How to create a template` (only first word capitalized)
+   - `### Understanding Power Automate basics` (Power Automate is proper noun)
+   - `### Getting started with Claude computer use` (Claude is proper noun)
+   - `## API endpoint reference` (API is acronym)
+   - `### Example workflow: restaurant reservation` (lowercase after colon)
+   - `### Microsoft UFO2: enterprise-grade Windows integration` (proper nouns kept)
+
+   ❌ INCORRECT:
+   - `## How To Create A Template` (Title Case - every word capitalized)
+   - `### Understanding Power Automate Basics` (Basics should be lowercase)
+   - `### Getting Started With Claude Computer Use` (Started, With, Computer, Use should be lowercase)
+   - `## API Endpoint Reference` (Endpoint, Reference should be lowercase)
+   - `### Example Workflow: Restaurant Reservation` (Workflow, Restaurant, Reservation should be lowercase)
+
+5. **Related Articles Section** (CRITICAL RULES):
    
    ⚠️ **ABSOLUTE PROHIBITION FOR EXISTING ARTICLES**: 
    - **NEVER EVER modify the Related articles section in existing articles**

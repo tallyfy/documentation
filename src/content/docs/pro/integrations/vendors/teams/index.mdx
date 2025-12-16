@@ -1,388 +1,90 @@
 ---
-description: Tallyfy integrates Microsoft Teams workflows by transforming team communication
-  into structured processes where workflows are triggered from messages completed
-  in channels and tracked without leaving the Teams collaboration environment.
+description: Connect Microsoft Teams with Tallyfy to transform conversations into
+  tracked workflows with clear ownership, deadlines, and accountability - turning
+  chat requests into structured processes that don't get buried.
 id: 385c1ed676fcb8f80a15b97e8a430775
 sidebar:
   order: 15
-template: doc
 title: Microsoft Teams
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
+import { Aside } from "@astrojs/starlight/components";
 
-import { Aside } from '@astrojs/starlight/components';
+## The gap Teams cannot fill
 
-## Quick Summary
+Microsoft Teams is where your team communicates. But communication is not process.
 
-We're integrating with Microsoft Teams to bring structured workflows directly into where your teams already work. Instead of switching between Teams for communication and other tools for processes, Tallyfy workflows live inside Teams - triggered by messages, completed in channels, and tracked without leaving your collaboration space.
+When someone asks "can you approve this?" in a Teams message, there's no assigned owner, no deadline, no escalation. If the message gets buried in a busy channel, the work doesn't happen. Teams cannot track whether a request was completed or hold anyone accountable for it.
 
-<Aside type="tip" title="Native Platform Integration">
-Microsoft Teams offers comprehensive APIs through Microsoft Graph, Power Automate integration, and a rich app ecosystem. Custom apps can be built with minimal code using Teams Toolkit.
+Teams Approvals (built on Power Automate) handles simple linear approvals, but cannot manage complex multi-step processes with conditional routing, parallel tasks, or cross-department coordination.
+
+**What Teams handles:**
+
+- Real-time messaging and channels
+- Video meetings and calls
+- File sharing via SharePoint
+- Basic approvals via Power Automate
+
+**What falls through the cracks:**
+
+- Request tracking with clear ownership and deadlines
+- Complex approval workflows spanning multiple departments
+- SLA enforcement and automatic escalation
+- Process visibility and completion metrics
+- Conditional routing based on request type or data
+- Audit trails for compliance requirements
+
+Teams is where teams talk. Tallyfy is where work gets tracked and completed. The integration bridges conversation to action.
+
+## How Tallyfy fills this gap
+
+When a request is made in Teams, Tallyfy creates a structured workflow with assigned owners, deadlines, and escalation rules. Every step is tracked, and nothing gets lost in chat history.
+
+### Request management
+
+Turn Teams messages into tracked work:
+- Convert any message into a Tallyfy task with one click
+- Launch structured workflows from slash commands
+- Collect request details via forms before creating work
+- Link Teams conversations to Tallyfy tasks for context
+
+### Process execution
+
+Complete workflows without leaving Teams:
+- Receive task notifications in your activity feed
+- Approve or reject requests directly from Teams
+- Post workflow status updates to channels automatically
+- Track progress across all your assigned work
+
+### Team coordination
+
+Leverage Teams collaboration with structured workflows:
+- New channel creation triggers project setup workflows
+- Guest access triggers compliance and security reviews
+- Document uploads trigger review and approval processes
+- Meeting action items become tracked Tallyfy tasks
+
+## Connect today
+
+<Aside type="note" title="Integration Status">
+Native Teams integration is planned. Connect today via Power Automate or custom development using Microsoft Graph API.
 </Aside>
 
-## Why This Integration Matters
+**Power Automate**: The primary connection method. Use [Power Automate](/products/pro/integrations/middleware/power-automate/) to trigger Tallyfy workflows from Teams events and post updates back to channels.
 
-Teams is where work happens - meetings, chats, file sharing, and collaboration. But informal communication often lacks the structure needed for consistent execution. Critical requests get buried in chat. Approvals happen through scattered messages. Processes rely on people remembering what to do.
+**Microsoft Graph API**: Build custom Teams apps that integrate with Tallyfy using Adaptive Cards and Bot Framework.
 
-Our integration transforms Teams from a communication tool into a workflow engine. Start workflows from messages. Complete tasks in channels. Track progress in tabs. All without leaving Teams.
+**Webhooks**: Send Tallyfy workflow updates to Teams channels via incoming webhooks.
 
-## What We're Building
+For technical implementation details including code examples and Adaptive Cards, see [Teams technical integration](/products/pro/integrations/vendors/teams/technical/).
 
-### Workflow Triggers from Teams
+## Get started
 
-Turn conversations into action:
-
-- **Message-Based Workflows**: React to a message with a workflow emoji to trigger a process
-- **Command Workflows**: Type `/tallyfy expense-report` to start workflows
-- **Form Workflows**: Adaptive cards in channels collect data and launch workflows  
-- **Meeting Workflows**: Action items from meetings automatically become workflows
-
-### Workflow Execution in Teams
-
-Complete work where you communicate:
-
-- **Channel Workflows**: Tasks appear in relevant channels for team completion
-- **Personal Tasks**: Individual assignments show in Teams activity feed
-- **Approval Flows**: Approve/reject directly from Teams notifications
-- **Status Updates**: Workflow progress posts to channels automatically
-
-### Teams-Specific Automations
-
-Leverage Teams collaboration features:
-
-- **Team Provisioning**: New project channels trigger setup workflows
-- **Guest Access**: External user additions trigger compliance workflows
-- **File Workflows**: Document uploads trigger review/approval processes
-- **Meeting Followups**: Recording availability triggers distribution workflows
-
-## How to Connect Today
-
-### Option 1: Microsoft Graph API
-
-Direct integration using Graph API:
-
-```javascript
-// Example: Create workflow from Teams message
-const handleTeamsMessage = async (context) => {
-  // Get message details
-  const message = context.activity;
-  const teamId = message.channelData.team.id;
-  const channelId = message.channelData.channel.id;
-  const user = message.from;
-  
-  // Parse workflow trigger
-  if (message.text.includes('@tallyfy')) {
-    const workflowType = extractWorkflowType(message.text);
-    
-    // Create workflow with Teams context
-    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        template_id: workflowType,
-        name: `${workflowType} - ${user.name}`,
-        data: {
-          requester_name: user.name,
-          requester_email: user.aadObjectId,
-          team_id: teamId,
-          team_name: message.channelData.team.name,
-          channel_id: channelId,
-          channel_name: message.channelData.channel.name,
-          message_content: message.text,
-          message_url: `https://teams.microsoft.com/l/message/${channelId}/${message.id}`,
-          timestamp: message.timestamp
-        }
-      })
-    });
-    
-    // Post confirmation to Teams
-    await postToTeams(channelId, `✅ Workflow started: ${workflow.id}`);
-  }
-};
-```
-
-### Option 2: Teams App with Adaptive Cards
-
-Build interactive Teams app:
-
-```javascript
-// Adaptive Card for workflow initiation
-const workflowCard = {
-  type: 'AdaptiveCard',
-  body: [
-    {
-      type: 'TextBlock',
-      text: 'Start New Workflow',
-      size: 'Large',
-      weight: 'Bolder'
-    },
-    {
-      type: 'Input.ChoiceSet',
-      id: 'workflowType',
-      choices: [
-        { title: 'Expense Report', value: 'expense' },
-        { title: 'Time Off Request', value: 'timeoff' },
-        { title: 'IT Request', value: 'itrequest' }
-      ]
-    },
-    {
-      type: 'Input.Text',
-      id: 'description',
-      placeholder: 'Describe your request',
-      isMultiline: true
-    }
-  ],
-  actions: [
-    {
-      type: 'Action.Submit',
-      title: 'Start Workflow',
-      data: { action: 'create_workflow' }
-    }
-  ]
-};
-```
-
-### Option 3: Power Automate Integration
-
-Use Power Automate for no-code integration:
-
-1. Create Power Automate flow triggered by Teams events
-2. Add Tallyfy connector actions
-3. Map Teams data to workflow fields
-4. Configure approval actions in Teams
-5. Set up notifications and updates
-
-### Option 4: Teams Webhook Integration
-
-Simple webhook-based integration:
-
-```javascript
-// Incoming webhook to Teams channel
-const notifyTeams = async (workflowUpdate) => {
-  const teamsWebhookUrl = 'https://outlook.office.com/webhook/YOUR_WEBHOOK_URL';
-  
-  await fetch(teamsWebhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      '@type': 'MessageCard',
-      title: 'Workflow Update',
-      text: `${workflowUpdate.name} - ${workflowUpdate.status}`,
-      potentialAction: [{
-        '@type': 'OpenUri',
-        name: 'View Workflow',
-        targets: [{ uri: workflowUpdate.url }]
-      }]
-    })
-  });
-};
-```
-
-## Real-World Use Cases
-
-### Remote Team Operations
-
-A distributed company with 500 remote employees:
-
-1. **Standup Automation**: Daily standup messages trigger task workflows
-2. **Request Management**: IT/HR requests from Teams chat
-3. **Document Reviews**: File uploads trigger approval workflows
-4. **Meeting Actions**: Followup tasks created from meeting notes
-5. **Team Onboarding**: New channel members trigger access workflows
-
-Results: 80% faster request resolution, 100% meeting followup completion
-
-### Customer Support Operations
-
-A support team handling 1000+ tickets daily:
-
-- **Escalation Workflows**: Critical messages trigger incident workflows
-- **Shift Handoffs**: Channel posts trigger handoff checklists
-- **Knowledge Sharing**: Resolved issues trigger documentation workflows
-- **Customer Callbacks**: Request messages create callback workflows
-- **Team Coordination**: Cross-team requests handled via workflows
-
-### Project Management Office
-
-A PMO managing 50+ concurrent projects:
-
-- **Project Kickoffs**: New Teams trigger setup workflows
-- **Status Reports**: Weekly reminders trigger report workflows
-- **Risk Management**: Risk flags trigger mitigation workflows
-- **Resource Requests**: Channel requests trigger allocation workflows
-- **Milestone Tracking**: Date triggers create review workflows
-
-## Technical Implementation Details
-
-### Microsoft Graph Capabilities
-
-Access comprehensive Teams data:
-
-- **Teams and Channels**: Create, read, update team structures
-- **Messages and Chats**: Read and send messages
-- **Users and Groups**: Access directory information
-- **Files and Folders**: SharePoint/OneDrive integration
-- **Calendar and Events**: Meeting scheduling and management
-- **Presence and Activity**: User availability status
-
-### Teams App Development
-
-Build custom Teams apps:
-
-- **Teams Toolkit**: Simplified development with VS Code
-- **Bot Framework**: Interactive bot capabilities
-- **Adaptive Cards**: Rich, interactive UI elements
-- **Message Extensions**: Add actions to compose box
-- **Tab Applications**: Full web apps in Teams tabs
-- **Personal Apps**: Individual workspace apps
-
-### Authentication Options
-
-Secure access methods:
-
-- **SSO (Single Sign-On)**: Seamless authentication
-- **OAuth 2.0**: Standard authorization flow
-- **Azure AD**: Enterprise identity integration
-- **App-Only Permissions**: Service-to-service auth
-- **Delegated Permissions**: User context operations
-
-### Power Platform Integration
-
-Leverage Microsoft ecosystem:
-
-- **Power Automate**: No-code workflow automation
-- **Power Apps**: Custom apps within Teams
-- **Power Virtual Agents**: Chatbot integration
-- **Dataverse**: Shared data platform
-- **Copilot Integration**: AI-powered automation
-
-## Why Microsoft Should Accelerate This
-
-Teams users need structured workflows:
-
-1. **Platform Completeness**: Workflows complete the collaboration vision
-2. **Enterprise Demand**: Organizations want fewer tools, not more
-3. **Competitive Advantage**: Slack and others offer workflow features
-4. **User Retention**: Integrated workflows increase Teams stickiness
-5. **License Value**: More value from Microsoft 365 investment
-
-## Take Action Now
-
-### For IT Administrators
-
-**Bring workflows into Teams:**
-
-1. [Schedule a demo](https://tallyfy.com/booking/)
-2. We'll show Teams integration live
-3. Review security and compliance
-4. Plan pilot deployment
-5. Roll out to teams
-
-**Fast-track deployment:** Add Tallyfy from Teams Admin Center when available. Request it from Microsoft.
-
-### For Team Leaders
-
-Transform team productivity:
-
-- Start workflows without leaving Teams
-- Track progress in channels
-- Complete approvals instantly
-- Automate routine requests
-- Focus on collaboration
-
-### For End Users
-
-Work smarter in Teams:
-
-- No new tools to learn
-- Workflows where you already work
-- Faster request handling
-- Clear task assignments
-- Less app switching
-
-## Implementation Strategy
-
-### Phase 1: Basic Integration (Week 1)
-- Set up Teams app registration
-- Configure Graph API access
-- Create webhook connections
-- Build first workflow trigger
-- Test with pilot team
-
-### Phase 2: Interactive Features (Week 2)
-- Deploy adaptive cards
-- Add bot interactions
-- Create approval flows
-- Set up notifications
-- Train early adopters
-
-### Phase 3: Advanced Automation (Week 3-4)
-- Build message extensions
-- Add tab applications
-- Configure Power Automate
-- Create team templates
-- Deploy organization-wide
-
-### Phase 4: Optimization (Ongoing)
-- Monitor usage patterns
-- Gather feedback
-- Refine workflows
-- Add AI features
-- Scale across organization
-
-## Security and Governance
-
-Enterprise-ready security:
-
-- **Azure AD integration** for identity
-- **Conditional access** policies
-- **Data loss prevention** (DLP) support
-- **Information barriers** compliance
-- **Audit logging** for all actions
-- **GDPR/HIPAA** compliant
-
-## Integration Benefits
-
-### Productivity Gains
-- 50% less app switching
-- 75% faster approvals
-- 90% better process adoption
-- 100% workflow visibility
-- 40% reduction in emails
-
-### User Experience
-- Work where you communicate
-- Consistent interface
-- Mobile-ready workflows
-- Real-time collaboration
-- Contextual automation
-
-### IT Benefits
-- Single platform management
-- Reduced tool sprawl
-- Centralized governance
-- Lower training costs
-- Better adoption rates
-
-## Get Started Today
-
-Your teams are already in Teams. Your workflows should be too.
-
-**Ready to integrate?** [Book your consultation](https://tallyfy.com/booking/) to see Teams + Tallyfy in action:
-
-1. Live Teams integration demo
-2. Workflow templates for Teams
-3. Security and compliance review
-4. Deployment planning
-5. Success metrics definition
-
-Stop switching contexts. Start working smarter in Teams.
+[Book a consultation](https://tallyfy.com/booking/) to discuss connecting Microsoft Teams with your Tallyfy workflows. We'll show you how to turn conversations into tracked processes.
 
 ## Related articles
+
 <CardGrid>
 <LinkTitleCard header="<b>Power Automate > Integrating Power Automate approvals with Microsoft Teams</b>" href="/products/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams/" > Integrating Power Automate approvals with Microsoft Teams centralizes Tallyfy approval notifications within Teams to reduce app switching and accelerate decision-making through interactive Adaptive Cards that enable instant approval responses. </LinkTitleCard>
 <LinkTitleCard header="<b>Vendors > Slack</b>" href="/products/pro/integrations/vendors/slack/" > The Tallyfy Slack integration bridges team communication with workflow management by enabling direct task creation and process launching from Slack channels while providing real-time notifications and maintaining comprehensive tracking across both platforms. </LinkTitleCard>

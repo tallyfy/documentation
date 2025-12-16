@@ -1,0 +1,118 @@
+---
+description: Technical implementation details for connecting NetSuite with Tallyfy
+  including REST API examples, SuiteScript integration, data mapping, and authentication
+  configuration for ERP deployments.
+id: 0000000000000000000000000000000000
+sidebar:
+  order: 2
+title: NetSuite technical integration
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Integration options
+
+NetSuite 2024.1 emphasizes REST APIs as the preferred integration method. Choose based on your technical requirements.
+
+### REST API integration (recommended)
+
+Use OAuth 2.0 authentication with NetSuite's REST API:
+
+```javascript
+const handleEmployeeHire = async (employeeData) => {
+  const employee = await netsuiteAPI.get(`/employee/${employeeData.id}`, {
+    expand: ['department', 'location', 'subsidiary', 'supervisor']
+  });
+
+  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      template_id: 'netsuite_onboarding',
+      name: `Onboarding - ${employee.entityId}`,
+      data: {
+        employee_id: employee.id,
+        full_name: `${employee.firstName} ${employee.lastName}`,
+        email: employee.email,
+        subsidiary: employee.subsidiary.name,
+        department: employee.department.name,
+        location: employee.location.name,
+        supervisor: employee.supervisor.name
+      }
+    })
+  });
+
+  return workflow.json();
+};
+```
+
+### SuiteScript integration
+
+Build native NetSuite scripts that trigger on record events:
+
+```javascript
+/**
+ * @NApiVersion 2.1
+ * @NScriptType UserEventScript
+ */
+define(['N/https', 'N/record'], function(https, record) {
+  function afterSubmit(context) {
+    if (context.type === context.UserEventType.CREATE) {
+      const employee = context.newRecord;
+
+      https.post({
+        url: 'https://api.tallyfy.com/v1/workflows',
+        headers: {
+          'Authorization': 'Bearer YOUR_KEY',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          template_id: 'employee_onboarding',
+          data: {
+            employee_id: employee.id,
+            name: employee.getValue('entityid')
+          }
+        })
+      });
+    }
+  }
+
+  return { afterSubmit: afterSubmit };
+});
+```
+
+## Data mapping
+
+Common NetSuite fields to map to Tallyfy workflow variables:
+
+| NetSuite Field | Tallyfy Variable | Description |
+|----------------|------------------|-------------|
+| `id` | `employee_id` | Internal record ID |
+| `entityId` | `entity_id` | Employee number |
+| `firstName` + `lastName` | `full_name` | Employee name |
+| `email` | `email` | Email address |
+| `subsidiary.name` | `subsidiary` | Legal entity |
+| `department.name` | `department` | Department name |
+| `location.name` | `location` | Office location |
+| `supervisor.name` | `manager` | Direct manager |
+| `title` | `job_title` | Job title |
+| `employeeType` | `employee_type` | Employment type |
+
+## iPaaS alternatives
+
+If SuiteScript development is not available:
+
+- **Celigo**: NetSuite-native integration platform
+- **Workato**: Enterprise automation with NetSuite recipes
+- **Boomi**: Dell Boomi AtomSphere with NetSuite connectors
+- **MuleSoft**: Anypoint Platform with NetSuite support
+
+## Related articles
+
+<CardGrid>
+<LinkTitleCard header="<b>Open API > REST API</b>" href="/products/pro/integrations/open-api/" > Tallyfy provides a comprehensive REST API for custom integrations and automation. </LinkTitleCard>
+<LinkTitleCard header="<b>Webhooks > Setup</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Configure webhooks to receive real-time notifications when workflow events occur. </LinkTitleCard>
+</CardGrid>
