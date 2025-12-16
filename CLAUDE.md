@@ -477,6 +477,32 @@ python scripts/update-documentation-structure.py     # Update structure map afte
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
 
+## LOCAL PRE-COMMIT CHECKS
+
+Before committing documentation changes, run these validation scripts locally:
+
+### Validate Internal Links
+
+```bash
+python3 scripts/validate-internal-links.py --dir src/content/docs
+```
+
+This checks that all internal `/products/...` links point to existing MDX files. **Run this before every commit to avoid build failures from broken links.**
+
+The script:
+- Scans all MDX files in the documentation directory
+- Extracts internal links (markdown `[text](/products/...)` and href `href="/products/..."` patterns)
+- Validates each link points to an existing file
+- Reports broken links by file with full paths
+
+### Validate Markdown Structure
+
+```bash
+python3 scripts/markdown-lint.py --dir src/content/docs
+```
+
+This validates frontmatter, imports, and related articles sections.
+
 ## PLATFORM & TECHNICAL REQUIREMENTS
 
 ### Documentation Platform
