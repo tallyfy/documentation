@@ -1788,3 +1788,55 @@ Before submitting documentation:
 - [ ] Content length justified by value provided
 - [ ] Prerequisites stated for complex procedures
 - [ ] Expected outcomes clearly defined
+
+## PR Review Intelligence
+
+### Code Change Minimization (ABSOLUTE PRIORITY)
+
+**Fundamental Principle**: Every PR must implement the MINIMAL content changes necessary to properly address the issue.
+
+**Review Requirements**:
+- **MINIMIZE CHANGES** - only modify what's necessary to fix the content issue
+- **No Scope Creep** - implement only what's specified in the issue
+- **Preserve Existing Structure** - follow established documentation patterns
+- **Targeted Fixes** - address the specific problem without rewriting entire articles
+
+### Documentation-Specific Review Focus
+
+**Critical Review Areas**:
+1. **MDX Syntax**: Valid frontmatter, correct imports, proper component usage
+2. **Link Validation**: Internal links point to existing files, trailing slashes present
+3. **Heading Structure**: H2 start, no skipped levels, sentence case
+4. **Content Quality**: No AI-typical phrases, answer-first structure, high information density
+5. **Asset References**: Screenshot URLs resolve, alt text present
+
+### Common Anti-Patterns to Reject
+
+1. **Scope Creep**: Editing unrelated sections while fixing a specific issue
+2. **Related Articles Edits**: These are auto-generated - NEVER manually modify
+3. **AI-Typical Phrases**: "delve", "leverage", "comprehensive", etc.
+4. **Fabricated Statistics**: All numbers must be from verifiable sources
+5. **Broken Links**: Always validate internal link targets exist
+6. **Missing Imports**: Components used but not imported at top of file
+
+### PR Review Checklist
+
+- [ ] Changes are minimal and targeted to the issue
+- [ ] No unnecessary rewriting beyond scope
+- [ ] MDX syntax valid (frontmatter, imports, components)
+- [ ] Internal links validated (exist and have trailing slashes)
+- [ ] Heading structure correct (H2 start, no skipped levels)
+- [ ] Sentence case used in all headings
+- [ ] No AI-typical phrases present
+- [ ] No fabricated statistics or percentages
+- [ ] Related articles section NOT modified
+- [ ] Screenshots have proper alt text
+
+### Content Quality Gates
+
+**Before Approving Any Documentation PR**:
+1. Run `python scripts/validate-internal-links.py --dir src/content/docs`
+2. Run `python scripts/markdown-lint.py --dir src/content/docs`
+3. Verify frontmatter fields are valid
+4. Check that any new component imports are present
+5. Confirm no manual edits to Related articles sections
