@@ -358,7 +358,7 @@ When given a staging or production URL, derive the local file path using this pa
 
 **URL to Local Path Conversion**:
 ```
-URL: https://staging.products.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/
+URL: https://staging.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/
 Path: documentation/src/content/docs/pro/integrations/extract-tasks-from-meetings.mdx
 
 URL: https://tallyfy.com/products/pro/tracking-and-tasks/tasks/
@@ -366,18 +366,18 @@ Path: documentation/src/content/docs/pro/tracking-and-tasks/tasks/index.mdx
 ```
 
 **Conversion Rules**:
-1. Remove domain (`https://staging.products.tallyfy.com/` or `https://tallyfy.com/`)
+1. Remove domain (`https://staging.tallyfy.com/` or `https://tallyfy.com/`)
 2. Remove `/products/` prefix
 3. Add relative base path: `documentation/src/content/docs/`
 4. If URL ends with a specific page name: add `.mdx`
 5. If URL ends with `/`: look for `index.mdx` in that directory
 
 **Examples** (relative to GitHub root directory):
-- `https://staging.products.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/`
+- `https://staging.tallyfy.com/products/pro/integrations/extract-tasks-from-meetings/`
   → `documentation/src/content/docs/pro/integrations/extract-tasks-from-meetings.mdx`
 - `https://tallyfy.com/products/pro/documenting/templates/`
   → `documentation/src/content/docs/pro/documenting/templates/index.mdx`
-- `https://staging.products.tallyfy.com/products/manufactory/overview/`
+- `https://staging.tallyfy.com/products/manufactory/overview/`
   → `documentation/src/content/docs/manufactory/overview.mdx` or `overview/index.mdx`
 
 ### Documentation Discovery Strategies
@@ -1144,7 +1144,7 @@ These patterns are effective when used intentionally with substance:
 - **Format**: Absolute paths without .mdx extension
 - **Example**: `/products/pro/tracking-and-tasks/processes/`
 - **Public Production URL**: Base URL is `https://tallyfy.com/products/`
-- **Public Staging URL**: Base URL is `https://staging.products.tallyfy.com/products/`
+- **Public Staging URL**: Base URL is `https://staging.tallyfy.com/products/`
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`
