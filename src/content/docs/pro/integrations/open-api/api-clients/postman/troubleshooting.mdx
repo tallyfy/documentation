@@ -6,7 +6,7 @@ sidebar:
 title: Troubleshooting common issues
 ---
 
-To fix Postman errors with Tallyfy's API, check the X-Tallyfy-Client header first, verify your authentication grant type is password not client_credentials, and ensure tokens haven't expired. These three issues cause 90% of Tallyfy API failures.
+To fix Postman errors with Tallyfy's API, check the X-Tallyfy-Client header first, verify your authentication grant type is password not client_credentials, and ensure tokens haven't expired. These three issues cause the majority of Tallyfy API failures.
 
 ## Authentication errors
 
@@ -14,7 +14,7 @@ To fix Postman errors with Tallyfy's API, check the X-Tallyfy-Client header firs
 
 Postman community experts have identified these patterns from thousands of support cases:
 
-1. **Missing X-Tallyfy-Client header** (50% of cases)
+1. **Missing X-Tallyfy-Client header** (most common)
    ```
    X-Tallyfy-Client: APIClient
    ```
@@ -22,14 +22,14 @@ Postman community experts have identified these patterns from thousands of suppo
    
    **Expert insight**: This custom header prevents unauthorized API usage and helps Tallyfy track client types. Unlike standard OAuth implementations, many SaaS APIs like Tallyfy use custom headers for additional security layers.
 
-2. **Wrong grant type** (30% of cases)
+2. **Wrong grant type** (very common)
    - You used: `grant_type=client_credentials`
    - You need: `grant_type=password`
    - Client credentials only work for system-level operations
    
    **Why this happens**: Developers assume `client_credentials` should work everywhere because it's "cleaner" - but OAuth 2.0 spec correctly separates machine-to-machine vs user-context operations.
 
-3. **Expired token** (15% of cases)
+3. **Expired token** (common)
    - Tokens last exactly 3600 seconds (1 hour)
    - Check token age: `pm.environment.get("TALLYFY_TOKEN_EXPIRY")`
    - Implement auto-refresh (see Authentication Setup guide)
@@ -56,7 +56,7 @@ Postman community experts have identified these patterns from thousands of suppo
    }
    ```
 
-4. **Bearer token format** (5% of cases)
+4. **Bearer token format** (less common)
    ```
    // Wrong formats:
    Authorization: Bearer[token]       // No space
@@ -224,8 +224,8 @@ console.log("Request body:", pm.request.body.raw);
 // Right: { "field_amount": 100.50 }
 
 // Date field expecting specific format
-// Wrong: { "field_date": "Jan 1, 2024" }
-// Right: { "field_date": "2024-01-01" }
+// Wrong: { "field_date": "Jan 1" }
+// Right: { "field_date": "YYYY-MM-DD" }
 
 // Boolean field
 // Wrong: { "field_approved": "true" }
@@ -899,9 +899,9 @@ if (allIssues.length > 0) {
 
 ## Debugging best practices summary
 
-**The 80/20 rule for Postman debugging**:
-- 80% of issues: Missing X-Tallyfy-Client header or expired tokens
-- 20% of issues: Everything else (data format, permissions, network)
+**The key insight for Postman debugging**:
+- Most issues: Missing X-Tallyfy-Client header or expired tokens
+- Fewer issues: Everything else (data format, permissions, network)
 
 **Expert workflow**:
 1. Check X-Tallyfy-Client header first (always)

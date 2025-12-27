@@ -101,7 +101,7 @@ This audit identifies MDX documentation files that reference external vendors, t
 - `/src/content/docs/pro/integrations/middleware/power-automate/creating-your-first-flow-in-power-automate.mdx`
 - `/src/content/docs/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate.mdx`
 - `/src/content/docs/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams.mdx`
-- `/src/content/docs/pro/integrations/middleware/power-automate/leveraging-ai-builder-in-power-automate.mdx`
+- `/src/content/docs/pro/integrations/middleware/power-automate/using-ai-builder-in-power-automate.mdx`
 - `/src/content/docs/pro/integrations/middleware/power-automate/introduction-to-rpa-with-power-automate.mdx`
 - (10+ more Power Automate files)
 
