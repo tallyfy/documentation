@@ -1,7 +1,66 @@
 import os
+import re
 import frontmatter
 import requests
 import argparse
+
+# Blacklist words that should never appear in AI-generated content
+# Based on humanization guidelines - these words flag content as AI-generated
+BLACKLIST_REPLACEMENTS = {
+	'comprehensive': 'complete',
+	'delve': 'explore',
+	'delving': 'exploring',
+	'navigate': 'use',
+	'navigating': 'using',
+	'landscape': 'field',
+	'tapestry': 'mix',
+	'multifaceted': 'complex',
+	'pivotal': 'key',
+	'seamless': 'smooth',
+	'seamlessly': 'smoothly',
+	'robust': 'strong',
+	'leverage': 'use',
+	'leveraging': 'using',
+	'leverages': 'uses',
+	'facilitate': 'help',
+	'facilitates': 'helps',
+	'facilitating': 'helping',
+	'paramount': 'important',
+	'meticulous': 'careful',
+	'meticulously': 'carefully',
+	'unwavering': 'steady',
+	'underscore': 'highlight',
+	'underscores': 'highlights',
+	'underscoring': 'highlighting',
+}
+
+# Transition words to remove or replace
+TRANSITION_REPLACEMENTS = {
+	'Moreover, ': '',
+	'Furthermore, ': '',
+	'Indeed, ': '',
+	'Subsequently, ': 'Then, ',
+	'Additionally, ': '',
+}
+
+def sanitize_ai_content(text: str) -> str:
+	"""Remove/replace AI-typical words and phrases from generated content."""
+	if not text:
+		return text
+
+	result = text
+
+	# Replace blacklist words (case-insensitive)
+	for bad_word, replacement in BLACKLIST_REPLACEMENTS.items():
+		# Match word boundaries to avoid partial replacements
+		pattern = re.compile(r'\b' + re.escape(bad_word) + r'\b', re.IGNORECASE)
+		result = pattern.sub(replacement, result)
+
+	# Replace transition phrases (case-sensitive for sentence starts)
+	for phrase, replacement in TRANSITION_REPLACEMENTS.items():
+		result = result.replace(phrase, replacement)
+
+	return result
 
 RECOMMEND_ENDPOINT = 'https://answers.tallyfy.com/collections/tyfy/recommend/'
 
@@ -42,8 +101,12 @@ def get_recommendations(article_id):
 				article_url = article['url'] + "/"
 			else:
 				article_url = article['url']
+			# Sanitize the snippet to remove AI-typical blacklist words
+			sanitized_description = sanitize_ai_content(
+				str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']')
+			)
 			result.append({"header": header,
-						   "description": str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']'),
+						   "description": sanitized_description,
 						   "url": article_url})
 		return result
 	else:

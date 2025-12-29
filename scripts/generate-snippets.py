@@ -4,9 +4,89 @@ import frontmatter
 import json
 import logging
 import os
+import re
 import requests
 from pathlib import Path
 from typing import Optional
+
+# Blacklist words that should never appear in AI-generated content
+# Based on humanization guidelines - these words flag content as AI-generated
+BLACKLIST_REPLACEMENTS = {
+	'comprehensive': 'complete',
+	'delve': 'explore',
+	'delving': 'exploring',
+	'navigate': 'use',
+	'navigating': 'using',
+	'landscape': 'field',
+	'tapestry': 'mix',
+	'multifaceted': 'complex',
+	'pivotal': 'key',
+	'seamless': 'smooth',
+	'seamlessly': 'smoothly',
+	'robust': 'strong',
+	'leverage': 'use',
+	'leveraging': 'using',
+	'leverages': 'uses',
+	'facilitate': 'help',
+	'facilitates': 'helps',
+	'facilitating': 'helping',
+	'paramount': 'important',
+	'meticulous': 'careful',
+	'meticulously': 'carefully',
+	'unwavering': 'steady',
+	'underscore': 'highlight',
+	'underscores': 'highlights',
+	'underscoring': 'highlighting',
+}
+
+# Transition words to remove or replace
+TRANSITION_REPLACEMENTS = {
+	'Moreover, ': '',
+	'Furthermore, ': '',
+	'Indeed, ': '',
+	'Subsequently, ': 'Then, ',
+	'Additionally, ': '',
+}
+
+def sanitize_ai_content(text: str) -> str:
+	"""Remove/replace AI-typical words and phrases from generated content."""
+	if not text:
+		return text
+
+	result = text
+
+	# Replace blacklist words (case-insensitive)
+	for bad_word, replacement in BLACKLIST_REPLACEMENTS.items():
+		# Match word boundaries to avoid partial replacements
+		pattern = re.compile(r'\b' + re.escape(bad_word) + r'\b', re.IGNORECASE)
+		result = pattern.sub(replacement, result)
+
+	# Replace transition phrases (case-sensitive for sentence starts)
+	for phrase, replacement in TRANSITION_REPLACEMENTS.items():
+		result = result.replace(phrase, replacement)
+
+	return result
+
+# Humanization guidelines to append to any AI prompt
+HUMANIZATION_PROMPT_SUFFIX = """
+
+CRITICAL WRITING RULES - Follow these exactly:
+
+1. BANNED WORDS (never use): comprehensive, delve, navigate, landscape, tapestry,
+   multifaceted, pivotal, seamless, robust, leverage, facilitate, paramount,
+   meticulous, unwavering, underscore
+
+2. BANNED TRANSITIONS (never start sentences with): Moreover, Furthermore, Indeed,
+   Subsequently, Additionally
+
+3. WORD REPLACEMENTS: Use "complete" not "comprehensive", "use" not "leverage",
+   "smooth" not "seamless", "strong" not "robust", "help" not "facilitate"
+
+4. STYLE: Write direct, conversational descriptions. Start with what Tallyfy does,
+   not meta-commentary. Use active voice. Keep descriptions 200-350 characters.
+
+5. NO FLUFF: Every word must add value. No empty benefit statements or vague promises.
+"""
 
 # Configure logging
 logging.basicConfig(
@@ -25,7 +105,8 @@ class ClaudeClient:
 			"x-api-key": api_key,
 			"content-type": "application/json"
 		}
-		self.system_prompt = system_prompt
+		# Inject humanization guidelines into the system prompt
+		self.system_prompt = system_prompt + HUMANIZATION_PROMPT_SUFFIX
 
 	def generate_snippet(self, prompt: str, max_tokens: int = 100, temperature: float = 0.79) -> Optional[str]:
 		"""Generate a snippet using Claude API."""
@@ -72,7 +153,8 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 			logger.error(f"Failed to generate snippet for: {file_path}")
 			return False
 
-		data['description'] = snippet
+		# Sanitize AI-generated content to remove blacklist words
+		data['description'] = sanitize_ai_content(snippet)
 		with open(file_path, "w", encoding='utf-8') as f:
 			f.write(frontmatter.dumps(data))
 
