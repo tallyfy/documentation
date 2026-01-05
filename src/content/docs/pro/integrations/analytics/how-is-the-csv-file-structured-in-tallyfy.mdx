@@ -1,10 +1,10 @@
 ---
-description: The CSV export feature provides a 48-column spreadsheet containing all
+description: The CSV export feature provides a 49-column spreadsheet containing all
   process data including tasks form responses and comments organized into logical
   groups for process information task details assignments timing form fields and comments
   with specific handling requirements for date fields and analytics tools.
 id: 3baae0eb34527b91cd238c16498d7983
-lastUpdated: 2025-12-29
+lastUpdated: 2026-01-05
 sidebar:
   order: 3
 title: CSV file structure
@@ -12,7 +12,7 @@ title: CSV file structure
 
 ## Understanding the CSV Export Structure
 
-You can export any running process data into a CSV file - that's 48 columns[^1] of everything happening in your process. Tasks, form answers, comments. All of it lands in a spreadsheet you can analyze however you need.
+You can export any running process data into a CSV file - that's 49 columns[^1] of everything happening in your process. Tasks, form answers, comments. All of it lands in a spreadsheet you can analyze however you need.
 
 ### How to Export a Process to CSV
 
@@ -31,9 +31,9 @@ Here's the thing - your process has multiple layers (process details, tasks, fie
 
 ### Understanding the Columns
 
-The 48 columns break down into logical groups:
+The 49 columns break down into logical groups:
 
-#### Process and template info (Columns 1-12)
+#### Process and template info (Columns 1-13)
 
 :::note[Template vs. Blueprint]
 Some column names use the term "Blueprint". That's the technical/API name for what you see as a "Template" in the Tallyfy app.
@@ -50,9 +50,10 @@ Some column names use the term "Blueprint". That's the technical/API name for wh
 *   **total_tasks_in_process**: How many tasks are in the whole process.
 *   **tasks_completed**: How many tasks are finished.
 *   **process_status**: Current status (active, problem, or complete).
-*   **process_last_modified**: Date/time the process was last updated. ⚠️ *This updates on any change (edits, archiving, tags) - not just completion. For accurate completion timestamps, use the maximum `completed_on` value from all tasks in the process.*
+*   **process_last_modified**: Date/time the process was last updated. ⚠️ *This updates on any change (edits, archiving, tags) - not just completion. For accurate completion timestamps, use `process_completed_at` instead.*
+*   **process_completed_at**: Exact date/time when the process was marked complete. This is the authoritative completion timestamp - use this for calculating process duration and completion metrics. Returns NULL for active/incomplete processes.
 
-#### Task info (Columns 13-26)
+#### Task info (Columns 14-27)
 
 *   **type**: What kind of data this row represents (e.g., `process_task`, `process_task_data` for a form field, `process_task_comment` for a comment).
 *   **has_form_fields**: Does the task in this row have form fields? (Yes/No).
@@ -68,7 +69,7 @@ Some column names use the term "Blueprint". That's the technical/API name for wh
 *   **milestone_name**: Name of the milestone attached to this task (if any).
 *   **milestone_position**: Position/order of the milestone in the process sequence.
 
-#### Assignment and timing info (Columns 27-35)
+#### Assignment and timing info (Columns 28-36)
 
 *   **user_assigned**: Names of assigned members/groups.
 *   **assigned_user_id**: IDs of assigned members.
@@ -82,7 +83,7 @@ Some column names use the term "Blueprint". That's the technical/API name for wh
 *   **completed_on**: When the task was completed (also appears in Comments section).
 
 :::caution[NaN Values in Date Fields]
-When using Tallyfy Analytics with Power BI, Tableau, or other tools, you may see the string **"NaN"** in date fields like `completed_on`, `assigned_or_shown_on`, and `due_by`. This happens when the original database value was NULL.
+When using Tallyfy Analytics with Power BI, Tableau, or other tools, you may see the string **"NaN"** in date fields like `completed_on`, `assigned_or_shown_on`, `due_by`, and `process_completed_at`. This happens when the original database value was NULL.
 
 **Why this occurs**:
 1. NULL database values are exported to CSV
@@ -111,14 +112,14 @@ END
 Always filter out both ISBLANK/NULL values AND the string "nan" to ensure accurate date calculations.
 :::
 
-#### Form field info (Columns 36-39)
+#### Form field info (Columns 37-40)
 *(These columns only have data if the row `type` is `process_task_data`)*
 *   **no_of_form_fields**: How many fields are in the parent task.
 *   **form_field_type**: Type of this specific field (text, date, dropdown, etc.).
 *   **question_in_form_field**: The question/label for this field.
 *   **answer_in_form_field**: The answer entered into this field.
 
-#### Comments and issues info (Columns 40-48)
+#### Comments and issues info (Columns 41-49)
 *(These columns often relate to rows where `type` is `process_task_comment` or provide summary counts on `process_task` rows)*
 *   **issue_reported**: Was this comment reporting an issue? (Yes/No).
 *   **no_of_issue_reported**: Total issues reported on the task.
