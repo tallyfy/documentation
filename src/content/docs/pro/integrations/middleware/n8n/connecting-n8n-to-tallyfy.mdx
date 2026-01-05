@@ -279,6 +279,17 @@ Treat your API key like a password. Never share it publicly or commit it to vers
 
 </Steps>
 
+:::danger[Test vs Production URL - common mistake]
+When building workflows with webhooks, n8n provides two different URLs: a **Test URL** and a **Production URL**. The production URL only becomes active when you switch the workflow to "Active" status.
+
+Many users spend hours debugging because they:
+1. Build and test with the Test URL
+2. Switch the workflow to Active mode
+3. Forget to update the URL in Tallyfy to the Production URL
+
+**Always update your webhook URLs in Tallyfy when going live.** The Test URL stops working once you activate the workflow.
+:::
+
 **Real webhook payload structure:**
 ```json
 {
@@ -336,6 +347,41 @@ W -> T: "8. Mark failed (All attempts failed)"
 - The retry mechanism uses exponential backoff (steps 8-10) to handle temporary network issues without overwhelming your n8n instance  
 - Failed webhooks after 3 attempts trigger admin notifications (step 12) so you can investigate integration issues
 
+### Debugging with the Executions panel
+
+The Executions panel is one of n8n's most powerful features for debugging workflows. Every time a workflow runs - whether in test or production - n8n records the complete execution with input and output data at each node.
+
+![n8n workflow canvas showing multiple trigger types including Webhook, Chat message, Schedule Trigger, and Execute Workflow nodes](https://screenshots.tallyfy.com/tallyfy/pro/n8n-workflow-canvas-triggers.png)
+
+**Viewing execution history:**
+- Click **Executions** tab at the top of the workflow editor
+- Each execution shows status (success/error), timing, and trigger source
+- Click any execution to see the data that flowed through each node
+- Use filters to find specific executions by date or status
+
+**Data Pinning - skip expensive operations during testing:**
+
+When building complex workflows with AI agents or external API calls, re-running every node each time you test is slow and expensive. Data Pinning lets you "freeze" a node's output so it's reused in subsequent test runs.
+
+To pin data:
+1. Run your workflow to get real data through the nodes
+2. Click on any node that has output data
+3. Click the **Pin** icon to lock that output
+4. Now when you test, n8n skips that node and uses the pinned data instead
+
+This is particularly useful when:
+- Testing AI agent workflows (avoid repeated LLM calls)
+- Debugging nodes downstream of slow API calls
+- Developing with rate-limited external services
+
+**Copy execution to editor:**
+
+If a production execution fails or produces unexpected results, you can load that exact execution back into the editor to debug:
+1. Find the problematic execution in the Executions panel
+2. Click the three-dot menu and select **Copy to Editor**
+3. The workflow opens with all the original input data loaded
+4. Test individual nodes or modify and re-run
+
 ### Troubleshooting guide
 
 | Issue | Cause | Solution |
@@ -347,6 +393,8 @@ W -> T: "8. Mark failed (All attempts failed)"
 | **Rate limiting (429)** | Too many requests | Add 1-2 second delays between calls |
 | **Connection timeout** | Network or server issues | Add retry logic with exponential backoff |
 | **Webhook not receiving data** | URL or events misconfigured | Verify webhook URL and selected events |
+| **Webhook works in test but not production** | Using Test URL instead of Production URL | Update Tallyfy to use Production URL after activating workflow |
+| **AI node timing out during development** | Re-running expensive operations | Use Data Pinning to cache AI outputs while building |
 
 **Advanced debugging:**
 - Enable **Retry on Failure** in node settings

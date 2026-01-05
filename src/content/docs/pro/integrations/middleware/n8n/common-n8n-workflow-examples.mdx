@@ -212,6 +212,81 @@ Let AI analyze your Tallyfy form responses and route tasks to the right people. 
 5. **Notification nodes**
    - Alert assigned team member via preferred channel
 
+![n8n AI Agent node connected to OpenRouter Chat Model and Simple Memory for building intelligent workflow automations](https://screenshots.tallyfy.com/tallyfy/pro/n8n-ai-agent-setup.png)
+
+### Example 6: Human-in-the-loop workflows
+
+Sometimes you need a human to review AI outputs or approve actions before they continue. n8n's "Send and wait for response" nodes let you pause workflows for human input - turning hours of manual review into quick approval checks.
+
+**Real-world pattern from production:**
+
+1. **AI generates content** (proposal, report, blog post)
+2. **Workflow pauses** with notification to Slack/Email asking for review
+3. **Human reviews** and responds (approve/reject/modify)
+4. **Workflow continues** based on the response
+
+**Workflow components:**
+
+1. **Trigger node** - Start from webhook, schedule, or manual
+
+2. **AI Agent node** - Generate the content that needs review
+   - Configure with appropriate LLM (Claude, GPT-4, etc.)
+   - Include clear system prompts for consistent output format
+
+3. **Slack node** (Human in the Loop category)
+   - Action: **Send message and wait for reply**
+   - Send AI output with clear "Approve" / "Reject" / "Revise" instructions
+   - Workflow pauses here until response received
+
+4. **Switch node** - Route based on response
+   - "Approved" → Continue to next action
+   - "Rejected" → Log and notify, end workflow
+   - "Revise" → Loop back to AI with feedback
+
+5. **Action nodes** - Execute based on approval
+   - Send proposal to client
+   - Publish content
+   - Update CRM records
+
+**Example use cases:**
+- **Review proposals before client delivery** - AI drafts, human verifies pricing and scope
+- **Approve AI-generated content before publishing** - Catch hallucinations or tone issues
+- **Validate data enrichment before CRM updates** - Confirm AI matched the right company
+
+**Pro tip**: You can stack multiple human-in-the-loop steps for multi-level approval workflows - just chain several "Send and wait" nodes with different reviewers.
+
+### Switch nodes for intelligent routing
+
+The Switch node lets AI make decisions that branch your workflow into different paths. Instead of complex IF/ELSE chains, use AI classification combined with Switch routing.
+
+**Pattern:**
+```
+Webhook → AI Agent (classify request) → Switch Node → Multiple specialized paths
+```
+
+**How to configure:**
+
+1. **AI Agent node** - Classify the input
+   - System prompt: "Classify this request as exactly one of: URGENT, NORMAL, or LOW_PRIORITY"
+   - Output should be a single keyword
+
+2. **Switch node** - Create rules for each classification
+   - Mode: **Rules**
+   - Add rule: Value equals "URGENT" → Output 0 (urgent path)
+   - Add rule: Value equals "NORMAL" → Output 1 (normal path)
+   - Fallback: Output 2 (low priority path)
+
+3. **Different paths** - Each output connects to specialized handling
+   - URGENT: Immediate Slack alert + assign to senior staff
+   - NORMAL: Standard queue + email notification
+   - LOW_PRIORITY: Batch processing + weekly digest
+
+This pattern works for:
+- Customer support ticket triage
+- Lead scoring and routing
+- Content categorization
+- Compliance checking
+
 ### Best practices for n8n + Tallyfy workflows
 
 1. **Error handling**: Your workflows will fail eventually - plan for it:
@@ -238,6 +313,16 @@ Let AI analyze your Tallyfy form responses and route tasks to the right people. 
    - Start with **Manual Trigger** for testing
    - Add **Set** nodes with test data
    - Use **Stop and Error** nodes for debugging
+
+6. **Retry settings for reliability**: Configure retry behavior in workflow settings:
+   - Set retry count to 2+ for AI and HTTP nodes
+   - Use 5000ms (5 seconds) between retry attempts
+   - This handles temporary rate limits and network blips automatically
+
+7. **Version history awareness**: n8n keeps workflow versions for 5 days:
+   - Use **Export as JSON** for permanent backups of important workflows
+   - You can restore previous versions from the workflow menu
+   - Before major changes, export a backup JSON file
 
 ### Debugging tips
 
