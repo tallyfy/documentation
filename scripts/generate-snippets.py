@@ -48,6 +48,36 @@ TRANSITION_REPLACEMENTS = {
 	'Additionally, ': '',
 }
 
+# Patterns that indicate LLM prompt leakage - these should NEVER appear in generated content
+PROMPT_LEAKAGE_PATTERNS = [
+	r'Human:\s*End File',           # Cohere batch file markers
+	r'llm-outputs/',                # Debug/temp file paths
+	r'outputs-cohere',              # Cohere batch output markers
+	r"Don't provide steps nor points",  # System prompt leakage
+	r'summerize',                   # Common misspelling in prompts
+	r'[\x00-\x08\x0b\x0c\x0e-\x1f]',  # Control characters (except newline, tab, CR)
+	r'Generate a snippet',          # System prompt instructions
+	r'You are tasked with',         # System prompt preamble
+	r'Assistant:',                  # LLM role markers
+]
+
+def detect_prompt_leakage(text: str) -> bool:
+	"""
+	Detect if text contains LLM prompt artifacts or system instructions.
+
+	Returns True if leakage patterns are found, False otherwise.
+	These patterns indicate corrupted content from batch LLM processing
+	that should not be saved to documentation files.
+	"""
+	if not text:
+		return False
+
+	for pattern in PROMPT_LEAKAGE_PATTERNS:
+		if re.search(pattern, text, re.IGNORECASE):
+			return True
+	return False
+
+
 def sanitize_ai_content(text: str) -> str:
 	"""Remove/replace AI-typical words and phrases from generated content."""
 	if not text:
@@ -151,6 +181,12 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 		snippet = claude_client.generate_snippet(data.content)
 		if snippet is None:
 			logger.error(f"Failed to generate snippet for: {file_path}")
+			return False
+
+		# Check for prompt leakage in generated content
+		if detect_prompt_leakage(snippet):
+			logger.error(f"REJECTED: Prompt leakage detected in snippet for {file_path}")
+			logger.error(f"Corrupted snippet preview: {snippet[:200]}...")
 			return False
 
 		# Sanitize AI-generated content to remove blacklist words

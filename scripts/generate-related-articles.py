@@ -43,6 +43,35 @@ TRANSITION_REPLACEMENTS = {
 	'Additionally, ': '',
 }
 
+# Patterns that indicate LLM prompt leakage - these should NEVER appear in snippets
+PROMPT_LEAKAGE_PATTERNS = [
+	r'Human:\s*End File',           # Cohere batch file markers
+	r'llm-outputs/',                # Debug/temp file paths
+	r'outputs-cohere',              # Cohere batch output markers
+	r"Don't provide steps nor points",  # System prompt leakage
+	r'summerize',                   # Common misspelling in prompts
+	r'[\x00-\x08\x0b\x0c\x0e-\x1f]',  # Control characters (except newline, tab, CR)
+	r'Generate a snippet',          # System prompt instructions
+	r'You are tasked with',         # System prompt preamble
+]
+
+def detect_prompt_leakage(text: str) -> bool:
+	"""
+	Detect if text contains LLM prompt artifacts or system instructions.
+
+	Returns True if leakage patterns are found, False otherwise.
+	These patterns indicate corrupted content from batch LLM processing
+	that should not be displayed to users.
+	"""
+	if not text:
+		return False
+
+	for pattern in PROMPT_LEAKAGE_PATTERNS:
+		if re.search(pattern, text, re.IGNORECASE):
+			return True
+	return False
+
+
 def sanitize_ai_content(text: str) -> str:
 	"""Remove/replace AI-typical words and phrases from generated content."""
 	if not text:
@@ -101,10 +130,19 @@ def get_recommendations(article_id):
 				article_url = article['url'] + "/"
 			else:
 				article_url = article['url']
-			# Sanitize the snippet to remove AI-typical blacklist words
-			sanitized_description = sanitize_ai_content(
-				str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']')
-			)
+
+			# Get raw snippet and check for prompt leakage
+			raw_snippet = str(article['snippet']).replace('\n', '').replace('{', '[').replace('}', ']')
+
+			# Detect and reject corrupted snippets from LLM prompt leakage
+			if detect_prompt_leakage(raw_snippet):
+				print(f"WARNING: Prompt leakage detected in snippet for '{article['title']}' - using title as fallback")
+				# Use title as fallback when snippet is corrupted
+				sanitized_description = article['title']
+			else:
+				# Sanitize the snippet to remove AI-typical blacklist words
+				sanitized_description = sanitize_ai_content(raw_snippet)
+
 			result.append({"header": header,
 						   "description": sanitized_description,
 						   "url": article_url})
