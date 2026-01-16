@@ -10,6 +10,10 @@ sidebar:
 title: Claude integration
 ---
 
+:::note[Integration Status]
+This integration is live and operational. OAuth 2.1 endpoints are active, and Claude supports both local MCP servers and remote MCP servers with Streamable HTTP transport. SSE transport is deprecated - use Streamable HTTP for new integrations.
+:::
+
 ## Connecting Claude for intelligent workflow automation
 
 Your Claude Pro or Team subscription brings advanced reasoning and analytical capabilities directly into Tallyfy workflows. Through Model Context Protocol (MCP) servers and OAuth2, Claude reads your task context, applies sophisticated analysis, and completes complex work that requires nuanced understanding - using the Claude subscription you already have.
@@ -28,19 +32,26 @@ Claude excels at tasks requiring deep analysis, careful reasoning, and nuanced j
 
 ### Authentication architecture
 
-Claude uses enterprise-grade OAuth2 with MCP extensions:
+Claude uses enterprise-grade OAuth 2.1 with MCP extensions. All endpoints are live and operational:
 
 **MCP server**: `https://mcp.tallyfy.com`
 **Authorization endpoint**: `https://go.tallyfy.com/mcp/oauth/authorize`
 **Token endpoint**: `https://go.tallyfy.com/mcp/oauth/token`
 **DCR endpoint**: `https://go.tallyfy.com/mcp/oauth/register`
-**Scopes supported**: `mcp:tasks`, `mcp:processes`, `mcp:templates`, `mcp:users`
+**OAuth Metadata**: `https://go.tallyfy.com/.well-known/oauth-authorization-server`
+**Scopes supported**: `mcp:tasks`, `mcp:processes`, `mcp:templates`, `mcp:users`, `mcp:read`, `mcp:write`
+
+**Connection options**:
+- **Remote MCP servers**: Direct URL-based connection with OAuth 2.1 - no local setup required, hosted on Cloudflare
+- **Local MCP servers**: Standard input/output (stdio) for local development
+- **Transport**: Use Streamable HTTP (SSE is deprecated and being phased out)
 
 The MCP protocol adds:
 - Tool discovery for available Tallyfy actions
 - Schema validation for data integrity
 - Secure sandboxing of operations
 - Audit trails for every interaction
+- Desktop Extensions (.mcpb) for one-click installation
 
 ### Task automation with Claude's strengths
 
@@ -224,6 +235,17 @@ Claude integration maintains enterprise security:
 - Verify OAuth tokens are current
 - Check MCP server endpoint availability
 - Review permission scopes
+- Try re-authorizing if OAuth was set up before December 2025 (known issues with older tokens)
+
+**"SSE connection errors"**
+- SSE transport is deprecated - migrate to Streamable HTTP
+- Update your MCP configuration to use Streamable HTTP transport
+- Remote MCP servers on Cloudflare only support Streamable HTTP
+
+**"Desktop Extension not installing"**
+- Ensure you have the latest Claude Desktop version
+- Desktop Extensions require macOS or Windows
+- Check system requirements for .mcpb file support
 
 ### Implementation best practices
 

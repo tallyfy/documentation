@@ -140,12 +140,13 @@ Claude Desktop's MCP implementation includes:
 
 - **Native support**: Built-in MCP client with full protocol support
 - **Desktop Extensions**: One-click .mcpb file installation - bundling entire MCP servers with dependencies into single packages
-- **Remote MCP servers**: Direct URL-based connection with OAuth authentication, hosted on Cloudflare
-- **Transport methods**: Standard input/output (stdio) for local servers, HTTP/SSE for remote servers
+- **Remote MCP servers**: Direct URL-based connection with OAuth 2.1 authentication, hosted on Cloudflare
+- **Transport methods**: Standard input/output (stdio) for local servers, **Streamable HTTP** for remote servers (SSE is deprecated - prefer Streamable HTTP)
 - **Security**: OS keychain integration (macOS Keychain, Windows Credential Manager) for encrypted credential storage
 - **All Claude plans**: Available for Free, Pro, Max, Team, and Enterprise tiers
 - **Operating systems**: macOS and Windows fully supported
 - **Dynamic tool discovery**: Automatic detection and display of available MCP tools with the hammer icon
+- **MCP governance**: MCP is now governed by the Agentic AI Foundation under the Linux Foundation (December 2025)
 
 ## Prerequisites
 
@@ -572,7 +573,11 @@ Don't skip this part - security matters:
 
 2. **MCP server isolation**
    - Run MCP servers with minimal permissions using sandboxed Node.js runtime
-   - Remote MCP servers (hosted on Cloudflare) use OAuth 2.0 authentication respecting existing user permissions
+   - Remote MCP servers use OAuth 2.1 authentication with PKCE - Tallyfy supports these endpoints:
+     - Authorization: `https://go.tallyfy.com/mcp/oauth/authorize`
+     - Token: `https://go.tallyfy.com/mcp/oauth/token`
+     - DCR: `https://go.tallyfy.com/mcp/oauth/register`
+   - Available scopes: `mcp:tasks`, `mcp:processes`, `mcp:templates`, `mcp:users`, `mcp:read`, `mcp:write`
    - Implement request validation and input sanitization in your server code
    - Log all API calls with timestamps for audit compliance
    - Desktop Extensions include signature verification to prevent tampering
@@ -659,6 +664,9 @@ Popular MCP servers include GitHub, Stripe, PayPal, Slack, Linear, Sentry, Asana
 3. **Connections drop after extended idle**: Implement heartbeat or retry logic with exponential backoff
 4. **Memory usage grows**: Restart Claude Desktop periodically during heavy use
 5. **Rate limits apply**: Track your usage - limits vary by plan tier
+6. **SSE transport deprecated**: Use Streamable HTTP instead of Server-Sent Events for new integrations - SSE is being phased out across the industry
+7. **OAuth token refresh**: Some users reported OAuth issues after the December 2025 Claude updates - if you experience authentication failures, try re-authorizing or use API key authentication as a workaround
+8. **Remote MCP requires internet**: Unlike local stdio servers, remote MCP servers on Cloudflare require active internet connection
 
 ## Claude vs ChatGPT for MCP
 
@@ -707,11 +715,13 @@ Popular MCP servers include GitHub, Stripe, PayPal, Slack, Linear, Sentry, Asana
 
 ## Future outlook
 
-The MCP ecosystem continues to evolve:
+The MCP ecosystem has reached industry-standard status:
 
-- **Desktop Extensions**: Install MCP servers like browser extensions with .mcpb packages
-- **Remote MCP servers**: Live on Cloudflare with OAuth 2.0, eliminating local setup entirely
-- **Industry alignment**: OpenAI, Microsoft, and Google all adopted the MCP standard, with SDK support in Python, TypeScript, C#, Java
+- **Agentic AI Foundation**: In December 2025, Anthropic donated MCP to the Linux Foundation - co-founded by Anthropic, Block, and OpenAI, with AWS, Google, Microsoft, Cloudflare, and Bloomberg as supporting members
+- **Desktop Extensions**: Install MCP servers like browser extensions with .mcpb packages - zero configuration needed
+- **Remote MCP servers**: Live on Cloudflare with OAuth 2.1, eliminating local setup entirely
+- **Streamable HTTP transport**: The new standard for remote servers, replacing deprecated SSE transport
+- **Industry alignment**: OpenAI, Microsoft, Google, and all major AI providers support MCP, with SDKs in Python, TypeScript, C#, Java, Go
 - **Growing ecosystem**: Thousands of MCP servers available through community repositories and marketplaces
 - **Enterprise adoption**: Major companies including Stripe, PayPal, Linear, Sentry, Asana, Atlassian, Block, Apollo, and UiPath have launched production servers
 - **Low-code integration**: Platforms like Mendix, OutSystems, and Microsoft Power Platform embrace MCP standards
