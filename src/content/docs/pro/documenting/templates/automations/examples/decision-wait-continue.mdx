@@ -1,0 +1,89 @@
+---
+description: Tallyfy's decision-wait-continue pattern uses three automations to handle
+  YES/NO decisions where the NO path requires a waiting step before continuing.
+id: 0000000000000000000000000000000000
+lastUpdated: 2025-01-20
+sidebar:
+  order: 4
+title: Decision with waiting step
+---
+
+## Automation Example: Decision with Waiting Step
+
+Need your process to ask "Is something ready?" and either proceed immediately or wait? This pattern handles that - but it requires three automations, not two.
+
+### The pattern
+
+Here's what you want:
+- **YES** → Skip waiting, go directly to the next step
+- **NO** → Show a waiting step, then continue when it's done
+
+Most users create two automations (one for YES, one for NO) and stop there. That's the mistake.
+
+### Example: Payment confirmation workflow
+
+Let's say you have three steps:
+1. **Decision step**: "Has the customer paid?" (YES/NO field)
+2. **Waiting step**: "Hold until payment received" (hidden by default)
+3. **Confirmation step**: "Record payment evidence" (hidden by default)
+
+### Required automations (all three are necessary)
+
+**Automation 1 - YES path** (customer already paid):
+```
+IF (Payment field) is "Yes"
+THEN HIDE "Hold until payment received" step
+THEN SHOW "Record payment evidence" step
+```
+
+Customer paid? Skip the waiting step, go straight to confirmation.
+
+**Automation 2 - NO path** (customer hasn't paid yet):
+```
+IF (Payment field) is "No"
+THEN SHOW "Hold until payment received" step
+THEN HIDE "Record payment evidence" step
+```
+
+Customer hasn't paid? Show the waiting step. Hide confirmation for now.
+
+**Automation 3 - Waiting complete** (the one people forget):
+```
+IF "Hold until payment received" step is Completed
+THEN SHOW "Record payment evidence" step
+```
+
+When the waiting step is done, show the confirmation step.
+
+:::warning[Common mistake]
+Most users stop after automations 1 and 2. Without automation 3, the confirmation step stays hidden forever after the waiting step is completed. The NO path never reaches the confirmation.
+:::
+
+### Why all three automations?
+
+Think about what happens with only two automations:
+
+| Scenario | What happens |
+|----------|--------------|
+| YES selected | Works fine - confirmation step appears |
+| NO selected | Waiting step appears, confirmation hidden |
+| Waiting step completed | **Nothing!** Confirmation stays hidden |
+
+Automation 3 completes the NO path. Without it, the workflow dead-ends.
+
+### Summary
+
+When combining decisions with waiting steps:
+1. Create your YES automation (skip waiting, show next step)
+2. Create your NO automation (show waiting, hide next step)
+3. **Don't forget**: Create a "waiting completed" automation to show the next step
+
+All three automations work together. Miss one, and the workflow breaks.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Examples > Exclusive choice</b>" href="/products/pro/documenting/templates/automations/examples/exclusive-choice/" > Tallyfy's exclusive choice automation uses radio button form fields and conditional rules to automatically route processes down exactly one path based on user selections. </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > Automate hiding or showing tasks</b>" href="/products/pro/documenting/templates/automations/actions/visibility-actions/" > Visibility actions in Tallyfy let you Show or Hide specific steps based on conditions using IF-THEN logic to create sequential task dependencies. </LinkTitleCard>
+</CardGrid>
