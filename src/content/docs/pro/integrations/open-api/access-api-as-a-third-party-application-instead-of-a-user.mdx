@@ -5,7 +5,7 @@ description: Third-party applications can integrate with Tallyfy's API using the
   user provisioning and the generation of user-specific tokens for performing API
   actions on behalf of individual users within the organization.
 id: c636eea1808d918ab86fd241978ea636
-lastUpdated: 2025-12-16
+lastUpdated: 2026-01-20
 sidebar:
   order: 20
 title: API usage as a third-party application instead of a user
@@ -132,27 +132,30 @@ To authenticate your application with Tallyfy, you must first obtain an applicat
 POST https://account.tallyfy.com/oauth/token
 ```
 
-**Request Body:**
-```json
-{
-    "client_id": 12345,
-    "client_secret": "hTWzy5rpYXcBn8K4J9PqEs2V...",
-    "grant_type": "client_credentials",
-    "scope": "*"
-}
+**Request Body (form-encoded):**
+```
+grant_type=client_credentials
+client_id=12345
+client_secret=hTWzy5rpYXcBn8K4J9PqEs2V...
+scope=*
+```
+
+**Headers:**
+```
+Content-Type: application/x-www-form-urlencoded
 ```
 
 **Response:**
 ```json
 {
     "token_type": "Bearer",
-    "expires_in": 3600,
+    "expires_in": 604800,
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
 :::note[Token Expiration]
-Application access tokens have a limited lifespan. Your application should implement token refresh logic or request new tokens as needed when you receive authentication errors.
+Application access tokens are valid for 7 days (`expires_in: 604800` seconds). Your application should implement automatic token refresh - simply request a new token before the current one expires.
 :::
 
 #### Step 3: Provision users programmatically
@@ -189,12 +192,14 @@ X-Tallyfy-Client: APIClient
 **Response:**
 ```json
 {
-    "id": 12345,
-    "email": "john.smith@yourcompany.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "role": "standard",
-    "created_at": "2024-01-15T14:22:10.000Z"
+    "data": {
+        "id": 12345,
+        "email": "john.smith@yourcompany.com",
+        "first_name": "John",
+        "last_name": "Smith",
+        "role": "standard",
+        "created_at": "2024-01-15T14:22:10.000Z"
+    }
 }
 ```
 
@@ -213,14 +218,20 @@ Content-Type: application/json
 X-Tallyfy-Client: APIClient
 ```
 
+**Note:** No request body is required - the user's email is specified in the URL path.
+
 **Response:**
 ```json
 {
     "token_type": "Bearer",
-    "expires_in": 3600,
+    "expires_in": 7776000,
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+:::note[User Token Validity]
+User-specific tokens are valid for 3 months (`expires_in: 7776000` seconds). Plan your token refresh strategy accordingly.
+:::
 
 #### Step 5: Make API requests on behalf of users
 
