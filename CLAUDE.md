@@ -1441,7 +1441,7 @@ for feature in features:
 - Mobile-friendly design patterns
 - Complete diagram templates for OAuth, webhooks, processes, etc.
 - Troubleshooting and debug commands
-- ULTRATHINKING approach for diagram decisions
+- Deep analysis approach for diagram decisions
 
 ## DOCUMENTATION ASSET MANAGEMENT
 
@@ -1749,7 +1749,7 @@ Before submitting documentation:
 - [ ] Varied sentence lengths for natural rhythm
 
 ### D2 Diagrams (If Applicable)
-- [ ] ULTRATHINKING applied - diagram truly adds value (10-15% of articles)
+- [ ] Deep analysis applied - diagram truly adds value (10-15% of articles)
 - [ ] Diagram type matches content (sequence for APIs, flowchart for logic)
 - [ ] One idea per diagram, <30 nodes ideal
 - [ ] Labels ≤5 words, verbs on edges

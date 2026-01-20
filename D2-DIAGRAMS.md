@@ -185,11 +185,11 @@ Connection: {
 
 **ENFORCEMENT**: These notation rules are MANDATORY. Every D2 diagram must follow them to ensure consistent rendering. When creating or editing diagrams, mentally check each rule before committing changes.
 
-## When to Use Visual Diagrams - ULTRATHINKING Required
+## When to Use Visual Diagrams - Thorough Consideration Required
 
 **CRITICAL RULE**: Only add D2 diagrams where they provide clear value for understanding complex flows or interactions. Based on extensive analysis, only **10-15% of documentation articles** should have diagrams. Most documentation is better with clear text.
 
-**ULTRATHINKING APPROACH**: Before adding any diagram, you must:
+**THOROUGH ANALYSIS APPROACH**: Before adding any diagram, you must:
 1. Read the ENTIRE article to understand full context
 2. Think from three perspectives: beginner, intermediate, expert
 3. Ask: "Is the cognitive effort to understand a diagram LESS than understanding the text alone?"
@@ -863,7 +863,7 @@ These global settings ensure:
 2. **Update Diagram Content**: If the article changes modify any process, flow, or relationship shown in the diagram, update the D2 notation accordingly
 3. **Maintain Consistency**: Ensure terminology in the diagram matches the updated article text
 4. **Verify Links**: If the diagram contains `click` statements, verify all linked paths remain valid
-5. **Apply ULTRATHINKING**: Re-evaluate if the diagram still adds value after the content update
+5. **Apply thorough analysis**: Re-evaluate if the diagram still adds value after the content update
    - If the process simplified to ≤3 steps, consider removing the diagram
    - If complexity increased, consider if a diagram is now needed
 6. **Follow All Guidelines**: Apply the complete D2 guidelines when making updates:

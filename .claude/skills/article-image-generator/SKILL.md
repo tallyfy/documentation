@@ -38,12 +38,12 @@ Creates sophisticated conceptual editorial illustrations in the premium style of
 
 ## Phase 1: Deep Content Understanding
 
-### ULTRATHINK Framework
+### Deep Systematic Thinking Framework
 
 When given an article to illustrate, engage in deep thinking about the content:
 
 ```
-ULTRATHINK: What is the essence of this article?
+THINK DEEPLY AND SYSTEMATICALLY: What is the essence of this article?
 
 1. CORE PROBLEM: What frustration or pain does this article address?
    - Identify the specific human challenge
