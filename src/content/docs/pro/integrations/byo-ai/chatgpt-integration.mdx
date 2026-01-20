@@ -1,216 +1,322 @@
 ---
-description: ChatGPT Plus or Team subscribers can connect their accounts to Tallyfy
-  through OAuth2 authentication and GPT Actions to automatically read task data process
-  information according to custom instructions and complete workflow tasks without
-  writing code or managing API keys.
+description: ChatGPT Plus or Pro subscribers can connect to Tallyfy through MCP (Model Context Protocol) servers using OAuth 2.1 authentication and Developer Mode to search tasks manage processes and analyze templates using natural language without API keys or code through a beta integration available via Connectors platform.
 id: f66f4e8703e8d3e52b01a090efc5c025
-lastUpdated: 2026-01-15
+lastUpdated: 2026-01-20
 sidebar:
   order: 2
 title: ChatGPT integration
 ---
 
-:::note[Integration Status]
-This integration is live and operational. OAuth 2.1 endpoints are active, and ChatGPT's Apps platform (formerly called "connectors" - renamed December 2025) fully supports MCP servers.
+:::note[Beta Integration Status]
+MCP (Model Context Protocol) integration with ChatGPT is currently in **BETA**. Available only to ChatGPT Plus and ChatGPT Pro subscribers through Developer Mode. OAuth 2.1 endpoints are live at `mcp.tallyfy.com`.
 :::
 
 ## Connecting ChatGPT to automate Tallyfy tasks
 
-Your ChatGPT Plus or Team subscription can become a workflow automation engine inside Tallyfy. Through Apps and OAuth2 authentication, ChatGPT reads your task data, processes it according to your instructions, and completes work automatically - all using the subscription you already pay for.
+Your ChatGPT Plus or Pro subscription can become a workflow automation engine for Tallyfy. Through MCP (Model Context Protocol) and OAuth 2.1 authentication, ChatGPT connects to your Tallyfy workspace to search, read, and manage tasks, processes, and templates using natural language - all through the subscription you already pay for.
 
 ### How ChatGPT integration works
 
-The integration uses OpenAI's Apps platform (formerly GPT Actions/connectors) to create a secure bridge between your ChatGPT account and Tallyfy workflows:
+The integration uses OpenAI's Connectors platform with MCP (Model Context Protocol) to create a secure bridge between ChatGPT and your Tallyfy workspace:
 
-1. **Custom GPT configuration**: We provide a Tallyfy GPT with pre-configured actions
-2. **OAuth2 authentication**: You authorize the GPT to access your Tallyfy workspace
-3. **Task context sharing**: When triggered, Tallyfy sends task data to your GPT
-4. **Intelligent processing**: ChatGPT processes based on your custom instructions
-5. **Automatic updates**: Responses flow back to complete tasks or add comments
+1. **MCP server connection**: ChatGPT connects to Tallyfy's MCP server at `mcp.tallyfy.com`
+2. **OAuth 2.1 authentication**: You authorize ChatGPT to access your Tallyfy workspace through a secure OAuth flow
+3. **Natural language queries**: Ask ChatGPT to search tasks, check process status, or retrieve template information
+4. **Tool execution**: ChatGPT uses MCP tools to read and write data in your Tallyfy workspace
+5. **Intelligent responses**: ChatGPT processes your requests and returns structured information or confirms actions
 
-No API keys to manage. No code to write. Just connect and automate.
+No API keys to manage. No code to write. Just enable Developer Mode, connect the MCP server, and start automating.
 
-### Authentication setup
+### Setting up the connection
 
-ChatGPT uses OAuth 2.1 with PKCE for secure authentication. All endpoints are live and operational:
+**Prerequisites**:
+- ChatGPT Plus or ChatGPT Pro subscription
+- Active Tallyfy account with at least Standard user role
+- Developer Mode enabled in ChatGPT settings
+
+**Step-by-step setup**:
+
+1. **Enable Developer Mode** in ChatGPT:
+   - Click your profile icon (top left)
+   - Select **Settings** → **Apps and Connectors**
+   - Scroll to **Advanced Settings**
+   - Enable **Developer Mode** (beta feature)
+
+2. **Create a new Connector**:
+   - In ChatGPT, go to **Settings** → **Connectors**
+   - Click **Create**
+   - **Connector name**: Tallyfy
+   - **Description**: "Connect to Tallyfy to search and manage workflow tasks, processes, and templates"
+
+3. **Configure the MCP server**:
+   - **MCP Server URL**: `https://mcp.tallyfy.com`
+   - **Authentication**: OAuth 2.1 with PKCE
+   - ChatGPT will automatically discover authentication endpoints
+
+4. **Authorize the connection**:
+   - Click **Connect** and you'll be redirected to Tallyfy's login page
+   - Log in with your Tallyfy credentials
+   - Review and approve the permissions request (you'll see which scopes are requested)
+   - ChatGPT stores refresh tokens for persistent access
+   - You can revoke access anytime from ChatGPT Settings → Connectors
+
+### OAuth endpoints (automatically discovered)
 
 **MCP Server**: `https://mcp.tallyfy.com`
 **Authorization endpoint**: `https://go.tallyfy.com/mcp/oauth/authorize`
 **Token endpoint**: `https://go.tallyfy.com/mcp/oauth/token`
-**DCR endpoint**: `https://go.tallyfy.com/mcp/oauth/register`
 **OAuth Metadata**: `https://go.tallyfy.com/.well-known/oauth-authorization-server`
-**Scopes supported**: `mcp:tasks`, `mcp:processes`, `mcp:templates`, `mcp:users`, `mcp:read`, `mcp:write`
 
-When you first connect, ChatGPT will:
-1. Redirect you to Tallyfy's login page
-2. Ask you to approve permissions
-3. Store refresh tokens for persistent access
-4. Maintain the connection until you revoke it
+**Supported OAuth scopes** (granular read/write permissions):
+- `mcp.users.read` - View user and guest information
+- `mcp.users.write` - Modify user permissions and settings
+- `mcp.tasks.read` - Search and retrieve task data
+- `mcp.tasks.write` - Create, update, and complete tasks
+- `mcp.processes.read` - View workflow process status
+- `mcp.processes.write` - Manage process lifecycle
+- `mcp.templates.read` - Access template configurations
+- `mcp.templates.write` - Modify templates and steps
+- `mcp.forms.read` - View form field definitions
+- `mcp.forms.write` - Update form fields and options
+- `mcp.automation.read` - View automation rules
+- `mcp.automation.write` - Create and modify automation rules
 
-### Task automation capabilities
+### Available MCP tools
 
-#### Reading task context
-ChatGPT receives:
-- Task title and description
-- All form field values from previous steps
-- File attachments (as text extraction)
-- Process history and comments
-- Assignment and deadline information
+Once connected, ChatGPT can use these Tallyfy MCP tools through natural language:
 
-#### Processing with custom instructions
-You embed instructions directly in your Tallyfy templates:
+#### Search capabilities
+- **Search for tasks**: Find tasks across your organization by keywords or criteria
+- **Search for processes**: Locate running workflow processes (runs)
+- **Search for templates**: Discover workflow templates (blueprints)
+
+#### Task management
+- **Get my tasks**: Retrieve all tasks assigned to you
+- **Get user tasks**: View tasks assigned to any user
+- **Get tasks for process**: List all tasks in a specific workflow process
+- **Create task from text**: Generate a new task using natural language description
+
+#### Process management
+- **Get organization runs**: View all active workflow processes in your organization
+
+#### Template management
+- **Get template**: Retrieve complete template configuration
+- **Get all templates**: List all available workflow templates
+- **Get step dependencies**: View task dependencies within templates
+- **Get kickoff fields**: Access template launch form fields
+- **Update kickoff field**: Modify launch form field properties
+- **Delete kickoff field**: Remove fields from launch forms
+
+#### Form fields
+- **Update form field**: Modify task form field properties
+- **Delete form field**: Remove form fields from tasks
+- **Get dropdown options**: Retrieve choices for dropdown fields
+- **Update dropdown options**: Modify dropdown field choices
+
+#### Automation rules
+- **Create automation rule**: Add if-this-then-that logic to templates
+- **Update automation rule**: Modify existing automation rules
+- **Delete automation rule**: Remove automation rules
+- **Get step visibility conditions**: View conditional display rules
+
+#### User and group management
+- **Get organization users**: List all users in your workspace
+- **Get organization guests**: View external guest users
+- **Get organization guests list**: Simplified guest user listing
+
+### Write operation security
+
+ChatGPT displays **explicit confirmation modals** before executing any write or modify operations (create, update, delete). This prevents accidental changes and gives you full control over what the AI can modify in your Tallyfy workspace.
+
+### Real-world usage examples
+
+**Finding urgent tasks**
 ```
-When this task is assigned, analyze the customer complaint in the
-'complaint_details' field and:
-1. Categorize the issue (product, service, billing)
-2. Assess severity (low, medium, high, critical)
-3. Generate a professional response
-4. Suggest resolution steps
-```
-
-#### Taking actions
-ChatGPT can:
-- Complete tasks with specific outcomes
-- Fill form fields with generated content
-- Add detailed comments with analysis
-- Trigger conditional workflow branches
-- Create follow-up tasks
-
-### Real-world examples
-
-**Contract review automation**
-```
-Task: Review Sales Contract
-ChatGPT instruction: "Extract key terms (price, duration, deliverables),
-identify any non-standard clauses, assess risk level, and provide a
-summary recommendation in the 'review_notes' field."
-```
-
-**Customer response drafting**
-```
-Task: Respond to Support Ticket
-ChatGPT instruction: "Read the customer issue, check our knowledge base
-context, draft a helpful response addressing their specific concerns,
-and mark task complete if issue is resolved."
-```
-
-**Data analysis and reporting**
-```
-Task: Analyze Monthly Metrics
-ChatGPT instruction: "Process the attached CSV file, calculate month-over-month
-growth, identify trends, generate executive summary, and populate the
-'insights' field with key findings."
-```
-
-### Custom instructions best practices
-
-**Be specific about data sources**
-```
-Good: "Use the value from the 'customer_name' field"
-Bad: "Use the customer name"
-```
-
-**Define clear output formats**
-```
-Good: "Generate a bullet-point list with 3-5 items"
-Bad: "Provide some bullet points"
+You: "Show me all urgent tasks assigned to the sales team"
+ChatGPT: Uses search_for_tasks tool → Returns filtered task list with details
 ```
 
-**Include validation rules**
+**Checking process status**
 ```
-Good: "If the 'amount' field exceeds $10,000, flag for manager review"
-Bad: "Check if the amount is high"
-```
-
-**Specify tone and style**
-```
-Good: "Write in professional but friendly tone, maximum 150 words"
-Bad: "Write professionally"
+You: "What's the status of the employee onboarding process for John Smith?"
+ChatGPT: Uses search_for_processes tool → Returns process details, completion percentage, current step
 ```
 
-### Handling sensitive data
+**Template discovery**
+```
+You: "Find all templates related to customer support workflows"
+ChatGPT: Uses search_for_templates tool → Lists matching templates with descriptions
+```
 
-ChatGPT integration includes built-in safeguards:
+**Bulk task review**
+```
+You: "Get all my tasks and summarize which ones are overdue"
+ChatGPT: Uses get_my_tasks tool → Analyzes due dates and provides organized summary
+```
 
-- **Data minimization**: Only send necessary fields to ChatGPT
-- **No training on your data**: OpenAI doesn't use API data for model training
-- **Audit logging**: Every interaction is logged in Tallyfy
-- **Configurable restrictions**: Block certain data types from AI processing
-- **Regional compliance**: Respect data residency requirements
+**Creating automation rules**
+```
+You: "Add a rule to the Sales Template that sends an email notification when the 'contract_value' field exceeds $50,000"
+ChatGPT: Uses create_automation_rule tool → Confirms creation after your approval
+```
+
+**Template configuration**
+```
+You: "Show me all the form fields in the Customer Onboarding template"
+ChatGPT: Uses get_template tool → Lists all form fields with their types and properties
+```
+
+### Best practices for natural language queries
+
+**Be specific with search terms**
+```
+Good: "Find all tasks with 'invoice approval' in the title assigned to me"
+Bad: "Show tasks"
+```
+
+**Provide context for filtering**
+```
+Good: "Get processes created in the last 7 days with 'onboarding' in the name"
+Bad: "Find recent processes"
+```
+
+**Specify exactly what you want to modify**
+```
+Good: "Update the 'Priority' dropdown field in the Bug Report template to include 'Critical' as an option"
+Bad: "Change the priority field"
+```
+
+**Ask for structured summaries**
+```
+Good: "List all my tasks grouped by due date, show only title and assignee"
+Bad: "What are my tasks?"
+```
+
+### Security and data handling
+
+**Built-in safeguards**:
+- **OAuth 2.1 authentication**: Secure token-based access with PKCE (Proof Key for Code Exchange)
+- **Granular scoped permissions**: 12 separate read/write scopes for users, tasks, processes, templates, forms, and automations
+- **Write confirmations**: ChatGPT displays explicit modals before any create, update, or delete operations
+- **Token management**: Refresh tokens stored securely by OpenAI, revocable from ChatGPT settings
+- **Audit logging**: All MCP tool executions are logged in Tallyfy for compliance tracking
+- **No training on your data**: OpenAI doesn't use API interactions for model training (per OpenAI Enterprise Agreement)
+
+**Important security notes**:
+- Only connect MCP servers you trust - prompt injection attacks are possible
+- Review all write operations before confirming them in ChatGPT
+- Regularly audit which Connectors have access to your Tallyfy workspace
+- Revoke access immediately if you suspect unauthorized use
 
 ### Rate limits and performance
 
-**OpenAI quotas apply**:
-- ChatGPT Plus: Standard message limits per time period
-- ChatGPT Team: Higher limits based on team size
-- ChatGPT Enterprise: Custom limits based on agreement
+**OpenAI limits apply**:
+- ChatGPT Plus: Standard message limits per 3-hour window
+- ChatGPT Pro: Higher limits with priority access
 
-**Optimization strategies**:
-- Batch similar tasks together
-- Cache common responses
-- Use conditional logic to skip AI when unnecessary
-- Implement fallback to manual processing
+**Tallyfy API limits**:
+- All MCP tool calls count toward your Tallyfy API rate limits
+- Standard rate limiting applies per organization
+
+**Performance tips**:
+- Be specific in queries to reduce unnecessary tool calls
+- Use search tools to filter before requesting full details
+- Batch related questions in a single conversation
+- ChatGPT caches tool results within the same conversation
 
 ### Troubleshooting common issues
 
-**"ChatGPT is not responding to tasks"**
-- Verify OAuth connection is still active
-- Check if you've hit OpenAI rate limits
-- Ensure task has all required fields populated
+**"ChatGPT says it can't find the Tallyfy connector"**
+- Verify Developer Mode is enabled in ChatGPT settings
+- Check that you have ChatGPT Plus or Pro subscription (not Team/Enterprise yet)
+- Re-create the Connector with the correct MCP server URL: `https://mcp.tallyfy.com`
 
-**"Responses are generic or unhelpful"**
-- Make instructions more specific
-- Include example outputs
-- Provide more context in task data
+**"Authentication failed or keeps expiring"**
+- Re-authorize the OAuth connection in ChatGPT Settings → Connectors
+- Check if your ChatGPT and Tallyfy subscriptions are both active
+- Verify you have at least Standard user role in Tallyfy
+- Clear browser cache and try reconnecting
 
-**"Authentication keeps expiring"**
-- Re-authorize the OAuth connection
-- Check if your ChatGPT subscription is active
-- Verify Tallyfy API permissions haven't changed
+**"ChatGPT says it can't access certain tools"**
+- Verify the OAuth scopes were approved during connection
+- Check that your Tallyfy user role has permissions for that operation
+- Some write operations require Administrator role
 
-### Advanced patterns
+**"Search results are empty or incomplete"**
+- Make search queries more specific
+- Check that the items you're searching for actually exist in your workspace
+- Verify your Tallyfy user account has permission to view those items
 
-**Multi-step reasoning**
+### Advanced usage patterns
+
+**Cross-referencing multiple data sources**
 ```
-Instruction: "First analyze the problem, then generate three possible
-solutions with pros/cons, finally recommend the best option with
-justification."
+You: "Find the employee onboarding template, get all its form fields,
+then show me all active onboarding processes and highlight which fields
+are most commonly left empty"
+
+ChatGPT:
+1. Uses get_all_templates to find onboarding template
+2. Uses get_template to retrieve form field details
+3. Uses search_for_processes to find active onboarding processes
+4. Analyzes and summarizes field completion patterns
 ```
 
-**Conditional processing**
+**Bulk analysis and reporting**
 ```
-Instruction: "If customer sentiment is negative, generate an apology
-and escalation path. If positive, generate a thank you message and
-upsell opportunity."
+You: "Get all tasks assigned to the sales team, categorize them by type,
+and create a summary showing workload distribution"
+
+ChatGPT:
+1. Uses search_for_tasks with sales team filter
+2. Analyzes task titles and descriptions
+3. Groups by category
+4. Generates distribution report
 ```
 
-**Data validation**
+**Template optimization insights**
 ```
-Instruction: "Verify all required fields are logically consistent.
-If 'end_date' is before 'start_date', flag error and don't complete task."
+You: "Compare the Customer Support and Bug Triage templates, identify
+common steps, and suggest opportunities for consolidation"
+
+ChatGPT:
+1. Uses get_template for both templates
+2. Extracts and compares step configurations
+3. Identifies duplicated logic
+4. Suggests optimization opportunities
 ```
 
 ### Getting started checklist
 
-1. **Verify subscription**: Ensure you have ChatGPT Plus, Team, Enterprise, or Education
-2. **Enable Developer Mode**: In ChatGPT Settings → Beta Features → Developer Mode (required for write operations)
-3. **Add Tallyfy as an App**: Navigate to Settings → Apps and add the Tallyfy MCP server
-4. **Configure OAuth**: Authorize connection to your Tallyfy workspace using the OAuth flow
-5. **Test with simple task**: Create a basic automation to verify setup
-6. **Add to templates**: Embed AI instructions in your workflow templates
-7. **Monitor and refine**: Review AI performance and adjust instructions
+1. **Verify subscription**: Ensure you have ChatGPT Plus or ChatGPT Pro (Team/Enterprise not yet supported)
+2. **Enable Developer Mode**: ChatGPT Settings → Apps and Connectors → Advanced Settings → Enable Developer Mode
+3. **Create Connector**: Settings → Connectors → Create → Name: "Tallyfy"
+4. **Add MCP server URL**: `https://mcp.tallyfy.com`
+5. **Authorize OAuth connection**: Log in to Tallyfy and approve permissions
+6. **Test with simple query**: "Show me my tasks" or "List all templates"
+7. **Try advanced queries**: Search, filter, and analyze your workflow data
+8. **Monitor usage**: Review which tools are most helpful for your workflow
 
-**For developers**: OpenAI's Apps SDK (developers.openai.com/apps-sdk) allows building custom UIs alongside MCP servers for enhanced user experiences.
+**For developers**: OpenAI's MCP documentation at `platform.openai.com/docs/mcp` provides technical details on building custom MCP servers. The Apps SDK (`developers.openai.com/apps-sdk`) enables building custom UIs for enhanced user experiences.
 
-### Cost optimization
+### Cost considerations
 
-Since you're using your existing ChatGPT subscription:
-- No additional AI costs beyond your OpenAI subscription
-- Tallyfy API calls count toward your plan limits
-- Optimize prompts to reduce token usage
-- Use ChatGPT Team for better rate limits across users
+**ChatGPT subscription costs**:
+- ChatGPT Plus: $20/month per user
+- ChatGPT Pro: $200/month per user (higher rate limits, priority access)
+- MCP integration included - no additional AI costs
 
-Your ChatGPT subscription finally becomes a productivity multiplier, not just a chat window. Every task it completes saves your team time for work that actually needs human intelligence.
+**Tallyfy API usage**:
+- All MCP tool calls count toward your Tallyfy API rate limits
+- Standard API limits apply per organization
+- No per-call charges for MCP tools
+
+**Optimization tips**:
+- Use specific queries to minimize unnecessary tool calls
+- Leverage ChatGPT's conversation memory to avoid re-fetching data
+- ChatGPT Pro provides better performance for heavy MCP usage
+
+Your ChatGPT subscription becomes a workflow intelligence layer - search, analyze, and automate Tallyfy operations using natural language instead of navigating multiple screens.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
