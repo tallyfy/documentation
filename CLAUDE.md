@@ -1311,7 +1311,7 @@ Every documentation page displays its last modification date, automatically main
 
 ### How It Works
 1. **GitHub Actions Workflow** (`answers.yml`):
-   - Runs on every commit to main branch
+   - Runs on every commit to staging branch (then auto-promotes staging → main)
    - Executes `update-last-modified.py` script
    - Extracts last modified date from Git history for each MDX file
    - Updates `lastUpdated` field in frontmatter
