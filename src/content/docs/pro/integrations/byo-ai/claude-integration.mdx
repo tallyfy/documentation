@@ -10,48 +10,162 @@ sidebar:
 title: Claude integration
 ---
 
-:::note[Integration Status]
-This integration is live and operational. OAuth 2.1 endpoints are active, and Claude supports both local MCP servers and remote MCP servers with Streamable HTTP transport. SSE transport is deprecated - use Streamable HTTP for new integrations.
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+:::note[Integration status]
+This integration is live and operational. The Tallyfy MCP server at `https://mcp.tallyfy.com` supports OAuth 2.1 with PKCE. Use Streamable HTTP transport - SSE is deprecated and no longer supported.
 :::
 
-## Connecting Claude for intelligent workflow automation
+## Connecting Claude Desktop to Tallyfy
 
-Your Claude Pro or Team subscription brings advanced reasoning and analytical capabilities directly into Tallyfy workflows. Through Model Context Protocol (MCP) servers and OAuth2, Claude reads your task context, applies sophisticated analysis, and completes complex work that requires nuanced understanding - using the Claude subscription you already have.
+Your Claude subscription connects to Tallyfy through the MCP server at `https://mcp.tallyfy.com`. Once connected, Claude gets direct access to your tasks, processes, templates, and team members - letting it read context, take actions, and complete work on your behalf using natural language.
 
-### How Claude integration works
+The connection uses OAuth 2.1 with PKCE. Claude Desktop handles the entire auth flow automatically when you add the server URL - you just sign in with your Tallyfy credentials and authorize access.
 
-Claude integration leverages Anthropic's MCP (Model Context Protocol) framework for secure, intelligent connections:
+<Steps>
 
-1. **MCP server setup**: Tallyfy hosts MCP servers that Claude can connect to
-2. **OAuth2 authentication**: Secure authorization links your Claude account
-3. **Context window optimization**: Smart chunking sends relevant task data
-4. **Advanced reasoning**: Claude processes with its full analytical capabilities
-5. **Structured responses**: Results flow back in formats Tallyfy understands
+1. **Install or update Claude Desktop**
+
+   Download Claude Desktop from [claude.ai/download](https://claude.ai/download) for macOS or Windows. Make sure you're on a recent version - remote MCP server support with OAuth requires a current release.
+
+2. **Open Claude Desktop Settings**
+
+   Launch Claude Desktop, then open **Settings**. On macOS use Cmd+, or click the Claude menu → **Settings**. On Windows use the gear icon or the application menu.
+
+3. **Go to the Integrations or Extensions section**
+
+   In Settings, navigate to the **Integrations** tab (sometimes labelled **Extensions** or **MCP servers** depending on your version).
+
+4. **Add the Tallyfy MCP server**
+
+   Click **Add integration**, **Add remote server**, or the **+** button. Enter the Tallyfy MCP server URL:
+
+   ```text
+   https://mcp.tallyfy.com
+   ```
+
+   Claude Desktop automatically discovers the OAuth endpoints by querying `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` - no manual endpoint configuration needed.
+
+5. **Authorize access with your Tallyfy account**
+
+   Claude Desktop opens a browser window to Tallyfy's authorization page. Sign in with the email and password you use for Tallyfy, then click **Authorize** to grant Claude access to your organization. The token is stored securely using your OS keychain (macOS Keychain on Mac, Windows Credential Manager on Windows).
+
+6. **Restart Claude Desktop**
+
+   Quit Claude Desktop completely (Cmd+Q on macOS) and relaunch it. This ensures the MCP connection initializes cleanly on startup.
+
+7. **Verify the connection**
+
+   Open a new conversation. Look for the tools icon (🔨) at the bottom of the chat input - clicking it shows the available Tallyfy tools. Try a quick test:
+
+   ```text
+   What are my open tasks in Tallyfy?
+   ```
+
+   Claude calls `get_my_tasks` and returns your current task list.
+
+</Steps>
+
+## How Claude integration works
+
+Claude integration leverages Anthropic's MCP (Model Context Protocol) framework. The Tallyfy MCP server runs on Cloudflare at `https://mcp.tallyfy.com` and exposes your Tallyfy data as tools Claude can call during a conversation.
+
+The architecture:
+
+1. **Tool discovery**: When Claude Desktop connects, it queries the MCP server for the list of available tools
+2. **OAuth 2.1 authentication**: The MCP server acts as an OAuth proxy - it forwards auth requests to Tallyfy's authorization server at `https://account.tallyfy.com` and validates JWT tokens using RS256 signature verification
+3. **Tool calls**: When you ask Claude a question, it calls the appropriate Tallyfy tool with the right parameters
+4. **API execution**: The MCP server uses your credentials to call the Tallyfy API and returns structured results
+5. **Response**: Claude formats the data into a natural language answer in your chat
 
 Claude excels at tasks requiring deep analysis, careful reasoning, and nuanced judgment - perfect for complex workflow decisions.
 
 ### Authentication architecture
 
-Claude uses enterprise-grade OAuth 2.1 with MCP extensions. All endpoints are live and operational:
+The MCP server uses OAuth 2.1 with PKCE (S256). All discovery and token exchange happens through `https://mcp.tallyfy.com`, which proxies to Tallyfy's authorization server:
 
-**MCP server**: `https://mcp.tallyfy.com`
-**Authorization endpoint**: `https://go.tallyfy.com/mcp/oauth/authorize`
-**Token endpoint**: `https://go.tallyfy.com/mcp/oauth/token`
-**DCR endpoint**: `https://go.tallyfy.com/mcp/oauth/register`
-**OAuth Metadata**: `https://go.tallyfy.com/.well-known/oauth-authorization-server`
-**Scopes supported**: `mcp:tasks`, `mcp:processes`, `mcp:templates`, `mcp:users`, `mcp:read`, `mcp:write`
+| Endpoint | URL |
+|---|---|
+| MCP server | `https://mcp.tallyfy.com` |
+| Protected resource metadata | `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` |
+| OpenID configuration | `https://mcp.tallyfy.com/.well-known/openid-configuration` |
+| Authorization (proxy) | `https://mcp.tallyfy.com/mcp/oauth/authorize` |
+| Token exchange (proxy) | `https://mcp.tallyfy.com/mcp/oauth/token` |
+| Client registration (proxy) | `https://mcp.tallyfy.com/mcp/oauth/register` |
+| Tallyfy auth server | `https://account.tallyfy.com` |
 
-**Connection options**:
-- **Remote MCP servers**: Direct URL-based connection with OAuth 2.1 - no local setup required, hosted on Cloudflare
-- **Local MCP servers**: Standard input/output (stdio) for local development
-- **Transport**: Use Streamable HTTP (SSE is deprecated and being phased out)
+**Supported OAuth scopes**:
 
-The MCP protocol adds:
-- Tool discovery for available Tallyfy actions
-- Schema validation for data integrity
-- Secure sandboxing of operations
-- Audit trails for every interaction
-- Desktop Extensions (.mcpb) for one-click installation
+| Scope | Access |
+|---|---|
+| `mcp.tasks.read` | Read tasks and assignments |
+| `mcp.tasks.write` | Create and update tasks |
+| `mcp.processes.read` | Read workflow runs |
+| `mcp.processes.write` | Manage processes |
+| `mcp.templates.read` | Read templates and steps |
+| `mcp.templates.write` | Edit templates, steps, and automations |
+| `mcp.forms.read` | Read form fields |
+| `mcp.forms.write` | Add and modify form fields |
+| `mcp.users.read` | Read organization members |
+| `mcp.users.write` | Invite and manage users |
+| `mcp.automation.read` | Read automation rules |
+| `mcp.automation.write` | Create and modify automations |
+
+### MCP server tools
+
+The Tallyfy MCP server exposes these tools to Claude:
+
+**Task tools**
+- `get_my_tasks` - Get all tasks assigned to the current user (no parameters needed)
+- `get_user_tasks` - Get tasks for a specific team member by user ID
+- `get_tasks_for_process` - Get all tasks in a specific process by ID or name
+- `create_task_from_text` - Create a task from natural language - extracts title, deadline, and assigns to named members or guests
+
+**Search tools**
+- `search_for_tasks` - Search tasks across the organization by keyword
+- `search_for_processes` - Search workflow processes/runs by keyword
+- `search_for_templates` - Search templates by keyword (use `get_all_templates` for a full list)
+
+**Process tools**
+- `get_organization_runs` - Get all active workflow processes with optional filters for status, template, owner, tags, and type
+
+**Template tools**
+- `get_template` - Get a template by ID or name with full details
+- `get_all_templates` - Get all templates in the organization
+- `get_kickoff_fields` - Get kick-off form fields for a template
+- `get_step_dependencies` - Analyze which automations control when a step appears
+- `assess_template_health` - Comprehensive health check covering step clarity, form fields, automations, and deadlines
+- `suggest_step_deadline` - Get deadline recommendations for a step based on its type and complexity
+- `suggest_kickoff_fields` - Get suggested kick-off fields based on template content
+- `add_step_to_template` - Add a new step to an existing template
+- `add_assignees_to_step` - Add member or guest assignees to a step
+- `edit_description_on_step` - Update the description/instructions on a step
+
+**Form field tools**
+- `add_form_field_to_step` - Add text, dropdown, date, or other field types to a step
+- `update_form_field` - Update an existing form field's properties
+- `move_form_field` - Reorder a form field within a step
+- `delete_form_field` - Remove a form field from a step
+- `get_dropdown_options` - Get options for a dropdown field
+- `update_dropdown_options` - Update dropdown choices
+- `suggest_form_fields_for_step` - Get AI recommendations for useful form fields based on step content
+
+**Automation tools**
+- `create_automation_rule` - Create if-then automation rules on a template
+- `update_automation_rule` - Modify an existing automation rule's conditions or actions
+- `delete_automation_rule` - Remove an automation rule
+- `analyze_template_automations` - Analyze all automations for conflicts and redundancies
+- `get_step_visibility_conditions` - See exactly which automations control a step's visibility
+- `suggest_automation_consolidation` - Get AI recommendations for simplifying automation rules
+- `consolidate_automation_rules` - Preview or apply automation consolidation changes
+
+**User and guest tools**
+- `get_organization_users` - Get all organization members with profile data
+- `get_organization_users_list` - Get members with minimal data for listing
+- `get_organization_guests` - Get guest users with full data
+- `get_organization_guests_list` - Get guests with minimal data
+- `invite_user_to_organization` - Invite a new member by email
 
 ### Task automation with Claude's strengths
 
@@ -64,7 +178,7 @@ Claude excels at understanding lengthy, complex documents:
 
 #### Multi-step reasoning
 Claude handles tasks requiring careful thought:
-```
+```text
 Task: Evaluate Project Proposal
 Claude instruction: "Review the attached proposal against our evaluation
 criteria. Score each section (feasibility, budget, timeline, risk).
@@ -74,7 +188,7 @@ specific conditions for approval."
 
 #### Writing and documentation
 Claude generates high-quality written content:
-```
+```text
 Task: Create Process Documentation
 Claude instruction: "Based on the process steps completed so far, write
 detailed documentation including: purpose, prerequisites, step-by-step
@@ -84,7 +198,7 @@ template structure."
 
 #### Data analysis with context
 Claude understands nuanced data patterns:
-```
+```text
 Task: Analyze Customer Feedback
 Claude instruction: "Review all feedback from this quarter. Identify
 recurring themes, sentiment patterns, and emerging issues. Correlate
@@ -94,7 +208,7 @@ with product changes. Generate actionable insights for each department."
 ### Real-world automation examples
 
 **RFP response generation**
-```
+```text
 Workflow: RFP Response Process
 Claude's role: Reads RFP requirements, matches against your capabilities
 database, generates tailored responses for each section, flags areas
@@ -102,25 +216,27 @@ needing human input, maintains consistent tone and messaging.
 ```
 
 **Employee performance reviews**
-```
+```text
 Workflow: Quarterly Review Process
 Claude's role: Synthesizes feedback from multiple sources, identifies
 patterns and growth areas, drafts balanced review narrative, suggests
 specific development goals, ensures consistency across reviews.
 ```
 
-**Incident analysis and reporting**
-```
-Workflow: Incident Management
-Claude's role: Analyzes incident details, determines root cause,
-assesses impact and severity, generates detailed report with timeline,
-recommends preventive measures.
+**Template health audits**
+```text
+Prompt: "Assess the health of our Customer Onboarding template and
+suggest improvements to the automation rules."
+
+Claude calls: assess_template_health → analyze_template_automations →
+suggest_automation_consolidation, then summarizes findings and
+recommended fixes.
 ```
 
 ### Claude-specific instruction patterns
 
 **Leverage Claude's analytical depth**
-```
+```text
 Good: "Analyze the proposal considering technical feasibility, financial
 viability, strategic alignment, and risk factors. Provide weighted scoring
 for each dimension with detailed justification."
@@ -129,7 +245,7 @@ Bad: "Review the proposal and approve or reject."
 ```
 
 **Use Claude's context window effectively**
-```
+```text
 Good: "Using all previous task responses in this process, identify
 patterns and generate a complete summary highlighting key decisions
 and their rationales."
@@ -138,7 +254,7 @@ Bad: "Summarize this process."
 ```
 
 **Enable structured reasoning**
-```
+```text
 Good: "First, identify all stakeholders affected. Second, analyze impact
 on each group. Third, recommend mitigation strategies. Finally, provide
 an implementation timeline."
@@ -146,37 +262,10 @@ an implementation timeline."
 Bad: "Figure out who this affects and what to do."
 ```
 
-### MCP server capabilities
-
-The Tallyfy MCP server exposes these tools to Claude:
-
-**Task operations**
-- `get_task`: Retrieve full task context
-- `complete_task`: Mark task complete with data
-- `add_comment`: Add analytical comments
-- `update_fields`: Fill form fields with generated content
-
-**Process operations**
-- `get_process_history`: Access complete process context
-- `trigger_automation`: Initiate conditional branches
-- `create_subtask`: Generate follow-up tasks
-
-**File operations**
-- `read_attachment`: Extract and analyze file contents
-- `generate_document`: Create formatted documents
-- `update_template`: Suggest process improvements
-
 ### Advanced Claude features
 
-**Constitutional AI alignment**
-Claude follows ethical guidelines automatically:
-- Refuses inappropriate requests
-- Maintains data privacy
-- Provides balanced analysis
-- Explains reasoning transparently
-
 **Long context handling**
-Claude handles up to 200K tokens (1M in beta for Sonnet 4.5):
+Claude handles up to 200K tokens (1M in beta for some models):
 - Entire process histories
 - Multiple document attachments
 - Full analysis across steps
@@ -198,13 +287,13 @@ Claude processes multiple languages:
 - Implement progressive disclosure
 
 **Token optimization**:
-```
+```text
 Efficient: "Analyze Section 3.2 of the contract for liability terms"
 Wasteful: "Read the entire contract and find liability information"
 ```
 
 **Response formatting**:
-```
+```text
 Structured: "Return as JSON: {approved: boolean, reason: string, conditions: array}"
 Unstructured: "Tell me your thoughts on this"
 ```
@@ -214,6 +303,8 @@ Unstructured: "Tell me your thoughts on this"
 Claude integration maintains enterprise security:
 
 - **No training on your data**: Anthropic doesn't train on API inputs
+- **JWT validation**: Tokens validated via RS256 using Tallyfy's public key - only Tallyfy can issue valid tokens
+- **OS keychain storage**: Claude Desktop stores tokens in macOS Keychain or Windows Credential Manager, never in plaintext
 - **Data isolation**: Each organization's data remains separate
 - **Audit logging**: Complete interaction history
 - **GDPR compliant**: Data deletion on request
@@ -221,62 +312,59 @@ Claude integration maintains enterprise security:
 
 ### Troubleshooting
 
+**"MCP tools icon doesn't appear"**
+- Restart Claude Desktop completely (Cmd+Q on macOS, not just closing the window)
+- Check Settings → Integrations to confirm `https://mcp.tallyfy.com` is listed and active
+- If the server shows an error, try removing and re-adding it
+
+**"Authorization fails or loops"**
+- Make sure you're signing in with the Tallyfy account that has access to the organization
+- Try opening `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` in your browser - if you get a JSON response, the server is reachable
+- Clear Claude Desktop's stored credentials and re-authorize from scratch
+
 **"Claude times out on complex tasks"**
 - Break into smaller subtasks
 - Reduce context window size
 - Implement checkpoints for long analyses
 
 **"Responses lack specific details"**
-- Provide more context in instructions
-- Include examples of desired output
-- Reference specific data fields
-
-**"MCP connection fails"**
-- Verify OAuth tokens are current
-- Check MCP server endpoint availability
-- Review permission scopes
-- Try re-authorizing if OAuth was set up before December 2025 (known issues with older tokens)
+- Provide more context in your prompts
+- Include examples of the desired output format
+- Reference specific data fields by name
 
 **"SSE connection errors"**
-- SSE transport is deprecated - migrate to Streamable HTTP
-- Update your MCP configuration to use Streamable HTTP transport
-- Remote MCP servers on Cloudflare only support Streamable HTTP
-
-**"Desktop Extension not installing"**
-- Ensure you have the latest Claude Desktop version
-- Desktop Extensions require macOS or Windows
-- Check system requirements for .mcpb file support
+- SSE transport is no longer supported - the Tallyfy MCP server uses Streamable HTTP only
+- Update your Claude Desktop to the latest version, which defaults to Streamable HTTP
 
 ### Implementation best practices
 
-1. **Start with high-value tasks**: Focus on complex decisions requiring analysis
-2. **Provide clear context**: Claude performs best with complete information
-3. **Use structured formats**: Define expected output schemas
-4. **Implement review steps**: Add human checkpoints for critical decisions
-5. **Monitor and iterate**: Review Claude's outputs to refine instructions
+1. **Start with read-only tools**: Use `get_my_tasks`, `search_for_processes`, and `get_all_templates` first to get familiar with the data before running write operations
+2. **Provide clear context**: Claude performs best with complete information - name the template, process, or user explicitly
+3. **Use structured formats**: Define expected output schemas for consistent results
+4. **Implement review steps**: Add human checkpoints for critical decisions like creating automation rules
+5. **Monitor and iterate**: Review Claude's outputs to refine your prompts over time
 
 ### Cost considerations
 
 Using your Claude subscription efficiently:
 - Claude Pro: $20/month for individual use
-- Claude Team: $25/user/month with higher limits
-- No additional Tallyfy charges for BYO AI
-- API calls count toward your Anthropic quotas
+- Claude Team: $25/user/month with higher limits and admin controls
+- Claude Max: $100-200/month for higher usage limits
+- No additional Tallyfy charges for MCP usage
+- API calls count toward your Anthropic usage quotas
 
 ### Available Claude models
 
-Tallyfy works with all current Claude models through your subscription:
+Tallyfy's MCP server works with all Claude models through your subscription:
 
-- **Claude Opus 4.5**: Anthropic's flagship model with the strongest reasoning, coding, and agentic capabilities. Ideal for complex multi-step analysis and long-horizon tasks.
-- **Claude Sonnet 4.5**: Best balance of speed and capability. State-of-the-art coding performance with 1M token context window (beta).
+- **Claude Opus 4.5**: Anthropic's flagship model with the strongest reasoning and agentic capabilities. Best for complex multi-step analysis and long-horizon tasks.
+- **Claude Sonnet 4.5**: Best balance of speed and capability with a 1M token context window (beta). Strong coding performance.
 - **Claude Sonnet 4**: Fast hybrid model with extended thinking for deeper reasoning when needed.
-- **Claude Haiku 4.5**: Fastest and most cost-efficient option, matching Sonnet 4 performance on many tasks.
+- **Claude Haiku 4.5**: Fastest and most cost-efficient option, matching Sonnet 4 on many tasks. Good for quick lookups and task creation.
 
-All models support text and image input, multilingual capabilities, and vision for document analysis.
+All models support text and image input, multilingual capabilities, and extended reasoning modes.
 
 Claude brings sophisticated analysis to every workflow. Complex decisions that took hours of human review now happen automatically, with reasoning you can trust and audit.
-
-import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
