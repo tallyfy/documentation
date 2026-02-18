@@ -9,318 +9,289 @@ sidebar:
 title: ChatGPT integration
 ---
 
-:::note[Beta Integration Status]
-MCP (Model Context Protocol) integration with ChatGPT is currently in **BETA**. Available only to ChatGPT Plus and ChatGPT Pro subscribers through Developer Mode. OAuth 2.1 endpoints are live at `mcp.tallyfy.com`.
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+:::note[Integration status]
+This integration is live and operational. The Tallyfy MCP server at `https://mcp.tallyfy.com` supports OAuth 2.1 with PKCE and is compatible with ChatGPT's Apps/Connectors feature. Use Streamable HTTP transport - SSE is no longer supported.
 :::
 
-## Connecting ChatGPT to automate Tallyfy tasks
+## Connecting ChatGPT to Tallyfy
 
-Your ChatGPT Plus or Pro subscription can become a workflow automation engine for Tallyfy. Through MCP (Model Context Protocol) and OAuth 2.1 authentication, ChatGPT connects to your Tallyfy workspace to search, read, and manage tasks, processes, and templates using natural language - all through the subscription you already pay for.
+Your ChatGPT subscription can connect directly to Tallyfy through the MCP server at `https://mcp.tallyfy.com`. Once connected, ChatGPT can search, read, and manage your tasks, processes, and templates using natural language - no API keys to manage and no code to write.
 
-### How ChatGPT integration works
+The connection uses OAuth 2.1 with PKCE. ChatGPT handles the entire auth flow when you add the server URL - you sign in with your Tallyfy credentials and authorize access.
 
-The integration uses OpenAI's Connectors platform with MCP (Model Context Protocol) to create a secure bridge between ChatGPT and your Tallyfy workspace:
+<Steps>
 
-1. **MCP server connection**: ChatGPT connects to Tallyfy's MCP server at `mcp.tallyfy.com`
-2. **OAuth 2.1 authentication**: You authorize ChatGPT to access your Tallyfy workspace through a secure OAuth flow
-3. **Natural language queries**: Ask ChatGPT to search tasks, check process status, or retrieve template information
-4. **Tool execution**: ChatGPT uses MCP tools to read and write data in your Tallyfy workspace
-5. **Intelligent responses**: ChatGPT processes your requests and returns structured information or confirms actions
+1. **Enable Developer Mode in ChatGPT**
 
-No API keys to manage. No code to write. Just enable Developer Mode, connect the MCP server, and start automating.
+   Click your profile icon in the top-left corner, then go to **Settings** → **Apps and Connectors** → **Advanced Settings**. Enable **Developer Mode** (required for write access to MCP tools - read-only Deep Research works without it).
 
-### Setting up the connection
+2. **Open the Connectors or Apps section**
 
-**Prerequisites**:
-- ChatGPT Plus or ChatGPT Pro subscription
-- Active Tallyfy account with at least Standard user role
-- Developer Mode enabled in ChatGPT settings
+   In ChatGPT Settings, navigate to **Connectors** (or **Apps** - OpenAI renamed this in December 2025, so the label depends on your version). Click **Create** or **Add Custom App**.
 
-**Step-by-step setup**:
+3. **Configure the connector**
 
-1. **Enable Developer Mode** in ChatGPT:
-   - Click your profile icon (top left)
-   - Select **Settings** → **Apps and Connectors**
-   - Scroll to **Advanced Settings**
-   - Enable **Developer Mode** (beta feature)
-
-2. **Create a new Connector**:
-   - In ChatGPT, go to **Settings** → **Connectors**
-   - Click **Create**
-   - **Connector name**: Tallyfy
-   - **Description**: "Connect to Tallyfy to search and manage workflow tasks, processes, and templates"
-
-3. **Configure the MCP server**:
+   Fill in the connector details:
+   - **Name**: Tallyfy
+   - **Description**: Connect to Tallyfy to search and manage workflow tasks, processes, and templates
    - **MCP Server URL**: `https://mcp.tallyfy.com`
-   - **Authentication**: OAuth 2.1 with PKCE
-   - ChatGPT will automatically discover authentication endpoints
+   - **Authentication**: OAuth 2.1 with PKCE (select this option - ChatGPT will auto-discover the endpoints)
 
-4. **Authorize the connection**:
-   - Click **Connect** and you'll be redirected to Tallyfy's login page
-   - Log in with your Tallyfy credentials
-   - Review and approve the permissions request (you'll see which scopes are requested)
-   - ChatGPT stores refresh tokens for persistent access
-   - You can revoke access anytime from ChatGPT Settings → Connectors
+4. **Authorize with your Tallyfy account**
 
-### OAuth endpoints (automatically discovered)
+   Click **Connect**. ChatGPT discovers the OAuth endpoints by querying `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` automatically, then redirects you to Tallyfy's login page. Sign in and click **Authorize** to grant ChatGPT access to your organization. Refresh tokens are stored securely by OpenAI.
 
-**MCP Server**: `https://mcp.tallyfy.com`
-**Authorization endpoint**: `https://go.tallyfy.com/mcp/oauth/authorize`
-**Token endpoint**: `https://go.tallyfy.com/mcp/oauth/token`
-**OAuth Metadata**: `https://go.tallyfy.com/.well-known/oauth-authorization-server`
+5. **Test the connection**
 
-**Supported OAuth scopes** (granular read/write permissions):
-- `mcp.users.read` - View user and guest information
-- `mcp.users.write` - Modify user permissions and settings
-- `mcp.tasks.read` - Search and retrieve task data
-- `mcp.tasks.write` - Create, update, and complete tasks
-- `mcp.processes.read` - View workflow process status
-- `mcp.processes.write` - Manage process lifecycle
-- `mcp.templates.read` - Access template configurations
-- `mcp.templates.write` - Modify templates and steps
-- `mcp.forms.read` - View form field definitions
-- `mcp.forms.write` - Update form fields and options
-- `mcp.automation.read` - View automation rules
-- `mcp.automation.write` - Create and modify automation rules
+   Start a new conversation and try a simple query:
 
-### Available MCP tools
+   ```text
+   Show me my open tasks in Tallyfy
+   ```
 
-Once connected, ChatGPT can use these Tallyfy MCP tools through natural language:
+   ChatGPT connects to the MCP server and returns your task list. If you see the tool being called (displayed as a step in the response), the connection is working.
 
-#### Search capabilities
-- **Search for tasks**: Find tasks across your organization by keywords or criteria
-- **Search for processes**: Locate running workflow processes (runs)
-- **Search for templates**: Discover workflow templates (blueprints)
+6. **Share with your team (optional)**
 
-#### Task management
-- **Get my tasks**: Retrieve all tasks assigned to you
-- **Get user tasks**: View tasks assigned to any user
-- **Get tasks for process**: List all tasks in a specific workflow process
-- **Create task from text**: Generate a new task using natural language description
+   For team-wide access, publish the connector to your ChatGPT workspace. Admins can control visibility and permissions in workspace settings.
 
-#### Process management
-- **Get organization runs**: View all active workflow processes in your organization
+</Steps>
 
-#### Template management
-- **Get template**: Retrieve complete template configuration
-- **Get all templates**: List all available workflow templates
-- **Get step dependencies**: View task dependencies within templates
-- **Get kickoff fields**: Access template launch form fields
-- **Update kickoff field**: Modify launch form field properties
-- **Delete kickoff field**: Remove fields from launch forms
+### OAuth endpoints reference
 
-#### Form fields
-- **Update form field**: Modify task form field properties
-- **Delete form field**: Remove form fields from tasks
-- **Get dropdown options**: Retrieve choices for dropdown fields
-- **Update dropdown options**: Modify dropdown field choices
+ChatGPT auto-discovers these through the `/.well-known` endpoints - no manual configuration needed. For debugging or custom client setup:
 
-#### Automation rules
-- **Create automation rule**: Add if-this-then-that logic to templates
-- **Update automation rule**: Modify existing automation rules
-- **Delete automation rule**: Remove automation rules
-- **Get step visibility conditions**: View conditional display rules
+| Endpoint | URL |
+|---|---|
+| MCP server | `https://mcp.tallyfy.com` |
+| Protected resource metadata | `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` |
+| OpenID configuration | `https://mcp.tallyfy.com/.well-known/openid-configuration` |
+| Authorization (proxy) | `https://mcp.tallyfy.com/mcp/oauth/authorize` |
+| Token exchange (proxy) | `https://mcp.tallyfy.com/mcp/oauth/token` |
+| Client registration (proxy) | `https://mcp.tallyfy.com/mcp/oauth/register` |
+| Tallyfy auth server | `https://account.tallyfy.com` |
 
-#### User and group management
-- **Get organization users**: List all users in your workspace
-- **Get organization guests**: View external guest users
-- **Get organization guests list**: Simplified guest user listing
+**Supported OAuth scopes** (ChatGPT requests all of these during the authorization step):
+
+| Scope | Access |
+|---|---|
+| `mcp.tasks.read` | Search and retrieve task data |
+| `mcp.tasks.write` | Create and update tasks |
+| `mcp.processes.read` | View workflow process status |
+| `mcp.processes.write` | Manage process lifecycle |
+| `mcp.templates.read` | Read template configurations |
+| `mcp.templates.write` | Edit templates, steps, and automations |
+| `mcp.forms.read` | View form field definitions |
+| `mcp.forms.write` | Add and update form fields |
+| `mcp.users.read` | View users and guests |
+| `mcp.users.write` | Invite and manage users |
+| `mcp.automation.read` | View automation rules |
+| `mcp.automation.write` | Create and modify automations |
+
+## Available MCP tools
+
+Once connected, ChatGPT can use these Tallyfy tools through natural language:
+
+**Task tools**
+- `get_my_tasks` - Get all tasks assigned to the current user (no parameters needed)
+- `get_user_tasks` - Get tasks assigned to a specific team member by user ID
+- `get_tasks_for_process` - Get all tasks in a specific process by ID or name
+- `create_task_from_text` - Create a task from natural language - extracts title, deadline, and assigns to named members or guests
+
+**Search tools**
+- `search_for_tasks` - Search tasks across the organization by keyword
+- `search_for_processes` - Search workflow processes/runs by keyword
+- `search_for_templates` - Search templates by keyword (use `get_all_templates` for a full list)
+
+**Process tools**
+- `get_organization_runs` - Get all workflow processes with optional filters for status, template, owner, tags, and type
+
+**Template tools**
+- `get_template` - Get a template by ID or name with full details
+- `get_all_templates` - Get all templates in the organization
+- `get_kickoff_fields` - Get kick-off form fields for a template
+- `get_step_dependencies` - Analyze which automations control when a step appears
+- `assess_template_health` - Comprehensive health check covering step clarity, form fields, automations, and deadlines
+- `suggest_step_deadline` - Get deadline recommendations for a step
+- `suggest_kickoff_fields` - Get suggested kick-off fields based on template content
+- `add_step_to_template` - Add a new step to an existing template
+- `add_assignees_to_step` - Add member or guest assignees to a step
+- `edit_description_on_step` - Update the description/instructions on a step
+
+**Form field tools**
+- `add_form_field_to_step` - Add text, dropdown, date, or other field types to a step
+- `update_form_field` - Update an existing form field's properties
+- `move_form_field` - Reorder a form field within a step
+- `delete_form_field` - Remove a form field from a step
+- `get_dropdown_options` - Get the options for a dropdown field
+- `update_dropdown_options` - Update dropdown choices
+- `suggest_form_fields_for_step` - Get AI recommendations for useful form fields based on step content
+
+**Automation tools**
+- `create_automation_rule` - Create if-then automation rules on a template
+- `update_automation_rule` - Modify an existing automation rule's conditions or actions
+- `delete_automation_rule` - Remove an automation rule
+- `analyze_template_automations` - Analyze all automations for conflicts and redundancies
+- `get_step_visibility_conditions` - See which automations control a step's visibility
+- `suggest_automation_consolidation` - Get AI recommendations for simplifying automation rules
+- `consolidate_automation_rules` - Preview or apply automation consolidation changes
+
+**User and guest tools**
+- `get_organization_users` - Get all organization members with profile data
+- `get_organization_users_list` - Get members with minimal data for listing
+- `get_organization_guests` - Get guest users with full data
+- `get_organization_guests_list` - Get guests with minimal data
+- `invite_user_to_organization` - Invite a new member by email
 
 ### Write operation security
 
-ChatGPT displays **explicit confirmation modals** before executing any write or modify operations (create, update, delete). This prevents accidental changes and gives you full control over what the AI can modify in your Tallyfy workspace.
+ChatGPT displays **explicit confirmation modals** before executing any write or modify operation (create, update, delete). This prevents accidental changes and gives you full control over what the AI modifies in your Tallyfy workspace.
 
-### Real-world usage examples
+## Real-world usage examples
 
 **Finding urgent tasks**
-```
+```text
 You: "Show me all urgent tasks assigned to the sales team"
-ChatGPT: Uses search_for_tasks tool → Returns filtered task list with details
+ChatGPT: Uses search_for_tasks → returns filtered task list with details
 ```
 
 **Checking process status**
-```
+```text
 You: "What's the status of the employee onboarding process for John Smith?"
-ChatGPT: Uses search_for_processes tool → Returns process details, completion percentage, current step
+ChatGPT: Uses search_for_processes → returns process details, completion percentage, current step
 ```
 
-**Template discovery**
-```
-You: "Find all templates related to customer support workflows"
-ChatGPT: Uses search_for_templates tool → Lists matching templates with descriptions
+**Template health audit**
+```text
+You: "Analyze our Customer Onboarding template and suggest improvements"
+ChatGPT: Uses get_template → assess_template_health → analyze_template_automations →
+         suggest_automation_consolidation, then summarizes findings
 ```
 
 **Bulk task review**
-```
+```text
 You: "Get all my tasks and summarize which ones are overdue"
-ChatGPT: Uses get_my_tasks tool → Analyzes due dates and provides organized summary
+ChatGPT: Uses get_my_tasks → analyzes due dates → provides organized summary
 ```
 
 **Creating automation rules**
-```
-You: "Add a rule to the Sales Template that sends an email notification when the 'contract_value' field exceeds $50,000"
-ChatGPT: Uses create_automation_rule tool → Confirms creation after your approval
-```
-
-**Template configuration**
-```
-You: "Show me all the form fields in the Customer Onboarding template"
-ChatGPT: Uses get_template tool → Lists all form fields with their types and properties
+```text
+You: "Add a rule to the Sales Template that assigns the contract review step to Sarah when deal value exceeds $50,000"
+ChatGPT: Uses get_template to find the step ID → create_automation_rule →
+         confirms creation after your approval
 ```
 
-### Best practices for natural language queries
+**Cross-referencing data**
+```text
+You: "Find the onboarding template, get all its form fields, then show me
+     active onboarding processes and highlight which fields are most
+     commonly left empty"
+
+ChatGPT:
+1. get_all_templates to find the onboarding template
+2. get_template to retrieve form field details
+3. search_for_processes to find active runs
+4. Analyzes and summarizes completion patterns
+```
+
+## Best practices for natural language queries
 
 **Be specific with search terms**
-```
+```text
 Good: "Find all tasks with 'invoice approval' in the title assigned to me"
 Bad: "Show tasks"
 ```
 
 **Provide context for filtering**
-```
-Good: "Get processes created in the last 7 days with 'onboarding' in the name"
+```text
+Good: "Get processes from the Customer Onboarding template created in the last 7 days"
 Bad: "Find recent processes"
 ```
 
 **Specify exactly what you want to modify**
-```
-Good: "Update the 'Priority' dropdown field in the Bug Report template to include 'Critical' as an option"
+```text
+Good: "Update the 'Priority' dropdown in the Bug Report template to add 'Critical' as an option"
 Bad: "Change the priority field"
 ```
 
 **Ask for structured summaries**
-```
-Good: "List all my tasks grouped by due date, show only title and assignee"
+```text
+Good: "List all my tasks grouped by due date, showing only title and assignee"
 Bad: "What are my tasks?"
 ```
 
-### Security and data handling
+## Limitations of the text interface
 
-**Built-in safeguards**:
-- **OAuth 2.1 authentication**: Secure token-based access with PKCE (Proof Key for Code Exchange)
-- **Granular scoped permissions**: 12 separate read/write scopes for users, tasks, processes, templates, forms, and automations
-- **Write confirmations**: ChatGPT displays explicit modals before any create, update, or delete operations
-- **Token management**: Refresh tokens stored securely by OpenAI, revocable from ChatGPT settings
-- **Audit logging**: All MCP tool executions are logged in Tallyfy for compliance tracking
-- **No training on your data**: OpenAI doesn't use API interactions for model training (per OpenAI Enterprise Agreement)
+ChatGPT's text-based UI hits real walls with some Tallyfy features:
 
-**Important security notes**:
-- Only connect MCP servers you trust - prompt injection attacks are possible
-- Review all write operations before confirming them in ChatGPT
-- Regularly audit which Connectors have access to your Tallyfy workspace
-- Revoke access immediately if you suspect unauthorized use
+### Visual workflow representation
 
-### Rate limits and performance
+ChatGPT cannot display Tallyfy's visual process tracker or workflow diagrams. You can't see how steps flow, real-time progress bars, or process dependencies at a glance. For visual process monitoring, use Tallyfy's native [tracker view](/products/pro/tracking-and-tasks/tracker-view/) directly.
 
-**OpenAI limits apply**:
-- ChatGPT Plus: Standard message limits per 3-hour window
-- ChatGPT Pro: Higher limits with priority access
+### Complex form interactions
 
-**Tallyfy API limits**:
-- All MCP tool calls count toward your Tallyfy API rate limits
-- Standard rate limiting applies per organization
+Dropdown fields with many options, date pickers, and file uploads are difficult in plain text. Multi-select dropdowns become a wall of text; file attachments can't be handled at all.
 
-**Performance tips**:
-- Be specific in queries to reduce unnecessary tool calls
-- Use search tools to filter before requesting full details
-- Batch related questions in a single conversation
-- ChatGPT caches tool results within the same conversation
+### Real-time updates
 
-### Troubleshooting common issues
+ChatGPT's turn-based model doesn't push live updates. Changes made in Tallyfy by teammates won't appear until you ask again - there are no live notifications.
 
-**"ChatGPT says it can't find the Tallyfy connector"**
-- Verify Developer Mode is enabled in ChatGPT settings
-- Check that you have ChatGPT Plus or Pro subscription (not Team/Enterprise yet)
-- Re-create the Connector with the correct MCP server URL: `https://mcp.tallyfy.com`
+### Bulk visual operations
 
-**"Authentication failed or keeps expiring"**
-- Re-authorize the OAuth connection in ChatGPT Settings → Connectors
-- Check if your ChatGPT and Tallyfy subscriptions are both active
-- Verify you have at least Standard user role in Tallyfy
-- Clear browser cache and try reconnecting
+Reordering many steps via drag-and-drop, watching batch updates propagate, or seeing a template's visual branching structure - these stay in Tallyfy's native interface.
+
+## Security and data handling
+
+- **OAuth 2.1 with PKCE**: Secure token-based access - no API keys passed around
+- **Granular scopes**: 12 separate read/write scopes so you control what ChatGPT can access
+- **Write confirmations**: ChatGPT shows explicit modals before any create, update, or delete operation
+- **Token storage**: Refresh tokens stored securely by OpenAI, revocable anytime from ChatGPT Settings → Connectors
+- **No training on your data**: OpenAI doesn't use API interactions for model training (per OpenAI's usage policies)
+- **Prompt injection risk**: Be cautious if your task or template content contains prompt-like instructions - verify unexpected ChatGPT behaviors before acting on them
+
+## Troubleshooting
+
+**"ChatGPT can't find the Tallyfy connector"**
+- Verify Developer Mode is enabled: ChatGPT Settings → Apps and Connectors → Advanced Settings
+- Check your ChatGPT plan supports Apps/Connectors (Plus, Pro, Team, Enterprise, Education)
+- Re-create the connector with the correct URL: `https://mcp.tallyfy.com`
+
+**"Authentication fails or keeps looping"**
+- Re-authorize from ChatGPT Settings → Connectors → Tallyfy → Reconnect
+- Confirm your Tallyfy account is active and has at least Standard user role
+- Open `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` in a browser - a JSON response confirms the server is reachable
+- Clear browser cache and retry
 
 **"ChatGPT says it can't access certain tools"**
-- Verify the OAuth scopes were approved during connection
-- Check that your Tallyfy user role has permissions for that operation
-- Some write operations require Administrator role
+- Verify you approved all OAuth scopes during the initial connection
+- Some write operations require Administrator role in Tallyfy
+- Try disconnecting and reconnecting to re-request all scopes
 
 **"Search results are empty or incomplete"**
-- Make search queries more specific
-- Check that the items you're searching for actually exist in your workspace
-- Verify your Tallyfy user account has permission to view those items
+- Make queries more specific - `search_for_tasks` requires a non-empty keyword
+- Verify the items exist in your Tallyfy workspace
+- Confirm your Tallyfy user has permission to view those items
 
-### Advanced usage patterns
+**"SSE connection errors"**
+- SSE transport is no longer supported - the Tallyfy MCP server uses Streamable HTTP only
+- Update to the latest ChatGPT version which defaults to Streamable HTTP
 
-**Cross-referencing multiple data sources**
-```
-You: "Find the employee onboarding template, get all its form fields,
-then show me all active onboarding processes and highlight which fields
-are most commonly left empty"
+## Cost considerations
 
-ChatGPT:
-1. Uses get_all_templates to find onboarding template
-2. Uses get_template to retrieve form field details
-3. Uses search_for_processes to find active onboarding processes
-4. Analyzes and summarizes field completion patterns
-```
-
-**Bulk analysis and reporting**
-```
-You: "Get all tasks assigned to the sales team, categorize them by type,
-and create a summary showing workload distribution"
-
-ChatGPT:
-1. Uses search_for_tasks with sales team filter
-2. Analyzes task titles and descriptions
-3. Groups by category
-4. Generates distribution report
-```
-
-**Template optimization insights**
-```
-You: "Compare the Customer Support and Bug Triage templates, identify
-common steps, and suggest opportunities for consolidation"
-
-ChatGPT:
-1. Uses get_template for both templates
-2. Extracts and compares step configurations
-3. Identifies duplicated logic
-4. Suggests optimization opportunities
-```
-
-### Getting started checklist
-
-1. **Verify subscription**: Ensure you have ChatGPT Plus or ChatGPT Pro (Team/Enterprise not yet supported)
-2. **Enable Developer Mode**: ChatGPT Settings → Apps and Connectors → Advanced Settings → Enable Developer Mode
-3. **Create Connector**: Settings → Connectors → Create → Name: "Tallyfy"
-4. **Add MCP server URL**: `https://mcp.tallyfy.com`
-5. **Authorize OAuth connection**: Log in to Tallyfy and approve permissions
-6. **Test with simple query**: "Show me my tasks" or "List all templates"
-7. **Try advanced queries**: Search, filter, and analyze your workflow data
-8. **Monitor usage**: Review which tools are most helpful for your workflow
-
-**For developers**: OpenAI's MCP documentation at `platform.openai.com/docs/mcp` provides technical details on building custom MCP servers. The Apps SDK (`developers.openai.com/apps-sdk`) enables building custom UIs for enhanced user experiences.
-
-### Cost considerations
-
-**ChatGPT subscription costs**:
-- ChatGPT Plus: $20/month per user
-- ChatGPT Pro: $200/month per user (higher rate limits, priority access)
-- MCP integration included - no additional AI costs
-
-**Tallyfy API usage**:
+**ChatGPT subscription**:
+- ChatGPT Plus: $20/month - MCP via Developer Mode, individual use
+- ChatGPT Pro: $200/month - higher rate limits, priority access
+- ChatGPT Team: $25/user/month - workspace sharing, admin controls
+- ChatGPT Enterprise/Education: Custom pricing - admin-managed Apps, enhanced security
+- No additional Tallyfy charges for MCP usage
 - All MCP tool calls count toward your Tallyfy API rate limits
-- Standard API limits apply per organization
-- No per-call charges for MCP tools
 
-**Optimization tips**:
-- Use specific queries to minimize unnecessary tool calls
-- Leverage ChatGPT's conversation memory to avoid re-fetching data
-- ChatGPT Pro provides better performance for heavy MCP usage
+Use specific queries to minimize unnecessary tool calls and get the most out of your quota.
 
 Your ChatGPT subscription becomes a workflow intelligence layer - search, analyze, and automate Tallyfy operations using natural language instead of navigating multiple screens.
-
-import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
