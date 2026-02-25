@@ -127,7 +127,7 @@ logger = logging.getLogger(__name__)
 
 class ClaudeClient:
 	BASE_API = 'https://api.anthropic.com/v1/messages'
-	MODEL = "claude-opus-4-5-20251101"
+	MODEL = "claude-opus-4-6"
 
 	def __init__(self, api_key: str, system_prompt: str):
 		self.headers = {
