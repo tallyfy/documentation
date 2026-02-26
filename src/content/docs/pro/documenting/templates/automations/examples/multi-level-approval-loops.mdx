@@ -1,10 +1,9 @@
 ---
-description: This guide demonstrates how to create multi-level approval workflows
-  with automatic rejection handling that sends work back to previous steps for corrections
-  while maintaining quality control across financial approvals content publishing
-  and contract management processes.
+description: Set up approval chains where rejections automatically reopen earlier
+  steps for corrections - with examples for financial, content, and contract workflows.
 id: 9f1e5212f050eb3826befabe83b4c3f4
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 6
 title: Multi-level approval loops
@@ -12,22 +11,22 @@ title: Multi-level approval loops
 
 import { Steps } from '@astrojs/starlight/components';
 
-Want approval workflows where rejections send work back for fixes? Here's how. You'll build multi-level approvals that automatically reopen previous steps when someone hits reject - keeping quality high without grinding everything to a halt.
+Multi-level approval loops reopen earlier steps automatically when someone rejects. Rejections bounce work back for corrections - no manual tracking needed.
 
-## Use case for this automation
+## When to use this
 
-You know those approvals that need multiple sign-offs? Multi-level loops handle them perfectly:
+Any workflow needing sequential sign-offs:
 
-- **Financial approvals**: Purchase requests that need manager approval, then finance approval, then executive sign-off
-- **Content publishing**: Draft → Editor review → Legal review → Final approval
-- **Contract management**: Initial draft → Department head → Legal → CFO → CEO  
-- **Quality control**: Product inspection → Supervisor check → Quality manager sign-off
+- **Financial approvals** - Purchase requests through manager, finance, then executive
+- **Content publishing** - Draft, editor review, legal review, final sign-off
+- **Contract management** - Department head, legal, CFO, CEO
+- **Quality control** - Inspection, supervisor check, quality manager sign-off
 
-Here's the magic - when someone rejects at any level, the work automatically bounces back to whoever needs to fix it. No chasing people down.
+Rejection at any level bounces work back to whoever needs to fix it.
 
-## Creating a multi-level approval workflow
+## Creating the workflow
 
-Here's how your multi-level approval workflow flows with automatic rejection handling:
+Here's how the approval chain flows:
 
 ```d2
 # Multi-Level Approval Workflow
@@ -103,23 +102,23 @@ COO -> Create: Rejected {
 }
 ```
 
-**What to notice:**
-- 🔄 Every rejection automatically re-opens the creation task - no manual tracking needed
-- 🎯 Later approvals only show after earlier ones pass (visibility rules[^1] control this)  
-- 💡 COO rejection can re-open multiple steps simultaneously for faster corrections
+**Key points:**
+- Every rejection re-opens the creation task
+- Later approvals only appear after earlier ones pass - [visibility rules](/products/pro/documenting/templates/automations/actions/visibility-actions/)[^1] control this
+- COO rejection can re-open multiple steps at once
 
 <Steps>
 1. **Set up your approval chain steps**
-   
-   Start with your [template](/products/pro/documenting/templates/) and map out who approves what. You'll use **Approve/Reject** type steps:
-   - Step 1: "Create wire transfer request" (Regular task)
+
+   In your [template](/products/pro/documenting/templates/), create steps using the **Approve/Reject** step type:
+   - Step 1: "Create wire transfer request" (regular task)
    - Step 2: "Manager review" (Approve/Reject)
-   - Step 3: "Finance department approval" (Approve/Reject)  
+   - Step 3: "Finance department approval" (Approve/Reject)
    - Step 4: "COO final approval" (Approve/Reject)
 
 2. **Create re-open rules for each approval level**
-   
-   Next, set up what happens when someone hits reject. For each approval step, create a [status action[^2]](/products/pro/documenting/templates/automations/actions/status-actions/) rule:
+
+   For each approval step, create a [status action[^2]](/products/pro/documenting/templates/automations/actions/status-actions/) rule that fires on rejection:
    
    **Rule 1: Manager rejection reopens creation**
    ```
@@ -141,8 +140,8 @@ COO -> Create: Rejected {
    ```
 
 3. **Add visibility rules to control flow**
-   
-   Don't show later approvals until earlier ones pass. Simple:
+
+   Hide later approvals until earlier ones pass:
    ```
    IF (Manager review) is Approved
    THEN Show "Finance department approval"
@@ -157,7 +156,7 @@ COO -> Create: Rejected {
 
 ### Conditional approval routing
 
-Need different approvers for different amounts? You can route based on any criteria:
+Route approvals based on field values like amount thresholds:
 
 ```
 IF (Purchase Amount) is greater than $50,000
@@ -165,9 +164,9 @@ AND (Manager review) is Approved
 THEN Show "Board approval required"
 ```
 
-### Parallel approvals with synchronization
+### Parallel approvals
 
-What if legal, compliance, and finance all need to review at the same time? Here's how parallel approvals work:
+When multiple teams need to review at the same time, use parallel approvals:
 
 ```d2
 # Parallel Approval Workflow
@@ -250,12 +249,12 @@ Sync -> Initial: Any rejected {
 }
 ```
 
-**What to notice:**
-- 🚀 All three approvals trigger simultaneously after initial review
-- ⏸️ Final step waits until ALL parallel approvals complete
-- ❌ Any rejection sends the whole thing back to start
+**Key points:**
+- All three approvals trigger at once after initial review
+- The final step waits until ALL parallel approvals complete
+- Any single rejection sends everything back to start
 
-Easy setup with visibility rules:
+Set this up with [visibility rules](/products/pro/documenting/templates/automations/actions/visibility-actions/):
 
 ```
 IF (Initial review) is Completed
@@ -264,7 +263,7 @@ AND Show "Compliance approval"
 AND Show "Finance approval"
 ```
 
-Wait for everyone to approve before moving on:
+Then gate the final step on all three approvals:
 ```
 IF (Legal approval) is Approved
 AND (Compliance approval) is Approved
@@ -274,35 +273,31 @@ THEN Show "Final implementation"
 
 ### Escalation paths
 
-Approvals getting stuck? Here's your fix:
+If approvals get stuck:
 
-1. Set the initial approval deadline
-2. Create an escalation step assigned to senior management  
-3. Use deadline automation to trigger escalation
+1. Set a deadline on the approval step
+2. Create an escalation step assigned to senior management
+3. Use a deadline automation to trigger escalation when time runs out
 
-When time's up, Tallyfy bumps it to the boss. Done.
+## Best practices
 
-## Best practices for approval loops
+- **Rejection reasons** - Add comment fields so reviewers explain what needs fixing
+- **Notifications** - Turn on email notifications so people know when tasks bounce back
+- **Loop limits** - After 3 rejections, escalate to a meeting instead
+- **Step instructions** - Tell reviewers the exact criteria you're looking for
+- **Audit trail** - Tallyfy tracks every approval and rejection automatically
 
-Want your approval loops to actually work? Follow these:
-
-- **Clear rejection reasons**: Add comment fields so reviewers explain what needs fixing. Nobody likes guessing why their work got rejected
-- **Notification setup**: Turn on email notifications - people need to know when tasks bounce back to them
-- **Loop limits**: Think about adding a counter. After 3 rejections, maybe it's time for a meeting instead
-- **Documentation**: Put clear instructions in each step. Tell people exactly what you're looking for
-- **Audit trail**: Good news - Tallyfy tracks every approval and rejection automatically. CYA built right in
-
-:::note[Understanding re-open behavior]
-When a task is reopened in Tallyfy:
-- Its status changes from "Completed" back to "Active"
-- Original assignees are notified
-- Any data entered previously remains intact
-- The task appears again in the assignee's active tasks
+:::note[Re-open behavior]
+When Tallyfy re-opens a task:
+- Status changes from "Completed" back to "In progress"
+- Original assignees get notified
+- All previously entered data stays intact
+- The task reappears in each assignee's task list
 :::
 
-## Real-world example: Property listing approval
+## Example: Property listing approval
 
-Let me show you how a real estate agency nailed their listing approvals:
+Here's how a real estate agency handles listing approvals:
 
 ```d2
 Compliance: "Compliance"
@@ -319,12 +314,10 @@ Compliance -> Publish: "✅"
 Compliance -> Agent: "❌"
 ```
 
-**The magic here:**
-- 📸 Marketing rejection = agent gets specific feedback on photos
-- 📋 Compliance issues = both agent AND manager get notified
-- ✅ Every listing hits the market looking perfect
-
-Every listing hits the market looking perfect. Agents know exactly what to fix when something's off. No more "please see me" sticky notes.
+**How it works:**
+- Marketing rejection gives the agent specific feedback on photos
+- Compliance issues notify both agent and manager
+- Agents know exactly what to fix. No vague "please see me" sticky notes
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

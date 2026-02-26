@@ -1,9 +1,9 @@
 ---
-description: Learn how to automatically notify the original process requestor when
-  a workflow completes by capturing their identity at launch and using automations
-  to send completion notifications with results or confirmations.
+about_tallyfy: true
+description: Automatically notify the person who launched a process when it completes
+  using an Assignee Picker field and an Email Auto-Send automation rule.
 id: 869041c427cfc5e16251e8e1718ae489
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 10
 title: Notify the requestor when process completes
@@ -11,151 +11,132 @@ title: Notify the requestor when process completes
 
 import { Steps } from "@astrojs/starlight/components";
 
-## Automatically notify the process requestor upon completion
+## Notify the requestor when a process completes
 
-To notify someone when their process completes, capture who launched it using an assignee picker field, then use automation rules to send them the final notification. That's it.
-
-This keeps everyone in the loop - the person who started a process always knows when it's done, what happened, and gets any deliverables automatically. No more chasing people down for status updates.
+Capture who launched a process using an Assignee Picker field, then use an automation rule to send them a notification when it's done. The person who started the process always knows the outcome - no chasing required.
 
 ### Common use cases
 
-You'll want this for:
-- **Service requests**: Let employees know their IT, HR, or facilities requests are done
-- **Approval workflows**: Tell requestors whether they got approved or rejected
-- **Order processing**: Send order confirmations when everything's shipped
-- **Document processing**: Deliver finished documents right to whoever submitted them
-- **Onboarding**: Confirm new employee setup is complete
+- **Service requests** - let employees know their IT, HR, or facilities requests are done
+- **Approval workflows** - tell requestors whether they got approved or rejected
+- **Order processing** - send confirmations when everything ships
+- **Document processing** - deliver finished documents to whoever submitted them
 
 ### Prerequisites
 
-- Administrator or Standard user role to edit templates
-- Understanding of [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)
-- Basic knowledge of [automations](/products/pro/documenting/templates/automations/)
+- Admin or Standard member role to edit templates
+- Familiarity with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) and [automations](/products/pro/documenting/templates/automations/)
 
 ### Setting up requestor notification
 
 <Steps>
 1. **Capture the requestor identity**
-   
+
    Add an **Assignee Picker** field to your kick-off form:
-   - Label it something obvious like "Select your name" or "Who's requesting this?"
+   - Label it clearly - e.g. "Select your name" or "Who's requesting this?"
    - Make the field required
-   - Put it right at the top where people can't miss it
-   
+   - Place it at the top of the form
+
    :::tip[Auto-populate option]
-   Here's a time-saver: pre-select "Person who launches this process" as the default. Most folks are requesting things for themselves anyway.
+   Pre-select "Launcher" as the default value. Most people are requesting things for themselves anyway.
    :::
 
-2. **Create the notification task**
-   
-   Add a final task in your template for the completion notification:
-   - **Task type**: Pick "Email - Auto Send" (this sends automatically)
-   - **Task name**: Something like "Notify Requestor of Completion"
-   - **Content**: Include everything they need - completion details, attachments, the works
-   - **Timing**: Set it to fire after your last real task wraps up
+2. **Create the notification step**
+
+   Add a final step in your template for the completion notification:
+   - **Step type**: Pick "Email Auto-Send" (this sends automatically when the deadline passes)
+   - **Step name**: Something like "Notify Requestor of Completion"
+   - **Content**: Include completion details, attachments, and next steps
+   - **Deadline**: Set it after your last real step completes
 
 3. **Configure the automation rule**
-   
-   Head to the template's **Automations** tab:
+
+   Go to the template's **Automations** tab:
    - Click **Add Automation**
-   - Name it something descriptive like "Assign completion notification to requestor"
-   - **IF condition**: Pick your assignee picker field and "is not empty"
-   - **THEN action**: Choose "Replace assignee(s)"
-   - **Target**: Select your notification task
-   - **Replace with**: Select that same assignee picker field again
+   - Name it descriptively - e.g. "Assign completion notification to requestor"
+   - **IF condition**: Pick your Assignee Picker field and "is not empty"
+   - **THEN action**: Choose "Replace Assignees"
+   - **Target**: Select your notification step
+   - **Source**: Select the same Assignee Picker field
 
 4. **Add completion details using variables**
-   
-   Make your notification actually useful with process data:
+
+   Use form field aliases wrapped in `{{ }}` to pull in process data:
    ```
-   Hello `{{kick_off_form_requestor_name}}`,
-   
-   Your request submitted on `{{process_launched_date}}` has been completed.
-   
+   Hello {{kick_off_form_requestor_name}},
+
+   Your request has been completed.
+
    Summary:
-   - Request type: `{{kick_off_form_request_type}}`
-   - Completed by: `{{step_5_completed_by}}`
-   - Completion date: `{{current_date}}`
-   
-   Attached files: `{{step_4_uploaded_documents}}`
+   - Request type: {{kick_off_form_request_type}}
+   - Completed by: {{step_5_completed_by}}
+
+   Attached files: {{step_4_uploaded_documents}}
    ```
 </Steps>
 
 ### Alternative approaches
 
-#### Using multiple notification recipients
+#### Multiple notification recipients
 
-Need to notify the requestor plus other people? Here's how:
-1. Add multiple assignee picker fields ("Requestor" and "CC Recipients" work well)
-2. Create separate notification tasks for each group
-3. Set up automation rules to route each notification to the right people
+1. Add multiple Assignee Picker fields (e.g. "Requestor" and "CC Recipients")
+2. Create separate notification steps for each group
+3. Set up automation rules to route each notification correctly
 
 #### Conditional notifications based on outcomes
 
-Sometimes you need different messages for different results. Set it up like this:
-1. Add a selection field for process outcome ("Approved", "Rejected", "Pending")
-2. Create multiple notification tasks - one for each possible outcome
-3. Use conditional visibility so only the right notification shows up
+1. Add a dropdown field for process outcome ("Approved", "Rejected", "Pending")
+2. Create a notification step per outcome
+3. Use conditional visibility automations so only the right notification fires
 
-#### Using webhooks for advanced notifications
+#### Webhooks for advanced notifications
 
-Got complex notification needs? Webhooks are your friend:
-1. Set up a webhook on the final task completion
-2. Connect it to middleware (Zapier, Make, Power Automate) and you can:
-   - Send fancy HTML emails
-   - Pull in attachments from other systems
-   - Fire off SMS or Slack messages
-   - Update external systems
+1. Add a webhook automation on the final step completion
+2. Connect it to middleware (Zapier, Make, Power Automate) to:
+   - Send formatted HTML emails
+   - Pull attachments from other systems
+   - Trigger SMS or Slack messages
 
 ### Best practices
 
-- **Clear labeling**: Name your assignee picker field something obvious - people shouldn't have to guess what it's for
-- **Test thoroughly**: Always run a test process before going live. Trust me on this one.
-- **Include context**: Pack your notifications with details using variables. Recipients hate vague emails.
-- **Set appropriate timing**: If your final data needs processing time, add a delay (30 minutes usually does it)
-- **Provide next steps**: Tell people what to do next - don't leave them hanging
+- **Clear labeling** - name your Assignee Picker field so people know exactly what to pick
+- **Test first** - always run a test process before going live
+- **Include context** - use variables to pack notifications with useful details
+- **Set timing carefully** - if your final data needs processing, add a buffer before the notification deadline
 
 ### Troubleshooting
 
 **Notification not sending?**
-- Check if the assignee picker field actually has someone selected
-- Make sure your automation rule is switched on (easy to forget!)
-- Verify the task type is "Email - Auto Send" not just a regular task
-- For auto-send emails, the deadline needs to pass first - that's what triggers them
+- Check the Assignee Picker field has someone selected
+- Verify the automation rule is active
+- Confirm the step type is "Email Auto-Send" - not a regular task
+- Email Auto-Send steps trigger when the deadline passes
 
 **Wrong person getting notified?**
-- Double-check you picked the right field in your automation rule
-- Watch what users are actually selecting - they might be picking the wrong person
-- Pro tip: make the field read-only after someone picks their name
+- Double-check you selected the right Assignee Picker field in the automation
+- Verify what users are selecting in the form
 
 **Missing data in the notification?**
-- Your variables might be pointing to the wrong fields
-- The fields you're referencing need to be filled out before the notification fires
-- Run a test with real data - that usually reveals the problem
+- Check that your variable aliases match the actual form field aliases
+- Referenced fields must be filled before the notification step fires
 
 ### Example: IT service request completion
 
-Let me show you how this works with a real IT service request:
-
-1. **Kick-off form** has three fields:
-   - Assignee picker: "Select your name"
+1. **Kick-off form** - three fields:
+   - Assignee Picker: "Select your name"
    - Request type dropdown
-   - Description field
+   - Description text area
 
-2. **Process steps** are simple:
+2. **Process steps**:
    - IT reviews the request
-   - IT does the work
-   - IT uploads any documentation
+   - IT completes the work
+   - IT uploads documentation
 
-3. **Final notification task** brings it all together:
-   - Type: Email - Auto Send
-   - Timing: 30 minutes after "Upload documentation" completes
-   - Content includes all the request details plus attached docs
-   - Automation assigns it to whoever started this whole thing
-
-Simple.
-
-Every service request closes the loop automatically - the person who asked for help knows exactly when it's done and gets everything they need.
+3. **Final notification step**:
+   - Type: Email Auto-Send
+   - Deadline: 30 minutes after "Upload documentation" completes
+   - Content: request details plus attached docs
+   - Automation: assigns the step to whoever launched the process
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

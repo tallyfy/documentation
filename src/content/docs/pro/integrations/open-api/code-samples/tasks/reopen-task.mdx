@@ -1,9 +1,9 @@
 ---
-description: The endpoint allows reopening completed tasks by using DELETE requests
-  to restore them to an active state with proper authentication headers and supports
-  both process-run tasks and standalone one-off tasks through distinct URL patterns.
+description: Reopen a completed Tallyfy task via DELETE on the completed-tasks
+  endpoint, setting its status back to in-progress for both process and one-off tasks.
 id: 6f3ba9fb2c83f0ca1b4aa11f8e655651
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 7
 title: Reopen task
@@ -13,15 +13,15 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Endpoint
 
-This endpoint reopens a completed Tallyfy task, setting its status back usually to `active` or `incomplete`. The exact endpoint depends on the task type:
+Reopen a completed Tallyfy task by sending a `DELETE` request to the `completed-tasks` resource. This sets the task's status back to `in-progress` and clears completion data (`completed_at`, `completer_id`, and `is_approved` all become `null`).
 
--   **Process Task:** `DELETE /organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}`
--   **One-off Task:** `DELETE /organizations/{org_id}/completed-tasks/{task_id}`
+-   **Process task:** `DELETE /organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}`
+-   **One-off task:** `DELETE /organizations/{org_id}/completed-tasks/{task_id}`
 
-Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with the appropriate IDs.
+Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with your actual IDs.
 
 :::note
-Notice the `DELETE` method is used on the `completed-tasks` endpoint, effectively deleting the "completion" record.
+The `DELETE` method targets the `completed-tasks` endpoint - you're effectively deleting the "completion" record.
 :::
 
 ## Request
@@ -34,7 +34,7 @@ Notice the `DELETE` method is used on the `completed-tasks` endpoint, effectivel
 
 ### Body
 
-No request body is needed for this DELETE request.
+No request body is needed.
 
 ### Code samples
 
@@ -429,22 +429,23 @@ public class TallyfyTaskReopener
 
 ## Response
 
-A successful request returns a `200 OK` status code. The response body typically contains the details of the task, now back in an active (or incomplete) state.
+A `200 OK` response returns the task details, now back in `in-progress` status.
 
 ```json
 {
   "data": {
     "id": "TASK_ID_TO_REOPEN",
     "title": "Review Proposal",
-    "status": "active", // Status is no longer 'completed'
-    "completed_at": null, // Completion timestamp is removed
+    "status": "in-progress",
+    "completed_at": null,
     "completer_id": null,
+    "is_approved": null,
     // ... other task properties ...
   }
 }
 ```
 
-If the task was not previously completed or the ID is invalid, an error status will be returned.
+If the task isn't currently completed or the ID is invalid, you'll get an error status.
 
 ---
 

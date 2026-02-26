@@ -1,10 +1,9 @@
 ---
-description: This automation demonstrates how to capture the original process requestor
-  using an assignee picker field and automatically assign them to receive final notifications
-  or results through template automation rules that replace step assignees based on
-  form field selections.
+about_tallyfy: true
+description: Capture who started a process using an Assignee Picker field, then
+  auto-assign a final step to that person through a template automation rule.
 id: 31f209c0b88915f9d3e1d07f14748c67
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Automatically assign a step to the original process requestor
@@ -12,59 +11,59 @@ title: Automatically assign a step to the original process requestor
 
 import { Steps } from "@astrojs/starlight/components";
 
-Need to automatically notify the person who started a process? Here's how to make Tallyfy remember who kicked things off and loop back to them with results - like sending payment confirmations or completed documents straight to the original requestor.
+Capture who kicked off a process and automatically route a later step back to them - perfect for sending payment confirmations, completed documents, or results to the original requestor.
 
-## Use case for this automation
+## Use case
 
-Let's say you're running a purchase request process. Here's the typical flow:
+You're running a purchase request process:
 
-1.  Sarah from marketing submits a request for new software (she's the requestor).
-2.  The request bounces through approvals and finance.
+1.  Sarah from marketing submits a request for new software.
+2.  The request goes through approvals and finance.
 3.  Your accountant uploads the payment proof.
-4.  You want Sarah to automatically get that proof - without anyone having to remember who started this whole thing.
+4.  Sarah should automatically get that proof - without anyone remembering who started the request.
 
-That's the challenge, right? How do you capture Sarah's identity at the beginning and make sure she gets notified at the end? Simple.
+How do you capture Sarah's identity at the start and notify her at the end?
 
 ## Prerequisites
 
-*   You'll need an existing [procedure template](/products/pro/documenting/templates/) ready to go.
-*   Get comfortable with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) - especially the *Assignee Picker* field type (it's the star of this show).
-*   A basic grasp of [template automations](/products/pro/documenting/templates/automations/) helps, but you'll pick it up as we go.
+*   An existing [procedure template](/products/pro/documenting/templates/).
+*   Familiarity with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) - especially the **Assignee Picker** field type.
+*   A basic grasp of [template automations](/products/pro/documenting/templates/automations/).
 
 ## Setting up this automation
 
 <Steps>
 1.  **Capture the requestor on the kick-off form[^1] or in any other step**
 
-    First things first - edit your template's kick-off form. Add an **Assignee Picker** form field and label it something like "Who is making this request?" or "Please pick your name". This lets whoever's launching the process select themselves (or someone else if they're submitting on behalf of a colleague). Make it required if you don't want anyone slipping through the cracks.
+    Edit your template's kick-off form. Add an **Assignee Picker** form field and label it something like "Who is making this request?". Whoever launches the process selects themselves (or someone else if submitting on behalf of a colleague). Make it required so nobody skips it.
 
 2.  **Set up the step to be assigned**
 
-    Find the step where you want to notify the requestor - usually it's near the end of your process. Creating a new one? Perfect. If you're sending an email notification, set the step type to **Email - Auto Send[^2]**. Trust me, you want it automated. Configure what the email says, and here's where it gets cool - use [variables](/products/pro/documenting/templates/variables/) like `{{step_4_upload_field}}` to pull in that payment proof or whatever data you collected earlier. Set the timing too (maybe 1 hour after "Upload Proof of Payment" completes).
+    Find the step where you want to notify the requestor - usually near the end. If you're sending an email notification, set the step type to **Email Auto-Send[^2]**. Configure the email content and use [variables](/products/pro/documenting/templates/variables/) like `{{step_4_upload_field}}` to pull in data collected earlier. Set the timing too (maybe 1 hour after "Upload Proof of Payment" completes).
 
 3.  **Create the automation rule**
 
-    Head to the **Automations** tab in your template editor. Click **Add Automation**. Name it something clear - "Assign final notification to requestor" works great. Here's the magic: For the **IF** condition, pick that assignee picker field from Step 1 and set it to **is not empty**. For the **THEN** action, choose **Assignment Action** → **Replace assignee(s)**. Select your notification step (like "Step 5: Notify Requestor via Email"). For "Replace with...", pick that same assignee picker field again. Hit **Save**. Done.
+    Go to the **Automations** tab in your template editor. Click **Add Automation** and give it a clear name. For the **IF** condition, pick the assignee picker field from step 1 and set it to **is not empty**. For the **THEN** action, choose **Assignment Action** > **Replace Assignees**. Select your notification step and for the replacement source, pick that same assignee picker field. Save. That's it.
 </Steps>
 
-## How this automation works
+## How it works at runtime
 
-Here's what happens behind the scenes when someone launches your process:
+When someone launches your process:
 
-1.  Sarah (or whoever) fills out the kick-off form and selects herself in the "Who is making this request?" field. Takes 2 seconds.
-2.  The process chugs along through all its steps - approvals, processing, the works.
-3.  When Tallyfy hits your automation rule, it checks: Did someone actually fill in that assignee picker field?
-4.  If yes (it's not empty), boom - the automation fires.
-5.  The "Replace Assignee" action swaps whoever was originally assigned to that final email step with Sarah's name from the picker field.
-6.  Since you set the step type to "Email - Auto Send", Tallyfy sends the email automatically at the scheduled time. No manual work needed.
+1.  Sarah fills out the kick-off form and selects herself in the assignee picker field.
+2.  The process moves through all its steps - approvals, processing, everything.
+3.  Tallyfy evaluates your automation rule and checks whether the assignee picker field was filled in.
+4.  Since it's not empty, the automation fires.
+5.  The **Replace Assignees** action swaps whoever was originally assigned to the final email step with Sarah from the picker field.
+6.  Because you set the step type to **Email Auto-Send**, Tallyfy sends the email automatically on the due date. No manual work needed.
 
-The beauty? Sarah gets her payment proof (or whatever you're sending) without anyone having to remember she started this process three days ago. The loop closes itself.
+Sarah gets her payment proof without anyone having to remember she started this process three days ago.
 
 ## Related concepts
 
-*   [Assignee picker form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/#assignee-picker) - The field type that makes this whole thing work
-*   [Automation Actions: Assignment](/products/pro/documenting/templates/automations/actions/#assignment-actions) - Other ways to manipulate task assignments
-*   [Using variables](/products/pro/documenting/templates/variables/) - Pull data from earlier steps into your notifications
+*   [Assignee picker form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/#assignee-picker) - The field type that drives this pattern
+*   [Automation Actions: Assignment](/products/pro/documenting/templates/automations/actions/#assignment-actions) - Other ways to change task assignments
+*   [Using variables](/products/pro/documenting/templates/variables/) - Pull data from earlier steps into notifications
 *   [Email step types](/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/#email-types) - Different email options in Tallyfy
 
 ---
@@ -73,7 +72,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 
 [^1]: Pre-process form that collects initial data before a process launches from a template
-[^2]: Step type that sends emails automatically at scheduled times without manual intervention
+[^2]: Step type that automatically sends an email on the due date and auto-completes itself
 
 ## Related articles
 <CardGrid>

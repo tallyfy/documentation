@@ -1,9 +1,9 @@
 ---
-description: Tallyfy enables workflow automation by allowing users to configure specific
-  tasks within templates to automatically launch new processes or inject tasks from
-  other templates upon completion through the Advanced tab settings.
+about_tallyfy: true
+description: Configure a task in a Tallyfy template to automatically launch another
+  process or inject tasks from a different template when that task is completed.
 id: 0d315d7d7666c51163d1611ef3d153c5
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 9
 title: Launch another process when a task is completed
@@ -11,91 +11,78 @@ title: Launch another process when a task is completed
 
 import { Steps } from '@astrojs/starlight/components';
 
-## How to automatically start another Tallyfy process when a task is completed
-
-### What you need
-
-*   Permission to edit Tallyfy [templates](/products/pro/documenting/templates/).
-*   At least two templates: one ("trigger") with the task that starts the action, and another ("target") that you want to launch automatically.
-*   An understanding of how the processes should link together.
-
-### Overview: Linking Tallyfy processes together
-
-Tallyfy lets you set up a link so that when a specific [task](/products/pro/tracking-and-tasks/tasks/) in one process finishes, it automatically starts a new [process](/products/pro/tracking-and-tasks/processes/) based on a different template. This workflow automation is useful for complex processes broken down into multiple templates (like project phases).
+You can configure any [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy [template](/products/pro/documenting/templates/) to automatically launch a new [process](/products/pro/tracking-and-tasks/processes/) from a different template when that task is completed. This is useful for multi-phase workflows, customer journeys, and team hand-offs.
 
 ### When to use this
 
-*   **Multi-phase projects**: Finishing Phase 1 automatically starts the Phase 2 process.
-*   **Customer journeys**: Finishing the "Sales" process automatically starts the "Onboarding" process.
-*   **Branching workflows**: Completing an "Initial Review" task might launch either an "Approved Project" process or a "Further Review" process.
-*   **Team hand-offs**: Finishing a task by Sales automatically launches a process for Operations.
+*   **Multi-phase projects** - finishing Phase 1 automatically starts Phase 2.
+*   **Customer journeys** - completing "Sales" launches "Onboarding".
+*   **Branching workflows** - an "Initial Review" task launches either "Approved Project" or "Further Review".
+*   **Team hand-offs** - a Sales task triggers a process for Operations.
 
 ### How to set it up
 
 <Steps>
-1. Go to the **Templates** library.
-2. Open the template containing the task you want to use as the trigger (the task that starts the next process). Edit this template.
-3. Click the specific trigger step.
-4. In the step settings panel (usually right side), go to the **Advanced** tab.
-5. Find the toggle **Launch another process when this task is complete** and switch it ON.
-6. A dropdown menu appears. Select the target [template](/products/pro/documenting/templates/) (the template to launch automatically).
-7. Save changes to the trigger template.
+1. Open the template containing the trigger task and edit it.
+2. Click the specific trigger step.
+3. Go to the **Advanced** tab in the step settings panel.
+4. Switch ON **Launch another process when this task is complete**.
+5. A dropdown appears. Select the target [template](/products/pro/documenting/templates/) to launch.
+6. Save your changes.
 </Steps>
 
 ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-launch-process-when-task-completed.png)
 
-### Option: Inject tasks instead of launching new process
+### Inject tasks instead of launching a new process
 
-Instead of starting a separate new process, you can insert the tasks from the target template directly into the current running process. This effectively moves a template inside another template at runtime, combining multiple workflow components into a single active process.
+Instead of launching a separate process, you can inject the target template's tasks directly into the current running process. All injected steps appear after the trigger task, keeping everything in one place.
 
 <Steps>
-1. Follow steps 1-5 above.
-2. Switch ON the **Inject tasks into existing process** option (this appears after enabling "Launch another process...").
-3. Select the target template whose tasks you want to inject.
+1. Follow steps 1-4 above.
+2. Switch ON **Inject tasks into existing process?** (appears after enabling the launch toggle).
+3. Select the target template.
 4. Save your changes.
 </Steps>
 
 :::note[What "inject tasks" does]
-Injecting tasks adds all steps from the target template into the current process instance, right after the trigger task. Everything stays within the same process, just with added steps. This keeps related work connected in one place and effectively moves the entire target template inside your running process.
+Injecting adds all steps from the target template into the current process instance, right after the trigger task. Everything stays in the same process - just with added steps. You can't inject from the same template twice.
 :::
 
-### Which templates can be launched/injected?
+### Which templates can be launched or injected?
 
-The dropdown list for the target template only shows templates that:
-* Are active (not archived).
-* Have **no** required [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) (as there's no user present to fill them in during automatic launch).
-* You have permission to launch.
+The dropdown only shows templates that:
+* Are active (not archived or deleted).
+* Have **no** required [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) - since there's no user present to fill them in during automatic launch.
+* Are of type Procedure (with steps) or Form (with kick-off fields only) - not Document type.
 
 :::warning[Can't find your template?]
-If the template you want isn't listed, check if it's active, has no required kick-off fields, and that you have launch permissions for it.
+If a template isn't listed, check that it's active, has no required kick-off fields, and isn't a Document-type template.
 :::
 
-### Naming the automatically launched process
+### Naming the launched process
 
-You can control the name of the new process launched automatically:
+You can control the name of the automatically launched process:
 
-1. Use the default name: "Month day - hh:mm - Template Name".
-2. Create a custom name using text plus data [variables](/products/pro/documenting/templates/variables/) from the *trigger* process's kick-off form.
-3. Click the `{}` button to insert available variables from required kick-off fields.
+1. **Default name** - format is "Mon dd, h:mma - Template Name" (e.g. "Feb 26, 3:45pm - Client Onboarding").
+2. **Custom name** - use text plus [variables](/products/pro/documenting/templates/variables/) from the trigger process. Available variables include DATE, TEMPLATE_NAME, and text-type kick-off form fields.
 
 ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-custom-naming-process.png)
 
-### Limitations (advanced)
+### Limitations
 
-* **Naming variables**: You can only use variables from required kick-off form fields of the *trigger* process when customizing the *launched* process name.
-* **Passing data**: There isn't currently a built-in way to automatically pass data from the trigger process to fields in the launched process (other than via the name). For complex data transfer, consider using the Tallyfy [API](/products/pro/integrations/open-api/) or [webhooks](/products/pro/integrations/webhooks/) with [middleware](/products/pro/integrations/middleware/).
-* **Referencing data**: You cannot easily reference data between original and injected tasks when using injection.
+* **Naming variables** - only DATE, TEMPLATE_NAME, and text-type kick-off form fields from the trigger process are available for custom naming.
+* **Passing data** - there's no built-in way to pass data from the trigger process to the launched process (other than via the name). For complex data transfer, use the Tallyfy [API](/products/pro/integrations/open-api/) or [webhooks](/products/pro/integrations/webhooks/) with [middleware](/products/pro/integrations/middleware/).
+* **Referencing data** - you can't reference data between original and injected tasks when using injection.
+* **Duplicate prevention** - if a process was already launched from a specific task, it won't launch again. Tallyfy adds a comment explaining this.
 
 ### Tracking the connection
 
-Tallyfy automatically links the trigger and launched processes:
+Tallyfy automatically links trigger and launched processes:
 
-1. The launched process gets hidden tags identifying the trigger process and task.
-2. The Tallyfy Bot adds a comment to the trigger task, including a link to the newly launched process.
+1. The trigger task and launched process are tracked in a relationship table - so you can trace which task launched which process.
+2. The Tallyfy Bot adds a comment to the trigger task with a link to the newly launched process.
 
 ![](https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-show-bot-comment.png)
-
-This helps you see connections and check the automation worked.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

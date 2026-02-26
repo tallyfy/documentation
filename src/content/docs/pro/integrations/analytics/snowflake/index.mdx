@@ -1,0 +1,285 @@
+---
+description: Connect Snowflake to your Tallyfy Analytics data stored in Amazon S3
+  by creating a storage integration and external stage using the AWS credentials provided
+  during your analytics setup to query process and member data directly alongside
+  your existing Athena access.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-02-26
+sidebar:
+  order: 1
+title: Snowflake
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Connecting Snowflake to Tallyfy Analytics
+
+Snowflake can read your Tallyfy Analytics data directly from S3 - no data duplication or ETL pipelines needed. If you already have Tallyfy Analytics enabled, you have everything you need to get started.
+
+Your analytics data is stored as Apache Parquet[^1] files in Amazon S3. Snowflake reads these files natively through external stages, giving you full SQL access to your process and member data.
+
+:::note[Prerequisites]
+Tallyfy Analytics must be enabled for your organization. If you do not have analytics credentials yet, contact your Tallyfy account manager to get set up.
+:::
+
+### What you will need
+
+When Tallyfy provisions analytics for your organization, you receive:
+
+- **Access Key ID** - Your AWS access key (token-based authentication)
+- **Secret Access Key** - Your AWS secret key
+- **S3 Location** - The path to your organization's analytics data
+- **Region** - `us-west-2` (all Tallyfy Analytics data is stored here)
+
+These are the same credentials you may already use for Athena, Power BI, or Tableau connections. Snowflake uses the same Access Key and Secret Access Key.
+
+## Setting up Snowflake
+
+### Step 1: Create a storage integration
+
+The storage integration tells Snowflake where your data lives and how to authenticate. Run this in your Snowflake worksheet:
+
+```sql
+CREATE OR REPLACE STORAGE INTEGRATION tallyfy_analytics_integration
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = ''
+  STORAGE_ALLOWED_LOCATIONS = ('s3://YOUR_S3_LOCATION/')
+  STORAGE_AWS_EXTERNAL_ID = '';
+```
+
+:::note[Using key-based authentication instead]
+If your Snowflake account does not use IAM role-based access, you can skip the storage integration and provide your AWS credentials directly in the stage definition (shown in Step 2 below). Key-based authentication is simpler and works well for most Tallyfy Analytics setups.
+:::
+
+### Step 2: Create an external stage
+
+The external stage points Snowflake to your specific analytics data folder. This is where you use the S3 location and AWS credentials provided by Tallyfy.
+
+**With key-based authentication (recommended for most setups):**
+
+```sql
+CREATE OR REPLACE STAGE tallyfy_analytics_stage
+  URL = 's3://YOUR_S3_LOCATION/'
+  CREDENTIALS = (
+    AWS_KEY_ID = 'YOUR_ACCESS_KEY_ID'
+    AWS_SECRET_KEY = 'YOUR_SECRET_ACCESS_KEY'
+  )
+  FILE_FORMAT = (TYPE = PARQUET);
+```
+
+**With storage integration (if using IAM roles):**
+
+```sql
+CREATE OR REPLACE STAGE tallyfy_analytics_stage
+  STORAGE_INTEGRATION = tallyfy_analytics_integration
+  URL = 's3://YOUR_S3_LOCATION/'
+  FILE_FORMAT = (TYPE = PARQUET);
+```
+
+Replace `YOUR_S3_LOCATION`, `YOUR_ACCESS_KEY_ID`, and `YOUR_SECRET_ACCESS_KEY` with the values from your Tallyfy Analytics setup.
+
+### Step 3: Verify the connection
+
+Check that Snowflake can see your files:
+
+```sql
+LIST @tallyfy_analytics_stage;
+```
+
+You should see a list of Parquet files - your process analytics data and member list.
+
+## Querying your data
+
+### Process and task data
+
+Each Parquet file in the analytics folder contains data about a specific process run. To query across all your process data:
+
+```sql
+SELECT
+  $1:process_name::STRING AS process_name,
+  $1:process_status::STRING AS process_status,
+  $1:process_task_name::STRING AS task_name,
+  $1:process_task_status::STRING AS task_status,
+  $1:user_assigned::STRING AS assigned_to,
+  $1:completed_on::STRING AS completed_date,
+  $1:due_by::STRING AS due_date
+FROM @tallyfy_analytics_stage/analytics/
+(FILE_FORMAT => 'tallyfy_parquet');
+```
+
+### Member data
+
+Your organization's member list is available as a separate Parquet file:
+
+```sql
+SELECT
+  $1:email::STRING AS email,
+  $1:full_name::STRING AS full_name,
+  $1:job_title::STRING AS job_title,
+  $1:is_active::STRING AS is_active,
+  $1:last_login_at::STRING AS last_login,
+  $1:team::STRING AS team
+FROM @tallyfy_analytics_stage/members/
+(FILE_FORMAT => 'tallyfy_parquet');
+```
+
+### Create a file format for cleaner queries
+
+To avoid repeating format options, create a named file format:
+
+```sql
+CREATE OR REPLACE FILE FORMAT tallyfy_parquet
+  TYPE = PARQUET
+  SNAPPY_COMPRESSION = TRUE;
+```
+
+## Common analytics queries
+
+### Process completion summary
+
+```sql
+SELECT
+  $1:blueprint_name::STRING AS template_name,
+  COUNT(DISTINCT $1:process_id::STRING) AS total_runs,
+  COUNT(CASE WHEN $1:process_status::STRING = 'complete' THEN 1 END) AS completed,
+  COUNT(CASE WHEN $1:process_status::STRING = 'active' THEN 1 END) AS in_progress
+FROM @tallyfy_analytics_stage/analytics/
+(FILE_FORMAT => 'tallyfy_parquet')
+GROUP BY template_name
+ORDER BY total_runs DESC;
+```
+
+### Overdue tasks
+
+```sql
+SELECT
+  $1:process_name::STRING AS process_name,
+  $1:process_task_name::STRING AS task_name,
+  $1:user_assigned::STRING AS assigned_to,
+  $1:due_by::STRING AS due_date,
+  $1:process_task_status::STRING AS status
+FROM @tallyfy_analytics_stage/analytics/
+(FILE_FORMAT => 'tallyfy_parquet')
+WHERE $1:process_task_status::STRING != 'complete'
+  AND $1:due_by::STRING < CURRENT_DATE()::STRING
+  AND $1:due_by::STRING != ''
+  AND $1:due_by::STRING != 'nan';
+```
+
+### Task completion by assignee
+
+```sql
+SELECT
+  $1:user_assigned::STRING AS assignee,
+  COUNT(*) AS tasks_completed,
+  COUNT(DISTINCT $1:process_id::STRING) AS processes_involved
+FROM @tallyfy_analytics_stage/analytics/
+(FILE_FORMAT => 'tallyfy_parquet')
+WHERE $1:process_task_status::STRING = 'complete'
+  AND $1:user_assigned::STRING != ''
+  AND $1:user_assigned::STRING != 'nan'
+GROUP BY assignee
+ORDER BY tasks_completed DESC;
+```
+
+### Form field responses
+
+```sql
+SELECT
+  $1:process_name::STRING AS process_name,
+  $1:question_in_form_field::STRING AS question,
+  $1:answer_in_form_field::STRING AS answer,
+  $1:completed_on::STRING AS answered_on
+FROM @tallyfy_analytics_stage/analytics/
+(FILE_FORMAT => 'tallyfy_parquet')
+WHERE $1:form_field_type::STRING != ''
+  AND $1:form_field_type::STRING != 'nan';
+```
+
+## Data fields reference
+
+### Process and task fields
+
+All fields are stored as STRING type in the Parquet files. Cast them as needed in your queries.
+
+| Field | Description |
+|-------|-------------|
+| `blueprint_id` | Template ID |
+| `blueprint_name` | Template name |
+| `blueprint_version` | Template version number |
+| `process_id` | Unique process run ID |
+| `process_name` | Name of the running process |
+| `process_tag` | Process tag or label |
+| `process_owner` | Process owner name |
+| `process_status` | Current status (active, complete, archived) |
+| `process_completed_at` | Timestamp when process was completed |
+| `process_task_id` | Task ID within the process |
+| `process_task_name` | Task name |
+| `process_task_status` | Task status (active, complete) |
+| `type` | Task type |
+| `user_assigned` | Assigned user name |
+| `assigned_user_id` | Assigned user ID |
+| `guest_assigned` | Assigned guest email |
+| `total_assignees` | Total number of assignees |
+| `assigned_or_shown_on` | Date task was assigned |
+| `due_by` | Task deadline |
+| `completed_on` | Date task was completed |
+| `completed_by` | Who completed the task |
+| `has_form_fields` | Whether task has form fields |
+| `form_field_type` | Type of form field |
+| `question_in_form_field` | Form field label/question |
+| `answer_in_form_field` | Form field response |
+| `issue_reported` | Whether an issue was reported |
+| `no_of_issue_reported` | Number of issues reported |
+| `total_comments` | Number of comments |
+| `comment` | Comment text |
+| `milestone_name` | Milestone name if applicable |
+
+### Member fields
+
+| Field | Description |
+|-------|-------------|
+| `id` | Member ID |
+| `email` | Email address |
+| `full_name` | Full name |
+| `first_name` | First name |
+| `last_name` | Last name |
+| `job_title` | Job title |
+| `team` | Team name |
+| `is_active` | Active status |
+| `is_suspended` | Suspended status |
+| `created_at` | Account creation date |
+| `last_login_at` | Last login timestamp |
+| `timezone` | User timezone |
+| `country_id` | Country identifier |
+
+## Important notes
+
+**Data format** - All fields in the Parquet files are cast to STRING. You will need to cast dates and numbers in your Snowflake queries as needed.
+
+**NULL handling** - Empty values may appear as blank strings or the literal string `nan` (a side effect of the Pandas conversion). Filter both in your queries:
+
+```sql
+WHERE $1:field_name::STRING != '' AND $1:field_name::STRING != 'nan'
+```
+
+**Timestamps** - Date fields use ISO 8601 format without timezone (e.g., `2025-03-15T14:30:00`). These represent UTC times.
+
+**Data freshness** - Analytics data is updated when process events occur (task completions, status changes, form submissions). There is no fixed refresh schedule - data appears as events happen.
+
+**Existing Athena access** - Snowflake and Athena can both read the same S3 data simultaneously. Adding Snowflake does not affect your existing Athena, Power BI, Tableau, or Looker connections.
+
+**Region requirement** - Your Snowflake account should ideally be in `us-west-2` (Oregon) for best performance, since the analytics data is stored in that region. Cross-region access works but adds latency.
+
+[^1]: Apache Parquet is a columnar storage format optimized for analytics queries, using Snappy compression for efficient storage
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Analytics > How Tallyfy Analytics works</b>" href="/products/pro/integrations/analytics/how-does-tallyfy-analytics-process-my-data/" > Tallyfy Analytics transforms workflow data through a five-step pipeline that detects events extracts process details converts data to Apache Parquet format stores it securely in Amazon S3 and provides AWS credentials for connecting business intelligence tools like Power BI and Tableau through Amazon Athena. </LinkTitleCard>
+<LinkTitleCard header="<b>Analytics > Power BI</b>" href="/products/pro/integrations/analytics/powerbi/" > Power BI integration transforms Tallyfy workflow data into interactive visualizations and actionable insights through Amazon Athena connectivity enabling process optimization team performance analysis and executive reporting with real-time data access and customizable dashboards. </LinkTitleCard>
+<LinkTitleCard header="<b>Sigma > Connection limitations and alternatives</b>" href="/products/pro/integrations/analytics/sigma/current-connection-limitations/" > Sigma Computing cannot directly connect to Tallyfy Analytics but Snowflake provides an excellent bridge between your S3 analytics data and Sigma's native connector. </LinkTitleCard>
+<LinkTitleCard header="<b>Analytics > Tableau</b>" href="/products/pro/integrations/analytics/tableau/" > Tableau connects directly to Tallyfy Analytics through Amazon Athena to transform raw workflow data into interactive visualizations and dashboards that reveal process patterns and enable data-driven optimization across teams. </LinkTitleCard>
+</CardGrid>

@@ -1,10 +1,9 @@
 ---
-description: Visibility actions in Tallyfy use IF-THEN logic to dynamically show or
-  hide workflow steps based on conditions like field values or task completion status
-  enabling you to create sequential task dependencies by hiding steps by default and
-  revealing them through automation rules when previous steps are completed.
+description: Use visibility actions to show or hide steps based on form values or
+  task completion, creating sequential dependencies in your workflows.
 id: 58fd83e5679fc856f5348d99384ad02a
-lastUpdated: 2025-08-21
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 2
 title: Automate hiding or showing tasks
@@ -14,83 +13,75 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Visibility actions explained
 
-Visibility actions in Tallyfy let you **Show** or **Hide** specific steps based on conditions. Think of them as smart switches - they make sure users see exactly what they need, when they need it. Nothing gets missed.
+Visibility actions let you **Show** or **Hide** specific steps based on conditions. They're smart switches - users see exactly what they need, when they need it.
 
-### Examples of visibility actions
+### Examples
 
-**Example 1:** Need CFO approval for big purchases?
+**Example 1 - CFO approval for big purchases:**
 ```
 IF (Purchase Amount field) is ">$10,000"
 THEN SHOW step "Approval by CFO"
 ```
-Result: The CFO approval step pops up automatically for purchases over $10k. No more chasing signatures or wondering if you missed something.
+The CFO approval step appears automatically for purchases over $10k.
 
-**Example 2:** Small business customers don't need enterprise-level reviews
+**Example 2 - Skip irrelevant reviews:**
 ```
 IF (Customer Type field) is "Small Business"
 THEN HIDE step "Enterprise Security Review"
 ```
-Result: Your small business customers skip the enterprise security review - it's hidden because they simply don't need it. The process stays clean and relevant.
+Small business customers skip the enterprise security review entirely.
 
-**Example 3:** Let the process adapt to what users tell you
+**Example 3 - Adapt to user input:**
 ```
 IF (Application Type field) is "Mortgage"
 THEN SHOW steps "Credit Check", "Property Valuation", and "Underwriting"
 ```
-Result: When someone selects "Mortgage", boom - all the mortgage-specific steps appear. Credit checks, property valuation, underwriting. Everything they need.
+Selecting "Mortgage" reveals all mortgage-specific steps at once.
 
 Here's what it looks like in action:
 
 ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-task-completion-example-automations.png)
 
-See how completing one step makes the next one appear? That's visibility automation at work.
+Completing one step makes the next one appear. That's visibility automation at work.
 
 :::note[How visibility works]
 - Steps are **visible by default** unless you hide them.
-- You can hide a step initially when building the [template](/products/pro/documenting/templates/) (just toggle it in the settings).
-- Use a **Hide** visibility action to make steps disappear based on conditions.
-- Use a **Show** visibility action to reveal hidden steps when the time is right.
-
-The beauty of this approach? Every step gets considered - it's either shown when needed or deliberately hidden when it's not. Simple.
+- You can hide a step when building the [template](/products/pro/documenting/templates/) - toggle **Hide by default** in the step settings.
+- A **Hide** action makes steps disappear based on conditions.
+- A **Show** action reveals hidden steps when conditions are met.
 :::
 
-:::warning[Hidden steps and completion]
-Here's the catch: hidden steps can't be completed. They'll sit there, incomplete, forever. If you've got an automation checking "if step is complete" on a hidden step - it won't trigger. Ever. (Unless another rule makes that step visible first.)
+:::warning[Hidden steps can't be completed]
+Hidden steps have an internal status of `auto-skipped` and can't be completed. Any automation checking "if step is complete" on a hidden step won't trigger - unless another rule makes that step visible first.
 
-The fix? Only create completion-based automations for steps users can actually see. Need a quick workaround? You can manually show or hide steps using the "three dots" menu on any task.
+Only create completion-based automations for steps users can actually see. You can also [manually show or hide steps](/products/pro/tracking-and-tasks/tasks/manually-show-hide-tasks/) using the three-dot menu on any task.
 :::
 
-:::note[Default behavior: Parallel execution in procedure templates]
-**Important**: Procedure templates in Tallyfy show all steps at once by default. People can work on them in any order - true parallel processing[^1]. This is a fundamental design choice that significantly speeds up process completion.
-
-**Sequential vs parallel workflows**: While the default is parallel (all tasks visible simultaneously), you can enforce sequential order by hiding steps initially, then using automation rules to **show** them when previous steps complete. This gives you full control over task dependencies while maintaining the flexibility of parallel work where possible.
+:::note[Default behavior: parallel execution]
+Procedure templates in Tallyfy show all steps at once by default. People can work on them in any order[^1]. To enforce sequential order, hide steps initially and use **Show** automation rules to reveal them when previous steps complete.
 :::
 
 ### Hiding tasks by default in a template
 
-When you're building a [procedure template](/products/pro/documenting/templates/), all tasks show up automatically when someone launches the process. But what if you want certain tasks to stay hidden until the right moment? You'll need to hide them first.
+All tasks show up when someone launches a [procedure template](/products/pro/documenting/templates/). To keep certain tasks hidden until the right moment:
 
 <Steps>
 1.  Open your procedure template in the editor.
-2.  Click on the specific step (task) you want to hide initially.
-3.  In the step's configuration panel (usually on the right), look for an option like **Hidden by default** or **Hide this step when the process starts** and enable it.
-4.  Save the changes to your step.
+2.  Click on the step you want to hide initially.
+3.  In the step's settings panel, toggle **Hide by default** to Yes.
+4.  Save the step.
 </Steps>
 
-That's it. Hidden steps stay out of sight until a **Show** automation brings them back.
+Hidden steps stay out of sight until a **Show** automation brings them back.
 
 ### Enforcing sequential task order
 
-Remember how Tallyfy shows all tasks at once? Sometimes that's not what you want. Maybe Task B shouldn't start until Task A is done. Or Task C needs to wait for Task B.
-
-Here's the thing - you can force tasks to appear in sequence. It's like creating a relay race where each runner waits for the baton[^2]. You'll use a mix of hidden tasks and **Show** visibility actions in your [automations](/products/pro/documenting/templates/automations/).
-
-Here's how to set up a simple sequence:
+Sometimes Task B shouldn't start until Task A is done. You can force tasks to appear in sequence using hidden tasks and **Show** visibility actions in your [automations](/products/pro/documenting/templates/automations/)[^2].
 
 <Steps>
-1.  **Task A**: This is your first task in the sequence. Leave it visible by default.
-2.  **Task B**: In the template editor, set Task B to be [hidden by default](#hiding-tasks-by-default-in-a-template).
-3.  **Task C**: In the template editor, set Task C to be [hidden by default](#hiding-tasks-by-default-in-a-template).
+1.  **Task A**: Leave it visible by default.
+2.  **Task B**: Set it to [hidden by default](#hiding-tasks-by-default-in-a-template).
+3.  **Task C**: Set it to [hidden by default](#hiding-tasks-by-default-in-a-template).
 4.  **Create Automation Rule 1 (Show Task B)**:
     *   **IF** `(Step Status)` for `Task A` **is** `Completed`
     *   **THEN** `(Visibility)` **SHOW** `Task B`
@@ -99,12 +90,12 @@ Here's how to set up a simple sequence:
     *   **THEN** `(Visibility)` **SHOW** `Task C`
 </Steps>
 
-Here's what happens:
-- Process starts → only Task A shows up
-- Complete Task A → Task B appears  
-- Complete Task B → Task C appears
+The result:
+- Process starts - only Task A shows up
+- Complete Task A - Task B appears
+- Complete Task B - Task C appears
 
-Perfect sequence. No jumping ahead, no confusion. You can chain as many tasks as you need this way - 5, 10, even 20 steps in perfect order.
+You can chain as many tasks as you need this way.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

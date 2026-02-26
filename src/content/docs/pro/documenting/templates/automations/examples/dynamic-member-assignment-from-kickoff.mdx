@@ -1,10 +1,9 @@
 ---
-description: This automation enables dynamic task assignment by using assignee picker
-  fields in kick-off forms to let process launchers select specific team members for
-  different roles which then automatically assigns tasks to the chosen people through
-  conditional automation rules.
+about_tallyfy: true
+description: Use assignee picker fields in kick-off forms so process launchers can
+  pick who handles each task - then automation rules assign the right people.
 id: 992d3e389113cd6aa95bbea756b1b2c8
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Dynamic member assignment from kick-off forms
@@ -12,49 +11,47 @@ title: Dynamic member assignment from kick-off forms
 
 import { Steps } from '@astrojs/starlight/components';
 
-Want to let process launchers pick who does what? Tallyfy's assignee picker fields make it happen. You can automatically assign [tasks](/products/pro/tracking-and-tasks/tasks/) to team members based on selections made right in the kick-off form[^1] - perfect when different situations need different people.
+Assignee picker fields in kick-off forms[^1] let the person launching a process choose who handles specific [tasks](/products/pro/tracking-and-tasks/tasks/). Tallyfy's automation rules[^2] then assign those chosen people automatically - no hard-coded assignments needed.
 
-## Use case for this automation
+## When to use this
 
-Here's when this really shines:
+- A coordinator launches client onboarding and picks which account manager handles that client
+- A manager starts a new hire process and selects the right HR specialist (Sarah for tech hires, Mike for sales)
+- Someone requests a purchase approval and picks their assistant to gather documentation
 
-- A project coordinator launches a client onboarding process and picks which account manager should handle that specific client
-- A manager starts a new hire process and chooses the HR specialist who'll guide the onboarding (maybe Sarah for tech hires, Mike for sales roles)
-- Someone requests a purchase approval and nominates their assistant to help gather all the documentation
+Task assignment stays flexible. The launcher decides who gets what.
 
-The beauty here? Task assignment isn't locked into the template. It's flexible. The person launching decides who gets what work, right when they need to.
-
-## Setting up dynamic member assignment
+## Setting it up
 
 <Steps>
 1. **Add assignee picker fields to your kick-off form**
-   
-   Head into your template's kick-off form. Add **Assignee Picker** fields for each role you want to assign dynamically. Some examples that work well:
+
+   Open your template's kick-off form. Add **Assignee Picker** fields for each role you want assigned dynamically:
    - "Select primary agent"
    - "Choose project assistant (optional)"
    - "Assign technical reviewer"
-   
-   Make sure these labels are crystal clear - the person launching needs to know exactly who they're selecting and why.
 
-2. **Create automation rule[^2]s for each assignment**
-   
-   For each assignee picker field, you'll need an automation rule. Here's how they look:
-   
-   **Example 1: Assign primary agent to multiple steps**
+   Write clear labels - the launcher needs to know exactly who they're picking and why.
+
+2. **Create an automation rule for each assignment**
+
+   Each assignee picker field needs its own rule. Tallyfy supports three assignment verbs: **Add Assignees** (keeps existing ones), **Replace Assignees** (swaps them out), and **Clear assignees** (removes all).
+
+   **Example 1: Replace assignees on multiple steps**
    ```
    IF (Primary Agent field) is not empty
    THEN Replace assignee(s) for steps 1, 2, and 3 with (Primary Agent field)
    ```
-   
-   **Example 2: Conditionally assign assistant to specific tasks**
+
+   **Example 2: Add an assistant to specific steps**
    ```
    IF (Project Assistant field) is not empty
    THEN Add assignee (Project Assistant field) to steps 4 through 10
    ```
 
-3. **Consider using groups for fallback assignments**
-   
-   What if someone doesn't pick anyone? You still need those tasks assigned. Here's the fix:
+3. **Use groups as fallback assignments**
+
+   If someone doesn't pick anyone, you still need those tasks covered:
    ```
    IF (Technical Reviewer field) is empty
    THEN Assign "Technical Review Team" group to step "Technical Review"
@@ -63,33 +60,33 @@ The beauty here? Task assignment isn't locked into the template. It's flexible. 
 
 ## Advanced patterns
 
-### Combining member selection with other conditions
+### Combining with other conditions
 
-Want to get fancy? You can mix assignee pickers with other conditions for really smart routing:
+Mix assignee pickers with other form field conditions using AND/OR logic:
 
 ```
-IF (Priority field) is "Urgent" 
+IF (Priority field) is "Urgent"
 AND (Senior Manager field) is not empty
 THEN Replace assignee(s) for "Final Approval" with (Senior Manager field)
 ```
 
-This means urgent requests go straight to the senior manager you picked. Regular ones? They follow the normal approval chain.
+Urgent requests go to the senior manager you picked. Regular ones follow the normal approval chain.
 
-### Multiple assignee pickers working together
+### Multiple pickers for different stages
 
-Sometimes different process stages need different experts. No problem - just use multiple assignee picker fields:
+Use separate assignee picker fields when different process stages need different people:
 
-- **Initial stages**: Goes to whoever's selected in the "Project Lead" field
-- **Middle stages**: Handed off to the person in "Technical Expert" field  
-- **Final stages**: Wraps up with whoever's in "Quality Reviewer" field
+- **Initial stages**: Assigned to the "Project Lead" picker selection
+- **Middle stages**: Handed to the "Technical Expert" picker selection
+- **Final stages**: Goes to the "Quality Reviewer" picker selection
 
-Each picker controls its own set of tasks. The result? A workflow that adapts completely to who's available and best suited for each part.
+Each picker controls its own set of steps independently.
 
 :::tip[Best practices]
-- Make assignee picker fields required if tasks won't work without someone assigned (trust me, you'll thank yourself later)
-- Write labels that make sense to the person launching - they shouldn't have to guess what "SME Resource" means
-- Add help text explaining what each person will actually do
-- Test your automations with real scenarios. Seriously. Launch a few test processes and make sure the right people get the right work.
+- Mark assignee picker fields as required if tasks can't proceed without someone assigned
+- Use plain labels - don't make people guess what "SME Resource" means
+- Add help text explaining what each role will do
+- Test with real scenarios before going live - launch test processes and verify the right people get assigned
 :::
 
 ## Related concepts

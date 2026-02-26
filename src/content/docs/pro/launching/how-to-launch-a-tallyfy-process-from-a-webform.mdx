@@ -1,9 +1,9 @@
 ---
-description: External web forms can automatically trigger Tallyfy processes by redirecting
-  users to special launch URLs with form data appended as query parameters that match
-  the internal field names in your Tallyfy kick-off form template.
+about_tallyfy: true
+description: Connect external web forms to Tallyfy by sharing a public kick-off form
+  link or using magic links with pre-filled field data via URL parameters.
 id: 25654a4176df46f9ee176a57a143710b
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: Launch from a form
@@ -11,47 +11,52 @@ title: Launch from a form
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Starting a Tallyfy process from a web form submission
+## Launch a Tallyfy process from an external web form
 
-You can set up an external web form (like on your website, or using Typeform or Google Forms) so that when someone submits it, a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) starts automatically - answers from the form fill in specific Tallyfy [fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) automatically. This saves time and avoids manual data entry.
+You can connect an external web form (your website, Typeform, Google Forms, etc.) to Tallyfy so that form submissions trigger a [process](/products/pro/tracking-and-tasks/processes/) launch - with [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data filled in automatically.
 
-### What you need
+There are two approaches:
 
-*   A Tallyfy account with permission to launch processes.
-*   An external web form (e.g., Typeform, Google Forms, your website form).
-*   A Tallyfy [process template](/products/pro/documenting/templates/) with [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that have the *exact* same internal names as the fields in your web form (or the names you will send in the URL parameters).
+1. **Public kick-off form link** - share your template's public kick-off URL so anyone can fill it out and launch a process as a guest.
+2. **Magic link with pre-filled fields** - build a URL that pre-fills kick-off form fields for logged-in Tallyfy users, using the `ko_fields` parameter.
 
-### How to set it up
+### Approach 1 - Public kick-off form link
 
-#### 1. Prepare your Tallyfy template
+This is the simplest method. Tallyfy generates a public URL for your template's [kick-off form](/products/pro/launching/triggers/kick-off-forms/). Anyone with the link can submit the form and launch a process - no Tallyfy login required.
 
 <Steps>
-1. Design the Tallyfy [process template](/products/pro/documenting/templates/) you want the web form to launch.
-2. Add [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) to this template to capture the data from your web form.
-3. **Important:** Make sure the internal names of these Tallyfy fields exactly match the field names you'll send from your web form (e.g., if your web form field is named `customer_email`, the corresponding Tallyfy kick-off field must also be named `customer_email`).
+1. Create a [process template](/products/pro/documenting/templates/) with [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/).
+2. Open the template, go to the kick-off form step, and click **Share**.
+3. Copy the public kick-off link. It follows this format:
+   `https://go.tallyfy.com/public/library/{orgId}/blueprint/{templateId}/kick-off`
+4. Redirect your web form's submit action to this URL, or embed it on your website.
 </Steps>
 
-#### 2. Set up the web form / link
+When someone visits the link, Tallyfy asks for their email, then shows the kick-off form. On submission, the process launches automatically.
 
-The goal is to make your web form's "submit" action redirect the user to a special Tallyfy launch URL - adding the form answers to the end of the URL.
+### Approach 2 - Magic link with pre-filled fields
+
+For logged-in users, you can build a launch URL that pre-fills kick-off form values using the `ko_fields` query parameter. The `ko_fields` value is a JSON-encoded array where each element maps a field alias to its value.
 
 <Steps>
-1. Get the launch URL for your Tallyfy template (often called a "Kick-off Form Link" or "Public Form Link"). Find it in the template's **Triggers** settings.
-2. Modify your web form so that upon submission, it sends the user to that Tallyfy URL.
-3. Append the data from the web form fields to the end of the URL as query parameters. The format is `?fieldName1=value1&fieldName2=value2`.
-4. **Important**: The `fieldName` parts *must exactly match* the internal names of the kick-off form fields in your Tallyfy template.
-5. **Important**: The `value` parts need to be URL-encoded if they contain spaces or special characters (e.g., a space becomes `%20`, the `@` symbol becomes `%40`). Most web form tools or simple scripts handle URL encoding automatically.
+1. Create a template with kick-off form fields. Note each field's **alias** (the internal identifier).
+2. Build the launch URL:
+   `https://go.tallyfy.com/#/org/{orgId}/process/{templateId}/create?ko_fields={json}&launchprocess=true`
+3. The `ko_fields` parameter takes URL-encoded JSON. Each array element is an object like `{"field_alias": "value"}`.
+4. Set `launchprocess=true` to auto-launch. You can also set `default_run_name` to pre-fill the process name.
 </Steps>
 
 #### Example URL
 
-If your Tallyfy template kick-off link is `https://example.tallyfy.com/launch/xyz` and your template has kick-off fields named `customer_name` and `customer_email`, the final URL your web form should send the user to might look like:
+If your template has kick-off fields with aliases `customer_name` and `customer_email`:
 
 ```text
-https://example.tallyfy.com/launch/xyz?customer_name=John%20Doe&customer_email=john.doe%40example.com
+https://go.tallyfy.com/#/org/{orgId}/process/{templateId}/create?ko_fields=[{"customer_name":"John Doe"},{"customer_email":"john@example.com"}]&launchprocess=true
 ```
 
-When the user visits this URL, Tallyfy will automatically start the process and pre-fill the `customer_name` field with "John Doe" and the `customer_email` field with "john.doe@example.com".
+:::note
+The `ko_fields` approach requires the user to be logged into Tallyfy. For anonymous/guest access, use the public kick-off form link instead.
+:::
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
