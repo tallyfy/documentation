@@ -1310,7 +1310,7 @@ When discussing any feature, include ALL related concepts:
 Every documentation page displays its last modification date, automatically maintained through Git history. This provides transparency about content freshness for users and improves SEO.
 
 ### How It Works
-1. **GitHub Actions Workflow** (`answers.yml`):
+1. **GitHub Actions Workflow** (`documentation-pipeline.yml`):
    - Runs on every commit to staging branch (then auto-promotes staging → main)
    - Executes `update-last-modified.py` script
    - Extracts last modified date from Git history for each MDX file
