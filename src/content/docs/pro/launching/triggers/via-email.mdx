@@ -1,9 +1,9 @@
 ---
-description: Email triggers allow teams to launch Tallyfy processes by sending emails
-  to template-specific addresses where the email subject becomes the process name
-  and content can be automatically captured into kick-off fields if configured.
+about_tallyfy: true
+description: Launch Tallyfy processes by sending emails to template-specific addresses
+  where the subject becomes the process name and content fills kick-off fields.
 id: 0604283d73d577667b35cae9909c0d89
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 8
 title: Email triggers
@@ -11,48 +11,43 @@ title: Email triggers
 
 import { Steps } from '@astrojs/starlight/components';
 
+Send an email to a template's unique address to start a process without logging into Tallyfy. This works well for mobile users or when you're working from external systems.
+
 ### Prerequisites
 
-*   Permission to edit templates.
-*   No required kick-off form fields in the template (optional fields are fine).
-*   Email must be sent from an active member's address.
-
-### Launching processes via email
-
-Send an email to a template's unique address to start a process without logging into Tallyfy. Useful for mobile users or when working from external systems.
+- Permission to edit templates
+- No **required** kick-off form fields in the template (optional fields are fine)
+- Sender's email must belong to an active member in your organization
 
 :::warning[Cannot use with required kick-off fields]
-This email trigger method **doesn't work** if the template has any kick-off form fields marked as **Required**. You'll get an email saying the launch failed. Only use templates with optional (or no) kick-off fields if you want to launch them via email.
+Email triggers **don't work** if the template has any kick-off form fields marked as **Required**. You'll get a failure notification email. Only use templates with optional (or no) kick-off fields for email launching.
 :::
 
 ### Setting up email triggers
 
-Each template gets its own unique email address for launching.
+Each template gets its own unique email address.
 
 <Steps>
-1. Go to the **Templates** library.
-2. Open the template you want to enable email launch for (in **Edit** mode).
-3. Click **Triggers** in the left sidebar.
-4. Choose **Other options**.
+1. Open a template in **Edit** mode.
+2. Click **Triggers** in the left sidebar.
+3. Choose **Other options**.
    ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-select-other-options-triggers.png)
-5. Find the **Via inbound email** option.
-6. Tallyfy shows the special email address created just for launching *this template*. Copy this address.
-7. Share this address with team members who need to launch this process via email.
+4. Find the **Via inbound email** option.
+5. Copy the email address shown - it's unique to this template.
+6. Share this address with team members who need to launch this process via email.
 </Steps>
 
-### Email trigger workflow
+### What happens when an email arrives
 
-When someone sends an email to that special Tallyfy address:
+1. Tallyfy checks if the sender is an active member in your organization. Non-members get a rejection email.
+2. If verified, Tallyfy launches a new process from the linked template.
+3. The email **Subject** becomes the process name.
+4. If you've set up email capture fields (see below), the body and attachments fill in automatically.
+5. Assignees on the first task(s) get notified.
 
-1. Tallyfy checks if the sender's email belongs to an active member in your organization.
-2. If yes, Tallyfy starts a new process from the template linked to that address.
-3. The email's Subject becomes the Name of the new process instance.
-4. If you added special kick-off fields (see below), the email content copies into them automatically.
-5. Assignees for the first task(s) are notified to begin work.
+## How does the email trigger process work?
 
-## How does the email trigger process work automatically?
-
-This diagram shows the complete email trigger flow, including all validation checks and possible outcomes.
+This diagram shows the full validation flow and possible outcomes.
 
 ```d2
 # Email Trigger Validation Flow
@@ -154,106 +149,83 @@ Data_Capture -> Notify_Users: Fields populated {
 }
 ```
 
-**What to notice:**
-- The sender must be an active member in your organization - emails from external addresses or inactive members are automatically rejected
-- Templates with required kick-off fields cannot be launched via email - you'll receive a failure notification if you try
-- Email content and attachments are only captured if you've specifically added `email_body` or `email_attachments` fields to your template's kick-off form
-
 ### Capturing email content
 
-You can have Tallyfy automatically save the email body and attachments into kick-off form fields. Add kick-off fields to your template with these specific internal names:
+Tallyfy can save the email body and attachments into kick-off form fields. When you open the **Via inbound email** trigger panel, Tallyfy offers to create these fields for you with a **Create it now** link:
 
-| Field Name              | What it Captures                  | Recommended Field Type |
+| Field Label              | What it captures                  | Field type |
 |-------------------------|-----------------------------------|------------------------|
-| `email_body`            | The full text of the email body   | Long Text Area         |
-| `email_attachments`     | Any files attached to the email | File Upload            |
+| `Inbound Email Trigger - Email Body`            | The full text of the email body   | Long Text Area         |
+| `Inbound Email Trigger - Email Attachments`     | Files attached to the email | File Upload            |
 
-If you don't have these fields, Tallyfy might show a link to create them when you enable the email trigger.
+These fields are optional. Without them, the process still launches - you just won't capture the email content.
 
 ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-create-email-fields.png)
 
 ### Email address format
 
-The trigger email address follows this format:
+The trigger email address follows this pattern:
 
 ```text
 bot+[TemplateID]-launch@tallyfy.com
 ```
 
-(Where `[TemplateID]` is the unique ID of your template)
+`[TemplateID]` is your template's unique ID. You don't need to construct this yourself - Tallyfy shows the full address in the trigger panel.
 
 ### Example uses
 
-*   **Field Updates**: Technicians email status updates after site visits (Subject: Site Visit - Client X; Body: Details; Attachments: Photos).
-*   **Forwarding Requests**: Support forwards an email to the trigger address to start a complaint process.
+- **Site visit reports** - Technicians email after visits (Subject: Site Visit - Client X; Body: details; Attachments: photos)
+- **Support escalation** - Forward a customer email to the trigger address to start a complaint process
 
-:::caution[Consider structured forms instead of email triggers]
-While email triggers work, we strongly encourage moving away from email-based process launching. Why? Emails are unstructured - you get whatever people decide to write, in whatever format they choose. This creates data quality issues and makes automation difficult.
+:::caution[Consider structured forms instead]
+Email triggers work, but emails are unstructured - people write whatever they want, in any format. This creates data quality issues.
 
-**Better approach**: Use [kick-off forms](/products/pro/launching/triggers/kick-off-forms/) instead. With structured forms:
-- You get the exact data fields you need, every time
-- Data arrives in consistent formats (dates, numbers, dropdowns)
-- Required fields ensure nothing critical is missed
-- Validation prevents errors before the process starts
-- Integration with other systems becomes seamless
+**Better approach**: Use [kick-off forms](/products/pro/launching/triggers/kick-off-forms/) instead. Structured forms give you consistent data formats, required fields, and validation before the process starts.
 
-Email triggers should be your fallback option, not your primary method. Transform unstructured email chaos into structured, predictable workflows.
+Use email triggers as a fallback, not your primary launch method.
 :::
 
 ### Smart email forwarding with keywords
 
-You can trigger Tallyfy processes from your regular email conversations by using a special keyword that your email system detects and forwards automatically.
+You can launch Tallyfy processes from regular email conversations using a keyword and an email filter rule.
 
-**How it works:**
-1. Include a unique keyword like `TRIGGER-TALLYFY` anywhere in your regular emails (to customers, colleagues, etc.)
-2. Set up an email rule/filter in your email system (Gmail, Outlook, etc.) that:
-   - Searches for emails containing your keyword
-   - Automatically forwards matching emails to the Tallyfy template address
-   - Optionally removes the keyword before forwarding
-3. The process launches automatically when Tallyfy receives the forwarded email
+1. Pick a unique keyword like `TRIGGER-TALLYFY`
+2. Set up an email rule in Gmail, Outlook, or your mail system that:
+   - Watches for emails containing your keyword
+   - Auto-forwards matches to the Tallyfy template address
+3. The process launches when Tallyfy receives the forwarded email
 
-**Example scenario:**
-You're emailing a customer about their order. By including `TRIGGER-TALLYFY` in your email, your email system automatically forwards it to launch a "Customer Follow-up" process in Tallyfy - all without sending a separate email or leaving your inbox.
+Use different keywords for different templates (e.g., `TRIGGER-ONBOARDING`, `TRIGGER-COMPLAINT`).
 
-**Benefits of this pattern:**
-- Trigger processes during normal email conversations
-- No need to remember Tallyfy email addresses
-- Creates documentation in both your email and Tallyfy
-- Works with any email system that supports rules/filters
-- Can use different keywords for different templates (e.g., `TRIGGER-ONBOARDING`, `TRIGGER-COMPLAINT`)
-
-**Setting up the email rule (Gmail example):**
-1. Go to Gmail Settings > Filters and Blocked Addresses
+**Gmail example:**
+1. Go to **Settings** > **Filters and Blocked Addresses**
 2. Create filter: "Has the words: TRIGGER-TALLYFY"
 3. Action: Forward to `bot+[TemplateID]-launch@tallyfy.com`
-4. Optional: Also apply label for tracking
 
-### Security considerations
+### Security notes
 
-*   The sender must be an active Tallyfy member in your organization.
-*   Use clear email subjects (they become the process name).
-*   Each template has a unique trigger email.
-*   Cannot launch templates with required kick-off fields via email.
+- Only active Tallyfy members in your organization can trigger launches - emails from outsiders are rejected
+- Each template has its own unique trigger email address
+- Write clear subjects - they become the process name
 
 ### Adding comments via email replies
 
-You can also add comments to existing tasks by replying to the Tallyfy task notification email.
+You can add comments to existing tasks by replying to Tallyfy task notification emails.
 
 <Steps>
-1. Get a task notification email from Tallyfy.
+1. Receive a task notification email from Tallyfy.
 2. Reply to that email.
 3. Your reply becomes a comment on the task.
-4. Files attached to the reply are added to the comment.
+4. File attachments in the reply get added to the comment.
 </Steps>
 
-(The reply-to address for comments looks like `bot+[TaskID]-comment-task@tallyfy.com`)
+The reply-to address format is `bot+[TaskID]-comment-task@tallyfy.com`.
 
 ### Best practices
 
-- Keep a list of trigger emails for your team.
-- Suggest standard subject formats for easier tracking.
-- Remind users to put details in the body if you're capturing it.
-- Test the trigger from different email clients your team uses.
+- Keep a shared list of trigger email addresses for your team
+- Agree on standard subject line formats for easier tracking
+- Test the trigger from each email client your team uses
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

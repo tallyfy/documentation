@@ -1,10 +1,9 @@
 ---
-description: Tallyfy's REST API enables automated process launching through code integration
-  with external systems by authenticating via API key or OAuth and sending POST requests
-  with template IDs and kick-off form data to create processes triggered by events
-  like CRM deal closures or IoT sensor alerts.
+description: Launch Tallyfy processes automatically by sending a POST request to the
+  runs endpoint with a checklist_id and optional prerun data for kick-off form fields.
+about_tallyfy: true
 id: 7588a4ef11c85dade45679011a90ef7c
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 11
 title: Launch via API
@@ -12,70 +11,48 @@ title: Launch via API
 
 ## Launching processes via API
 
-### Prerequisites
+Send a `POST` request to Tallyfy's REST API to launch processes from code - triggered by events in other systems like CRM deals closing or form submissions.
 
-Before starting, make sure you have:
-- A Tallyfy account with API access enabled
-- API authentication credentials (API key or OAuth token)
-- The ID of the template(s) you want to launch
-- A basic understanding of REST API concepts and JSON
+### What you'll need
 
-### API workflow automation
+- A Tallyfy account with API access
+- An OAuth Bearer token for authentication
+- The `checklist_id` (template ID) you want to launch
+- Familiarity with REST APIs and JSON
 
-Tallyfy's REST API lets you start processes automatically using code. You can integrate with other systems and build custom ways to launch processes based on external events or conditions.
+### How to launch a process
 
-### Implementation steps
+1. **Get your access token** - set up OAuth in Tallyfy and store your Bearer token securely
 
-1. **Get authentication details**
-   - Generate an API key (or set up OAuth) in your Tallyfy account settings
-   - Store credentials securely
+2. **Find the template ID** - grab the `checklist_id` from the URL when viewing your [template](/products/pro/documenting/templates/), and note any [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that need data
 
-2. **Find the process template ID**
-   - Locate the Template ID (e.g., from the URL when viewing the [template](/products/pro/documenting/templates/))
-   - Note any [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that need data
+3. **Send the POST request** - call `POST /organizations/{org_id}/runs` with your JSON body containing `checklist_id` and process details
 
-3. **Build the API request**
-   - Use the `/api/processes` endpoint with a `POST` request
-   - Include authentication headers
-   - Format the request body (**JSON**) with the template ID and process details
+4. **Handle the response** - a `201` response returns the new process data including its ID. Add error handling for failures.
 
-4. **Handle the response**
-   - Get the Process ID from a successful response
-   - Add error handling for failed requests
+See the [API process launch guide](/products/pro/integrations/open-api/code-samples/processes/launch-process) for full details.
 
-See the [API Process Launch Guide](/products/pro/integrations/open-api/code-samples/processes/launch-process) for full details.
+### What you can do via API
 
-### API features
-
-Launching via the API offers:
-
-#### Automation capabilities
-- Start processes based on events in other systems
-- Schedule repeating process launches
-- Start many processes at once (bulk launch)
-
-#### Data integration
-- Fill kick-off form fields with external data
-- Send complex data structures into processes
-- Link Tallyfy processes to records in other systems (like a CRM)
-
-#### Process customization
-- Use custom process names
-- Control task assignments via code
-- Set custom deadlines using logic
+- Start processes from events in other systems (CRM, forms, IoT sensors)
+- Pre-fill [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) with external data using the `prerun` object
+- Set custom process names, task assignments, and deadlines per step
+- Assign users, groups, and roles at launch time
+- Tag processes and place them in folders automatically
 
 ### Sample API request
 
 ```json
-POST /api/processes HTTP/1.1
-Host: go.tallyfy.com/api
-Authorization: Bearer YOUR_API_TOKEN
+POST /organizations/{org_id}/runs HTTP/1.1
+Host: go.tallyfy.com
+Authorization: Bearer YOUR_ACCESS_TOKEN
 Content-Type: application/json
+X-Tallyfy-Client: APIClient
 
 {
-  "template_id": "your-template-id",
-  "name": "API Triggered Process - Customer Onboarding",
-  "kickoff_fields": {
+  "checklist_id": "your-template-id",
+  "name": "Customer Onboarding - Acme Corporation",
+  "prerun": {
     "customer_name": "Acme Corporation",
     "contract_value": 15000,
     "start_date": "2024-01-15T00:00:00.000Z"
@@ -85,12 +62,11 @@ Content-Type: application/json
 
 ### Common use cases
 
-API launching works well for:
-- Connecting a CRM to start customer onboarding when new deals close
-- Starting approval workflows from document management systems when documents are uploaded
-- Starting inspection processes from IoT devices when sensors trigger alerts
-- Creating processes from external form submissions
-- Starting workflows from database changes
+- CRM integration - start onboarding when deals close
+- Document management - trigger approvals when files are uploaded
+- IoT devices - launch inspections when sensors fire alerts
+- External forms - create processes from third-party submissions
+- Database triggers - start workflows from data changes
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
