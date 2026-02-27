@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 2
       - uses: actions/setup-python@v4
         with:
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -85,18 +85,24 @@ jobs:
         run: |
           git pull
           python -m pip install --upgrade python-frontmatter requests
-          python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+          else
+            python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_urls https://staging.answers.tallyfy.com
+          fi
         shell: bash
     outputs:
       upload-to-tallyfy-answers-completed: ${{ steps.upload-to-tallyfy-answers.outcome }}
 
   check-deleted-files:
     needs: upload-to-tallyfy-answers
+    if: ${{ github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -118,7 +124,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for accurate Git dates
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -149,7 +155,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -174,12 +180,13 @@ jobs:
 
   sync:
     needs: [ validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source repository (tallyfy/documentation)
         uses: actions/checkout@v3
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - name: Checkout target repository (tallyfy/support-docs)
         uses: actions/checkout@v3
@@ -187,7 +194,7 @@ jobs:
           repository: tallyfy/support-docs
           token: ${{ secrets.GH_TOKEN }}
           path: target-repo
-          ref: staging
+          ref: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
 
       - name: Sync files
         run: |
@@ -200,10 +207,11 @@ jobs:
           git config user.email "<>"
           git config pull.rebase false
           git add src/content/docs
+          TARGET_BRANCH=${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Sync docs from tallyfy/documentation"
-            git pull origin staging --no-rebase || true
-            git push origin staging
+            git pull origin $TARGET_BRANCH --no-rebase || true
+            git push origin $TARGET_BRANCH
           fi
