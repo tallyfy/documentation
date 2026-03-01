@@ -1,11 +1,10 @@
 ---
-description: This documentation explains how to retrieve and filter process instances
-  within a Tallyfy organization using a GET API endpoint that supports various query
-  parameters for searching by status owners templates tags and other criteria with
-  code examples in multiple programming languages including JavaScript Python Java
-  Go C++ and C#.
+about_tallyfy: true
+description: Retrieve and filter process instances in a Tallyfy organization using
+  a GET API endpoint with query parameters for status, owners, templates, tags, and
+  more - with code examples in JavaScript, Python, Java, Go, C++, and C#.
 id: d4c5c29cc7749ff332bf709b3281932a
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: List processes
@@ -17,11 +16,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/runs`
 
-This endpoint retrieves a list of Tallyfy process instances (runs) within your organization. It supports extensive filtering through query parameters.
+This endpoint returns a paginated list of process instances (runs) in your organization, with filters for status, ownership, templates, and more.
 
 ## Request
 
-Replace `{org_id}` with your actual Organization ID.
+Replace `{org_id}` with your Organization ID.
 
 ### Headers
 
@@ -31,22 +30,22 @@ Replace `{org_id}` with your actual Organization ID.
 
 ### Query parameters (optional)
 
-This endpoint offers several parameters to filter Tallyfy process results. Refer to the `GET /organizations/{org}/runs` definition in Swagger for the full list. Common parameters include:
-
--   `q` (string): Search term for process name.
--   `status` (string): Filter by status (e.g., `active`, `problem`, `delayed`, `complete`, `archived`).
--   `owners` (string): Comma-separated list of User IDs to filter by process owner.
--   `checklist_id` (string): Filter processes launched from a specific template ID.
--   `folder` (string): Filter processes within a specific folder ID.
--   `tag` (string): Filter processes by a specific Tag ID.
+-   `q` (string): Search processes by name.
+-   `status` (string): Filter by status - `active`, `complete`, `problem`, `improvement`, `archived`, `delayed`, or `starred`.
+-   `owners` (string): Comma-separated User IDs to filter by process owner or task assignee.
+-   `checklist_id` (string): Filter by the template ID used to launch the process. Alias: `blueprint_id`.
+-   `folder` (string): Filter by folder ID.
+-   `tag` (string): Filter by a specific Tag ID.
+-   `tag_ids` (string): Filter by comma-separated Tag IDs.
+-   `untagged` (boolean): When set, returns only processes with no tags.
 -   `starred` (boolean): Filter by starred status.
--   `type` (string): Filter by type (e.g., `procedure`, `form`).
--   `groups` (string): Comma-separated list of Group IDs involved in tasks within the process.
--   `task_status` (string): Filter processes based on the status of tasks within them (e.g., `in-progress`, `completed`).
--   `with` (string): Comma-separated list to include related data (e.g., `checklist`, `tasks`, `tags`, `assets`).
--   `page` (integer): For pagination, the page number to retrieve (default: 1).
--   `per_page` (integer): For pagination, the number of results per page (default: 10).
--   `sort` (string): Field to sort by (e.g., `name`, `created_at`, `-created_at` for descending).
+-   `type` (string): Filter by type - `procedure` or `form`.
+-   `groups` (string): Comma-separated Group IDs involved in tasks within the process.
+-   `with` (string): Comma-separated related data to include. Options: `checklist`, `tasks`, `tags`, `assets`, `next_task`, `permissions`, `tasks_meta`, `ko_form_fields`, `form_fields`, `stages`, `folders`.
+-   `page` (integer): Page number to retrieve (default: 1).
+-   `per_page` (integer): Results per page (default: 10).
+-   `sort` (string): Field to sort by (e.g., `name`, `created_at`). Prefix with `-` for descending order (e.g., `-created_at`). Alias: `sort_by`.
+-   `without_pagination` (boolean): When true, returns all results without pagination.
 
 ### Code samples
 
@@ -56,12 +55,9 @@ This endpoint offers several parameters to filter Tallyfy process results. Refer
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-// Construct query parameters
 const params = new URLSearchParams({
-    status: 'active', // Example: Get only active processes
-    // q: 'Onboarding', // Example: Search for name containing "Onboarding"
-    // checklist_id: 'template_id_example',
-    per_page: '5' // Example: Limit to 5 results per page
+    status: 'active',
+    per_page: '5'
 });
 const queryStr = params.toString();
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs${queryStr ? '?' + queryStr : ''}`;
@@ -71,23 +67,20 @@ headers.append('Authorization', `Bearer ${accessToken}`);
 headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
-fetch(apiUrl, {
-    method: 'GET',
-    headers: headers
-})
+fetch(apiUrl, { method: 'GET', headers })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to list processes:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
     console.log('Successfully listed processes:');
     console.log(JSON.stringify(data, null, 2));
-    // Access pagination info via data.meta.pagination if needed
+    // Pagination info: data.meta.pagination
 })
 .catch(error => {
     console.error('Error listing processes:', error.message);
@@ -110,38 +103,31 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Define query parameters
 params = {
-    'status': 'active', # Example: Only active processes
+    'status': 'active',
     'per_page': 10,
     'page': 1,
     # 'q': 'ACME Corp',
-    # 'checklist_id': 'template_id_abc',
-    # 'with': 'tags' # Example: Include tags
+    # 'with': 'tags,checklist'
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     processes_data = response.json()
     print('Successfully listed processes:')
     print(json.dumps(processes_data, indent=4))
-    # Access pagination: processes_data.get('meta', {}).get('pagination')
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing processes: {http_err}") 
+    print(f"HTTP error: {http_err}")
     if response is not None:
-        print(f"Response Body: {response.text}")
+        print(f"Response: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed listing processes: {req_err}")
-except json.JSONDecodeError:
-    print("Failed to decode JSON response when listing processes")
-    if response is not None:
-        print(f"Response Text: {response.text}")
+    print(f"Request failed: {req_err}")
 except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+    print(f"Unexpected error: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -155,7 +141,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class ListProcesses {
@@ -165,16 +151,14 @@ public class ListProcesses {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/runs";
 
-        // Define query parameters
         Map<String, String> queryParamsMap = new HashMap<>();
         queryParamsMap.put("status", "active");
         queryParamsMap.put("per_page", "5");
-        // queryParamsMap.put("q", "Search Term");
-        
+
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-        
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newBuilder()
@@ -195,18 +179,13 @@ public class ListProcesses {
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed processes:");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON response using Jackson/Gson
-                // Access pagination: Use jsonNode.path("meta").path("pagination")
             } else {
                 System.err.println("Failed to list processes. Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -220,7 +199,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -238,16 +217,15 @@ func main() {
 	}
 	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs", orgId)
 
-    // Define query parameters
-    queryParams := url.Values{}
-    queryParams.Add("status", "active")
-    queryParams.Add("per_page", "10")
-    queryParams.Add("with", "tags") // Example: include tags
+	queryParams := url.Values{}
+	queryParams.Add("status", "active")
+	queryParams.Add("per_page", "10")
+	queryParams.Add("with", "tags")
 
-    apiUrl := baseURL
-    if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	apiUrl := baseURL
+	if len(queryParams) > 0 {
+		apiUrl += "?" + queryParams.Encode()
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
@@ -262,14 +240,14 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error making GET request: %v\n", err)
+		fmt.Printf("Error sending request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
+		fmt.Printf("Error reading response: %v\n", err)
 		return
 	}
 
@@ -279,14 +257,12 @@ func main() {
 	}
 
 	fmt.Println("Successfully listed processes:")
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a slice of process structs if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -362,7 +338,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyProcessLister
 {
@@ -372,13 +348,11 @@ public class TallyfyProcessLister
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["status"] = "active"; // Example
+        query["status"] = "active";
         query["per_page"] = "10";
         query["with"] = "tags";
-        // query["q"] = "Search Term";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs?{queryString}";
 
@@ -395,13 +369,11 @@ public class TallyfyProcessLister
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully listed processes:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access pagination: doc.RootElement.GetProperty("meta").GetProperty("pagination")...
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -412,19 +384,9 @@ public class TallyfyProcessLister
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception listing processes: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request error: {e.Message}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await ListProcessesAsync();
-    // }
 }
 ```
 </TabItem>
@@ -432,7 +394,7 @@ public class TallyfyProcessLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element in the array represents a process run matching the filter criteria.
+A successful request returns a `200 OK` status and a JSON object with a `data` array. Each element represents a process run matching your filters.
 
 ```json
 {
@@ -443,23 +405,35 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "checklist_id": "template_id_123",
       "checklist_title": "Customer Onboarding",
       "name": "Onboarding - ACME Corp",
-      "summary": "Process instance for ACME.",
+      "summary": "",
       "status": "active",
       "progress": {
         "complete": 5,
         "total": 10,
         "percent": 50
       },
+      "whole_progress": { ... },
       "started_by": 1001,
-      "created_at": "2025-01-15T10:00:00.000Z",
-      "last_updated": "2025-01-17T15:30:00.000Z",
-      "due_date": "2025-02-15T10:00:00.000Z",
       "owner_id": 1001,
-      // ... other run properties ...
-    },
-    {
-      "id": "run_id_def",
-      // ... details for another process run ...
+      "prerun": { ... },
+      "prerun_status": "complete",
+      "starred": false,
+      "created_at": "2025-01-15T10:00:00.000Z",
+      "started_at": "2025-01-15T10:00:00.000Z",
+      "last_updated": "2025-01-17T15:30:00.000Z",
+      "archived_at": null,
+      "completed_at": null,
+      "due_date": "2025-02-15T10:00:00.000Z",
+      "due_date_passed": false,
+      "due_soon": false,
+      "late_tasks": 0,
+      "collaborators": [],
+      "type": "procedure",
+      "is_public": false,
+      "users": [],
+      "groups": [],
+      "parent_id": null,
+      "can_add_oot": true
     }
   ],
   "meta": {
@@ -477,7 +451,7 @@ A successful request returns a `200 OK` status code and a JSON object containing
 }
 ```
 
-The `meta.pagination` object provides details for navigating through multiple pages of results if applicable.
+The `meta.pagination` object helps you page through results. Use the `links.next` URL to fetch the next page directly.
 
 ---
 

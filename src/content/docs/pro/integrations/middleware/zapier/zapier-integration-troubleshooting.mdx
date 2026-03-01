@@ -1,168 +1,104 @@
 ---
-description: Tallyfy-Zapier integration problems can be resolved through systematic
-  troubleshooting of authentication credentials connection settings webhook configurations
-  trigger mappings and field formatting while following best practices for reliable
-  workflow automation between applications.
+about_tallyfy: true
+description: Fix common Tallyfy-Zapier issues including OAuth2 authentication failures
+  webhook trigger problems action errors and field mapping confusion with step-by-step
+  solutions traced to the actual connector code.
 id: b4671b52eea5db09a8e62540f1fea1a1
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Troubleshooting Tallyfy-Zapier integration issues
 ---
 
-## Diagnose and fix Tallyfy-Zapier problems
+## Fix common Tallyfy-Zapier problems fast
 
-The Tallyfy-Zapier integration enables connections between Tallyfy and thousands of business applications, automating workflows across your entire technology stack.
+Most Tallyfy-Zapier issues fall into three buckets: authentication failures, triggers that don't fire, or actions that error out. Here's how to fix each one.
 
-Occasional integration challenges may arise that require systematic troubleshooting approaches. This guide helps identify, diagnose, and resolve common Zapier integration problems, ensuring reliable workflow automation between Tallyfy and connected applications.
-
-### Understanding Tallyfy's webhook-based Zapier integration
-
-:::caution[Webhooks vs traditional Zapier triggers]
-Tallyfy uses **webhooks** to send data to Zapier, not traditional polling-based triggers. 
-
-- **Instant updates**: Webhooks fire immediately when events occur (no 5-15 minute polling delays)
-- **More reliable**: Direct push notifications instead of periodic checking
-- **Better performance**: No wasted API calls checking for changes
-- **Same Zapier experience**: Once configured, webhooks work exactly like regular Zapier triggers
-
-To competitors evaluating Tallyfy: Our webhook approach provides superior real-time integration compared to traditional polling triggers.
+:::caution[Tallyfy uses webhooks, not polling]
+Tallyfy's Zapier connector fires webhook-based triggers instantly when events happen -- there's no 5-15 minute polling delay. This means triggers like "Task Completed" and "Process Started" should fire within seconds. If they don't, the problem is usually a configuration issue, not a timing one.
 :::
 
-### Resolve connection issues
+### Connection and authentication issues
 
-Connection problems between Tallyfy and Zapier typically stem from authentication, permission, or configuration challenges that can be systematically resolved:
+Tallyfy connects to Zapier through OAuth2. You'll authorize with your Tallyfy credentials, and the connector stores an `access_token`, `refresh_token`, and your `organization_id`. Token refresh is automatic -- you shouldn't need to reconnect often.
 
-#### What authentication problems occur with Tallyfy-Zapier connections?
+**If your connection fails:**
 
-- **Invalid credentials**: Verify correct Tallyfy email address and password combinations are being used for authentication
-- **Access permissions**: Confirm your Tallyfy account possesses administrator or standard member permissions required for integration access
-- **Token expiration**: Reconnect your Tallyfy account within Zapier when authentication tokens expire or become invalid
+- **"Authentication failed"** -- Reconnect your Tallyfy account in Zapier. Go to **My Apps** > **Tallyfy** > **Reconnect**
+- **Can't find Tallyfy in Zapier** -- Search for "Tallyfy" in the Zapier app directory, or go directly to [zapier.com/apps/tallyfy](https://zapier.com/apps/tallyfy)
+- **"Invalid client" error** -- Your OAuth credentials are misconfigured. Disconnect and re-authorize through Zapier's connection flow. The OAuth token URL is `https://account.tallyfy.com/oauth/token`
+- **Permission denied** -- Make sure your Tallyfy account has Admin or Standard member permissions. Light users and Guests can't authorize integrations
 
-#### Connection setup issues
+### Trigger problems
 
-1. **Can't find Tallyfy app in Zapier**: 
-   - Search for "Tallyfy" in the Zapier app directory
-   - Ensure you're using the correct spelling
-   - If still not visible, try navigating directly to [zapier.com/apps/tallyfy](https://zapier.com/apps/tallyfy)
-
-2. **Connection timeout errors**:
-   - Check your internet connection
-   - Try connecting during non-peak hours
-   - Contact Tallyfy support if the issue persists
-
-### Trigger issues
-
-Problems with Zapier triggers not firing when expected:
-
-#### "New Task" trigger not working
-
-- **Check webhook status**: Ensure webhooks are properly configured in Tallyfy
-- **Verify task creation**: Confirm tasks are being created correctly in Tallyfy
-- **Filter settings**: Check if you have filters that might be preventing the trigger from firing
+Tallyfy's Zapier connector includes two instant (webhook) triggers and several polling-based data triggers:
 
 #### "Task Completed" trigger not firing
 
-- **Task status**: Verify the task was actually marked as complete in Tallyfy
-- **Zap status**: Ensure your Zap is turned on in Zapier
-- **Time delay**: Allow a few minutes for the trigger to process
+- Confirm the task was actually completed in Tallyfy, not just reopened or skipped
+- Check that your Zap is turned **On** in Zapier's dashboard
+- Verify the connected Tallyfy account has access to the organization where the task lives
 
-#### "Process Launched" trigger issues
+#### "Process Started" trigger not firing
 
-- **Launch confirmation**: Confirm the process was successfully launched in Tallyfy
-- **Template changes**: Check if the process template has been modified recently
-- **Permission issues**: Ensure the connected account has visibility to the launched process
+- Confirm the process actually launched successfully in Tallyfy
+- Check if the template was modified after you set up the Zap -- template changes can break field mappings
+- Make sure the connected account can see the process
 
-### Action issues
+### Action errors
 
-Problems when Zapier tries to perform actions in Tallyfy:
+The connector supports actions like launching processes, completing tasks, adding comments, changing assignees, and changing deadlines.
 
-#### "Launch Process" action failing
+#### "Start Process" action failing
 
-- **Template availability**: Verify the template ID exists and is active
-- **Required fields**: Ensure all required launch parameters are provided
-- **Formatting issues**: Check that dates and other special fields use the correct format
+- **Template ID wrong** -- Copy the template ID directly from Tallyfy. If you renamed or duplicated the template, the old ID won't work
+- **Missing kick-off form fields** -- If your template has required kick-off form fields, you must map values for every required field
+- **Date formatting** -- Tallyfy expects UTC timestamps. If you're passing dates from another app, make sure they're formatted correctly
 
-#### "Create Task" action not working
+#### "Standalone Task" or "Process Task Complete" action failing
 
-- **Assignment issues**: Confirm the assignee exists in Tallyfy
-- **Field mapping**: Verify all required fields are properly mapped
-- **Permission problems**: Ensure the connected account has permission to create tasks
+- **Assignee doesn't exist** -- The email address must belong to a member or guest in your Tallyfy organization
+- **Guest-only assignments** -- Tallyfy won't let you assign a task exclusively to guests. If all assignees are guests, the connector automatically adds the connected user as a co-assignee
+- **Required form fields empty** -- If the task has required form fields, fill them before completing it
 
-#### Data mapping problems
+### Field mapping tips
 
-- **Field type mismatch**: Ensure the data types match between Zapier and Tallyfy fields
-- **Missing fields**: Check that all required fields are included in the mapping
-- **Format errors**: Verify date formats, numbers, and text are properly formatted
+Bad field names in Tallyfy cause confusing dropdowns in Zapier. Name your fields specifically:
 
-#### Field naming best practices for integration mapping
+| Bad name | Better name |
+|----------|-------------|
+| Notes | Customer_Requirements_Notes |
+| Comments | Customer_Service_Comments |
+| Date | Contract_Start_Date |
+| Address | Billing_Address |
+| Name | Client_Name |
 
-When creating forms and fields in Tallyfy that will connect through Zapier, follow these naming conventions to prevent mapping confusion:
+Avoid special characters in field names -- stick to letters, numbers, and underscores. If a field name appears in multiple steps, use identical names so Zapier can map them consistently.
 
-- **Be specific with field names**: Instead of "Notes", use "Customer Requirements Notes" or "Technical Specifications Notes"
-- **Avoid duplicate field names**: If you have multiple similar fields, differentiate them clearly (e.g., "Billing Address" vs "Shipping Address" instead of "Address" twice)
-- **Use descriptive prefixes**: Add context like "Client_Name" vs "Manager_Name" instead of multiple "Name" fields
-- **Keep names consistent**: If a field appears in multiple forms, use the exact same name for easier mapping
-- **Avoid special characters**: Stick to letters, numbers, and underscores to prevent parsing issues
+### Common error messages
 
-Poor naming example that causes mapping confusion:
-- Additional Notes (which notes?)
-- Comments (whose comments?)
-- Date (what date?)
+| Error message | Cause | Fix |
+|---------------|-------|-----|
+| "Authentication failed" | Expired or invalid OAuth token | Reconnect your Tallyfy account in Zapier |
+| "Invalid client" | OAuth misconfiguration | Disconnect and re-authorize through Zapier |
+| "Template not found" | Wrong template ID or deleted template | Copy the correct ID from Tallyfy |
+| "User not found" | Invalid assignee email | Verify the email belongs to an org member or guest |
+| "Access denied" | Insufficient account permissions | Use an Admin or Standard member account |
+| "Invalid field value" | Wrong data type or format | Check that dates, numbers, and text match expected formats |
 
-Better naming for clear integration mapping:
-- Offering_Additional_Notes
-- Customer_Service_Comments  
-- Contract_Start_Date
+### Debugging steps
 
-### Advanced troubleshooting
+1. **Test each Zap step** -- Use Zapier's built-in test feature to run each step individually and inspect the output
+2. **Check Zap history** -- Go to your Zap's history tab to see detailed execution logs, including error responses from Tallyfy's API
+3. **Verify in Tallyfy** -- Check the task or process directly in Tallyfy to confirm it's in the expected state
 
-For more complex integration issues:
+### Getting help
 
-#### Testing your Zap
-
-1. Use Zapier's testing feature to debug each step individually
-2. Check the task/process history in Tallyfy to verify expected behavior
-3. Review the Zap history in Zapier to see detailed execution logs
-
-#### Common error messages
-
-
-| Error Message | Possible Cause | Solution |
-|---------------|----------------|----------|
-| "Authentication failed" | Invalid credentials | Reconnect your Tallyfy account |
-| "Invalid client" | Incorrect API endpoint or missing grant_type | Use endpoint: go.tallyfy.com/api/token?client_id=[CLIENT_ID]&client_secret=[CLIENT_SECRET]&grant_type=developer |
-| "Template not found" | Incorrect template ID | Verify the template ID exists |
-| "User not found" | Incorrect assignee email | Check the email address is valid |
-| "Access denied" | Insufficient permissions | Use an account with proper permissions |
-| "Invalid field value" | Data formatting issue | Check field format requirements |
-
-#### Logging and debugging
-
-- Enable detailed logging in Zapier to capture more information
-- Use the "Debug" step in Zapier to inspect data at each stage
-- Monitor webhook delivery in Tallyfy's settings
-
-### Best practices for Tallyfy-Zapier integration
-
-To minimize integration issues:
-
-- **Keep authentication fresh**: Reconnect your Tallyfy account periodically
-- **Document your Zaps**: Keep notes on what each Zap does and how it's configured
-- **Test thoroughly**: Test each Zap with various scenarios before relying on it
-- **Monitor regularly**: Set up notifications for failed Zaps
-- **Update carefully**: Test Zaps after making changes to Tallyfy templates
-- **Use descriptive names**: Name your Zaps clearly to make troubleshooting easier
-
-### Getting additional help
-
-If you've tried these troubleshooting steps and still experience issues:
+If these steps don't resolve your issue:
 
 1. Check the [Zapier Help Center](https://zapier.com/help)
 2. Review Tallyfy's [API documentation](https://tallyfy.com/products/pro/integrations/open-api/)
-3. Contact [Tallyfy Support](https://tallyfy.com/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) with details about your issue
-
-The more information you can provide about your issue, including screenshots, error messages, and the steps you've already taken, the faster our support team can help you resolve it.
+3. Contact [Tallyfy Support](https://tallyfy.com/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) with your Zap's error logs and screenshots
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
@@ -170,6 +106,6 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <CardGrid>
 <LinkTitleCard header="<b>Middleware > Zapier</b>" href="/products/pro/integrations/middleware/zapier/" > Tallyfy connects to Zapier for automating workflows across thousands of business apps through triggers and actions that launch processes and sync data without coding requirements. </LinkTitleCard>
 <LinkTitleCard header="<b>Zapier > Connect Tallyfy to Zapier</b>" href="/products/pro/integrations/middleware/zapier/how-to-connect-your-tallyfy-account-to-zapier/" > Connecting Tallyfy to Zapier requires obtaining your Organization ID from Tallyfy settings and then authorizing the connection in Zapier by entering your credentials to enable automated workflows between Tallyfy and other business applications. </LinkTitleCard>
-<LinkTitleCard header="<b>Zapier > Tallyfy and Zapier</b>" href="/products/pro/integrations/middleware/zapier/how-can-i-improve-task-management-with-tallyfy/" > Connect Tallyfy with Zapier to pair human task management with automated triggers like CRM onboarding, scheduled launches, and web form tracking. </LinkTitleCard>
+<LinkTitleCard header="<b>Zapier > Tallyfy and Zapier</b>" href="/products/pro/integrations/middleware/zapier/how-can-i-improve-task-management-with-tallyfy/" > Tallyfy integrates with Zapier to combine human-centric task management with automated workflows enabling CRM-triggered onboarding scheduled process execution communication-based task creation and web form tracking across thousands of business applications. </LinkTitleCard>
 <LinkTitleCard header="<b>Webhooks > Details about webhooks</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Tallyfy webhooks automatically transmit JSON data to external URLs when workflow events occur at either the template level (firing on any step completion or process launch) or step level (firing only for specific task completions) and include retry logic for failed deliveries along with organizational ID headers for security validation. </LinkTitleCard>
 </CardGrid>

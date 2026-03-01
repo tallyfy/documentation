@@ -1,10 +1,10 @@
 ---
-description: This endpoint enables updating existing process template properties by
-  sending a PUT request with only the fields you want to modify such as title summary
-  owner guidance or starred status while noting that updating user or group arrays
-  will replace the entire existing list rather than adding to it.
+description: Update an existing template's properties by sending a PUT request with
+  the required title field and any optional fields you want to change - noting that
+  user or group arrays replace the entire existing list rather than appending to it.
 id: bbb57c2d7f7eb364419c9cfd8a9424f6
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 4
 title: Update template
@@ -16,11 +16,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `PUT /organizations/{org_id}/checklists/{checklist_id}`
 
-This endpoint allows you to update the properties of an existing process template (blueprint) identified by its ID.
+Updates the properties of an existing template (blueprint) by its ID.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{checklist_id}` with the ID of the template you want to update.
+Replace `{org_id}` with your Organization ID and `{checklist_id}` with the template ID.
 
 ### Headers
 
@@ -31,31 +31,38 @@ Replace `{org_id}` with your Organization ID and `{checklist_id}` with the ID of
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the template properties you wish to modify. You only need to include the fields you want to change.
+Send a JSON object with the fields you want to change. The `title` field is **required** on every update request (max 250 characters). All other fields are optional.
 
-Refer to the `#definitions/createChecklistInput` schema in the Swagger specification for the full list of updatable properties (it's often the same or similar to the creation schema). Common fields to update include:
+**Required field:**
 
--   `title` (string)
--   `summary` (string)
--   `owner_id` (integer)
--   `webhook` (string)
--   `guidance` (string)
--   `starred` (boolean)
--   `type` (string)
--   `users` (array of integers) - Note: This usually *replaces* the existing list.
--   `groups` (array of strings) - Note: This usually *replaces* the existing list.
+-   `title` (string, required) - Template title, max 250 characters
 
-**Example Body (Updating title and summary):**
+**Common optional fields:**
+
+-   `owner_id` (string) - Must be a valid user in your organization
+-   `webhook` (string) - Must be a valid URL
+-   `guidance` (string) - Guidance text for the template
+-   `icon` (string) - Icon identifier
+-   `folder_id` (string) - Folder ID to organize this template
+-   `is_public` (boolean) - Make the template publicly accessible
+-   `is_public_kickoff` (boolean) - Enable public kick-off form
+-   `explanation_video` (string) - Must be a valid URL
+-   `default_process_name_format` (string, max 550) - Auto-naming format for launched processes
+-   `auto_naming` (boolean) - Enable automatic process naming
+-   `users` (array of strings) - Replaces the entire existing user list
+-   `groups` (array of strings) - Replaces the entire existing group list
+
+**Example body:**
 
 ```json
 {
   "title": "Updated Template Name",
-  "summary": "This template has been updated via the API."
+  "guidance": "New guidance notes for this template."
 }
 ```
 
-:::caution[Updating Arrays (Users/Groups)]
-When updating fields like `users` or `groups`, the provided array typically *replaces* the entire existing list of users or groups associated with the template permission, rather than adding to it. Ensure you provide the complete intended list if you modify these.
+:::caution[Updating arrays (users/groups)]
+When you update `users` or `groups`, the provided array *replaces* the entire existing list. Make sure you include the complete intended list - not just the additions.
 :::
 
 ### Code samples
@@ -70,10 +77,9 @@ const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${c
 
 const updateData = {
   title: "Updated via JS Fetch",
-  starred: true, // Example: Star this template
-  // summary: "New summary..."
+  guidance: "New guidance added via API.",
   // Note: Updating 'users' or 'groups' replaces the entire list.
-  // users: [1001, 1005]
+  // users: ["user_id_1", "user_id_2"]
 };
 
 const headers = new Headers();
@@ -83,17 +89,17 @@ headers.append('X-Tallyfy-Client', 'APIClient');
 headers.append('Content-Type', 'application/json');
 
 fetch(apiUrl, {
-    method: 'PUT', // Use PUT for updates
+    method: 'PUT',
     headers: headers,
     body: JSON.stringify(updateData)
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error(`Failed to update template ${checklistId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -123,36 +129,21 @@ headers = {
     'Content-Type': 'application/json'
 }
 
-# Note: Updating 'users' or 'groups' replaces the entire list.
-# Fetch current template first if adding/removing incrementally.
+# title is required on every update. users/groups arrays replace existing lists.
 update_payload = {
-    'summary': 'Updated summary using Python requests.',
-    'guidance': 'New guidance notes added.',
-    # 'starred': False
-    # Add other fields to update here
+    'title': 'Updated Template Title',
+    'guidance': 'New guidance notes added via Python.',
 }
 
-response = None
-try:
-    response = requests.put(api_url, headers=headers, json=update_payload) # Use PUT and json=
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+response = requests.put(api_url, headers=headers, json=update_payload)
 
+if response.status_code == 200:
     updated_template = response.json()
     print(f'Successfully updated template {checklist_id}:')
     print(json.dumps(updated_template, indent=4))
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred updating template {checklist_id}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed updating template {checklist_id}: {req_err}")
-except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for template update {checklist_id}")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+else:
+    print(f"Failed to update template {checklist_id}: {response.status_code}")
+    print(response.text)
 ```
 </TabItem>
 <TabItem label="Java">
@@ -176,26 +167,9 @@ public class UpdateTemplate {
         String checklistId = "TEMPLATE_ID_TO_UPDATE";
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/checklists/" + checklistId;
 
-        // --- Payload Construction --- 
-        // Using Jackson/Gson recommended:
-        /*
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map<String, Object> updateData = new HashMap<>();
-        updateData.put("title", "Java Jackson Updated Title");
-        updateData.put("starred", false);
-        // Note: Updating users/groups replaces the list
-        // updateData.put("users", List.of(1001, 1005)); 
-        String jsonPayload;
-        try {
-            jsonPayload = objectMapper.writeValueAsString(updateData);
-        } catch (Exception e) {
-            System.err.println("Error creating JSON payload: " + e.getMessage());
-            return;
-        }
-        */
-        // Simple manual JSON string:
-        String jsonPayload = "{\"title\": \"Java Updated Template Title\", \"starred\": false}";
-        // --- End Payload --- 
+        // title is required. Using Jackson/Gson is recommended for real projects.
+        String jsonPayload = "{\"title\": \"Java Updated Template Title\", \"guidance\": \"Updated via Java\"}";
+        // Note: Updating users/groups arrays replaces the entire existing list.
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -207,7 +181,7 @@ public class UpdateTemplate {
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
                 .header("Content-Type", "application/json")
-                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload)) // Use PUT
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
                 .build();
 
         try {
@@ -216,7 +190,7 @@ public class UpdateTemplate {
             if (response.statusCode() == 200) {
                 System.out.println("Successfully updated template " + checklistId + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON response
+                // Parse JSON response as needed
             } else {
                 System.err.println("Failed to update template " + checklistId + ". Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
@@ -240,7 +214,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -258,11 +232,10 @@ func main() {
 	checklistId := "TEMPLATE_ID_TO_UPDATE"
 	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/checklists/%s", orgId, checklistId)
 
-    // Note: Updating users/groups replaces the list
+	// title is required. users/groups arrays replace existing lists.
 	updateData := map[string]interface{}{
-		"title":   "Go Updated Template",
-		"summary": "Updated via Go net/http PUT request.",
-        // "users": []int{1010, 1012}, // Example: Replaces existing users
+		"title":    "Go Updated Template",
+		"guidance": "Updated via Go net/http PUT request.",
 	}
 
 	jsonData, err := json.Marshal(updateData)
@@ -272,7 +245,7 @@ func main() {
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData)) // Use http.MethodPut
+	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Printf("Error creating PUT request: %v\n", err)
 		return
@@ -290,7 +263,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading response body: %v\n", err)
 		return
@@ -302,14 +275,12 @@ func main() {
 	}
 
 	fmt.Printf("Successfully updated template %s:\n", checklistId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal response JSON if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -365,12 +336,10 @@ int main() {
     try {
         value payload = value::object();
         payload[U("title")] = value::string(U("C++ API Updated Template"));
-        payload[U("summary")] = value::string(U("Updated summary via C++"));
-        payload[U("starred")] = value::boolean(true);
-        // Note: Updating users/groups replaces list
-        // value users = value::array(); users[0] = value::number(1001); payload[U("users")] = users; 
+        payload[U("guidance")] = value::string(U("Updated guidance via C++"));
+        // Note: Updating users/groups arrays replaces the entire existing list.
 
-        UpdateTallyfyTemplate(U("TEMPLATE_ID_TO_UPDATE"), payload).wait(); // Replace ID
+        UpdateTallyfyTemplate(U("TEMPLATE_ID_TO_UPDATE"), payload).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error in main: " << e.what() << std::endl;
     }
@@ -396,25 +365,21 @@ public class TallyfyTemplateUpdater
 
     public class TemplateUpdatePayload
     {
-        // Include only fields you want to update. Use JsonIgnore for optional fields.
+        // title is required on every update. Other fields are optional.
+        public string Title { get; set; } // Required, max 250 chars
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Title { get; set; }
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Summary { get; set; }
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public int? OwnerId { get; set; }
+        public string OwnerId { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Webhook { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Guidance { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? Starred { get; set; }
-        // Note: Updating Users/Groups REPLACES the existing list.
+        public string Icon { get; set; }
+        // Note: Updating Users/Groups REPLACES the entire existing list.
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<int> Users { get; set; }
+        public List<string> Users { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string> Groups { get; set; }
-        // Add other updatable fields from the schema
     }
 
     public static async Task UpdateTemplateAsync(string checklistId, TemplateUpdatePayload payload)
@@ -438,7 +403,7 @@ public class TallyfyTemplateUpdater
             HttpResponseMessage response = await client.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Expect 200 OK
+            if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine($"Successfully updated template {checklistId}:");
                 try {
@@ -472,8 +437,8 @@ public class TallyfyTemplateUpdater
     // static async Task Main(string[] args)
     // {
     //     var templateUpdate = new TemplateUpdatePayload {
-    //         Summary = "Updated via C#",
-    //         Starred = false
+    //         Title = "Updated via C#",
+    //         Guidance = "New guidance notes"
     //     };
     //     await UpdateTemplateAsync("TEMPLATE_ID_TO_UPDATE", templateUpdate);
     // }
@@ -484,22 +449,26 @@ public class TallyfyTemplateUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the full details of the template *after* the update.
+A successful request returns a `200 OK` status code and a JSON object with the full template details after the update.
 
 ```json
 {
   "data": {
     "id": "TEMPLATE_ID_TO_UPDATE",
-    "title": "Updated via JS Fetch", // Updated title
-    "summary": "This template has been updated via the API.", // Original or updated summary
-    "starred": true, // Updated value
-    // ... other template properties reflecting the current state ...
-    "last_updated": "2025-05-20T12:30:00.000Z" // Timestamp reflects the update
+    "title": "Updated via JS Fetch",
+    "guidance": "New guidance added via API.",
+    "owner_id": "user_id_here",
+    "webhook": null,
+    "is_public": false,
+    "type": "procedure",
+    "users": [],
+    "groups": [],
+    "last_updated": "2026-01-15T12:30:00.000Z"
   }
 }
 ```
 
-If the template ID is not found, you lack permission, or the request body is invalid, you will receive an appropriate error status code (`404`, `403`, `400`, `422`).
+If the template isn't found, you'll get a `404`. Permission issues return `403`. Validation errors - like a missing `title` - return `422`.
 
 ---
 

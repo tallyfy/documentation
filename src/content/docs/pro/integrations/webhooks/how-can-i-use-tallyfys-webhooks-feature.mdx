@@ -4,99 +4,112 @@ description: Tallyfy webhooks automatically send JSON data to external systems w
   containing all accumulated data from the process up to that point enabling real-time
   integrations through middleware tools like Zapier.
 id: c080803b3620e0a4ed20cbb75a4d16a1
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Webhook scenarios
+about_tallyfy: true
 ---
 
-## Common Ways to Use Tallyfy Webhooks
+## Common ways to use Tallyfy webhooks
 
-Tallyfy's webhooks send data automatically to other systems when certain events happen in your workflows. Here are the main events that can trigger a webhook:
+Tallyfy's webhooks automatically send data to external systems when specific events happen in your workflows. Three main events can trigger a webhook:
 
-### Trigger: When a process is launched
+### Trigger: process launched
 
-You can set up a webhook at the template level in Tallyfy. This webhook sends a notification *immediately* when someone launches a new process from that template, even before any tasks are done.
+Set up a webhook at the template level. It fires *immediately* when someone launches a new process from that template - even before any tasks are done.
 
-*   **Use Case**: Track new process starts in real-time (e.g., log every new client onboarding started in a spreadsheet or database).
+*   **Use case**: Track new process starts in real time (e.g., log every new client onboarding in a spreadsheet or database).
 
-### Trigger: When a specific task is completed
+### Trigger: task completed
 
-You can set up a webhook on a specific step within a Tallyfy template. This webhook sends a notification only when *that particular task* is completed.
+Set up a webhook on a specific step within a template. It fires only when *that particular task* is completed.
 
-*   **Use Case**: Trigger follow-up actions in other systems when a key milestone is reached (e.g., when "Contract Signed" task is completed, send data to the finance system).
+*   **Use case**: Trigger follow-up actions in other systems when a key milestone is reached (e.g., when "Contract Signed" is completed, send data to your finance system).
+
+### Trigger: process completed
+
+A template-level webhook also fires when all tasks in a process are completed. This lets you trigger external actions when an entire workflow finishes - not just individual tasks.
+
+*   **Use case**: Mark a deal as "closed" in your CRM or archive records when a full process wraps up.
 
 ### Video examples
 
 These videos show practical ways to use webhooks, often with a middleware tool like Zapier:
 
-:::note[Middleware Choice]
-These examples might use Zapier, but the concepts work similarly with other middleware tools like Make.com or Power Automate, which often provide better value for complex integrations.
+:::note[Middleware choice]
+These examples use Zapier, but the same concepts work with Make.com or Power Automate - which often provide better value for complex integrations.
 :::
 
-*   **Send Task Data to a Spreadsheet**
+*   **Send task data to a spreadsheet**
     Shows how to automatically add form answers from a Tallyfy task to rows in a spreadsheet.
     <lite-vimeo videoid="349793950"></lite-vimeo>
 
-*   **Start a New Process When a Task Finishes**
+*   **Start a new process when a task finishes**
     Shows how completing one task in Tallyfy can automatically launch a different process.
     <lite-vimeo videoid="289313624"></lite-vimeo>
 
-*   **Send Form Data from Multiple Steps**
-    Demonstrates sending data collected across several steps to another service.
+*   **Send form data from multiple steps**
+    Shows sending data collected across several steps to another service.
     <lite-vimeo videoid="311699511"></lite-vimeo>
 
-*   **Send an Email When a Task Finishes**
+*   **Send an email when a task finishes**
     Shows how to trigger a custom email notification upon task completion.
     <lite-vimeo videoid="344182415"></lite-vimeo>
 
 ### Webhook payload data
 
-Webhooks send detailed information in JSON format. You can see an example of the data structure here:
+Webhooks send detailed JSON data. You can see an example of the structure here:
 
-📌 [Webhook-Sample.json](https://screenshots.tallyfy.com/Webhook-Sample.json)
+[Webhook-Sample.json](https://screenshots.tallyfy.com/Webhook-Sample.json)
 
 :::tip[Webhooks carry ALL data up to that point]
-**Important concept**: When a webhook fires, it carries ALL the information collected in the process up to that specific point - like a fishing line that pulls everything with it. This includes:
+When a webhook fires, it carries ALL information collected in the process up to that point - like a fishing line that pulls everything with it. This includes:
 - All form fields from the kick-off form
 - All form fields from every completed task before this one
 - The current task's data
-- Process metadata and context
+- Process metadata, guest links, and context
 
-You don't need separate webhooks for each piece of data - one webhook gives you everything that's happened so far in the process.
+One webhook gives you everything that's happened so far. You don't need separate webhooks for each piece of data.
 :::
 
-#### Webhook Payload Structure
+#### Webhook payload structure
 
-The JSON payload sent by the webhook contains detailed information about the event. Key sections include:
+The JSON payload contains detailed event information. Key sections for **task completion** webhooks include:
 
-- **`this_task__*`**: Information about the specific task that triggered the webhook (e.g., `this_task__id`, `this_task__title`, `this_task__status`, `this_task__completed_by__email`, `this_task__completed_at`).
-- **`this_task__captures__*`**: Contains the values submitted to form fields within the completed task. The structure varies by field type (e.g., `this_task__captures__field_alias__value`).
-- **`next_task__*`**: Details about the next task that needs attention - specifically, the first visible incomplete task ordered by position number (e.g., `next_task__id`, `next_task__title`, `next_task__owners__users`). Visible means not auto-skipped. Incomplete includes in-progress tasks. Returns `null` if all tasks are completed.
-- **`process__*`**: Information about the overall process instance (e.g., `process__id`, `process__name`, `process__status`, `process__created_at__date`).
-- **`process__prerun__*`**: Contains values submitted in the kick-off form fields for the process.
-- **`process__process_forms__*`**: Contains values for *all* form fields across *all* tasks in the process up to that point.
-- **`template__*`**: Details about the template the process was launched from (e.g., `template__id`, `template__title`, `template__version`).
+- **`this_task`**: The task that triggered the webhook - includes `id`, `title`, `alias`, `status`, `summary`, `deadline`, `position`, `captures` (form field values), `owners` (assigned users and guests), `completed_at`, `completed_by`, and `assets` (attached files with download links).
+- **`next_task`**: The first incomplete task that isn't auto-skipped, ordered by position. Includes the same fields as `this_task` (minus assets). Returns an empty object if all tasks are done.
+- **`process`**: The overall process instance - includes `id`, `organization_id`, `name`, `summary`, `status`, `progress`, `created_at`, `ClientURL`, `prerun` (kick-off form values), `process_forms` (all form field values across all tasks), and `tags`.
+- **`template`**: The source template - includes `id`, `title`, `alias`, and `summary`.
+- **`form-fields`**: A flat map of all form field values across all tasks and the kick-off form, keyed by alias.
+- **`process-tasks`**: A map of task aliases to task IDs for the entire process.
+- **`guest-links`**: URLs for each guest assignee to access their tasks.
+- **`launcher`** and **`completer`**: Info about who launched the process and who completed the task.
 
-Refer to the sample JSON file linked above for the complete structure and specific field names.
+For **process launch/completion** webhooks, the payload includes process data, `process-tasks`, `ko-form-fields` (kick-off values), `guest-links`, and `launcher`.
 
-### Date Formats
+Refer to the sample JSON file linked above for the full structure.
 
-Tallyfy lets you choose between two standard date formats for the dates included in webhook data. You select this when setting up the webhook.
+### Date formats
+
+Tallyfy lets you choose between two date formats for webhook data. You select this in your organization settings:
+
+- **ISO format** (default): `yyyy-MM-ddTHH:mm:ssZ`
+- **Human-readable format**: `d/m/Y h:i A T` - dates are converted to your organization's timezone
 
 ![Date format human-readable](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-date-format-human-readable.png)
 ![Date format ISO](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-date-format-iso.png)
 
-### Security Note
+### Security header
 
-Tallyfy webhooks include a special header called `X-Tallyfy-OrgID` which contains your unique organization ID. The system receiving the webhook can check this header for an extra layer of validation to ensure the message genuinely came from your Tallyfy account.
+Tallyfy webhooks include an `X-Tallyfy-orgID` header containing your unique organization ID. Your receiving system can check this header to validate that the request genuinely came from your Tallyfy account.
 
 ![X-Tallyfy-OrgID header](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-x-tallyfy-orgid-header.png)
 
 ### Handling duplicate events
 
 :::caution[Webhooks can fire multiple times]
-Be aware that webhooks might fire more than once for the same event. For example, if a task is completed, then reopened and completed again, you'll receive multiple webhook notifications. Your receiving system should implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent processing the same event multiple times.
+Webhooks might fire more than once for the same event. For example, if a task is completed, then reopened and completed again, you'll get multiple webhook notifications. Your receiving system should implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to avoid processing the same event twice.
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";

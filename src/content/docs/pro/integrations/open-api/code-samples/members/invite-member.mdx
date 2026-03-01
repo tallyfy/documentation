@@ -1,12 +1,12 @@
 ---
-description: This API endpoint allows organizations to send email invitations to new
-  users by submitting their email address and optional details like name and role
-  through a POST request which returns the invited user's pending profile information.
+description: Invite a new member to your Tallyfy organization using the API by sending
+  their email, name, role, and a personal message.
 id: 0e44400c378950ab5e26168324c15c0b
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: Invite member
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `POST /organizations/{org_id}/users/invite`
 
-This endpoint sends an invitation email to a new user, prompting them to join your Tallyfy organization.
+This endpoint sends an invitation email to a new user, asking them to join your Tallyfy organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID.
+Replace `{org_id}` with your organization ID.
 
 ### Headers
 
@@ -30,24 +30,25 @@ Replace `{org_id}` with your Organization ID.
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the details of the user to invite.
+| Field | Type | Required? | Description |
+|-------|------|-----------|-------------|
+| `email` | string | Yes | Email address of the person to invite. |
+| `first_name` | string | Yes | First name of the invitee (max 32 characters). |
+| `last_name` | string | Yes | Last name of the invitee (max 32 characters). |
+| `role` | string | Yes | Role to assign: `admin`, `standard`, or `light`. |
+| `message` | string | Yes | Personal message included in the invitation email (max 5000 characters). |
 
-Refer to the `#definitions/inviteInput` schema in Swagger. Key fields:
+> Non-admin users can't assign the `admin` role. The organization must also allow non-admin users to send invites, or the request will fail.
 
--   `email` (string, required): The email address of the person to invite.
--   `first_name` (string, optional): First name of the invitee.
--   `last_name` (string, optional): Last name of the invitee.
--   `role` (string, optional): The role to assign upon joining (e.g., `standard`, `light`, `admin`). Defaults may apply if omitted.
--   `timezone` (string, optional): Timezone for the new user (e.g., `America/New_York`).
-
-**Example Body:**
+**Example body:**
 
 ```json
 {
   "email": "new.user@example.com",
   "first_name": "Charlie",
   "last_name": "Brown",
-  "role": "standard"
+  "role": "standard",
+  "message": "Welcome to the team! Looking forward to working with you."
 }
 ```
 
@@ -61,10 +62,11 @@ const orgId = 'YOUR_ORGANIZATION_ID';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/users/invite`;
 
 const inviteData = {
-  email: "charlie.brown@example.com",
-  first_name: "Charlie",
-  last_name: "Brown",
-  role: "standard" // Valid roles: "standard", "light", "admin"
+  email: 'charlie.brown@example.com',
+  first_name: 'Charlie',
+  last_name: 'Brown',
+  role: 'standard',
+  message: 'Welcome to the team!'
 };
 
 const headers = new Headers();
@@ -79,19 +81,12 @@ fetch(apiUrl, {
     body: JSON.stringify(inviteData)
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
-            console.error("Failed to invite member:", data);
-            // Check for specific errors like 422 (user already exists)
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            if (data && data.message) {
-                 errorMessage += `, message: ${data.message}`;
-            } else if (data) {
-                 errorMessage += `, details: ${JSON.stringify(data)}`;
-            }
-            throw new Error(errorMessage);
+            console.error('Failed to invite member:', data);
+            throw new Error(`HTTP ${response.status}: ${data.message || JSON.stringify(data)}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -124,38 +119,31 @@ invite_payload = {
     'email': 'lucy.vanpelt@example.com',
     'first_name': 'Lucy',
     'last_name': 'Van Pelt',
-    'role': 'light' # Valid Tallyfy roles: standard, light, admin
+    'role': 'light',
+    'message': 'Join us on Tallyfy to collaborate on our workflows.'
 }
 
 response = None
 try:
     response = requests.post(api_url, headers=headers, json=invite_payload)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     invite_response = response.json()
     print('Successfully invited member:')
     print(json.dumps(invite_response, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    error_details = ""
-    try:
-        if response is not None:
-             error_details = response.json() # Try to get JSON error details
-    except json.JSONDecodeError:
-        if response is not None:
-             error_details = response.text # Fallback to text
-    
-    print(f"HTTP error occurred inviting member: {http_err}") 
-    print(f"Response Body: {error_details}")
+    error_details = ''
+    if response is not None:
+        try:
+            error_details = response.json()
+        except json.JSONDecodeError:
+            error_details = response.text
+    print(f'HTTP error inviting member: {http_err}')
+    print(f'Response: {error_details}')
 
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed inviting member: {req_err}")
-except json.JSONDecodeError:
-    print("Failed to decode successful JSON response after invite")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+    print(f'Request failed: {req_err}')
 ```
 </TabItem>
 <TabItem label="Java">
@@ -165,10 +153,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Requires a JSON library like Jackson or Gson
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import java.util.Map;
-// import java.util.HashMap;
 
 public class InviteMember {
     public static void main(String[] args) {
@@ -176,25 +160,15 @@ public class InviteMember {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/users/invite";
 
-        // --- Payload Construction --- 
-        // Using Jackson/Gson is recommended:
-        /*
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, String> inviteData = new HashMap<>();
-        inviteData.put("email", "linus.vanpelt@example.com");
-        inviteData.put("first_name", "Linus");
-        inviteData.put("role", "standard"); // Use "light" or "admin" if needed
-        String jsonPayload;
-        try {
-            jsonPayload = mapper.writeValueAsString(inviteData);
-        } catch (Exception e) {
-            System.err.println("Failed to serialize JSON: " + e.getMessage());
-            return;
-        }
-        */
-        // Simple manual JSON string for example:
-        String jsonPayload = "{\"email\": \"linus@example.com\", \"first_name\": \"Linus\", \"role\": \"standard\"}"; 
-        // --- End Payload --- 
+        String jsonPayload = """
+            {
+                "email": "linus@example.com",
+                "first_name": "Linus",
+                "last_name": "Van Pelt",
+                "role": "standard",
+                "message": "Welcome aboard!"
+            }
+            """;
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -208,22 +182,17 @@ public class InviteMember {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
-            if (response.statusCode() == 200 || response.statusCode() == 201) { // API might return 201 Created
+
+            if (response.statusCode() == 200) {
                 System.out.println("Successfully invited member:");
                 System.out.println(response.body());
-                // TODO: Consider parsing the JSON response
             } else {
-                 // Common error: 422 if user already exists
-                 System.err.println("Failed to invite member. Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
+                System.err.println("Failed to invite member. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -237,37 +206,43 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" {
+		accessToken = "YOUR_PERSONAL_ACCESS_TOKEN"
+	}
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/invite", orgId)
+	if orgId == "" {
+		orgId = "YOUR_ORGANIZATION_ID"
+	}
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/invite", orgId)
 
 	inviteData := map[string]interface{}{
 		"email":      "snoopy@example.com",
 		"first_name": "Snoopy",
-        "role":       "light", // Valid Tallyfy roles: standard, light, admin
+		"last_name":  "Dog",
+		"role":       "light",
+		"message":    "Join us on Tallyfy!",
 	}
 
 	jsonData, err := json.Marshal(inviteData)
 	if err != nil {
-        fmt.Printf("Error marshalling JSON: %v\n", err)
-        return
-    }
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    if err != nil {
-        fmt.Printf("Error creating invite request: %v\n", err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -275,34 +250,30 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing invite request: %v\n", err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error sending request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading invite response body: %v\n", err)
-        return
-    }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response: %v\n", err)
+		return
+	}
 
-    // API might return 201 Created on success
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        // Common error: 422 if user already exists
+	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Failed to invite member. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Println("Successfully invited member:")
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -320,8 +291,8 @@ using namespace web::json;
 
 pplx::task<void> InviteTallyfyMember(const value& invitePayload)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/users/invite");
 
     http_client client(apiUrl);
@@ -339,18 +310,14 @@ pplx::task<void> InviteTallyfyMember(const value& invitePayload)
         {
             try {
                 value const & body = task.get();
-                // API might return 201 Created
-                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully invited member:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")][U("id")].as_integer();
                 } else {
-                    // Common error: 422 Unprocessable Entity if user exists
-                    std::wcerr << L"Failed to invite member. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                    std::wcerr << L"Failed to invite member. Status: " << response.status_code()
+                               << L"\nResponse: " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during invite member: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during invite member response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception: " << e.what() << std::endl;
             }
         });
     });
@@ -362,11 +329,12 @@ int main() {
         payload[U("email")] = value::string(U("peppermint.patty@example.com"));
         payload[U("first_name")] = value::string(U("Peppermint"));
         payload[U("last_name")] = value::string(U("Patty"));
-        payload[U("role")] = value::string(U("standard")); 
-        
+        payload[U("role")] = value::string(U("standard"));
+        payload[U("message")] = value::string(U("Welcome to Tallyfy!"));
+
         InviteTallyfyMember(payload).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -386,26 +354,20 @@ public class TallyfyMemberInviter
 {
     private static readonly HttpClient client = new HttpClient();
 
-    public class InvitePayload
-    {
-        public string Email { get; set; } // Required
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Role { get; set; } // e.g., "standard", "light", "admin"
-        public string Timezone { get; set; }
-        // Add other optional fields as needed
-    }
-
-    public static async Task InviteMemberAsync(InvitePayload payload)
+    public static async Task InviteMemberAsync()
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/users/invite";
 
-        if (string.IsNullOrWhiteSpace(payload?.Email)) {
-            Console.WriteLine("Error: Email is required to invite a member.");
-            return;
-        }
+        var payload = new
+        {
+            email = "marcie@example.com",
+            first_name = "Marcie",
+            last_name = "Johnson",
+            role = "light",
+            message = "Join our team on Tallyfy!"
+        };
 
         try
         {
@@ -414,55 +376,29 @@ public class TallyfyMemberInviter
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
-            // Serialize the payload, ignoring nulls
-            var options = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
-            string jsonPayload = JsonSerializer.Serialize(payload, options);
+            string jsonPayload = JsonSerializer.Serialize(payload);
             request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await client.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Check for 200 OK or 201 Created
+            if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully invited member:");
-                 try {
-                     using var doc = JsonDocument.Parse(responseBody);
-                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                 } catch (JsonException) {
-                     Console.WriteLine(responseBody);
-                 }
+                using var doc = JsonDocument.Parse(responseBody);
+                Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
             }
             else
             {
-                // Common error: 422 Unprocessable Entity if user already exists
                 Console.WriteLine($"Failed to invite member. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception: {e.Message}");
-        }
-         catch (JsonException jsonEx)
-        {
-             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request error: {e.Message}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     var newInvite = new InvitePayload {
-    //         Email = "marcie@example.com",
-    //         FirstName = "Marcie",
-    //         Role = "light"
-    //     };
-    //     await InviteMemberAsync(newInvite);
-    // }
 }
 ```
 </TabItem>
@@ -470,32 +406,36 @@ public class TallyfyMemberInviter
 
 ## Response
 
-A successful request returns a `200 OK` or `201 Created` status code. The response body typically contains the details of the invited user, often showing a `pending` or `invited` status until they accept.
+A successful request returns a `200 OK` status. The response body contains the invited user's profile wrapped in a `data` object, with a status of `invited` until they accept.
 
 ```json
 {
   "data": {
-    "id": 1005, // User ID assigned even before acceptance
+    "id": 1005,
     "email": "charlie.brown@example.com",
-    "username": null, // Username set upon acceptance
+    "username": null,
     "first_name": "Charlie",
     "last_name": "Brown",
     "full_name": "Charlie Brown",
     "profile_pic": null,
-    "active": false, // Not active until accepted
-    "is_suspended": false,
-    "created_at": "2025-01-15T10:00:00Z",
-    "last_updated": "2025-01-15T10:00:00Z",
+    "country_id": 1,
+    "is_active": false,
     "last_login_at": null,
-    "activated_at": null, // Null until accepted
-    "status": "invited", // Or similar status
-    "user_role": "Standard"
-    // ... other properties ...
+    "activated_at": null,
+    "type": null,
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z",
+    "timezone": "America/New_York",
+    "UTC_offset": "-05:00",
+    "status": "invited",
+    "role": "standard",
+    "invited_by": 501,
+    "approved_at": "2025-01-15T10:00:00Z"
   }
 }
 ```
 
-If the email address already belongs to an existing member of the organization, you will likely receive a `422 Unprocessable Entity` error.
+If the email already belongs to an existing member, you'll get a `422 Unprocessable Entity` error.
 
 ---
 

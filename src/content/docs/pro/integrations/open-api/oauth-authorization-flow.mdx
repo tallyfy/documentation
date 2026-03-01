@@ -1,32 +1,32 @@
 ---
-description: This guide demonstrates implementing OAuth 2.0 authorization flow for
-  third-party applications to authenticate with Tallyfy without exposing user credentials
-  through a secure redirect-based process that returns access tokens for API authentication.
+description: Tallyfy supports the OAuth 2.0 implicit grant flow so third-party apps
+  can authenticate users through a redirect-based process that returns access tokens
+  without exposing user credentials to your application.
 id: 3a3be384ccbc9068f5fd63126068f6de
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 10
 title: OAuth authorization flow for third-party applications
 ---
 
-## Implementing the OAuth authorization flow
+## OAuth implicit grant flow for third-party apps
 
-This guide explains how to implement a standard OAuth authorization flow for third-party applications integrating with Tallyfy. This approach allows your users to authenticate directly with Tallyfy without sharing their credentials with your application.
+Tallyfy uses the OAuth 2.0 implicit grant[^1] flow for third-party application authentication. Your users log in directly on Tallyfy's domain, and an access token comes back in the URL fragment - your app never touches their credentials.
 
 ### Requirements
 
-- Paid Tallyfy Professional or Enterprise subscription
-- Client ID and Client Secret from Tallyfy
+- Paid Tallyfy Pro or Enterprise subscription
+- Client ID from Tallyfy (contact support)
 - A registered redirect URI for your application
-- Basic understanding of OAuth 2.0 authorization flows
 
-:::caution[Enterprise Feature]
-The OAuth authorization flow is only available to paid organizations. Contact Tallyfy Support to request a Client ID and Client Secret for your application.
+:::caution[Paid feature]
+The OAuth authorization flow is only available to paid organizations. Contact Tallyfy Support to get a Client ID for your application.
 :::
 
-### Standard OAuth flow implementation
+### How the flow works
 
-The following diagram shows the complete OAuth 2.0 implicit flow for authenticating third-party applications with Tallyfy.
+Here's the complete OAuth 2.0 implicit flow for authenticating third-party applications with Tallyfy.
 
 ```d2
 # OAuth 2.0 Implicit Flow
@@ -134,14 +134,14 @@ App -> Note: "Monitor expiration" {
 }
 ```
 
-**Diagram description:** OAuth 2.0 implicit flow showing the 11-step authentication process where users authenticate directly with Tallyfy without sharing credentials with third-party applications. The flow shows how access tokens are returned via URL fragments for security, with the third-party app extracting the token and using it for API requests with proper Bearer authorization headers.
+**Diagram description:** OAuth 2.0 implicit flow showing the 11-step authentication process where users log in directly with Tallyfy and receive an access token via URL fragment, which the third-party app extracts for Bearer-authenticated API requests.
 
-**Key security features:**
-- The access token is returned in the URL fragment (after #) for security - fragments are not sent to servers
-- Authentication happens entirely on Tallyfy's domain, your app never sees user credentials
+**What to notice:**
+- The access token is returned in the URL fragment (after `#`) - fragments aren't sent to servers, which adds a layer of protection
+- Authentication happens entirely on Tallyfy's domain, so your app never sees user credentials
 - The `X-Tallyfy-Client` header is required for all API calls after authentication
 
-#### Step 1: Redirect users to Tallyfy authorization page
+#### Step 1 - Redirect users to Tallyfy's authorization page
 
 Direct your users to the Tallyfy authorization endpoint:
 
@@ -149,28 +149,28 @@ Direct your users to the Tallyfy authorization endpoint:
 https://account.tallyfy.com/oauth/authorize?client_id=YOUR_CLIENT_ID&response_type=token&redirect_uri=YOUR_REDIRECT_URL
 ```
 
-Replace:
-- `YOUR_CLIENT_ID` with your application's client ID
-- `YOUR_REDIRECT_URL` with your application's registered redirect URI
+Replace `YOUR_CLIENT_ID` with your application's client ID and `YOUR_REDIRECT_URL` with your registered redirect URI. Users must have a verified email to proceed - they'll see Tallyfy's login page where they authenticate with their own credentials.
 
-Users will see the Tallyfy login page where they can authenticate using their Tallyfy credentials.
+#### Step 2 - Handle the redirect with the access token
 
-#### Step 2: Handle the redirect with access token
-
-After successful authentication, Tallyfy redirects the user back to your specified redirect URI with the access token in the URL fragment:
+After successful authentication, Tallyfy redirects back to your redirect URI with the access token in the URL **fragment** (after `#`, not `?`):
 
 ```
-YOUR_REDIRECT_URL?access_token=ACCESS_TOKEN&token_type=Bearer&expires_in=EXPIRES_IN_SECONDS
+YOUR_REDIRECT_URL#access_token=ACCESS_TOKEN&token_type=Bearer&expires_in=EXPIRES_IN_SECONDS
 ```
 
 Your application should:
-1. Extract the `access_token` from the URL
+1. Extract the `access_token` from the URL fragment using client-side JavaScript
 2. Store it securely
 3. Use it for subsequent API requests
 
-#### Step 3: Make API requests with the access token
+:::note[Token lifetime]
+Implicit grant tokens are valid for 6 months. Plan your token refresh strategy accordingly.
+:::
 
-Use the access token in the Authorization header for all Tallyfy API requests:
+#### Step 3 - Make API requests with the access token
+
+Include the access token in the Authorization header for all Tallyfy API requests:
 
 ```
 Authorization: Bearer ACCESS_TOKEN
@@ -178,8 +178,8 @@ Content-Type: application/json
 X-Tallyfy-Client: APIClient
 ```
 
-:::note[Required Headers]
-Always include the `X-Tallyfy-Client: APIClient` header in all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::note[Required headers]
+Always include `X-Tallyfy-Client: APIClient` in all API calls. Requests without this header will be rejected.
 :::
 
 ### Example implementation
@@ -193,37 +193,36 @@ https://account.tallyfy.com/oauth/authorize?client_id=9999&response_type=token&r
 #### Example redirect with access token
 
 ```
-https://yourapp.com/auth/callback?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&token_type=Bearer&expires_in=840
+https://yourapp.com/auth/callback#access_token=eyJhbGciOiJSUzI1NiIs...&token_type=Bearer&expires_in=15778800
 ```
 
 #### Handling multi-organization users
 
-A user in Tallyfy can belong to multiple organizations. After authentication, the access token is associated with the organization the user is currently logged into. If your application needs to work with multiple Tallyfy organizations for a user:
+A Tallyfy user can belong to multiple organizations. After authentication, the access token is tied to whichever organization the user is logged into at the time. If your app needs to work across multiple Tallyfy organizations:
 
-1. Store the organization context along with the access token
-2. Consider implementing organization selection in your application
-3. For users in multiple organizations, you may need to handle organization-specific authentication flows
+1. Store the organization context alongside the access token
+2. Consider adding organization selection in your application
+3. You may need separate authentication flows per organization
 
 ### Security best practices
 
 - Always use HTTPS for all OAuth-related communication
-- Implement PKCE (Proof Key for Code Exchange) for added security
-- Store access tokens securely, preferably encrypted
-- Implement token expiration handling
-- Never expose your Client Secret in client-side code
+- Store access tokens securely and encrypted at rest
+- Monitor token expiration and prompt re-authentication before tokens expire
 - Validate all redirect URIs against expected patterns
-- Implement state parameter to prevent CSRF attacks
 
 ### Troubleshooting
 
-| Issue | Possible Cause | Solution |
+| Issue | Possible cause | Solution |
 |-------|----------------|----------|
-| Authorization fails | Invalid client ID | Verify your client ID |
-| Redirect fails | Mismatched redirect URI | Ensure the redirect URI matches exactly with the registered one |
-| Token doesn't work | Token expired | Check expiration time and request a new token |
+| Authorization fails | Invalid client ID | Verify your client ID with Tallyfy Support |
+| Redirect fails | Mismatched redirect URI | The redirect URI must match exactly what's registered |
+| Token doesn't work | Token expired or user email unverified | Check expiration and ensure the user has verified their email |
 | Organization context issues | User belongs to multiple organizations | Clarify organization context during authentication |
 
-For any issues with the OAuth implementation, contact Tallyfy Support with detailed information about the error and your implementation.
+For any issues with your OAuth implementation, contact Tallyfy Support with details about the error and your setup.
+
+[^1]: A simplified OAuth flow where the access token is returned directly in the redirect URL fragment - no intermediate authorization code exchange needed
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

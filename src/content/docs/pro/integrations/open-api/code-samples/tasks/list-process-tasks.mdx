@@ -1,13 +1,13 @@
 ---
-description: This endpoint retrieves all tasks belonging to a specific process run
-  by providing the organization ID and run ID with optional query parameters for filtering
-  by status owners deadlines and sorting while returning paginated results containing
-  task details like title position status and related step information.
+description: Retrieve all tasks for a specific process run with optional filters
+  for status, owners, deadlines, and sorting - returning paginated results with
+  task details like title, position, status, and related step information.
 id: 491142d5e87c54410e9fabecc15e6f42
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: List process tasks
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -16,11 +16,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/runs/{run_id}/tasks`
 
-This endpoint retrieves a list of all Tallyfy tasks specifically associated with a single process instance (run).
+Returns all tasks for a specific process run.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the specific process run whose tasks you want to list.
+Replace `{org_id}` with your Organization ID and `{run_id}` with the run ID whose tasks you want.
 
 ### Headers
 
@@ -30,18 +30,18 @@ Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the s
 
 ### Query parameters (optional)
 
-Similar filtering parameters as listing organization tasks are available, but scoped to this process run. Refer to Swagger.
-
--   `status` (string): Filter by task status within this run (e.g., `complete`, `active`, `incomplete`, `inprogress`, `not-started`, `hasproblem`, `overdue`, `due_soon`). Note: `auto-skipped` may also appear for tasks hidden by rules.
+-   `status` (string): Filter by task status - `complete`, `active`, `active_visible`, `incomplete`, `inprogress`, `not-started`, `hasproblem`, `overdue`, `due_soon`. Tasks hidden by rules appear with `auto-skipped` status in responses but can't be used as a filter value.
 -   `owners` (string): Comma-separated User IDs.
 -   `guests` (string): Comma-separated Guest emails.
 -   `groups` (string): Comma-separated Group IDs.
--   `unassigned` (boolean): Filter for unassigned tasks in this run.
--   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline.
--   `with` (string): Include related data (e.g., `step`, `threads`, `assets`, `form_fields`, `summary`).
--   `page`, `per_page` (integer): Pagination.
--   `sort` (string): Sort by `position`, `deadline` (or `-position`, `-deadline`).
--   `without_pagination` (boolean).
+-   `unassigned` (boolean): Filter for unassigned tasks.
+-   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline range.
+-   `deadline_on` (string): Filter tasks with deadline on an exact date (YYYY-MM-DD). Takes precedence over range filters.
+-   `deadline_before` / `deadline_after` (string): Filter tasks with deadline before or after a date (YYYY-MM-DD), exclusive.
+-   `with` (string): Include related data - `step`, `threads`, `comments`, `assets`, `form_fields`, `activities`, `run`, `run.checklist`, `summary`. Comma-separate multiple values.
+-   `page`, `per_page` (integer): Pagination controls. Default `per_page` is 10.
+-   `sort` (string): Sort by `position`, `deadline` (or `-position`, `-deadline` for descending).
+-   `without_pagination` (boolean): Set to `true` to return all results without pagination.
 
 ### Code samples
 
@@ -50,12 +50,11 @@ Similar filtering parameters as listing organization tasks are available, but sc
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const runId = 'PROCESS_RUN_ID'; // ID of the specific process run
+const runId = 'PROCESS_RUN_ID';
 
 const params = new URLSearchParams({
-    // status: 'incomplete', // Example: Get only incomplete tasks for this run
-    with: 'step,form_fields', // Example: Include step and form field details
-    per_page: '50' // Example: Get up to 50 tasks per page
+    with: 'step,form_fields',
+    per_page: '50'
 });
 const queryStr = params.toString();
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/tasks${queryStr ? '?' + queryStr : ''}`;
@@ -70,21 +69,20 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
-            console.error(`Failed to list tasks for process ${runId}:`, data);
+            console.error(`Failed to list tasks for run ${runId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
-    console.log(`Successfully listed tasks for process ${runId}:`);
+    console.log(`Tasks for run ${runId}:`);
     console.log(JSON.stringify(data, null, 2));
-    // Access pagination: data.meta.pagination
 })
 .catch(error => {
-    console.error(`Error listing tasks for process ${runId}:`, error.message);
+    console.error(`Error listing tasks for run ${runId}:`, error.message);
 });
 ```
 </TabItem>
@@ -96,7 +94,7 @@ import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-run_id = 'PROCESS_RUN_ID' # ID of the specific process run
+run_id = 'PROCESS_RUN_ID'
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks'
 
 headers = {
@@ -105,35 +103,31 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-     'status': 'active', # Example: Get only active tasks in this run
-    'with': 'step,form_fields', # Example: Include step and form field details
-    'sort': 'position' # Example: Order tasks by their position in the process
+    'status': 'active',
+    'with': 'step,form_fields',
+    'sort': 'position'
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     tasks_data = response.json()
-    print(f'Successfully listed tasks for process {run_id}:')
+    print(f'Tasks for run {run_id}:')
     print(json.dumps(tasks_data, indent=4))
-    # Access pagination: tasks_data.get('meta', {}).get('pagination')
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing process tasks for run {run_id}: {http_err}") 
+    print(f"HTTP error listing tasks for run {run_id}: {http_err}")
     if response is not None:
-        print(f"Response Body: {response.text}")
+        print(f"Response: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed listing process tasks for run {run_id}: {req_err}")
+    print(f"Request failed for run {run_id}: {req_err}")
 except json.JSONDecodeError:
-    print(f"Failed to decode JSON response when listing tasks for run {run_id}")
+    print(f"Failed to decode JSON for run {run_id}")
     if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+        print(f"Response: {response.text}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -147,7 +141,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class ListProcessTasks {
@@ -155,19 +149,17 @@ public class ListProcessTasks {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String runId = "PROCESS_RUN_ID"; // ID of the specific process run
+        String runId = "PROCESS_RUN_ID";
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/runs/" + runId + "/tasks";
 
-        // Optional: Add query parameters
         Map<String, String> queryParamsMap = new HashMap<>();
-        // queryParamsMap.put("status", "incomplete");
         queryParamsMap.put("with", "step");
         queryParamsMap.put("sort", "-deadline");
-        
+
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-        
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newBuilder()
@@ -186,19 +178,14 @@ public class ListProcessTasks {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                System.out.println("Successfully listed tasks for process " + runId + ":");
+                System.out.println("Tasks for run " + runId + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON response using Jackson/Gson
             } else {
-                System.err.println("Failed to list tasks for process " + runId + ". Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Failed (status " + response.statusCode() + "): " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -212,70 +199,67 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    runId := "PROCESS_RUN_ID" // ID of the specific process run
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	runId := "PROCESS_RUN_ID"
 	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks", orgId, runId)
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-     queryParams.Add("status", "active")
-    queryParams.Add("with", "step")
-    queryParams.Add("sort", "position")
+	queryParams := url.Values{}
+	queryParams.Add("status", "active")
+	queryParams.Add("with", "step")
+	queryParams.Add("sort", "position")
 
-    apiUrl := baseURL
-    if len(queryParams) > 0 {
-         apiUrl += "?" + queryParams.Encode()
-    }
+	apiUrl := baseURL
+	if len(queryParams) > 0 {
+		apiUrl += "?" + queryParams.Encode()
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating list process tasks request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request for run %s: %v\n", runId, err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing list process tasks request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request for run %s: %v\n", runId, err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading list process tasks response body for run %s: %v\n", runId, err)
-        return
-    }
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to list tasks for process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response for run %s: %v\n", runId, err)
 		return
 	}
 
-	fmt.Printf("Successfully listed tasks for process %s:\n", runId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a slice of task structs if needed
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Failed (status %d): %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Tasks for run %s:\n", runId)
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -291,17 +275,17 @@ using namespace web::http;
 using namespace web::http::client;
 using namespace web::json;
 
-pplx::task<void> ListTallyfyProcessTasks(const utility::string_t& runId)
+pplx::task<void> ListProcessTasks(const utility::string_t& runId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("runs"));
     builder.append_path(runId);
     builder.append_path(U("tasks"));
-    builder.append_query(U("with"), U("step,form_fields")); // Example query parameters
+    builder.append_query(U("with"), U("step,form_fields"));
     builder.append_query(U("sort"), U("position"));
     utility::string_t apiUrl = builder.to_string();
 
@@ -320,16 +304,12 @@ pplx::task<void> ListTallyfyProcessTasks(const utility::string_t& runId)
             try {
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully listed tasks for process " << runIdW << L":\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
-                    // Access pagination: body[U("meta")][U("pagination")]
+                    std::wcout << L"Tasks for run " << runIdW << L":\n" << body.serialize() << std::endl;
                 } else {
-                    std::wcerr << L"Failed to list tasks for process " << runIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                    std::wcerr << L"Failed (status " << response.status_code() << L"): " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during list process tasks: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during list process tasks response handling: " << e.what() << std::endl;
+                std::wcerr << L"Error: " << e.what() << std::endl;
             }
         });
     });
@@ -337,9 +317,9 @@ pplx::task<void> ListTallyfyProcessTasks(const utility::string_t& runId)
 
 int main() {
     try {
-        ListTallyfyProcessTasks(U("PROCESS_RUN_ID")).wait(); // Replace with actual Run ID
+        ListProcessTasks(U("PROCESS_RUN_ID")).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -353,7 +333,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyProcessTaskLister
 {
@@ -363,12 +343,10 @@ public class TallyfyProcessTaskLister
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "step,form_fields"; // Example
+        query["with"] = "step,form_fields";
         query["sort"] = "position";
-        // query["status"] = "active";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/tasks?{queryString}";
 
@@ -384,37 +362,24 @@ public class TallyfyProcessTaskLister
 
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Successfully listed tasks for process {runId}:");
-                // Pretty print JSON
+                Console.WriteLine($"Tasks for run {runId}:");
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access pagination: doc.RootElement.GetProperty("meta").GetProperty("pagination")...
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
             {
-                Console.WriteLine($"Failed to list tasks for process {runId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
+                Console.WriteLine($"Failed (status {response.StatusCode}): {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception listing process tasks for run {runId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request error for run {runId}: {e.Message}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await ListProcessTasksAsync("PROCESS_RUN_ID");
-    // }
 }
 ```
 </TabItem>
@@ -422,7 +387,7 @@ public class TallyfyProcessTaskLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array of tasks specific to that process run, and a `meta` object for pagination.
+A `200 OK` response returns a JSON object with a `data` array of tasks and a `meta` object for pagination.
 
 ```json
 {
@@ -432,18 +397,26 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "increment_id": 1210,
       "title": "Welcome Call",
       "run_id": "PROCESS_RUN_ID",
+      "checklist_id": "template_id",
       "step_id": "step_id_welcome",
+      "alias": "welcome_call",
       "status": "active",
       "position": 1,
-      "owners": { ... },
+      "owners": {
+        "users": [...],
+        "guests": [...],
+        "groups": [...]
+      },
       "deadline": "2025-05-28T17:00:00Z",
-      // ... other task properties ...
-      // Included if requested via 'with=step':
+      "created_at": "2025-05-20T10:00:00Z",
+      "last_updated": "2025-05-25T14:30:00Z",
+      "completed_at": null,
+      "task_type": "task",
+      "is_oneoff_task": false,
+      // Included when requesting with=step:
       "step": {
           "id": "step_id_welcome",
-          "title": "Schedule Welcome Call",
-          "alias": "welcome_call",
-          // ... other step details ...
+          "title": "Schedule Welcome Call"
       }
     },
     {
@@ -453,13 +426,11 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "run_id": "PROCESS_RUN_ID",
       "step_id": "step_id_setup",
       "status": "not-started",
-      "position": 2,
-      // ...
+      "position": 2
     }
-    // ... more tasks from this process run ...
   ],
   "meta": {
-    "pagination": { ... } 
+    "pagination": { ... }
   }
 }
 ```

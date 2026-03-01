@@ -1,13 +1,12 @@
 ---
-description: The GET endpoint retrieves all tasks across an organization's processes
-  and one-off tasks with extensive filtering options including status assignees deadlines
-  tags folders and pagination while supporting multiple programming languages through
-  code samples that demonstrate query parameter construction and response handling.
+description: Retrieve all tasks across an organization's processes and one-off tasks
+  with filtering by status, assignees, deadlines, tags, folders and pagination.
 id: 75e20b9a54000a2c487e3e61aa84892b
-lastUpdated: 2025-08-15
 sidebar:
   order: 1
 title: List organization tasks
+about_tallyfy: true
+lastUpdated: 2026-02-25
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -16,7 +15,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/tasks`
 
-This endpoint retrieves a list of all Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) across all [processes](/products/pro/tracking-and-tasks/processes/) and one-off tasks within the specified organization. It offers extensive filtering capabilities.
+Retrieves all [tasks](/products/pro/tracking-and-tasks/tasks/) across every [process](/products/pro/tracking-and-tasks/processes/) and one-off task in the specified organization. You can filter, sort and paginate the results.
 
 ## Request
 
@@ -30,24 +29,25 @@ Replace `{org_id}` with your [Organization ID](/products/pro/miscellaneous/how-t
 
 ### Query parameters (optional)
 
-Refer to the `GET /organizations/{org}/tasks` definition in Swagger for the full list. Key parameters include:
-
--   `q` (string): Search by process name or task name.
--   `status` (string): Filter by task status (e.g., `complete`, `hasproblem`, `overdue`, `due_soon`, `active`, `incomplete`, `inprogress`, `not-started`).
--   `owners` (string): Comma-separated list of [User IDs](/products/pro/documenting/members/) to filter tasks assigned to *any* of these users.
--   `guests` (string): Comma-separated list of [Guest emails](/products/pro/documenting/guests/).
--   `roles` (string): Comma-separated list of [Role IDs](/products/pro/documenting/members/).
--   `groups` (string): Comma-separated list of [Group IDs](/products/pro/documenting/groups/).
--   `tag` (string): Filter by [Tag](/products/pro/documenting/templates/how-to-manage-templates-and-processes-with-tags/) name or ID.
--   `folder` (string): Filter tasks within a specific [folder ID](/products/pro/tracking-and-tasks/tasks-view/how-can-i-add-tasks-to-folders-in-tallyfy/).
--   `created` (string): Filter by creation date (e.g., `YYYY-MM-DD` or `YYYY-MM-DD:YYYY-MM-DD` range).
--   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline range (`YYYY-MM-DD`).
--   `unassigned` (boolean, e.g., `unassigned=true`): **Retrieve only tasks with no assignees.**
--   `archived` (boolean, e.g., `archived=true`): Include tasks from archived processes.
--   `with` (string): Include related data (e.g., `run`, `run.checklist`, `step`, `threads`, `assets`, `[form_fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)`, `tags`).
--   `page`, `per_page` (integer): For pagination.
--   `sort` (string): Sort results (e.g., `deadline`, `newest`, `problems`, `-deadline`).
--   `without_pagination` (boolean, e.g., `without_pagination=true`): Retrieve all results without pagination (use with caution on large datasets).
+-   `q` (string): Search by process name or step name.
+-   `status` (string): Filter by task status - `active`, `complete`, `incomplete`, `inprogress`, `overdue`, `due_soon`, `hasproblem`.
+-   `owners` (string): Comma-separated [User IDs](/products/pro/documenting/members/) to filter tasks assigned to *any* of these users.
+-   `guests` (string): Comma-separated [Guest emails](/products/pro/documenting/guests/).
+-   `roles` (string): Comma-separated [Role IDs](/products/pro/documenting/members/).
+-   `groups` (string): Comma-separated [Group IDs](/products/pro/documenting/groups/).
+-   `tag` (string): Filter by [Tag](/products/pro/documenting/templates/how-to-manage-templates-and-processes-with-tags/) name.
+-   `folder` (string): Filter by [folder ID](/products/pro/tracking-and-tasks/tasks-view/how-can-i-add-tasks-to-folders-in-tallyfy/).
+-   `created` (string): Filter by creation date (`YYYY-MM-DD` or `YYYY-MM-DD:YYYY-MM-DD` range).
+-   `deadline_start_range` / `deadline_end_range` (string): Filter by deadline date range (`YYYY-MM-DD`).
+-   `deadline_on` (string): Filter tasks with deadline on an exact date (`YYYY-MM-DD`). Takes precedence over other deadline filters.
+-   `deadline_before` / `deadline_after` (string): Filter tasks with deadline before or after a given date (`YYYY-MM-DD`).
+-   `is_oneoff` (string): Set to `true` for one-off tasks only, `false` for process tasks only.
+-   `unassigned` (boolean): Set to `true` to return only tasks with no assignees.
+-   `archived` (string): Set to `true` to include archived (soft-deleted) tasks, or `only` to return just archived tasks.
+-   `with` (string): Include related data. Options: `run`, `run.checklist`, `step`, `threads`, `assets`, `form_fields`, `tags`, `summary`, `selected_text_comment`. Separate multiple values with commas.
+-   `page`, `per_page` (integer): Pagination controls. Default `per_page` is 10.
+-   `sort` (string): Sort results - `deadline`, `newest`, `problems`, `completed_newest`, or prefix with `-` for descending (e.g. `-deadline`).
+-   `without_pagination` (string): Set to `true` to return all results at once. Use carefully on large datasets.
 
 ## Code samples
 
@@ -435,7 +435,7 @@ public class TallyfyOrgTaskLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array of tasks and a `meta` object for pagination.
+A `200 OK` response returns a JSON object with a `data` array of task objects and a `meta` object for pagination.
 
 ```json
 {
@@ -444,29 +444,44 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "id": "task_id_abc",
       "increment_id": 1205,
       "title": "Review Proposal",
-      "summary": "Review the proposal document attached.",
-      "run_id": "run_id_xyz", // ID of the process this task belongs to (null for one-off tasks)
-      "step_id": "step_id_123", // ID of the [template step](/products/pro/tracking-and-tasks/tasks/) (null for one-off tasks)
+      "run_id": "run_id_xyz",
+      "checklist_id": "checklist_id_456",
+      "step_id": "step_id_123",
+      "alias": "step_alias",
       "status": "active",
-      "owners": { // Assignees
+      "status_label": "Active",
+      "task_type": "task",
+      "position": 2,
+      "is_oneoff_task": false,
+      "owners": {
         "users": [
-          { "id": 1001, "full_name": "Alice", "profile_pic": "..." }
-         ],
+          { "id": 1001, "full_name": "Alice" }
+        ],
         "guests": [],
         "groups": []
       },
-      "deadline": "YYYY-MM-DDTHH:MM:SSZ",
-      "created_at": "YYYY-MM-DDTHH:MM:SSZ",
-      // ... other task properties (form fields if requested with 'with=form_fields') ...
-    },
-    // ... more tasks ...
+      "deadline": "2026-03-15T17:00:00Z",
+      "started_at": "2026-03-01T09:00:00Z",
+      "created_at": "2026-03-01T09:00:00Z",
+      "last_updated": "2026-03-01T09:30:00Z",
+      "completed_at": null,
+      "is_completable": true,
+      "everyone_must_complete": false
+    }
   ],
   "meta": {
-    // Pagination details similar to List Processes/Templates
-    "pagination": { ... }
+    "pagination": {
+      "total": 50,
+      "count": 10,
+      "per_page": 10,
+      "current_page": 1,
+      "total_pages": 5
+    }
   }
 }
 ```
+
+Fields like `run_id`, `checklist_id`, and `step_id` are `null` for one-off tasks. The `summary` field only appears when you pass `with=summary`.
 
 ---
 

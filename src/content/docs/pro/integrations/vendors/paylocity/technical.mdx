@@ -1,75 +1,83 @@
 ---
-description: Technical implementation details for connecting Paylocity with Tallyfy
-  including REST API examples, webhook handling, data mapping, and authentication
-  configuration for HR workflows.
+description: Technical details for connecting Paylocity with Tallyfy - REST API
+  examples, webhook handling, data mapping, and authentication for HR workflows.
 id: a273b73fc8982f4a711980cd61876486
 sidebar:
   order: 2
 title: Paylocity technical integration
+lastUpdated: 2026-02-25
+about_tallyfy: false
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Integration options
 
-Paylocity offers REST APIs through their developer program. Choose based on your integration requirements and partnership status.
+Paylocity offers REST APIs through their developer program. Pick the approach that fits your partnership status and technical needs.
 
 ### REST API integration
 
-Use Paylocity's REST API to trigger Tallyfy workflows on employee events:
+Use Paylocity's REST API to trigger Tallyfy processes when employee events happen:
 
 ```javascript
 const handlePaylocityEvent = async (event) => {
   if (event.eventType === 'employee.created') {
-    const employee = await paylocityAPI.get(`/v2/companies/${companyId}/employees/${event.employeeId}`);
+    const employee = await paylocityAPI.get(
+      `/v2/companies/${companyId}/employees/${event.employeeId}`
+    );
 
-    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        template_id: 'employee_onboarding',
-        name: `Onboarding - ${employee.firstName} ${employee.lastName}`,
-        data: {
-          employee_id: employee.employeeId,
-          full_name: `${employee.firstName} ${employee.lastName}`,
-          email: employee.workEmail,
-          department: employee.departmentCode,
-          location: employee.workLocation,
-          job_title: employee.jobTitle,
-          manager: employee.supervisorFirstName + ' ' + employee.supervisorLastName,
-          start_date: employee.hireDate
-        }
-      })
-    });
+    // Launch a Tallyfy process (called a "run") from a template
+    const run = await fetch(
+      `https://go.tallyfy.com/api/organizations/${orgId}/runs`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tallyfyToken}`,
+          'X-Tallyfy-Client': 'APIClient',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          checklist_id: 'TEMPLATE_ID_HERE',
+          name: `Onboarding - ${employee.firstName} ${employee.lastName}`,
+          prerun: {
+            employee_id: employee.employeeId,
+            full_name: `${employee.firstName} ${employee.lastName}`,
+            email: employee.workEmail,
+            department: employee.departmentCode,
+            location: employee.workLocation,
+            job_title: employee.jobTitle,
+            manager: `${employee.supervisorFirstName} ${employee.supervisorLastName}`,
+            start_date: employee.hireDate
+          }
+        })
+      }
+    );
 
-    return workflow.json();
+    return run.json();
   }
 };
 ```
 
 ### Webhook integration
 
-Register webhooks to receive real-time notifications from Paylocity:
+Register webhooks to get real-time notifications from Paylocity:
 
 ```javascript
 const express = require('express');
 const crypto = require('crypto');
-
 const app = express();
 
 app.post('/paylocity-webhook', express.json(), async (req, res) => {
   // Verify webhook signature
   const signature = req.headers['x-paylocity-signature'];
   const payload = JSON.stringify(req.body);
-  const expectedSignature = crypto
+  const expected = crypto
     .createHmac('sha256', process.env.PAYLOCITY_WEBHOOK_SECRET)
     .update(payload)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  if (signature !== expected) {
     return res.status(401).send('Invalid signature');
   }
 
@@ -93,9 +101,9 @@ app.post('/paylocity-webhook', express.json(), async (req, res) => {
 
 ## Data mapping
 
-Common Paylocity fields to map to Tallyfy workflow variables:
+Common Paylocity fields to map to Tallyfy kick-off form variables:
 
-| Paylocity Field | Tallyfy Variable | Description |
+| Paylocity field | Tallyfy variable | Description |
 |-----------------|------------------|-------------|
 | `employeeId` | `employee_id` | Unique employee identifier |
 | `firstName` + `lastName` | `full_name` | Employee full name |
@@ -105,27 +113,30 @@ Common Paylocity fields to map to Tallyfy workflow variables:
 | `workLocation` | `location` | Work location code |
 | `jobTitle` | `job_title` | Job title |
 | `supervisorFirstName` | `manager` | Direct supervisor |
-| `employeeType` | `employee_type` | Full-time, part-time, contractor |
+| `employeeType` | `employee_type` | Full-time, part-time, or contractor |
 | `hireDate` | `start_date` | Employee start date |
 
 ## Authentication
 
-Paylocity uses OAuth 2.0 with client credentials flow. Store credentials securely and never expose them in client-side code.
+Paylocity uses OAuth 2.0[^1] with the client credentials flow. Store credentials securely - don't expose them in client-side code.
 
 ```javascript
 const getPaylocityToken = async () => {
-  const response = await fetch('https://api.paylocity.com/IdentityServer/connect/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: process.env.PAYLOCITY_CLIENT_ID,
-      client_secret: process.env.PAYLOCITY_CLIENT_SECRET,
-      scope: 'WebLinkAPI'
-    })
-  });
+  const response = await fetch(
+    'https://api.paylocity.com/IdentityServer/connect/token',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: process.env.PAYLOCITY_CLIENT_ID,
+        client_secret: process.env.PAYLOCITY_CLIENT_SECRET,
+        scope: 'WebLinkAPI'
+      })
+    }
+  );
 
   return response.json();
 };
@@ -133,12 +144,14 @@ const getPaylocityToken = async () => {
 
 ## iPaaS alternatives
 
-If direct API development is not available:
+If direct API work isn't an option, consider these platforms:
 
-- **Merge API**: Unified HRIS API with Paylocity support
-- **Finch**: Employment system API with Paylocity connector
-- **Flexspring**: HR integration platform
-- **Workato**: Enterprise automation recipes
+- **Merge API** - unified HRIS API with Paylocity support
+- **Finch** - employment system API with a Paylocity connector
+- **Flexspring** - HR integration platform
+- **Workato** - enterprise automation recipes
+
+[^1]: Industry-standard protocol for secure third-party authorization without sharing passwords
 
 ## Related articles
 <CardGrid>

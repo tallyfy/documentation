@@ -7,30 +7,23 @@ lastUpdated: 2025-08-15
 sidebar:
   order: 1
 title: Connect Power BI
+about_tallyfy: true
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Power BI Integration with Tallyfy Analytics
+## Connecting Power BI to Tallyfy Analytics
 
-Connect Power BI to Tallyfy Analytics and you'll unlock powerful workflow visualization capabilities. Here's how to set up the connection through Amazon Athena[^1] - it takes about 15 minutes from start to finish.
+Connect Power BI to Tallyfy Analytics through Amazon Athena[^1] and build dashboards from your workflow data. The setup takes about 15 minutes.
 
-### Integration Benefits
+With this connection, you can build interactive dashboards showing bottlenecks and team performance, create metrics tailored to your KPIs, schedule automated reports, and merge Tallyfy data with other business systems like your CRM or ERP.
 
-- **Advanced Visualization** - Build interactive dashboards showing process bottlenecks and team performance
-- **Data-Driven Decisions** - Track workflow metrics that actually matter to your business
-- **Custom Analysis** - Create metrics tailored to your organization's specific KPIs
-- **Automated Reporting** - Schedule weekly reports that land in stakeholders' inboxes automatically
-- **Centralized Data** - Merge Tallyfy data with your CRM, ERP, or other business systems
+## Connection architecture
 
-## Connection Architecture
-
-This diagram shows how Power BI connects to your Tallyfy data through Amazon Athena.
+Power BI connects to your Tallyfy data through Amazon Athena via an ODBC driver.
 
 ```d2
 direction: right
-
-# Connection Architecture
 
 Start: Power BI Desktop {
   shape: rectangle
@@ -50,14 +43,13 @@ Athena: Amazon Athena {
   style.stroke: "#225930"
 }
 
-Data: Tallyfy Data {
+Data: Tallyfy Data (S3 Parquet) {
   shape: cylinder
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
   style.stroke-width: 2
 }
 
-# Flow with animated arrows for data streaming
 Start -> ODBC {
   style.stroke: "#225930"
 }
@@ -71,65 +63,52 @@ Athena -> Data {
   style.stroke: "#225930"
   style.animated: true
 }
-
-# Note: Clickable links are indicated in the original
-# ODBC link: /products/pro/integrations/analytics/index/ "Analytics overview"
-# Athena link: https://aws.amazon.com/athena/ "Learn about Amazon Athena"
 ```
 
 **What to notice:**
-- The recommended authentication path (Access Key/Secret) leads directly to a successful connection
-- IAM credentials will cause authentication errors - avoid this path entirely
-- All connections must go through the us-west-2 region - no other regions will work
+- Use Access Key/Secret authentication - IAM credentials cause errors
+- All connections must use the **us-west-2** region
 
-## Authentication Methods
+## Authentication methods
 
-Amazon Athena hosts your Tallyfy data. You have two ways to authenticate:
+When Tallyfy activates your Analytics subscription, you receive two credential sets:
 
-| Authentication Method | Description | Recommendation |
-|----------------------|-------------|----------------|
-| IAM Username/Password | Web console credentials | Not recommended for Power BI |
-| Access Key/Secret | Token-based authentication | Recommended for Power BI |
+| Authentication Method | Description | Use for |
+|----------------------|-------------|---------|
+| IAM Username/Password | Web console credentials | AWS web console only |
+| Access Key/Secret | Token-based authentication | Power BI (recommended) |
 
-:::caution[Authentication Best Practice]
-Token-based authentication is the way to go for Power BI. Why? Using IAM credentials typically triggers this frustrating error: "The security token included in the request is invalid"
+:::caution[Use Access Key authentication]
+IAM credentials trigger the error "The security token included in the request is invalid" when used with Power BI. Always use your Access Key and Secret Access Key instead.
 :::
 
-When Tallyfy activates your Analytics subscription, you get two credential sets. Keep them straight:
-
-- **AWS IAM Login** (username/password) - Only for the AWS web console
-- **Access Key and Secret Access Key** - These are your Power BI connection keys
-
-## Connection Setup Process
+## Connection setup
 
 ### Requirements
 
-- Power BI Desktop installed on your computer
+- Power BI Desktop installed
 - Tallyfy Analytics subscription activated
 - Amazon Athena ODBC driver installed
-- Authentication credentials provided by Tallyfy
+- Access Key credentials provided by Tallyfy
 
-### Step 1: Install the Amazon Athena ODBC Driver
+### Step 1: Install the Amazon Athena ODBC driver
 
 <Steps>
-1. Download the appropriate Amazon Athena ODBC driver from the [AWS documentation page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html/)
+1. Download the Amazon Athena ODBC driver from the [AWS documentation page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html/)
 2. Run the installer and follow the on-screen instructions
-3. Complete the installation before proceeding to the next step
+3. Complete the installation before proceeding
 </Steps>
 
-### Step 2: Configure the ODBC Connection
+### Step 2: Configure the ODBC connection
 
 <Steps>
 1. On Windows, open the ODBC Data Source Administrator (64-bit)
-2. Navigate to the **System DSN** tab
+2. Go to the **System DSN** tab
 3. Click **Add** to create a new data source
 4. Select the **Amazon Athena ODBC Driver** and click **Finish**
-5. Configure the connection using the settings detailed below
-6. Click **Test** to verify the connection works
-7. Click **OK** to save the connection
+5. Configure the connection using the settings below
+6. Click **Test** to verify, then **OK** to save
 </Steps>
-
-Here's exactly what to enter for each setting:
 
 | Setting | Value |
 |---------|-------|
@@ -143,7 +122,7 @@ Here's exactly what to enter for each setting:
 | Workgroup | Your organization ID (as provided by Tallyfy) |
 | Catalog | AwsDataCatalog |
 
-### Step 3: Connect Power BI to Amazon Athena
+### Step 3: Connect Power BI to Athena
 
 <Steps>
 1. Launch Power BI Desktop
@@ -158,17 +137,15 @@ Here's exactly what to enter for each setting:
 10. Click **Load** to import the data into Power BI
 </Steps>
 
-## Working with Tallyfy Data
+## Working with Tallyfy data
 
-You're connected! Now you can explore these data tables:
+You're connected. Your Tallyfy Analytics data is organized as:
 
-- **processes** - Track every process instance with its metadata and status
-- **steps** - Analyze task completion times and identify bottlenecks (see note below about time metrics)
-- **form_fields** - Extract all the data your teams collect through process forms
-- **users** - Monitor team member workload and performance metrics
+- **Per-process Parquet files** - Each process run is exported as a single flat table. Rows are differentiated by the `type` column: `kick_off_task` (kick-off form data), `process_task` (task-level data), `process_task_data` (form field answers within tasks), and `process_task_comment` (comments). Columns include process metadata (`blueprint_name`, `process_status`, `process_owner`), task details (`process_task_name`, `completed_on`, `due_by`, `user_assigned`), and form field data (`form_field_type`, `question_in_form_field`, `answer_in_form_field`).
+- **Members table** - User data including `email`, `full_name`, `job_title`, `is_active`, `timezone`, and login activity timestamps.
 
-:::caution[Time metrics in the steps table]
-The completion times in the `steps` table show elapsed time, not actual working time. A "3-day" task might be 30 minutes of work interrupted by a weekend. For accurate effort metrics, implement time tracking fields as described in [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
+:::caution[Time metrics show elapsed time]
+Completion times show elapsed calendar time, not actual working time. A "3-day" task might be 30 minutes of work interrupted by a weekend. For accurate effort metrics, implement time tracking fields as described in [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
 :::
 
 :::tip[Calculating accurate process completion times with NaN handling]
@@ -250,33 +227,27 @@ AVERAGEX (
 **Why NaN Appears**: NULL database values → Pandas conversion → Parquet export → string "NaN"
 :::
 
-### Important Configuration Notes
-
-Here's what catches most people off guard:
+### Configuration notes
 
 - You must connect to the **us-west-2** region - other regions won't work
-- Your workgroup needs to match your organization ID exactly
-- The catalog name is always **AwsDataCatalog** (yes, with that exact capitalization)
-- Use Direct Query mode[^2] when working with datasets over 1GB
+- Your workgroup must match your organization ID exactly
+- The catalog name is always **AwsDataCatalog** (exact capitalization matters)
+- Use Direct Query mode[^2] for datasets over 1GB
 - Set up refresh scheduling if you need reports updated automatically
 
-## Video Tutorial
-
-Want to see the whole process in action? Watch this:
+## Video tutorial
 
 <lite-vimeo videoid="359564159"></lite-vimeo>
 
 ## Troubleshooting
 
-Connection not working? Let's fix that:
+- Verify you're using the **Access Key and Secret Access Key** - not IAM credentials
+- The ODBC driver must be the **64-bit** version (32-bit won't work with Power BI Desktop)
+- Confirm the region is **us-west-2**
+- Check that your Tallyfy Analytics subscription is active
+- Restart Power BI Desktop after configuring a new ODBC data source
 
-- Double-check you're using the Access Key and Secret Access Key - not those IAM credentials
-- Make sure your ODBC driver is the 64-bit version (32-bit won't work with Power BI Desktop)
-- Verify you've entered **us-west-2** as the region - it's easy to miss
-- Check if your Tallyfy Analytics subscription is still active
-- Sometimes Power BI Desktop needs a restart after configuring ODBC - annoying but it works
-
-Still stuck? Contact Tallyfy Support with the exact error message you're seeing.
+Still stuck? Contact Tallyfy support with the exact error message.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

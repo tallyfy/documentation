@@ -4,7 +4,8 @@ description: The Tallyfy REST API enables workflow automation through two authen
   requiring specific headers and proper token management while supporting multi-organization
   contexts and webhook integrations with standardized date formats.
 id: ba117d66ba90a1e7f74b7a27f4b9548d
-lastUpdated: 2025-12-16
+lastUpdated: 2025-02-25
+about_tallyfy: true
 sidebar:
   order: 1
 title: API integration guide
@@ -12,66 +13,66 @@ title: API integration guide
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Tallyfy API integration guide
+## Integrating with the Tallyfy REST API
 
-Tallyfy provides a REST API that enables developers to integrate workflow functionality into external applications and systems.
+Tallyfy's REST API lets you connect workflow features to your own applications and systems.
 
-:::note[API Documentation]
-Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
+:::note[API documentation]
+Full API reference at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
 :::
 
 ## API terminology
 
-While the Tallyfy web application uses certain terms in its user interface, the underlying Tallyfy API sometimes uses different terms for the same concepts. Understanding these differences is important when working directly with the API.
+The Tallyfy API uses different names than what you'll see in the web app. Here's the mapping:
 
-Here's a mapping of key API objects to their corresponding terms in the Tallyfy **UI**:
+-   API `Checklists` = **Templates** in the UI (containing **Steps**)
+-   API `Runs` = **Processes** in the UI (containing **Tasks**)
+-   API `Captures` = **Task form fields** in the UI
+-   API `Preruns` = **Kick-off form fields** in the UI
 
--   API `Checklists` correspond to **Blueprints** in the UI. A **Blueprint** contains **Steps**.
--   API `Runs` correspond to **Processes** in the UI. A **Process** contains **Tasks**.
--   API `Captures` correspond to **Task form fields** in the UI.
--   API `Preruns` correspond to **Kick-off form fields** in the UI.
-
-Keeping these distinctions in mind will help you navigate the API documentation and map API data to what users see in the Tallyfy application.
+Keep these distinctions in mind when reading the API docs - they'll help you match API data to what users actually see in Tallyfy.
 
 ### Required headers
 
-All direct API calls to Tallyfy endpoints must include the following header:
+Every API call must include these headers:
 
 ```
+Authorization: Bearer YOUR_ACCESS_TOKEN
 X-Tallyfy-Client: APIClient
+Accept: application/json
 ```
 
-**Important**: Requests without this header will be automatically rejected.
+**Important**: Requests without the `X-Tallyfy-Client` header will be rejected.
 
 ### Authentication methods
 
-Tallyfy supports two authentication approaches depending on your integration scenario:
+Tallyfy supports two authentication approaches:
 
 #### 1. User-based authentication
 
 For integrations acting on behalf of a specific Tallyfy user:
 
 <Steps>
-1. Navigate to **Settings > Integrations > REST API** in your Tallyfy account
+1. Go to **Settings > Integrations > REST API** in your Tallyfy account
 2. Copy your personal **access_token**
-3. Include this token in the Authorization header of your API requests
+3. Include this token in the `Authorization` header of your API requests
 </Steps>
 
-This video demonstrates how to obtain your access token:
+This video shows how to get your access token:
 
 <lite-vimeo videoid="326494868"></lite-vimeo>
 
 #### 2. Application-based authentication
 
-For third-party applications or dedicated Tallyfy integrations requiring client credentials:
+For third-party apps needing client credentials:
 
-1. Contact Tallyfy Support with details about your integration requirements
-2. Receive your application's **Client ID** and **Client Secret**
-3. Implement the OAuth 2.0 flow to obtain and refresh access tokens
+1. Contact Tallyfy Support describing your integration needs
+2. You'll receive a **Client ID** and **Client Secret**
+3. Implement the OAuth 2.0 flow to get and refresh access tokens
 
 ## OAuth authentication flow
 
-This diagram shows the complete OAuth authentication flow for both user-based and application-based authentication methods.
+This diagram shows the full OAuth flow for both authentication methods.
 
 ```d2
 direction: right
@@ -126,69 +127,67 @@ API -> App: "10. Successful response" {
 ```
 
 **What to notice:**
-- Step 1-4 show the initial authentication - choose password grant for user context or client credentials for app-only access
-- Step 5 demonstrates required headers for all API requests - both Authorization and X-Tallyfy-Client headers are mandatory
-- Steps 6-10 illustrate automatic token refresh when a 401 error occurs - your application should implement this retry logic
+- Steps 1-4 show initial authentication - use password grant for user context or client credentials for app-only access
+- Step 5 shows required headers for all API requests - both `Authorization` and `X-Tallyfy-Client` headers are mandatory
+- Steps 6-10 show token refresh when a 401 error occurs - your app should handle this retry automatically
 
-### Best practices for token management
-
-To ensure stable API integrations, follow these token management best practices:
+### Token management
 
 #### Handling token invalidation
 
-Personal access tokens are invalidated when users log out. To minimize disruption:
+Personal access tokens are invalidated when users log out. To reduce disruption:
 
-1. **For automated systems**: Use application tokens (Enterprise plans) instead of personal tokens when possible
-2. **For user-based integrations**: 
-   - Educate users that logging out will break automations
-   - Implement error handling to detect invalidated tokens
-   - Provide clear instructions for obtaining new tokens after logout
-3. **Monitor token health**: Implement logging to track authentication failures and identify patterns
+1. **Automated systems**: Use application tokens (Enterprise plans) instead of personal tokens when possible
+2. **User-based integrations**:
+   - Let users know that logging out breaks automations
+   - Add error handling to detect invalidated tokens
+   - Provide clear steps for getting new tokens after logout
+3. **Monitoring**: Log authentication failures to spot patterns early
 
 #### Token security
 
-- Store tokens securely using encryption at rest
+- Store tokens with encryption at rest
 - Never expose tokens in client-side code or logs
 - Rotate tokens regularly for sensitive operations
-- Implement token expiration handling to refresh tokens automatically
+- Handle token expiration by refreshing automatically
 
 ### Working with multi-organization users
 
-Tallyfy supports users belonging to multiple organizations (tenants). This has important implications for API integrations:
+Tallyfy users can belong to multiple organizations[^1]. This matters for API integrations:
 
 #### Organization context in API requests
 
-- A user's access token is tied to their current organization context
-- Tallyfy API requests will operate within the organization context associated with the token
-- Organization IDs are required in many API endpoints
+- A user's access token is tied to their current organization
+- API requests operate within that organization's context
+- Organization IDs are required in most API endpoint URLs (e.g., `/organizations/{org_id}/checklists`)
 
-#### Collecting and storing Organization IDs
+#### Collecting organization IDs
 
-When building integrations that require organization-specific data:
+When building integrations:
 
-1. Collect the organization ID during user onboarding or application setup
-2. Store this ID alongside user credentials in your application
-3. Include the organization ID in relevant Tallyfy API requests
+1. Collect the organization ID during setup
+2. Store it alongside user credentials in your app
+3. Include it in your API request URLs
 
-#### Handling users with multiple organizations
+#### Multiple organizations
 
-For users who belong to multiple organizations:
+For users belonging to more than one organization:
 
-1. Consider allowing users to select which organization they want to work with
-2. Store multiple organization IDs if your application needs to work across organizations
-3. Be aware that permissions and available data may vary between organizations
-4. For users switching between organizations, you may need to update tokens or credentials
+1. Let users pick which organization to work with
+2. Store multiple organization IDs if your app spans organizations
+3. Permissions and data differ between organizations
+4. You may need updated tokens when switching organizations
 
-:::tip[Organization Switching]
-Users can switch between organizations in the Tallyfy interface using the Organization Switcher. Learn more in [Switch Between Organizations](/products/pro/settings/personal-settings/how-can-i-switch-between-organizations-in-tallyfy/).
+:::tip[Organization switching]
+Users can switch organizations in the Tallyfy UI. Learn more in [Switch between organizations](/products/pro/settings/personal-settings/how-can-i-switch-between-organizations-in-tallyfy/).
 :::
 
-### Obtaining access tokens with password grant
+### Getting access tokens with password grant
 
-If you're receiving a 401 "Unauthenticated" error despite having valid client credentials, you may need to use the password grant authentication flow:
+Getting 401 "Unauthenticated" errors despite having valid client credentials? You likely need the password grant flow.
 
-:::note[Grant Type Selection]
-The **client_credentials** grant type will not provide access tokens that work for user-specific endpoints. For accessing standard API endpoints that require user context, you must use the **password** grant type as shown below.
+:::note[Grant type selection]
+The **client_credentials** grant type won't provide tokens that work for user-specific endpoints. For standard API endpoints requiring user context, you must use the **password** grant type.
 :::
 
 1. Make a POST request to the OAuth token endpoint:
@@ -196,93 +195,88 @@ The **client_credentials** grant type will not provide access tokens that work f
 POST https://go.tallyfy.com/api/oauth/token
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=client_credentials&
+grant_type=password&
 client_id=YOUR_CLIENT_ID&
-client_secret=YOUR_CLIENT_SECRET
+client_secret=YOUR_CLIENT_SECRET&
+username=YOUR_EMAIL&
+password=YOUR_PASSWORD
 ```
 
-2. You'll receive a response with an access token:
+2. You'll get a response with an access token:
 ```json
 {
   "token_type": "Bearer",
   "expires_in": 3600,
-  "access_token": "eyJhbGci..."
+  "access_token": "eyJhbGci...",
+  "refresh_token": "def50200..."
 }
 ```
 
-3. Use this token in subsequent API requests in the Authorization header:
+3. Use this token in the `Authorization` header:
 ```
 Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
-:::caution[Security Note]
-The password grant type requires transmitting user credentials. Use this method only in secure environments where you control both the client application and user accounts.
+:::caution[Security note]
+The password grant requires transmitting user credentials. Only use this in secure server-side environments where you control both the client app and user accounts.
 :::
 
 ### Understanding grant types
 
-| Grant Type | Purpose | Access Context | Suitable For |
-|------------|---------|----------------|--------------|
-| **client_credentials** | Application-to-application authentication | Application context only | Backend services, system integrations |
-| **password** | User-based access via application | Full user context | APIs requiring user permissions, accessing user data |
+| Grant type | Purpose | Access context | Best for |
+|------------|---------|----------------|----------|
+| **client_credentials** | App-to-app authentication | Application context only | Backend services, system integrations |
+| **password** | User-based access via application | Full user context | Endpoints requiring user permissions |
 
-**Important distinction**: 
-- Tokens obtained with `client_credentials` grant type can only access endpoints that don't require user context
-- Most Tallyfy API endpoints require user context, so the `password` grant is necessary for accessing these endpoints
-- If you're getting 401 "Unauthenticated" errors when using an access token from `client_credentials`, switch to the `password` grant type
+**Key distinction**: Most Tallyfy API endpoints require user context, so `password` grant is usually what you need. If you're getting 401 errors with a `client_credentials` token, switch to `password` grant.
 
-### Token refresh procedure
+### Token refresh
 
-Access tokens expire periodically and must be refreshed for continued API access:
+Access tokens expire after 1 hour and need refreshing:
 
 1. Store both the **access_token** and **refresh_token** when first obtained
-2. When the access token expires, use the refresh token to obtain a new one
-3. Send a POST request to the token endpoint with your refresh token
+2. When the access token expires, POST to the token endpoint with your refresh token
+3. You'll receive a new access token (and sometimes a new refresh token)
 
 ![Tallyfy API OAuth token endpoint in Swagger](https://screenshots.tallyfy.com/tallyfy/pro/api-oauth-token-swagger.png)
 
-This video demonstrates the token refresh process:
+This video shows the token refresh process:
 
 <lite-vimeo videoid="326495493"></lite-vimeo>
 
-### Troubleshooting authentication issues
+### Troubleshooting authentication
 
-If you encounter authentication problems when using the Tallyfy API, check these common issues:
+#### 401 unauthenticated errors
 
-#### 401 Unauthenticated errors
-
-1. **Invalid Token Format**: Ensure your Authorization header uses the exact format:
+1. **Token format**: Make sure your Authorization header is exactly:
    ```
    Authorization: Bearer YOUR_ACCESS_TOKEN
    ```
-   *Note: There should be exactly one space between "Bearer" and your token.*
+   There must be exactly one space between "Bearer" and your token.
 
-2. **Token Expiration**: Tokens typically expire after 1 hour. Implement token refresh logic or request a new token.
+2. **Token expiration**: Tokens expire after 1 hour. Refresh or request a new one.
 
-3. **Invalid Credentials**: Verify your client ID, client secret, username, and password are correct.
+3. **Invalid credentials**: Double-check your client ID, client secret, username, and password.
 
-4. **Missing Required Headers**: Ensure all API requests include the `X-Tallyfy-Client: APIClient` header.
+4. **Missing headers**: Every request needs the `X-Tallyfy-Client: APIClient` header.
 
-5. **Incorrect Token Request**: When requesting a token, verify:
-   - You're using the correct endpoint (`https://go.tallyfy.com/api/oauth/token`)
-   - The `grant_type` parameter matches your authentication flow
-   - All required parameters for your grant type are included
+5. **Wrong token endpoint**: Confirm you're hitting `https://go.tallyfy.com/api/oauth/token` with the correct `grant_type`.
 
-6. **Token Invalidated by Logout**: Personal access tokens are immediately invalidated when users log out of Tallyfy. This common issue affects automations that rely on user tokens. If your automation suddenly stops working, verify the user hasn't logged out.
+6. **Logout invalidation**: Personal tokens are immediately invalidated on logout. If your automation stops working, check whether the user logged out.
 
-If problems persist, check the response body for specific error messages or contact Tallyfy Support with details about your API implementation and the full error response.
+If problems persist, check the response body for specific error messages or contact Tallyfy Support with your full error response.
 
 #### CORS or preflight issues
 
-For cross-origin implementation challenges:
-- Note any CORS preflight (`OPTIONS`) requests
+For cross-origin challenges:
+- Watch for CORS preflight (`OPTIONS`) requests
 - Check response headers for CORS permissions
-- Understand allowed origins and methods
+- Verify allowed origins and methods
 
 ### Preventing duplicate operations
 
 :::tip[Implement idempotency]
-When integrating with the Tallyfy API, external systems might send duplicate requests due to network retries, user errors, or webhook events firing multiple times. Implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to ensure operations aren't performed multiple times unintentionally. This is especially important when:
+External systems might send duplicate requests from network retries, user errors, or repeated webhook events. Implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent unintended duplicate operations - especially when:
 - Launching processes from external triggers
 - Updating task form fields
 - Completing tasks programmatically
@@ -294,20 +288,22 @@ When working with dates in the Tallyfy API:
 
 | Direction | Format | Example |
 |-----------|--------|---------|
-| Request (to API) | YYYY-DD-MM HH:MM:SS | YYYY-15-05 14:30:00 |
-| Response (from API) | YYYY-MM-DDThh:mm:ss.000Z | YYYY-05-15T14:30:00.000Z |
+| Request (to API) | YYYY-MM-DD HH:MM:SS | 2025-05-15 14:30:00 |
+| Response (from API) | ISO 8601 (Zulu time) | 2025-05-15T14:30:00.000Z |
 
-Ensure your code properly handles these date format conventions to avoid errors.
+Make sure your code handles both formats correctly.
 
 ### Webhook integration
 
-For event-driven integrations, Tallyfy provides webhook capabilities that don't require direct API calls:
+For event-driven integrations, Tallyfy offers webhooks that don't require polling the API:
 
 - Configure webhooks at the process or step level
-- Receive real-time notifications when specific events occur
+- Get real-time notifications when specific events happen
 - Process the webhook payload to trigger actions in your systems
 
-For details on webhook configuration, see the [webhooks setup guide](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
+For setup details, see the [webhooks setup guide](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
+
+[^1]: Organizations in Tallyfy are isolated tenants - each with its own templates, processes, members, and settings
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

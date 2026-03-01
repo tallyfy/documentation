@@ -1,9 +1,9 @@
 ---
 description: Tallyfy connects to e-signature services through middleware tools to
-  automatically send documents for signing when workflow steps complete saving teams
-  15-20 minutes per document with no manual intervention required.
+  automatically send documents for signing when workflow steps complete.
 id: 8ce367f2a0e9b915a2e83aad0dc74376
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 10
 title: Digital signatures
@@ -11,34 +11,30 @@ title: Digital signatures
 
 import { Steps } from '@astrojs/starlight/components';
 
-## How to automate document signing using helper tools (middleware)
+## How to automate document signing using middleware
 
-Connect Tallyfy to e-signature services like DocuSign or HelloSign through [middleware](/products/pro/integrations/middleware/) tools - when someone completes a workflow step, documents automatically go out for signing. No manual work. Most teams save 15-20 minutes per document[^1].
+Connect Tallyfy to e-signature services like DocuSign or HelloSign through [middleware](/products/pro/integrations/middleware/) tools. When someone completes a workflow step, documents automatically go out for signing. No manual work. Most teams save 15-20 minutes per document[^1].
 
-Simple.
-
-### What you need
+### What you'll need
 - A Tallyfy account with [webhook](/products/pro/integrations/webhooks/) access
-- A [middleware](/products/pro/integrations/middleware/) account (Zapier, Power Automate, or Make.com work great)
+- A [middleware](/products/pro/integrations/middleware/) account (Zapier, Power Automate, or Make.com)
 - An e-signature service account (DocuSign or HelloSign)
-- A document [template](/products/pro/documenting/templates/) ready in your signature service
+- A document template ready in your signature service
 
 :::note[Setting up middleware]
-If you haven't used middleware before, check our [middleware integration guide](/products/pro/integrations/middleware/) for setup instructions and platform comparisons.
+If you haven't used middleware before, check the [middleware integration guide](/products/pro/integrations/middleware/) for setup instructions and platform comparisons.
 :::
 
-### How it works (overview)
+### How it works
 <Steps>
-1. Create a workflow in your middleware tool that can receive information from Tallyfy.
-2. Set up a Tallyfy [Process](/products/pro/tracking-and-tasks/processes/) with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) to collect the info your document needs - name, email, contract terms, whatever you're working with.
-3. Set up a [webhook](/products/pro/integrations/webhooks/) in a specific Tallyfy step to send that collected information to your middleware tool.
-4. Connect your e-signature service to your middleware tool.
-5. Test everything and turn on the [automation](/products/pro/documenting/templates/automations/).
+1. Create a workflow in your middleware tool that receives data from Tallyfy.
+2. Set up a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) with [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) to collect what your document needs - name, email, contract terms, etc.
+3. Add a [webhook](/products/pro/integrations/webhooks/) to the Tallyfy step that should trigger signing.
+4. Connect your e-signature service in the middleware tool.
+5. Test everything and activate the [automation](/products/pro/documenting/templates/automations/).
 </Steps>
 
 ### Document signing automation flow
-
-This shows the complete automation pathway from workflow completion to signed document tracking.
 
 ```d2
 # Document Signing Automation Flow
@@ -125,90 +121,85 @@ Tallyfy -> User: "9. Notify complete" {
 }
 ```
 
-**What to notice:**
-- **Steps 2-3**: The webhook fires instantly[^2] when someone completes a Tallyfy step - no delays or manual triggers needed
-- **Step 4**: Middleware handles all the field mapping automatically - you set it up once and it works every time
-- **Steps 7-8**: The optional return path creates a complete loop - Tallyfy knows when documents get signed without you checking
+**Key points:**
+- **Steps 2-3**: The webhook fires[^2] when someone completes a Tallyfy step - no manual triggers needed
+- **Step 4**: Middleware handles field mapping - set it up once and it works every time
+- **Steps 7-8**: The optional return path means Tallyfy knows when documents get signed without you checking
 
-### Step 1: Create a listening point (webhook) in your middleware
+### Step 1: Create a webhook listener in your middleware
 
-Here's how this works in most middleware platforms:
 <Steps>
-1. Start creating a new workflow in your middleware tool (called a "Zap" in Zapier, "Flow" in Power Automate, or "Scenario" in Make.com).
-2. Choose "Webhooks" as the starting trigger (all major platforms have this option).
+1. Create a new workflow in your middleware tool (called a "Zap" in Zapier, "Flow" in Power Automate, or "Scenario" in Make.com).
+2. Choose "Webhooks" as the starting trigger.
 3. Select "Catch Hook" or "When a HTTP request is received" as the trigger event.
-4. Your middleware will give you a unique web address (URL). Copy and save this URL - Tallyfy needs it to know where to send your information.
+4. Copy the unique URL your middleware gives you - Tallyfy sends data to this address.
    ![](https://screenshots.tallyfy.com/auto-sign-zapier-1.png)
 </Steps>
 
-### Step 2: Set up your Tallyfy Process
+### Step 2: Set up your Tallyfy process
 
 <Steps>
-1. Create or edit a [procedure template](/products/pro/documenting/templates/) in Tallyfy.
-2. Add [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) to collect all the details your document needs. Think client name, email address, contract details - whatever information needs to appear in the final document.
-3. Pick the step where you want document signing to trigger. When someone completes this step, the signature request goes out automatically.
-4. Add the webhook URL (remember that web address from Step 1?) to this trigger step:
-   - Click the settings icon for that step.
-   - Go to the **[Webhooks](/products/pro/integrations/webhooks/)** tab.
+1. Create or edit a [template](/products/pro/documenting/templates/) in Tallyfy.
+2. Add [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) to collect what your document needs - client name, email, contract details, etc.
+3. Pick the step where document signing should trigger. When someone completes this step, the signature request goes out automatically.
+4. Add the webhook URL from Step 1 to this step:
+   - Click the settings icon for the step.
+   - Go to the **[Outbound Webhooks](/products/pro/integrations/webhooks/)** section.
    - Paste the URL you copied from your middleware tool.
-   - Choose which form field data Tallyfy should send to the webhook URL.
+   - Choose which form field data to send.
    ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-step-webhook.png)
 </Steps>
 
 ### Step 3: Connect your e-signature service in the middleware
 
-Time to link everything together. You'll do this inside your middleware tool.
-
 #### For HelloSign
 <Steps>
-1. First, make sure your document template is ready in HelloSign. You need all the signature fields and data spots marked out.
+1. Prepare your document template in HelloSign with all signature fields and data spots marked.
    ![](https://screenshots.tallyfy.com/auto-sign-zapier-5.png)
-2. In your middleware workflow, add a HelloSign action step right after the webhook trigger.
-3. Choose the action "Send Signature Request From Template".
-4. Select the HelloSign template you prepared.
-5. Here's the fun part - match the information coming from Tallyfy to the correct fields in your HelloSign template. Tallyfy's 'Client Name' field? That goes to HelloSign's 'Signer Name' field. And so on.
+2. In your middleware workflow, add a HelloSign action step after the webhook trigger.
+3. Choose "Send Signature Request From Template".
+4. Select your HelloSign template.
+5. Map the Tallyfy fields to HelloSign fields - for example, Tallyfy's 'Client Name' goes to HelloSign's 'Signer Name'.
    ![](https://screenshots.tallyfy.com/auto-sign-zapier-6.png)
 </Steps>
 
 #### For DocuSign
 <Steps>
-1. Same deal with DocuSign - get your document template ready with all the signature and data fields marked.
+1. Prepare your document template in DocuSign with signature and data fields marked.
    ![](https://screenshots.tallyfy.com/auto-sign-zapier-7.png)
-2. In your middleware workflow, add a DocuSign action step right after the webhook trigger.
-3. Choose the action "Create Signature Request".
-4. Select the DocuSign template you prepared.
-5. Match up the Tallyfy information to your DocuSign fields. It's like connecting the dots - each piece of data from Tallyfy finds its home in the document.
+2. In your middleware workflow, add a DocuSign action step after the webhook trigger.
+3. Choose "Create Signature Request".
+4. Select your DocuSign template.
+5. Map each Tallyfy field to the corresponding DocuSign field.
    ![](https://screenshots.tallyfy.com/auto-sign-zapier-8.png)
 </Steps>
 
-### Step 4: Testing and turning on the connection
+### Step 4: Test and activate
 <Steps>
-1. Test your middleware workflow. Make sure everything connects properly before going live.
-2. [Launch](/products/pro/launching/) your Tallyfy [process](/products/pro/tracking-and-tasks/processes/) with some test data - use your own email if you want to see it work firsthand.
-3. Complete the Tallyfy step that has the [webhook](/products/pro/integrations/webhooks/) attached.
-4. Check your email. Did the signature request arrive? Perfect.
-5. If everything works (and it should), turn on your middleware workflow. Each platform has its own way to activate workflows - look for "Publish", "Turn On", or "Activate".
+1. Test your middleware workflow to confirm everything connects.
+2. [Launch](/products/pro/launching/) a Tallyfy [process](/products/pro/tracking-and-tasks/processes/) with test data - use your own email to see it work.
+3. Complete the step that has the [webhook](/products/pro/integrations/webhooks/) attached.
+4. Check your email for the signature request.
+5. If it works, activate your middleware workflow. Look for "Publish", "Turn On", or "Activate" depending on your platform.
 </Steps>
 
 ### Tracking when the document is signed
 
-Want the full automation experience? You can set up a return path so Tallyfy knows when documents get signed:
+You can set up a return path so Tallyfy knows when documents get signed:
 
 <Steps>
-1. Create a second workflow in your middleware tool. This one starts when your e-signature service reports "document signed."
-2. Set up this workflow to use the Tallyfy [API](/products/pro/integrations/open-api/) (basically a way for programs to talk to each other) to find the right Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) and mark it complete.
-3. You'll need three specific IDs from Tallyfy:
-   - Your unique [Organization ID](/products/pro/miscellaneous/how-to-find-your-tallyfy-ids/) (it's in Tallyfy settings).
-   - The Process ID for the specific process instance that was launched.
-   - The Task ID for the task you want to mark complete.
+1. Create a second workflow in your middleware tool that triggers when your e-signature service reports "document signed."
+2. Use the Tallyfy [API](/products/pro/integrations/open-api/) to find the right [task](/products/pro/tracking-and-tasks/tasks/) and mark it complete.
+3. You'll need three IDs from Tallyfy:
+   - Your [Organization ID](/products/pro/miscellaneous/how-to-find-your-tallyfy-ids/) (found in Tallyfy settings).
+   - The Process ID for the launched process instance.
+   - The Task ID for the task to mark complete.
 </Steps>
 
-Here's what happens when it all comes together:
-1. Someone completes a Tallyfy step - document goes out for signing. No waiting around.
+The end result:
+1. Someone completes a Tallyfy step - document goes out for signing.
 2. Recipient signs the document.
-3. Tallyfy updates instantly to show the signing task is done.
-
-That's it. Your signing workflow runs itself.
+3. Tallyfy updates to show the signing task is done.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

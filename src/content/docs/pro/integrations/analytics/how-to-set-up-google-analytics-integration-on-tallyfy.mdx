@@ -1,10 +1,11 @@
 ---
-description: Tallyfy integrates with Google Analytics and Mixpanel to track how teams
-  use templates processes and documentation by configuring custom dimensions in GA4
-  or connecting a Mixpanel project token to capture detailed usage metrics like page
-  views completion rates and engagement patterns.
+description: Tallyfy connects to Google Analytics (GA4) and Mixpanel so you can track
+  how your team uses templates processes and tasks by pasting your GA4 Measurement ID
+  or Mixpanel project token in Settings to capture page views events and user activity
+  across your organization.
 id: d177250f3e9df412b0c6045172e44909
 lastUpdated: 2025-08-15
+about_tallyfy: true
 sidebar:
   order: 2
 title: Measure reading engagement with Google Analytics or Mixpanel
@@ -12,117 +13,103 @@ title: Measure reading engagement with Google Analytics or Mixpanel
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Tracking Template/Process Usage with Analytics Tools
+## Connect Google Analytics or Mixpanel to Tallyfy
 
-You can connect Tallyfy to web analytics tools like Google Analytics or Mixpanel. These tools show exactly how people in your organization - or guests[^1] - are using your Tallyfy documentation, templates, and processes.
+Tallyfy can send usage data directly to your own Google Analytics (GA4) or Mixpanel account. Paste your Measurement ID or project token, and you'll see how your team interacts with templates, processes, and tasks - right inside your analytics dashboards.
 
-### Why track usage?
+This works for both internal members and guests[^1].
 
-- **See what people use**: Find out which templates or documents are viewed most often
-- **Measure engagement**: Track exactly how long people spend on specific pages or steps
-- **Find popular processes**: Identify which workflows get used 50+ times a week (or barely at all)
-- **Understand usage**: Learn when teams access process information - mornings? Late nights?
-- **Check value**: See if using certain processes correlates with better results
+### Why bother tracking?
 
-## Setting up Google Analytics (GA)
+- **See what gets used**: Which templates or documents get the most views?
+- **Spot trends**: Identify your busiest workflows and when people access them
+- **Measure engagement**: Track page views, task completions, and process launches over time
+
+## Setting up Google Analytics (GA4)
 
 ### What you need
 
-- A Google Analytics account where you have admin rights
-- A Tallyfy Professional or Enterprise plan
+- A Google Analytics 4 account with admin rights
+- A Tallyfy Pro or Enterprise plan
 - Administrator permission in Tallyfy
 
-### Step 1: Set up Custom Dimensions[^2] in Google Analytics
-
-*Important: Do this step first inside your Google Analytics account.* Tallyfy can't send data without these dimensions configured.
-
-1. Log into Google Analytics
-2. Go to **Admin** (gear icon) > **Data display** > **Custom definitions** > **Custom dimensions**
-3. Click **Create custom dimension** and create these five dimensions:
-
-| Dimension Name | Scope | Event Parameter   |
-|----------------|-------|-------------------|
-| User Name      | User  | user_name         |
-| User Email     | User  | user_email        |
-| Process Name   | Event | process_name      |
-| Event Type     | Event | event_type        |
-| Event Details  | Event | event_details     |
-
-![Google Analytics custom dimensions configuration](https://screenshots.tallyfy.com/tallyfy/pro/analytics-ga-custom-dimensions.png)
-
-:::caution[Match settings EXACTLY!]
-The dimension names and event parameters must match the table above. Incorrect configuration will prevent data from flowing to your reports.
-:::
-
-### Step 2: Get your Google Analytics Measurement ID
+### Step 1: Get your GA4 Measurement ID
 
 1. In Google Analytics, go to **Admin** > **Data Streams**
-2. Select your web data stream and copy your **Measurement ID** (it looks like G-XXXXXXXXXX)
+2. Select your web data stream and copy the **Measurement ID** (format: `G-XXXXXXXXXX`)
 
-### Step 3: Connect Tallyfy to Google Analytics
+### Step 2: Connect Tallyfy to Google Analytics
 
 <Steps>
 1. In Tallyfy, go to **Settings** > **Integrations**
-2. Find and click the **Analytics** section
-3. Paste your Google Analytics Measurement ID (from Step 2) into the box provided
+2. Find the **Google Analytics** section
+3. Paste your Measurement ID into the **Tracking ID** field
 4. Click **Save**
 </Steps>
 
-That's it. Tallyfy now sends usage data (page views, events, the works) straight to your Google Analytics account.
+Done. Tallyfy starts sending page views and events to your GA4 property.
 
-## Tracking specific users with User ID in GA (Optional)
+### What Tallyfy sends to GA4
 
-Want to track the same user across their laptop, phone, and tablet? Google Analytics supports User ID tracking - it identifies logged-in users across different devices or sessions.
+Tallyfy automatically sends events enriched with custom dimensions[^2] including:
 
-:::note[User ID in GA4]
-GA4 handles user identification differently than older versions. When Tallyfy sends user data, GA4 automatically associates events with the user across devices. Go to **Admin** > **Reporting identity** to configure how GA4 identifies users (blended, observed, or device-based).
-:::
+| Dimension | Event Parameter | Description |
+|-----------|----------------|-------------|
+| Organization ID | `orgId` | Your Tallyfy organization |
+| Task ID | `taskId` | Specific task being viewed |
+| Process ID | `processId` | Active process instance |
+| Template ID | `blueprintId` | Template being accessed |
+| Template Step ID | `blueprintStepId` | Specific step in a template |
+
+Each event also includes user context (user ID, email, role) and session details automatically. You can create custom dimensions in GA4 under **Admin** > **Data display** > **Custom definitions** to surface these parameters in your reports.
+
+### Cross-device user tracking (optional)
+
+Tallyfy sends a `user_id` with every event, which means GA4 can track the same person across their laptop, phone, and tablet. Go to **Admin** > **Reporting identity** in GA4 to configure how users are identified - blended, observed, or device-based.
 
 :::note[Data takes time]
-Google Analytics typically takes 24-48 hours to process and display new data. Don't panic if you don't see anything right away.
+GA4 typically takes 24-48 hours to process new data. Don't worry if nothing shows up right away.
 :::
 
-## Setting up Mixpanel Integration
-
-Mixpanel is another analytics tool you can connect to Tallyfy. It's great for tracking specific events and user actions.
+## Setting up Mixpanel
 
 ### How to connect Mixpanel
 
 <Steps>
-1. In Tallyfy, go to **Settings** > **Integrations** > **Analytics**.
-2. Enter your **Mixpanel Project Token** (you'll find this in your Mixpanel account).
-3. Click **Save**.
+1. In Tallyfy, go to **Settings** > **Integrations**
+2. Find the **Mixpanel** section and enter your **Mixpanel Project Token**
+3. Click **Save**
 </Steps>
 
 ### What Mixpanel tracks
 
-Mixpanel captures detailed information about specific actions people take in Tallyfy:
-- Viewing a template
-- Completing a step
-- Launching a process
-- Engaging with specific documents
+Mixpanel captures the same events Tallyfy sends to GA4, including:
+- Page views across templates and processes
+- Task completions
+- Process launches
+- Template views
 
 ![Mixpanel analytics showing blueprint viewed events](https://screenshots.tallyfy.com/tallyfy/pro/analytics-blueprint-viewed-events.png)
 
-:::caution[Privacy with Mixpanel]
-Mixpanel collects detailed event data in your Mixpanel account - including user information. Make sure your company's privacy policy covers this data collection.
+Mixpanel also receives user profile data (name, email, role) and organization context, so you can build user-level funnels and cohort analysis.
+
+:::caution[Privacy notice]
+Mixpanel collects detailed event data including user information. Make sure your company's privacy policy covers this.
 :::
 
-### Using the Analytics Data
+### What you can do with the data
 
-Once you're connected, here's what you can do with Google Analytics or Mixpanel:
-- Build custom reports about Tallyfy usage
-- Create real-time dashboards to spot trends
-- Set up alerts when usage patterns change
+Once connected, both Google Analytics and Mixpanel let you:
+- Build custom reports on Tallyfy usage patterns
+- Create dashboards tracking process adoption
+- Set up alerts when usage changes
 - Export data for deeper analysis
-
-Need help with specific reporting? Contact Tallyfy support.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 
-[^1]: Unlimited free external users who access Tallyfy via special guest_code authentication
-[^2]: GA4 feature that captures additional event parameters beyond standard metrics; required for Tallyfy-specific tracking
+[^1]: Unlimited free external users who access Tallyfy via guest_code authentication
+[^2]: GA4 event parameters that capture Tallyfy-specific context beyond standard page view metrics
 
 ## Related articles
 <CardGrid>

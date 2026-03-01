@@ -1,12 +1,12 @@
 ---
-description: A DELETE endpoint that archives standalone tasks by hiding them from
-  default views while preserving data for potential future restoration through authenticated
-  API requests and returns 200 or 204 status codes upon success.
+description: Archive a standalone task using a DELETE request, which soft-deletes it
+  so it's hidden from default views but can be restored later.
 id: d200e42887556a1e45a73e95011c2a5d
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Archive task
+about_tallyfy: true
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
@@ -16,34 +16,34 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DELETE /organizations/{org_id}/tasks/{task_id}`
 
-This endpoint archives a standalone ("one-off") Tallyfy task. Archived tasks are hidden from default views but can potentially be restored or deleted permanently later.
+This endpoint soft-deletes (archives) a standalone one-off task. The task won't appear in default views, but its data is preserved. You can restore it later with `PUT /organizations/{org_id}/tasks/{task_id}/restore`.
 
 :::note
-This endpoint is typically used for **one-off tasks**. To archive tasks within a process run, you usually archive the entire process run using `DELETE /organizations/{org_id}/runs/{run_id}`.
+This only works for **one-off tasks** (tasks without a `run_id`). To archive tasks within a process, archive the entire process run using `DELETE /organizations/{org_id}/runs/{run_id}`.
 :::
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{task_id}` with the ID of the one-off task to archive.
+Replace `{org_id}` with your Organization ID and `{task_id}` with the task ID to archive.
 
 ### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
 
 ### Body
 
-No request body is needed for this DELETE request.
+No request body is needed.
 
-## Code Samples
+## Code samples
 
 <Tabs>
 <TabItem label="Javascript">
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const taskId = 'TASK_ID_TO_ARCHIVE'; // ID of the standalone task
+const taskId = 'TASK_ID_TO_ARCHIVE';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}`;
 
 const headers = new Headers();
@@ -52,52 +52,35 @@ headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
 fetch(apiUrl, {
-    method: 'DELETE', // DELETE archives the one-off task
+    method: 'DELETE',
     headers: headers
 })
 .then(response => {
-    // Check for 204 No Content or potentially 200 OK
-    if (response.status === 204 || response.status === 200) { 
-        console.log(`Successfully archived one-off task ${taskId}. Status: ${response.status}`);
-        // Response might be empty (204) or contain the archived task (200)
-        if (response.status === 200) {
-             // Try to parse JSON only if status is 200
-             return response.json().catch(e => {
-                 console.warn("Could not parse JSON response for 200 status:", e);
-                 return null; // Continue successfully but without data
-             });
-        }
-        return null; // For 204 No Content
+    if (response.status === 204) {
+        console.log(`Archived task ${taskId}. Status: 204 No Content`);
+        return null;
     } else {
-        // Try to parse error JSON, fallback to text
         return response.json()
-            .catch(() => response.text()) 
-            .then(errData => { 
+            .catch(() => response.text())
+            .then(errData => {
                 console.error(`Failed to archive task ${taskId}. Status: ${response.status}`, errData);
-                throw new Error(`HTTP error! status: ${response.status}`); 
+                throw new Error(`HTTP error! status: ${response.status}`);
             });
     }
 })
-.then(data => {
-    if (data) { // Only log if data was parsed (i.e., status 200 with body)
-      console.log('Archived task details (if returned):');
-      console.log(JSON.stringify(data, null, 2));
-    }
-})
 .catch(error => {
-    console.error(`Error during archival of one-off task ${taskId}:`, error.message);
+    console.error(`Error archiving task ${taskId}:`, error.message);
 });
 ```
 </TabItem>
 <TabItem label="Python">
 ```python
 import requests
-import json
 import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-task_id = 'TASK_ID_TO_ARCHIVE' # ID of the standalone task
+task_id = 'TASK_ID_TO_ARCHIVE'
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}'
 
 headers = {
@@ -106,36 +89,19 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-response = None
 try:
     response = requests.delete(api_url, headers=headers)
-    
-    # Check for successful status codes (204 or 200)
-    if response.status_code == 200:
-        print(f'Successfully archived one-off task {task_id}. Status: 200 OK')
-        try:
-            if response.content:
-                 archived_task = response.json()
-                 print('Archived task details:')
-                 print(json.dumps(archived_task, indent=4))
-            else:
-                print("(Received status 200 but response body is empty)")
-        except json.JSONDecodeError:
-            print(f"(Received status 200 but body not valid JSON: {response.text})")
-    elif response.status_code == 204:
-        print(f'Successfully archived one-off task {task_id}. Status: 204 No Content')
+
+    if response.status_code == 204:
+        print(f'Archived task {task_id}. Status: 204 No Content')
     else:
-        # Raise an exception for other non-success status codes
         response.raise_for_status()
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred archiving task {task_id}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
+    print(f"HTTP error archiving task {task_id}: {http_err}")
+    print(f"Response: {response.text}")
 except requests.exceptions.RequestException as req_err:
     print(f"Request failed archiving task {task_id}: {req_err}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -150,7 +116,7 @@ public class ArchiveOneOffTask {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String taskId = "TASK_ID_TO_ARCHIVE"; // ID of the standalone task
+        String taskId = "TASK_ID_TO_ARCHIVE";
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -159,33 +125,21 @@ public class ArchiveOneOffTask {
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .DELETE() // DELETE archives the task
+                .DELETE()
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) {
-                System.out.println("Successfully archived one-off task " + taskId + ". Status: 200 OK");
-                 if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body (Archived Task Details):");
-                     System.out.println(response.body());
-                     // TODO: Consider parsing JSON
-                 } else {
-                      System.out.println("(Response body empty)");
-                 }
-            } else if (response.statusCode() == 204) {
-                 System.out.println("Successfully archived one-off task " + taskId + ". Status: 204 No Content");
+            if (response.statusCode() == 204) {
+                System.out.println("Archived task " + taskId + ". Status: 204 No Content");
             } else {
                 System.err.println("Failed to archive task " + taskId + ". Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -196,65 +150,43 @@ public class ArchiveOneOffTask {
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    taskId := "TASK_ID_TO_ARCHIVE" // ID of the standalone task
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	taskId := "TASK_ID_TO_ARCHIVE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId)
 
 	client := &http.Client{Timeout: 15 * time.Second}
-    // Create DELETE request (DELETE archives the task)
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating archive task request for task %s: %v\n", taskId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing archive task request for task %s: %v\n", taskId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-         // Might happen for 204, check status first
-    }
-
-	if resp.StatusCode == http.StatusOK {
-        fmt.Printf("Successfully archived one-off task %s. Status: %d OK\n", taskId, resp.StatusCode)
-        if len(body) > 0 {
-            fmt.Println("Response Body (Archived Task Details):")
-            // Pretty print JSON response
-            var prettyJSON bytes.Buffer
-            if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-                fmt.Println(prettyJSON.String())
-            } else {
-                fmt.Println(string(body))
-            }
-            // TODO: Unmarshal JSON if needed
-        } else {
-             fmt.Println("(Response body empty)")
-        }
-    } else if resp.StatusCode == http.StatusNoContent {
-         fmt.Printf("Successfully archived one-off task %s. Status: %d No Content\n", taskId, resp.StatusCode)
+	if resp.StatusCode == http.StatusNoContent {
+		fmt.Printf("Archived task %s. Status: 204 No Content\n", taskId)
 	} else {
+		body, _ := io.ReadAll(resp.Body)
 		fmt.Printf("Failed to archive task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(body))
 	}
 }
@@ -270,56 +202,39 @@ func main() {
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
-using namespace web::json;
 
 pplx::task<void> ArchiveTallyfyTask(const utility::string_t& taskId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/tasks/") + taskId;
 
     http_client client(apiUrl);
-    http_request request(methods::DEL); // DELETE archives the task
+    http_request request(methods::DEL);
 
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-    // No request body needed
 
     return client.request(request).then([taskId](http_response response)
     {
         status_code status = response.status_code();
-        utility::string_t taskIdW = taskId;
-
-        // Handle potential body (string) for errors or 200 OK message
-        return response.extract_string().then([status, taskIdW, response](utility::string_t responseBody)
-        {
-             if (status == status_codes::OK) {
-                 std::wcout << L"Successfully archived one-off task " << taskIdW << L". Status: " << status << L" OK." << std::endl;
-                 if (!responseBody.empty()) {
-                     std::wcout << L"Response Body (Archived Task Details):\n" << responseBody << std::endl;
-                     try {
-                         value jsonVal = value::parse(responseBody);
-                     } catch (const std::exception& jsonEx) {
-                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
-                     }
-                 } else {
-                     std::wcout << L"(Response body empty)" << std::endl;
-                 }
-             } else if (status == status_codes::NoContent) {
-                 std::wcout << L"Successfully archived one-off task " << taskIdW << L". Status: " << status << L" No Content." << std::endl;
-             } else {
-                 std::wcerr << L"Failed to archive task " << taskIdW << L". Status: " << status << std::endl;
-                 std::wcerr << L"Response Body: " << responseBody << std::endl;
-                 throw std::runtime_error("Failed to archive task");
-             }
-        });
+        if (status == status_codes::NoContent) {
+            std::wcout << L"Archived task " << taskId << L". Status: 204 No Content." << std::endl;
+        } else {
+            return response.extract_string().then([status, taskId](utility::string_t body)
+            {
+                std::wcerr << L"Failed to archive task " << taskId << L". Status: " << status << std::endl;
+                std::wcerr << L"Response: " << body << std::endl;
+            });
+        }
+        return pplx::task_from_result();
     });
 }
 
 int main() {
     try {
-        ArchiveTallyfyTask(U("TASK_ID_TO_ARCHIVE")).wait(); // Replace with actual Task ID
+        ArchiveTallyfyTask(U("TASK_ID_TO_ARCHIVE")).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -334,7 +249,6 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using System.Text.Json;
 
 public class TallyfyTaskArchiver
 {
@@ -352,40 +266,23 @@ public class TallyfyTaskArchiver
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Add("X-Tallyfy-Client", "APIClient");
-            // No request body needed for DELETE archive
 
             HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync(); 
 
-            if (response.IsSuccessStatusCode) // Checks for 2xx (expect 200 or 204)
+            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             {
-                Console.WriteLine($"Successfully archived one-off task {taskId}. Status: {response.StatusCode}");
-                if (response.StatusCode == System.Net.HttpStatusCode.OK && !string.IsNullOrWhiteSpace(responseBody))
-                {
-                    Console.WriteLine("Archived task details (if returned):");
-                    try {
-                        using var doc = JsonDocument.Parse(responseBody);
-                        Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    } catch (JsonException) {
-                        Console.WriteLine(responseBody);
-                    }
-                } else if (response.StatusCode == System.Net.HttpStatusCode.NoContent){
-                     Console.WriteLine("(Received status 204 No Content)");
-                }
+                Console.WriteLine($"Archived task {taskId}. Status: 204 No Content");
             }
             else
             {
+                string responseBody = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Failed to archive task {taskId}. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception archiving task {taskId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request error archiving task {taskId}: {e.Message}");
         }
     }
 
@@ -401,7 +298,7 @@ public class TallyfyTaskArchiver
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data`
+A successful request returns a `204 No Content` status with an empty response body. The task is soft-deleted -- its `deleted_at` timestamp gets set, hiding it from default views while keeping all data intact.
 
 ## Related articles
 <CardGrid>

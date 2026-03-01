@@ -1,13 +1,13 @@
 ---
-description: ChatGPT Enterprise Team and Education users can connect to Tallyfy through
-  MCP servers to manage workflows using natural language with full read/write capabilities
-  through Developer Mode though the text-based interface has significant limitations
-  for visual workflows form interactions real-time collaboration and bulk operations
+about_tallyfy: true
+description: ChatGPT Enterprise Team and Education users can connect to Tallyfy's
+  MCP server using OAuth 2.1 with PKCE to manage workflows through natural language
+  with full read/write capabilities via Developer Mode though the text-based interface
+  has limitations for visual workflows form interactions and real-time collaboration
   making it best suited for complex searches analysis automation planning and template
-  optimization while still requiring Tallyfy's native visual interface for process
-  tracking collaboration and interactive form completion.
+  optimization.
 id: af75b3a6c9386fe212526c8236e508ef
-lastUpdated: 2026-02-20
+lastUpdated: 2026-02-25
 sidebar:
   order: 10
 title: Using Tallyfy MCP server with ChatGPT
@@ -15,369 +15,251 @@ title: Using Tallyfy MCP server with ChatGPT
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-:::note[MCP Client Compatibility]
-An MCP server can be used by any MCP client that supports it. ChatGPT now has full MCP support through "Apps" (formerly called "connectors" - renamed December 2025). You can use Tallyfy's MCP server with read/write capabilities, though the text-based UI has limitations. We'll show you what works and what doesn't. Tallyfy is building its own chat UI to fix these limitations - but start using MCP today for immediate value.
+:::note[MCP client compatibility]
+Any MCP client that supports the protocol can connect to Tallyfy's MCP server. ChatGPT has full MCP support through "Apps" (formerly "connectors" - renamed December 2025). You get read/write capabilities, though the text-based UI has limitations. Tallyfy is building its own chat UI to address these - but you can start using MCP today.
 :::
 
-## Overview
+## What this integration does
 
-ChatGPT Enterprise, Team, and Education users can connect to Tallyfy through MCP servers. It's a game-changer. You can manage your workflows using natural language - just type what you need and ChatGPT handles the technical details.
+ChatGPT Enterprise, Team, and Education users can connect to Tallyfy through its MCP server. You manage workflows using natural language - type what you need and ChatGPT handles the API calls.
 
-This guide shows you exactly how to set up the integration, what it can (and can't) do, and whether it's right for your team.
+This guide covers setup, what works well, and what doesn't.
 
 ## ChatGPT MCP support status
 
-ChatGPT's MCP implementation includes:
+- **Availability** - Team, Enterprise, and Education plans support custom MCP server connections via Developer Mode. Plus and Pro only get pre-built connectors.
+- **Access method** - Developer Mode and Apps (formerly "connectors")
+- **Operations** - Full read/write via Developer Mode, read-only via Deep Research
+- **Authentication** - OAuth 2.1 with PKCE (per RFC 8414) via `/.well-known/oauth-authorization-server`
+- **Scopes** - Dot notation like `mcp.tasks.read`, `mcp.processes.write`, `mcp.templates.read`
+- **Apps SDK** - Build custom UIs alongside MCP servers
 
-- **Availability**: ChatGPT Team, Enterprise, and Education plans for custom MCP server connections (Developer Mode); Plus and Pro have access to pre-built connectors only
-- **Access method**: Through Developer Mode and Apps (formerly "connectors" - renamed December 2025)
-- **Supported operations**: Full read/write via Developer Mode (Team/Enterprise/Edu), read-only via Deep Research
-- **Authentication**: API key-based or OAuth 2.1 authentication
-- **Security**: User-managed MCP server connections with security warnings
-- **Apps SDK**: Build custom UIs alongside MCP servers for enhanced experiences
-
-**Note:** Developer Mode must be enabled in ChatGPT settings to use MCP servers in regular conversations. Apps can be created using OpenAI's Apps SDK for custom frontends.
+Developer Mode must be enabled in ChatGPT settings to use MCP servers in regular conversations.
 
 ## Prerequisites
 
-You'll need these before we start:
-
 - ChatGPT Enterprise, Team, or Education subscription
-- Tallyfy API key (available from your Tallyfy organization settings)
-- Access to create custom Deep Research connectors in ChatGPT
-- Basic understanding of API security best practices
+- A Tallyfy account with organization access
+- Access to create custom apps in ChatGPT
+- Familiarity with OAuth authentication flows
 
-## Setting up Tallyfy MCP Server with ChatGPT
+## Setting up Tallyfy MCP server with ChatGPT
 
 <Steps>
 
-1. **Obtain your Tallyfy API key**
-   
-   Navigate to your Tallyfy organization settings and generate an API key. Store this securely as it provides full access to your Tallyfy data.
+1. **Access ChatGPT's apps settings**
 
-2. **Access ChatGPT's Apps settings**
+   In ChatGPT Enterprise/Team/Education, go to Settings, then Apps. You can also reach this through Deep Research, then Custom Apps.
 
-   In ChatGPT Enterprise/Team/Education, navigate to Settings → Apps (formerly called "connectors"). You can also access via Deep Research → Custom Apps.
+2. **Create a new MCP app**
 
-3. **Create a new MCP app**
+   Click "Add Custom App" and enter the MCP server URL:
 
-   Click "Add Custom App" and provide the following configuration:
-   
-   ```json
-   {
-     "name": "Tallyfy Workflow Assistant",
-     "description": "Access and manage Tallyfy workflows via natural language",
-     "mcp_server_url": "https://mcp.tallyfy.com",
-     "authentication": {
-       "type": "api_key",
-       "header_name": "Authorization",
-       "key_prefix": "Bearer "
-     }
-   }
+   ```
+   https://mcp.tallyfy.com
    ```
 
-4. **Configure authentication**
+   ChatGPT discovers Tallyfy's OAuth endpoints automatically through the `/.well-known/oauth-authorization-server` metadata endpoint (RFC 8414).
 
-   When prompted, enter your Tallyfy API key or use OAuth 2.1 authentication (recommended for enhanced security). ChatGPT will securely store credentials for future connections.
+3. **Authenticate via OAuth 2.1**
 
-   **Security warning**: Only use API keys from accounts with appropriate permissions. Consider creating a dedicated service account with limited access for ChatGPT integration. OAuth 2.1 with PKCE is the most secure option.
+   ChatGPT initiates OAuth 2.1 with PKCE using Dynamic Client Registration (RFC 7591). You'll be redirected to Tallyfy's login page to authorize access.
 
-5. **Set up app instructions**
+   During authorization, you'll select which organization to connect and approve scopes like `mcp.tasks.read`, `mcp.processes.write`, etc.
 
-   Provide detailed instructions for ChatGPT to understand how to interact with Tallyfy:
-   
+   **Security tip** - Consider using an account with only the permissions ChatGPT needs rather than a full admin account.
+
+4. **Set up app instructions**
+
+   Add instructions so ChatGPT knows how to interact with Tallyfy:
+
    ```
    You are connected to a Tallyfy organization's MCP server. Use this connection to:
    - Search for tasks, processes, and templates
    - Retrieve workflow information
    - Analyze template health and suggest improvements
    - Help users manage their work
-   
+
    Always confirm destructive actions before executing.
    Format responses clearly with relevant details.
    ```
 
-6. **Test the connection**
-   
-   Start a new Deep Research session and test with a simple query:
+5. **Test the connection**
+
+   Start a conversation and test with a simple query:
    ```
    "Show me all active processes in Tallyfy"
    ```
-   
-   ChatGPT should connect to the MCP server and retrieve your process data.
 
-7. **Publish to workspace (optional)**
+6. **Publish to workspace (optional)**
 
-   For team-wide access, publish the app to your ChatGPT workspace, allowing all team members to use the Tallyfy integration. Admins can manage app visibility and permissions in workspace settings.
+   For team-wide access, publish the app to your ChatGPT workspace. Admins can manage visibility and permissions in workspace settings.
 
 </Steps>
 
-## Practical demonstrations
+## Practical examples
 
-### Example 1: Finding overdue tasks
+### Finding overdue tasks
 
-**User prompt:**
+**Prompt:**
 ```
 Using Tallyfy, find all overdue tasks assigned to the marketing team and summarize them by priority.
 ```
 
-**ChatGPT with MCP will:**
-1. Connect to Tallyfy MCP server
-2. Execute `search_for_tasks` with overdue filter
-3. Filter results by marketing team assignment
-4. Organize findings by priority
-5. Present a formatted summary
+**What happens:**
+1. ChatGPT calls `search_for_tasks` with an overdue filter
+2. Filters results by marketing team assignment
+3. Groups findings by priority
+4. Returns a formatted summary
 
-### Example 2: Analyzing template health
+### Analyzing template health
 
-**User prompt:**
+**Prompt:**
 ```
-Analyze our "Customer Onboarding" template in Tallyfy and suggest improvements for efficiency.
-```
-
-**ChatGPT with MCP will:**
-1. Use `get_template` to retrieve template details
-2. Execute `assess_template_health` for thorough analysis
-3. Identify bottlenecks or redundant steps
-4. Suggest specific optimizations
-5. Provide actionable recommendations
-
-### Example 3: Creating workflow documentation
-
-**User prompt:**
-```
-Generate documentation for our "Invoice Processing" workflow in Tallyfy, including all steps and form fields.
+Analyze our "Customer Onboarding" template in Tallyfy and suggest improvements.
 ```
 
-**ChatGPT with MCP will:**
-1. Retrieve template structure using `get_template`
-2. List all steps with descriptions
-3. Document form fields for each step
-4. Include automation rules
-5. Format as readable documentation
+**What happens:**
+1. Calls `get_template` to pull template details
+2. Runs `assess_template_health` for analysis
+3. Identifies bottlenecks or redundant steps
+4. Suggests specific optimizations
 
-## Limitations of text-based UI
+### Creating workflow documentation
 
-Here's the thing - ChatGPT's text interface hits some real walls with Tallyfy:
+**Prompt:**
+```
+Generate documentation for our "Invoice Processing" workflow, including all steps and form fields.
+```
 
-### 1. Form field interactions
+**What happens:**
+1. Retrieves template structure using `get_template`
+2. Lists all steps with descriptions
+3. Documents form fields for each step
+4. Includes automation rules
 
-**Challenge**: Dropdown fields, multi-select options, and complex form inputs are difficult to represent in plain text.
+## Limitations of the text-based UI
 
-**Example limitation:**
-- Got a dropdown with 20+ options? ChatGPT shows them all as a wall of text. Good luck picking the right one.
-- Date pickers become "please type the date in YYYY-MM-DD format" - not exactly user-friendly
-- File uploads? Forget about it. The text interface can't handle them.
+ChatGPT's text interface hits real walls with certain Tallyfy features:
 
-### 2. Visual workflow representation
+### Form field interactions
 
-**Challenge**: ChatGPT cannot display Tallyfy's visual process tracker or workflow diagrams.
+Dropdowns, multi-selects, and complex inputs don't translate well to plain text. A dropdown with 20+ options becomes a wall of text. Date pickers become "type the date in YYYY-MM-DD format." File uploads aren't possible at all.
 
-**Impact:**
-- Can't see how steps flow from one to another
-- Real-time progress updates? Gone.
-- Dependencies between steps become a guessing game
+### Visual workflow representation
 
-### 3. Bulk operations
+ChatGPT can't display Tallyfy's visual process tracker or workflow diagrams. You lose step-by-step flow visualization, real-time progress updates, and dependency mapping.
 
-**Challenge**: Managing multiple items simultaneously is inefficient in a conversational interface.
+### Bulk operations
 
-**Example scenarios:**
-- Need to reassign 50 tasks? You're looking at typing 50 individual commands (or one really complex bulk instruction that might break)
-- Want to filter and sort a big list of processes? Hope you like reading through pages of text
-- Batch template updates happen in the dark - no visual confirmation until you check manually
+Reassigning 50 tasks means 50 individual commands (or one complex bulk instruction that might fail). Filtering and sorting large process lists produces pages of text. Batch template updates give no visual confirmation.
 
-### 4. Real-time collaboration
+### Real-time collaboration
 
-**Challenge**: ChatGPT's turn-based interaction model doesn't support real-time updates.
+ChatGPT's turn-based model doesn't support live updates. Your teammate finishes a task - you won't know until you ask again. Notifications get buried in conversation history. Two people can't work on the same template simultaneously.
 
-**Limitations:**
-- Your teammate just finished a task? You won't know until you ask again
-- Urgent notifications get buried in conversation history
-- Two people editing the same template means taking turns - no simultaneous work
+## Features that don't work well in ChatGPT
 
-## Major blockers for full Tallyfy functionality
+### Visual process tracker
 
-Let's be honest - some Tallyfy features just don't work well in ChatGPT:
+Tallyfy's **Tracker View** shows running processes with progress bars and color-coded statuses. ChatGPT can't render any of it - so monitoring process health at a glance, spotting bottlenecks across workflows, and tracking SLA compliance visually aren't possible.
 
-### 1. Visual process tracker
+### Template builder
 
-The **Tracker View** in Tallyfy gives you that bird's-eye view of all running processes - visual progress bars, color-coded statuses, the works. ChatGPT? Can't show you any of it. That makes it tough to:
-- Monitor overall process health at a glance
-- Identify bottlenecks across multiple workflows
-- Track SLA compliance visually
-- See process completion percentages
+Creating and editing [templates](/products/pro/documenting/templates/) through ChatGPT is awkward. No drag-and-drop for reordering steps, no visual branching logic, and no preview of the template structure.
 
-### 2. Template builder interface
+### Advanced filtering and views
 
-Creating and editing [templates](/products/pro/documenting/templates/) through ChatGPT? It's painful:
-- Cannot drag-and-drop to reorder steps
-- Difficult to visualize branching logic
-- Complex automation rules are hard to configure through text
-- No visual preview of the template structure
+Tallyfy's filtering doesn't translate to text. You can't save custom views, multi-dimensional filtering requires complex natural language, and there are no visual indicators for results.
 
-### 3. Advanced filtering and views
+### Analytics
 
-Tallyfy's powerful filtering just doesn't translate to text:
-- Cannot save custom views
-- Multi-dimensional filtering requires complex natural language queries
-- No visual indicators for filter results
-- Sorting options are limited and cumbersome
+No charts, graphs, or trend visualizations. For visual analytics, connect your BI tools to [Tallyfy Analytics](/products/pro/integrations/analytics/) instead.
 
-### 4. Interactive analytics visualization
+## Where ChatGPT shines with Tallyfy MCP
 
-Visual analytics in text-based chat? Not happening:
-- No charts or graphs visualization
-- Trend analysis requires textual descriptions
-- Performance metrics lack visual context
-- For visual analytics, connect your BI tools to [Tallyfy Analytics](/products/pro/integrations/analytics/) instead
+### Natural language search
 
-## Ideal use cases for ChatGPT + Tallyfy MCP
-
-Where does ChatGPT actually shine with Tallyfy? Here are the sweet spots:
-
-### 1. Natural language template search
-
-**Strength**: Finding relevant templates using conversational queries.
-
-**Example**:
 ```
 "Find all templates related to employee onboarding that include background check steps"
 ```
 
-ChatGPT searches template names, descriptions, and even the content inside steps. It finds what you're looking for in seconds.
+ChatGPT searches template names, descriptions, and step content - finding what you need in seconds.
 
-### 2. Automated field generation
+### Form field generation
 
-**Strength**: Creating form fields based on process descriptions.
-
-**Example**:
 ```
 "Add appropriate form fields to collect customer feedback in our support process"
 ```
 
-ChatGPT looks at your process context and suggests fields that actually make sense - complete with the right validation rules.
+ChatGPT examines your process context and suggests fields with appropriate validation rules.
 
-### 3. What-if automation scenarios
+### What-if automation scenarios
 
-**Strength**: Testing automation logic before implementation.
-
-**Example**:
 ```
 "If I set up an automation to assign tasks based on deal value, show me how it would route these 5 example deals"
 ```
 
-ChatGPT runs the simulation without touching your live processes. Safe testing.
+ChatGPT runs the simulation without touching your live processes.
 
-### 4. Process documentation updates
+### Process documentation updates
 
-**Strength**: Updating templates based on document changes.
-
-**Example**:
 ```
 "Here's our updated SOX compliance procedure. Update our audit template to match these new requirements, highlighting what changed"
 ```
 
-ChatGPT reads your document, figures out what changed, and updates your template accordingly. Pretty slick.
+ChatGPT reads your document, identifies changes, and updates your template accordingly.
 
-### 5. Template optimization from task patterns
+### Template optimization from task patterns
 
-**Strength**: Identifying recurring ad-hoc tasks that should be formalized.
-
-**Example**:
 ```
 "Analyze one-off tasks added to our hiring processes last month and suggest which should be added to the template"
 ```
 
-ChatGPT spots the patterns and suggests which tasks deserve a permanent home in your template. You decide what makes the cut.
+ChatGPT spots patterns and suggests which ad-hoc tasks deserve a permanent place in your template.
 
-### 6. Complex query answering
+### Complex query answering
 
-**Strength**: Answering specific questions about workflow data with citations.
-
-**Example**:
 ```
 "Which step in our sales process has the longest average completion time, and which team members are fastest at completing it?"
 ```
 
-ChatGPT digs through your data, crunches the numbers, and gives you the answer - complete with links to the specific [processes](/products/pro/tracking-and-tasks/processes/) it analyzed.
+ChatGPT analyzes your data and returns the answer with links to the specific [processes](/products/pro/tracking-and-tasks/processes/) it examined.
 
 ## Security considerations
 
-When connecting ChatGPT to Tallyfy:
+1. **Access control** - Use accounts with minimal required permissions. Consider a dedicated service account for the ChatGPT integration.
 
-1. **API key management**
-   - Use dedicated service accounts with minimal required permissions
-   - Rotate API keys regularly
-   - Monitor API usage for anomalies
+2. **Data sensitivity** - Review which templates and processes contain sensitive information. Audit data access logs regularly.
 
-2. **Data sensitivity**
-   - Review which templates and processes contain sensitive information
-   - Consider creating ChatGPT-specific user roles with restricted access
-   - Audit data access logs regularly
+3. **Prompt injection** - Be cautious of templates or data containing prompt-like text. Verify unexpected ChatGPT behaviors and report suspicious activity to both OpenAI and Tallyfy support.
 
-3. **Prompt injection risks**
-   - Be cautious of templates or data that might contain prompt-like text
-   - Verify unexpected ChatGPT behaviors
-   - Report suspicious activity to both OpenAI and Tallyfy support
+## Known issues
 
-## Known issues and limitations
-
-Current limitations to be aware of:
-
-1. **Deep Research is read-only**: Use Developer Mode for write operations - enable it in ChatGPT Settings → Beta Features → Developer Mode
-2. **Apps SDK available**: For custom UIs alongside MCP servers, explore OpenAI's Apps SDK at developers.openai.com/apps-sdk
-3. **Session timeouts**: Long-running queries may timeout after 60 seconds
-4. **Context window limits**: Large template structures may exceed token limits
-5. **No real-time updates**: Changes made in Tallyfy aren't reflected until next query
-6. **Limited file handling**: Cannot process attachments or generate files
-7. **No webhook support**: Cannot trigger or respond to Tallyfy webhooks
-8. **Terminology note**: OpenAI renamed "connectors" to "apps" in December 2025 - some documentation may still reference the old terminology
+1. **Deep Research is read-only** - Enable Developer Mode in ChatGPT Settings for write operations
+2. **Session timeouts** - Long-running queries may timeout after 60 seconds
+3. **Context window limits** - Large template structures may exceed token limits
+4. **No real-time updates** - Changes in Tallyfy aren't reflected until the next query
+5. **Limited file handling** - Can't process attachments or generate files
+6. **No webhook support** - Can't trigger or respond to Tallyfy webhooks
+7. **Terminology** - OpenAI renamed "connectors" to "apps" in December 2025, so some docs may use the old term
 
 ## Best practices
 
-Want to get the most out of ChatGPT with Tallyfy? Follow these tips:
+1. **Be specific** - Instead of "show me tasks," try "show me high-priority tasks assigned to John due this week"
+2. **Batch requests** - Combine related queries in a single prompt
+3. **Ask for analysis** - Request insights and patterns, not just raw data
+4. **Save effective prompts** - Reuse prompts that work well for common workflows
+5. **Combine with Tallyfy's UI** - Use ChatGPT for analysis and planning, then execute in Tallyfy's visual interface
 
-1. **Use specific queries**: Instead of "show me tasks," use "show me high-priority tasks assigned to John due this week"
+## What's next
 
-2. **Batch related requests**: Combine multiple related queries in a single prompt for efficiency
+- **Write capabilities** - Already available via Developer Mode
+- **OAuth 2.1** - Live now with PKCE and Dynamic Client Registration
+- **Apps SDK** - Build custom UIs alongside MCP servers
+- **Real-time sync** - Live updates between ChatGPT and Tallyfy (coming soon)
 
-3. **Use ChatGPT's analysis**: Ask for insights and patterns, not just data retrieval
-
-4. **Create query templates**: Save effective prompts for common workflows
-
-5. **Combine with native Tallyfy**: Use ChatGPT for analysis and planning, then execute in Tallyfy's visual interface
-
-## Future outlook
-
-What's available now and coming next:
-
-- **Write capabilities**: Already available via Developer Mode - create and modify workflows through ChatGPT
-- **Apps SDK**: Build custom UIs alongside MCP servers for richer experiences
-- **OAuth 2.1 support**: Enhanced security with PKCE authentication flow
-- **Richer UI elements**: Improved representation of visual elements in text
-- **Real-time synchronization**: Live updates between ChatGPT and Tallyfy (coming soon)
-- **Multimodal support**: Potential for image and diagram generation
-
-Both OpenAI and Tallyfy are actively expanding MCP features. MCP is now governed by the Agentic AI Foundation under the Linux Foundation, ensuring continued industry-wide support.
-
-## Conclusion
-
-ChatGPT with Tallyfy MCP Server is powerful for natural language workflow management - but it's not replacing Tallyfy's visual interface anytime soon. Think of them as partners. Use ChatGPT for:
-
-- Complex searches and analysis
-- Automation planning and testing
-- Bulk data queries and insights
-- Template optimization suggestions
-
-Continue using Tallyfy's native interface for:
-
-- Visual process tracking
-- Real-time collaboration
-- Template building and editing
-- Interactive form completion
-
-Together, they're unbeatable.
+OpenAI and Tallyfy are both expanding MCP features. MCP is governed by the Agentic AI Foundation under the Linux Foundation.
 
 ## Related articles
 <CardGrid>

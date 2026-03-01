@@ -1,9 +1,10 @@
 ---
+about_tallyfy: true
 description: Attaching files to form fields via Tallyfy's API requires uploading the
   file to get an asset reference and then updating the task or process to link that
-  asset to the specific form field using the proper endpoint and field identifiers.
+  asset to the specific form field.
 id: 6986d6737164c1eee6a6786dc96e5277
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Upload & attach file
@@ -11,51 +12,53 @@ title: Upload & attach file
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Attaching files (like images or documents) to form fields via Tallyfy's API usually involves two main steps for files stored locally on your system:
+Attaching files to form fields via Tallyfy's API is a two-step process:
 
-1.  **Upload the file:** Send the file content to Tallyfy's file endpoint to get an asset reference.
-2.  **Update the task/process:** Use the asset reference obtained in step 1 to update the corresponding task or process, linking the file to the specific form field.
+1. **Upload the file** - send the file to Tallyfy's upload endpoint and get back an asset object.
+2. **Attach to the field** - use that asset object to update the task or template, linking the file to the right form field.
 
-Alternatively, for files already hosted publicly online, you might be able to link them directly in a single step (see Method 2 in the older article content, though this might be less common and subject to change - prioritize the upload method).
+## Step 1 - Upload the file
 
-### Method 1: Upload a local file (Recommended)
+### Endpoint
 
-### Step 1: Upload the file
-
-#### Endpoint
 `POST /organizations/{org_id}/file`
 
-#### Request type
+Both `/file` and `/assets` route to the same handler, but `/file` is the standard endpoint for uploads.
+
+### Request type
+
 `multipart/form-data`
 
-This request uploads the raw file data. It requires specific form data fields to correctly categorize the upload.
+### Headers
 
-#### Headers
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
--   *(Content-Type header will be set automatically by your HTTP client for multipart/form-data)*
+Don't set `Content-Type` manually - your HTTP client sets it automatically for multipart requests.
 
-#### Form data fields (required)
+### Form data fields
 
-| Field | Description | Example Value |
-|---|---|---|
-| `name` | The actual file binary data. | *(Select file in your client)* |
-| `uploaded_from` | Context of upload. For **Tasks**, use the **Form Field ID (Capture ID)**. For **Kick-off**, use `ko_field`. | `capture_id_abc123` or `ko_field` |
-| `subject_type` | Type of object the file relates to. | `Run` (for Tasks) or `Checklist` (for Kick-off) |
-| `subject_id` | ID of the object type. | `{run_id}` (for Tasks) or `{checklist_id}` (for Kick-off) |
-| `source` | How the file is provided. | `local` |
-| `step_id` | **Required only for Tasks.** The ID of the **Step** within the template that the task belongs to. | `step_id_xyz789` |
-| `checklist_id` | **Required only for Tasks.** The ID of the template (Checklist) that the process run was launched from. | `template_id_efg456` |
+| Field | Required | Description | Example |
+|---|---|---|---|
+| `name` | Yes | The file binary data (max 100MB) | *(file input)* |
+| `subject_id` | Yes | ID of the parent object - `run_id` for tasks, `checklist_id` for kick-off | `run_abc123` |
+| `subject_type` | Yes | `Run` for task fields, `Checklist` for kick-off fields | `Run` |
+| `uploaded_from` | Yes | The form field's Capture ID for tasks, or `ko_field` for kick-off fields | `capture_id_abc123` |
+| `source` | No | How the file is provided - `local` or `url` | `local` |
+| `step_id` | No | Step ID within the template (only for task uploads) | `step_xyz789` |
+| `checklist_id` | No | Template ID the process was launched from (only for task uploads) | `template_efg456` |
+| `system` | No | External storage system if applicable | `Dropbox`, `Google Drive`, etc. |
+
+### Allowed file types
+
+The API accepts these extensions: `xlsx`, `xls`, `pptx`, `docx`, `ppt`, `doc`, `rtf`, `pdf`, `txt`, `mpga`, `mov`, `qt`, `mp4`, `webm`, `jpg`, `jpeg`, `gif`, `png`, `ai`, `psd`, `zip`, `xml`, `xps`, `dwg`, `csv`, `tif`, `bmp`.
 
 :::tip[Finding IDs]
--   Form Field IDs (`uploaded_from` for tasks), Step IDs, Run IDs, Checklist IDs can often be found by using the `GET` endpoints for Tasks, Processes (Runs), or Templates with the `with` parameter (e.g., `with=step,form_fields`).
+You can find form field IDs (Capture IDs), step IDs, run IDs, and checklist IDs by calling the `GET` endpoints for tasks, processes, or templates with the `with` parameter (e.g., `with=step,form_fields`).
 :::
 
-#### Code samples for Step 1: Upload
-
-(Note: Handling `multipart/form-data` varies significantly between languages and libraries. These are conceptual examples.)
+### Code samples for upload
 
 <Tabs>
 <TabItem label="Javascript">
@@ -64,75 +67,56 @@ const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/file`;
 
-// --- For Task Field ---
-const formFieldId = 'CAPTURE_ID_OF_FILE_FIELD'; 
+// --- For task field ---
+const formFieldId = 'CAPTURE_ID_OF_FILE_FIELD';
 const runId = 'PROCESS_RUN_ID';
-const stepId = 'STEP_ID_CONTAINING_FIELD'; 
-const checklistId = 'TEMPLATE_ID_OF_RUN'; 
-// --- OR For Kick-off Field ---
-// const prerunFieldId = 'ko_field'; // Use 'ko_field' for uploaded_from
+const stepId = 'STEP_ID_CONTAINING_FIELD';
+const checklistId = 'TEMPLATE_ID_OF_RUN';
+
+// --- OR for kick-off field ---
 // const checklistIdForKO = 'TEMPLATE_ID_WITH_KICKOFF';
 
-// Assume 'fileInput' is an HTML <input type="file"> element
 const fileInput = document.getElementById('yourFileInputId');
-if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-  console.error("No file selected or file input not found!");
-  // Stop execution or handle error appropriately
-  throw new Error("File input error.");
+if (!fileInput?.files?.length) {
+  throw new Error('No file selected.');
 }
 const file = fileInput.files[0];
-
 
 const formData = new FormData();
 formData.append('name', file, file.name);
 formData.append('source', 'local');
 
-// --- Populate based on target (Task or Kick-off) ---
-// Example for Task Field:
+// For task field:
 formData.append('uploaded_from', formFieldId);
 formData.append('subject_type', 'Run');
 formData.append('subject_id', runId);
 formData.append('step_id', stepId);
 formData.append('checklist_id', checklistId);
 
-// Example for Kick-off Field:
-// formData.append('uploaded_from', 'ko_field'); 
+// For kick-off field:
+// formData.append('uploaded_from', 'ko_field');
 // formData.append('subject_type', 'Checklist');
 // formData.append('subject_id', checklistIdForKO);
-// --- End Target Specific ---
 
-const headers = new Headers();
-headers.append('Authorization', `Bearer ${accessToken}`);
-headers.append('Accept', 'application/json');
-headers.append('X-Tallyfy-Client', 'APIClient');
-// Content-Type is set automatically by fetch for FormData
-
-fetch(apiUrl, {
-    method: 'POST',
-    headers: headers,
-    body: formData 
-})
-.then(response => {
-    if (!response.ok) {
-        // Try to parse error JSON, fallback to text
-        return response.json()
-            .catch(() => response.text()) // If JSON parsing fails
-            .then(errData => { 
-                console.error("Upload failed:", errData);
-                throw new Error(`HTTP error! status: ${response.status}`); 
-            });
-    }
-    return response.json();
-})
-.then(data => {
-    console.log('Successfully uploaded file. Asset data:');
-    console.log(JSON.stringify(data, null, 2));
-    // NOW PROCEED TO STEP 2 using data.data[0] (or similar based on actual response)
-    // Example: const assetObject = data.data[0]; attachFileToTask(assetObject);
-})
-.catch(error => {
-    console.error('Error uploading file:', error.message);
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient'
+  },
+  body: formData
 });
+
+if (!response.ok) {
+  const errData = await response.json().catch(() => response.text());
+  console.error('Upload failed:', errData);
+  throw new Error(`HTTP error! status: ${response.status}`);
+}
+
+const result = await response.json();
+console.log('Uploaded file asset:', JSON.stringify(result, null, 2));
+// Use result.data for Step 2
 ```
 </TabItem>
 <TabItem label="Python">
@@ -145,25 +129,24 @@ access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKE
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/file'
 
-# --- For Task Field ---
+# --- For task field ---
 form_field_id = 'CAPTURE_ID_OF_FILE_FIELD'
 run_id = 'PROCESS_RUN_ID'
 step_id = 'STEP_ID_CONTAINING_FIELD'
 checklist_id = 'TEMPLATE_ID_OF_RUN'
-# --- OR For Kick-off Field ---
+
+# --- OR for kick-off field ---
 # checklist_id_for_ko = 'TEMPLATE_ID_WITH_KICKOFF'
 
-file_path = '/path/to/your/local/document.pdf' # Make sure this file exists
+file_path = '/path/to/your/local/document.pdf'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
     'Accept': 'application/json',
     'X-Tallyfy-Client': 'APIClient'
-    # Content-Type is set by requests for files parameter
 }
 
-# --- Populate based on target ---
-# Example for Task Field:
+# For task field:
 form_data = {
     'uploaded_from': (None, form_field_id),
     'subject_type': (None, 'Run'),
@@ -173,59 +156,36 @@ form_data = {
     'source': (None, 'local')
 }
 
-# Example for Kick-off Field:
+# For kick-off field:
 # form_data = {
 #     'uploaded_from': (None, 'ko_field'),
 #     'subject_type': (None, 'Checklist'),
 #     'subject_id': (None, checklist_id_for_ko),
 #     'source': (None, 'local')
 # }
-# --- End Target Specific ---
 
 response = None
 try:
     with open(file_path, 'rb') as f:
-        # 'name' field holds the file data
-        files = {
-            'name': (os.path.basename(file_path), f) # Let requests determine Content-Type
-        }
-        # Pass other fields as 'data'
+        files = {'name': (os.path.basename(file_path), f)}
         response = requests.post(api_url, headers=headers, data=form_data, files=files)
-        
-    response.raise_for_status() # Check for 4xx/5xx errors
+
+    response.raise_for_status()
     asset_data = response.json()
-    print('Successfully uploaded file. Asset data:')
+    print('Uploaded file asset:')
     print(json.dumps(asset_data, indent=4))
-    
-    # Extract the asset object for Step 2
-    if asset_data.get('data') and len(asset_data['data']) > 0:
-         asset_object = asset_data['data'][0]
-         print("Asset object for Step 2:", asset_object)
-         # NOW PROCEED TO STEP 2 using asset_object
-         # e.g., attach_file_to_task(org_id, run_id, task_id, form_field_id, asset_object, access_token)
-    else:
-         print("Warning: No asset data found in the response.")
+    # Use asset_data['data'] for Step 2
 
 except FileNotFoundError:
-    print(f"Error: File not found at {file_path}")
+    print(f'Error: File not found at {file_path}')
 except requests.exceptions.RequestException as e:
-    print(f"Request failed: {e}")
+    print(f'Request failed: {e}')
     if response is not None:
-        print(f"Status Code: {response.status_code}")
-        print(f"Response Body: {response.text}")
-except json.JSONDecodeError:
-    print("Failed to decode JSON response")
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except Exception as ex:
-    print(f"An unexpected error occurred: {ex}")
+        print(f'Status: {response.status_code}, Body: {response.text}')
 ```
 </TabItem>
 <TabItem label="Java">
 ```java
-// Requires a library like Apache HttpClient 5 for robust multipart handling
-// Standard Java HttpClient requires manual body construction which is complex.
-// This example uses Apache HttpClient 5 (add dependency: org.apache.httpcomponents.client5:httpclient5)
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
 import org.apache.hc.client5.http.entity.mime.FileBody;
@@ -243,15 +203,12 @@ public class UploadFileApache {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/file";
-        File fileToUpload = new File("/path/to/your/document.pdf"); // Ensure this exists
-        
-        // --- For Task Field ---
-        String formFieldId = "CAPTURE_ID_OF_FILE_FIELD"; 
+        File fileToUpload = new File("/path/to/your/document.pdf");
+
+        String formFieldId = "CAPTURE_ID_OF_FILE_FIELD";
         String runId = "PROCESS_RUN_ID";
-        String stepId = "STEP_ID_CONTAINING_FIELD"; 
-        String checklistId = "TEMPLATE_ID_OF_RUN"; 
-        // --- OR For Kick-off Field ---
-        // String checklistIdForKO = "TEMPLATE_ID_WITH_KICKOFF";
+        String stepId = "STEP_ID_CONTAINING_FIELD";
+        String checklistId = "TEMPLATE_ID_OF_RUN";
 
         if (!fileToUpload.exists()) {
             System.err.println("File not found: " + fileToUpload.getPath());
@@ -264,50 +221,35 @@ public class UploadFileApache {
             httpPost.setHeader("Accept", "application/json");
             httpPost.setHeader("X-Tallyfy-Client", "APIClient");
 
-            // Create multipart entity
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-            builder.addPart("name", new FileBody(fileToUpload)); // The file itself
+            builder.addPart("name", new FileBody(fileToUpload));
             builder.addTextBody("source", "local", ContentType.TEXT_PLAIN);
-
-            // --- Add other fields based on target ---
-            // Example for Task:
             builder.addTextBody("uploaded_from", formFieldId, ContentType.TEXT_PLAIN);
             builder.addTextBody("subject_type", "Run", ContentType.TEXT_PLAIN);
             builder.addTextBody("subject_id", runId, ContentType.TEXT_PLAIN);
             builder.addTextBody("step_id", stepId, ContentType.TEXT_PLAIN);
             builder.addTextBody("checklist_id", checklistId, ContentType.TEXT_PLAIN);
-            // Example for Kick-off:
-            // builder.addTextBody("uploaded_from", "ko_field", ContentType.TEXT_PLAIN);
-            // builder.addTextBody("subject_type", "Checklist", ContentType.TEXT_PLAIN);
-            // builder.addTextBody("subject_id", checklistIdForKO, ContentType.TEXT_PLAIN);
-            // --- End Target Specific ---
 
-            HttpEntity multipart = builder.build();
-            httpPost.setEntity(multipart);
+            httpPost.setEntity(builder.build());
 
-            // Execute and get response
-            String responseBody = client.execute(httpPost, response -> {
+            client.execute(httpPost, response -> {
                 int status = response.getCode();
                 HttpEntity entity = response.getEntity();
                 String body = entity != null ? EntityUtils.toString(entity) : null;
                 if (status >= 200 && status < 300) {
                     System.out.println("Upload successful:");
                     System.out.println(body);
-                    // TODO: Parse the JSON response body to get the asset object for Step 2
-                    // Example: JsonNode assetNode = new ObjectMapper().readTree(body).path("data").path(0);
+                    // Parse body JSON to get asset object for Step 2
                 } else {
                     System.err.println("Upload failed. Status: " + status);
                     System.err.println("Response: " + body);
                 }
-                 return body; // Or handle parsed data
+                return body;
             });
 
         } catch (IOException e) {
-             System.err.println("Request execution failed: " + e.getMessage());
-             e.printStackTrace();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
@@ -325,29 +267,25 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"io/ioutil"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/file", orgId)
-    filePath := "/path/to/your/image.png" // Ensure this file exists
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/file", orgId)
+	filePath := "/path/to/your/image.png"
 
-    // --- For Task Field ---
-    formFieldId := "CAPTURE_ID_OF_FILE_FIELD"
-    runId := "PROCESS_RUN_ID"
-    stepId := "STEP_ID_CONTAINING_FIELD"
-    checklistId := "TEMPLATE_ID_OF_RUN"
-    // --- OR For Kick-off Field ---
-    // checklistIdForKO := "TEMPLATE_ID_WITH_KICKOFF"
+	formFieldId := "CAPTURE_ID_OF_FILE_FIELD"
+	runId := "PROCESS_RUN_ID"
+	stepId := "STEP_ID_CONTAINING_FIELD"
+	checklistId := "TEMPLATE_ID_OF_RUN"
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Error opening file %s: %v\n", filePath, err)
+		fmt.Printf("Error opening file: %v\n", err)
 		return
 	}
 	defer file.Close()
@@ -355,7 +293,6 @@ func main() {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	// Add file part ("name" is the field name for the file itself)
 	part, err := writer.CreateFormFile("name", filepath.Base(filePath))
 	if err != nil {
 		fmt.Printf("Error creating form file: %v\n", err)
@@ -367,30 +304,22 @@ func main() {
 		return
 	}
 
-	// --- Add other form fields based on target ---
-    // Example for Task:
-    _ = writer.WriteField("uploaded_from", formFieldId)
-    _ = writer.WriteField("subject_type", "Run")
-    _ = writer.WriteField("subject_id", runId)
-    _ = writer.WriteField("step_id", stepId)
-    _ = writer.WriteField("checklist_id", checklistId)
-    _ = writer.WriteField("source", "local")
-    // Example for Kick-off:
-    // _ = writer.WriteField("uploaded_from", "ko_field")
-    // _ = writer.WriteField("subject_type", "Checklist")
-    // _ = writer.WriteField("subject_id", checklistIdForKO)
-    // _ = writer.WriteField("source", "local")
-    // --- End Target Specific ---
-    
-	err = writer.Close() // Close writer *before* creating the request
+	_ = writer.WriteField("uploaded_from", formFieldId)
+	_ = writer.WriteField("subject_type", "Run")
+	_ = writer.WriteField("subject_id", runId)
+	_ = writer.WriteField("step_id", stepId)
+	_ = writer.WriteField("checklist_id", checklistId)
+	_ = writer.WriteField("source", "local")
+
+	err = writer.Close()
 	if err != nil {
 		fmt.Printf("Error closing multipart writer: %v\n", err)
 		return
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	req, err := http.NewRequest("POST", apiUrl, body)
-    if err != nil {
+	if err != nil {
 		fmt.Printf("Error creating request: %v\n", err)
 		return
 	}
@@ -398,19 +327,18 @@ func main() {
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
-    // Set Content-Type *after* closing the writer
-    req.Header.Set("Content-Type", writer.FormDataContentType()) 
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := client.Do(req)
-    if err != nil {
+	if err != nil {
 		fmt.Printf("Error executing request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	respBody, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response: %v\n", err)
 		return
 	}
 
@@ -419,107 +347,9 @@ func main() {
 		return
 	}
 
-	fmt.Println("Successfully uploaded file:")
+	fmt.Println("Upload successful:")
 	fmt.Println(string(respBody))
-    // TODO: Unmarshal JSON from respBody and extract the asset object for Step 2
-    // e.g., var result map[string]interface{}; json.Unmarshal(respBody, &result)
-}
-```
-</TabItem>
-<TabItem label="C++">
-```cpp
-// C++ multipart/form-data requires a library like C++ REST SDK (Casablanca)
-// or Boost.Beast, or manual construction. This uses Casablanca.
-#include <iostream>
-#include <string>
-#include <fstream>
-#include <vector>
-#include <cpprest/http_client.h>
-#include <cpprest/filestream.h>
-
-using namespace web;
-using namespace web::http;
-using namespace web::http::client;
-using namespace concurrency::streams;
-
-pplx::task<void> UploadFileAsset(const utility::string_t& filePath)
-{
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
-    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/file");
-
-    // --- For Task Field ---
-    utility::string_t formFieldId = U("CAPTURE_ID_OF_FILE_FIELD"); 
-    utility::string_t runId = U("PROCESS_RUN_ID");
-    utility::string_t stepId = U("STEP_ID_CONTAINING_FIELD"); 
-    utility::string_t checklistId = U("TEMPLATE_ID_OF_RUN"); 
-    // --- OR For Kick-off Field ---
-    // utility::string_t checklistIdForKO = U("TEMPLATE_ID_WITH_KICKOFF");
-
-    // Open file stream
-    return file_stream<unsigned char>::open_istream(filePath).then([=](istream fileStream)
-    {
-        http_client client(apiUrl);
-        http_request request(methods::POST);
-
-        request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
-        request.headers().add(U("Accept"), U("application/json"));
-        request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-        
-        // Construct multipart body (Casablanca doesn't have direct multipart builder)
-        // This requires manual construction or a helper library/function.
-        // CONCEPTUAL: You would build a body string like:
-        // --boundary
-        // Content-Disposition: form-data; name="source"
-        // 
-        // local
-        // --boundary
-        // Content-Disposition: form-data; name="subject_type"
-        // 
-        // Run
-        // ... other text fields ...
-        // --boundary
-        // Content-Disposition: form-data; name="name"; filename="yourfile.pdf"
-        // Content-Type: application/octet-stream 
-        // 
-        // [RAW FILE BYTES]
-        // --boundary--
-        // Set request.set_body(...) with the constructed body and correct Content-Type: multipart/form-data; boundary=...
-
-        std::wcerr << L"C++ REST SDK requires manual multipart/form-data construction or a helper library." << std::endl;
-        std::wcerr << L"Conceptual Step 1: Upload file content via POST request." << std::endl;
-        // For a real implementation, replace the line below with actual multipart request logic.
-        return pplx::task_from_result(); // Placeholder
-
-        /* Example using a hypothetical multipart helper:
-        MultipartBodyBuilder builder;
-        builder.add_text_field(U("source"), U("local"));
-        builder.add_text_field(U("uploaded_from"), formFieldId); // For Task
-        builder.add_text_field(U("subject_type"), U("Run")); // For Task
-        builder.add_text_field(U("subject_id"), runId); // For Task
-        builder.add_text_field(U("step_id"), stepId); // For Task
-        builder.add_text_field(U("checklist_id"), checklistId); // For Task
-        builder.add_file_field(U("name"), filePath, fileStream);
-
-        request.set_body(builder.build_body());
-        request.headers().set_content_type(builder.content_type());
-
-        return client.request(request).then([](http_response response)
-        {
-            // ... handle response, extract JSON for Step 2 ...
-        });
-        */
-    });
-}
-
-int main() {
-    utility::string_t fileToUpload = U("/path/to/your/document.pdf");
-    try {
-        UploadFileAsset(fileToUpload).wait();
-    } catch (const std::exception &e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-    }
-    return 0;
+	// Parse JSON to extract asset object for Step 2
 }
 ```
 </TabItem>
@@ -530,25 +360,21 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using System.Text.Json; // For parsing response
 
 public class TallyfyFileUpload
 {
     private static readonly HttpClient client = new HttpClient();
 
-    public static async Task<string> UploadFileStep1Async(string filePath)
+    public static async Task<string> UploadFileAsync(string filePath)
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
-        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/file";
 
-        // --- For Task Field ---
-        string formFieldId = "CAPTURE_ID_OF_FILE_FIELD"; 
+        string formFieldId = "CAPTURE_ID_OF_FILE_FIELD";
         string runId = "PROCESS_RUN_ID";
-        string stepId = "STEP_ID_CONTAINING_FIELD"; 
-        string checklistId = "TEMPLATE_ID_OF_RUN"; 
-        // --- OR For Kick-off Field ---
-        // string checklistIdForKO = "TEMPLATE_ID_WITH_KICKOFF";
+        string stepId = "STEP_ID_CONTAINING_FIELD";
+        string checklistId = "TEMPLATE_ID_OF_RUN";
 
         if (!File.Exists(filePath)) {
             Console.WriteLine($"Error: File not found at {filePath}");
@@ -563,25 +389,13 @@ public class TallyfyFileUpload
         using var form = new MultipartFormDataContent();
         using var fileStream = File.OpenRead(filePath);
         using var streamContent = new StreamContent(fileStream);
-        // You might need to set Content-Type explicitly for the file if not detected correctly
-        // streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf"); 
-        form.Add(streamContent, "name", Path.GetFileName(filePath)); // "name" is the API field for the file
-
-        // Add other required fields
+        form.Add(streamContent, "name", Path.GetFileName(filePath));
         form.Add(new StringContent("local"), "source");
-
-        // --- Add fields based on target ---
-        // Example for Task:
         form.Add(new StringContent(formFieldId), "uploaded_from");
         form.Add(new StringContent("Run"), "subject_type");
         form.Add(new StringContent(runId), "subject_id");
         form.Add(new StringContent(stepId), "step_id");
         form.Add(new StringContent(checklistId), "checklist_id");
-        // Example for Kick-off:
-        // form.Add(new StringContent("ko_field"), "uploaded_from");
-        // form.Add(new StringContent("Checklist"), "subject_type");
-        // form.Add(new StringContent(checklistIdForKO), "subject_id");
-        // --- End Target Specific ---
 
         request.Content = form;
 
@@ -592,201 +406,168 @@ public class TallyfyFileUpload
 
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("Successfully uploaded file (Step 1):");
+                Console.WriteLine("Upload successful:");
                 Console.WriteLine(responseBody);
-                // Return the response body (contains asset object) for Step 2
-                return responseBody; 
+                return responseBody;
             }
             else
             {
-                Console.WriteLine($"File upload failed. Status: {response.StatusCode}");
+                Console.WriteLine($"Upload failed. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
                 return null;
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception during upload: {e.Message}");
-            return null;
-        }
-         catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred during upload: {ex.Message}");
+            Console.WriteLine($"Request error: {e.Message}");
             return null;
         }
     }
-
-    // Example usage: Call this, then parse the result and call Step 2
-    // static async Task Main(string[] args)
-    // {
-    //     string uploadResponseJson = await UploadFileStep1Async("/path/to/your/file.pdf");
-    //     if (uploadResponseJson != null) {
-    //         // Parse uploadResponseJson to get asset object (e.g., using System.Text.Json)
-    //         // JsonDocument doc = JsonDocument.Parse(uploadResponseJson);
-    //         // JsonElement assetElement = doc.RootElement.GetProperty("data")[0];
-    //         // Now call Step 2 function: await AttachFileStep2Async(assetElement);
-    //     }
-    // }
 }
 ```
 </TabItem>
 </Tabs>
 
-#### Response examples for Step 1: Upload
+### Upload response
 
-A successful upload returns `200 OK` and a JSON response containing an array usually with one element: the asset object representing the uploaded file. You'll need this object for Step 2.
+A successful upload returns `200 OK` with the asset object wrapped in `data`. You'll need this object for Step 2.
 
 ```json
 {
-  "data": [
-    {
-      "id": "asset_id_abc123xyz", // The Asset ID
-      "filename": "document.pdf",
-      "version": 1,
-      "step_id": "step_id_xyz789", // If uploaded for a task
-      "uploaded_from": "capture_id_abc123", // Form Field ID or ko_field
-      "subject": {
-        "id": "run_id_or_checklist_id",
-        "type": "Run" // or "Checklist"
-      },
-      "url": "/internal/url/not/usually/needed/directly",
-      "uploaded_at": "2023-01-15T10:00:00Z"
-      // Potentially other fields like uploaded_to_s3
+  "data": {
+    "id": "asset_id_abc123xyz",
+    "filename": "document.pdf",
+    "version": 1,
+    "uploaded_from": "capture_id_abc123",
+    "uploaded_at": "2024-01-15T10:00:00Z",
+    "step_id": "step_id_xyz789",
+    "source": "local",
+    "system": null,
+    "uploaded_to_s3": true,
+    "subject": {
+      "id": "run_id_abc",
+      "type": "Run"
     }
-  ]
+  }
 }
 ```
 
-**Extract the entire object** within the `data` array (e.g., `response.data[0]` in JavaScript) for the next step.
+## Step 2 - Attach the uploaded file to a field
 
-### Step 2: Attach uploaded file to field
+Use the asset object from Step 1 to update the task or template, linking the file to the form field.
 
-Now, use the asset object obtained from Step 1 to update the specific task or process run, linking the file to the form field.
+### Endpoint
 
-#### Endpoint
+- **Task field:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
+- **Kick-off field:** `PUT /organizations/{org_id}/checklists/{checklist_id}`
 
--   **Process Task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
--   **Kick-off Form:** `PUT /organizations/{org_id}/checklists/{checklist_id}` (Modify the `prerun` field in the template update payload)
+### Request type
 
-#### Request type
 `application/json`
 
-#### Headers
+### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
--   `Content-Type: application/json`
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
+- `Content-Type: application/json`
 
-#### Body JSON for task fields
+### Body for task fields
 
-Update the task using its endpoint. The body should include a `taskdata` object targeting the file field ID. The value should be an **array containing the asset object** from Step 1.
+The `taskdata` object uses the form field's Capture ID as the key. The value is an **array containing the asset object** from Step 1.
 
 ```json
 {
   "taskdata": {
     "CAPTURE_ID_OF_FILE_FIELD": [
-       {
-          "id": "asset_id_abc123xyz", 
-          "filename": "document.pdf",
-          "version": 1,
-          "step_id": "step_id_xyz789", 
-          "uploaded_from": "capture_id_abc123",
-          "subject": {
-            "id": "run_id_or_checklist_id",
-            "type": "Run"
-          },
-          "url": "...",
-          "uploaded_at": "...",
-          "uploaded_to_s3": true
-       }
+      {
+        "id": "asset_id_abc123xyz",
+        "filename": "document.pdf",
+        "version": 1,
+        "uploaded_from": "capture_id_abc123",
+        "uploaded_at": "2024-01-15T10:00:00Z",
+        "step_id": "step_id_xyz789",
+        "source": "local",
+        "uploaded_to_s3": true,
+        "subject": {
+          "id": "run_id_abc",
+          "type": "Run"
+        }
+      }
     ]
   }
-  // You can include other task updates here too (e.g., summary, deadline)
 }
 ```
 
-#### Body JSON for kick-off fields
+### Body for kick-off fields
 
-Update the template using its endpoint. The body needs to include the `prerun` array, modifying the entry for your file field. The `value` for the file field should be an **array containing the asset object** from Step 1.
+Update the template's `prerun` array. Set the `value` for your file field to an **array containing the asset object** from Step 1.
 
 ```json
 {
   "prerun": [
-    // ... other prerun fields (MUST include their existing IDs and values or they might be removed) ...
     {
-      "id": "PRERUN_FIELD_ID_FOR_FILE", // ID of the kick-off field
-      // It's safest to fetch the existing prerun fields first and modify only the target one.
-      // Include other necessary properties for this field (like label, field_type, required etc.).
-      "value": [ // The value is an array containing the asset object
-          // Paste the entire asset object from Step 1 response's data[0] here
-          {
-             "id": "asset_id_abc123xyz", 
-             "filename": "document.pdf",
-             // ... all other fields from Step 1 data[0] ...
+      "id": "PRERUN_FIELD_ID_FOR_FILE",
+      "value": [
+        {
+          "id": "asset_id_abc123xyz",
+          "filename": "document.pdf",
+          "version": 1,
+          "uploaded_from": "ko_field",
+          "uploaded_at": "2024-01-15T10:00:00Z",
+          "source": "local",
+          "uploaded_to_s3": true,
+          "subject": {
+            "id": "checklist_id_abc",
+            "type": "Checklist"
           }
+        }
       ]
     }
-    // ... other prerun fields ...
   ]
-  // Include other template updates if needed (e.g., title)
 }
 ```
 
-:::caution[Updating Arrays (Prerun/Taskdata)]
-When updating fields that expect arrays (like file fields or multi-selects), ensure you provide the *complete* array value you want to set. Sending just the new item might overwrite existing items.
-
-For `prerun`, when updating one kick-off field, you typically need to send the *entire* `prerun` array containing all other kick-off fields with their current values, otherwise they might be removed or reset. Fetch the template first to get the current structure.
+:::caution[Don't lose existing prerun fields]
+When updating kick-off fields, you need to send the **entire** `prerun` array with all fields. If you only send the file field, other kick-off fields may get removed. Fetch the template first with `GET /organizations/{org_id}/checklists/{checklist_id}` to get the current structure.
 :::
 
-#### Code samples for Step 2: Attach file to task
+### Code samples for attaching
 
-(These examples assume you have the `assetObject` from the Step 1 response and the necessary IDs: `orgId`, `runId`, `taskId`, `formFieldId`)
+These examples assume you have the `assetObject` from Step 1 and the required IDs.
 
 <Tabs>
 <TabItem label="Javascript">
 ```javascript
 async function attachFileToTask(assetObject, orgId, runId, taskId, formFieldId, accessToken) {
   const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/tasks/${taskId}`;
-  
+
   const payload = {
     taskdata: {
-      [formFieldId]: [assetObject] // Key is the Form Field ID, value is array with asset object
+      [formFieldId]: [assetObject]
     }
-    // Add other task updates if needed
   };
 
-  const headers = new Headers();
-  headers.append('Authorization', `Bearer ${accessToken}`);
-  headers.append('Accept', 'application/json');
-  headers.append('X-Tallyfy-Client', 'APIClient');
-  headers.append('Content-Type', 'application/json');
+  const response = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'X-Tallyfy-Client': 'APIClient',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
 
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'PUT',
-      headers: headers,
-      body: JSON.stringify(payload)
-    });
+  const responseData = await response.json();
 
-    const responseData = await response.json(); // Try parsing JSON regardless of status for error details
-
-    if (!response.ok) {
-      console.error("Failed to attach file to task:", responseData);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    console.log("Successfully attached file to task:");
-    console.log(JSON.stringify(responseData, null, 2));
-
-  } catch (error) {
-    console.error('Error attaching file:', error.message);
+  if (!response.ok) {
+    console.error('Failed to attach file:', responseData);
+    throw new Error(`HTTP error! status: ${response.status}`);
   }
-}
 
-// Example Usage (after getting assetObject from Step 1):
-// const assetFromStep1 = { id: 'asset_id...', filename: '...', ... };
-// attachFileToTask(assetFromStep1, 'orgId', 'runId', 'taskId', 'formFieldId', 'token');
+  console.log('File attached successfully:', JSON.stringify(responseData, null, 2));
+}
 ```
 </TabItem>
 <TabItem label="Python">
@@ -796,12 +577,11 @@ import json
 
 def attach_file_to_task(org_id, run_id, task_id, form_field_id, asset_object, access_token):
     api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}'
-    
+
     payload = {
-        "taskdata": {
-            form_field_id: [asset_object] # Dynamic key for form field ID
+        'taskdata': {
+            form_field_id: [asset_object]
         }
-        # Add other task updates here if needed
     }
 
     headers = {
@@ -810,31 +590,14 @@ def attach_file_to_task(org_id, run_id, task_id, form_field_id, asset_object, ac
         'X-Tallyfy-Client': 'APIClient',
         'Content-Type': 'application/json'
     }
-    
-    response = None
-    try:
-        response = requests.put(api_url, headers=headers, json=payload)
-        response.raise_for_status() 
 
-        updated_task = response.json()
-        print("Successfully attached file to task:")
-        print(json.dumps(updated_task, indent=4))
-        return updated_task
+    response = requests.put(api_url, headers=headers, json=payload)
+    response.raise_for_status()
 
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to attach file to task {task_id}: {e}")
-        if response is not None:
-            print(f"Status: {response.status_code}, Response: {response.text}")
-        return None
-    except json.JSONDecodeError:
-        print("Failed to decode JSON response from attach step")
-        if response is not None:
-             print(f"Response Text: {response.text}")
-        return None
-
-# Example Usage (after getting asset_object from Step 1):
-# asset_from_step1 = {'id': 'asset_id...', 'filename': '...', ...}
-# attach_file_to_task('org_id', 'run_id', 'task_id', 'form_field_id', asset_from_step1, 'token')
+    updated_task = response.json()
+    print('File attached successfully:')
+    print(json.dumps(updated_task, indent=4))
+    return updated_task
 ```
 </TabItem>
 <TabItem label="Java">
@@ -844,46 +607,19 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Requires a JSON library like Jackson or Gson
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import com.fasterxml.jackson.databind.node.ObjectNode;
-// import com.fasterxml.jackson.databind.node.ArrayNode;
 
 public class AttachFile {
 
-    public static void attachFileToTask(String orgId, String runId, String taskId, String formFieldId, String assetJsonString, String accessToken) {
-        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId);
-        
-        // --- Constructing JSON payload --- 
-        // Using a library like Jackson is highly recommended
-        /* Example using Jackson:
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode assetObjectNode; 
-        try {
-             assetObjectNode = (ObjectNode) mapper.readTree(assetJsonString); // Parse asset JSON from step 1
-        } catch (Exception e) {
-             System.err.println("Failed to parse asset JSON: " + e.getMessage());
-             return;
-        }
-        ArrayNode assetArray = mapper.createArrayNode().add(assetObjectNode);
-        ObjectNode taskData = mapper.createObjectNode().set(formFieldId, assetArray);
-        ObjectNode payload = mapper.createObjectNode().set("taskdata", taskData);
-        String jsonPayload; 
-        try {
-            jsonPayload = mapper.writeValueAsString(payload);
-        } catch (Exception e) {
-            System.err.println("Failed to serialize payload: " + e.getMessage());
-            return;
-        }
-        */
-        
-        // Manual JSON String construction (less robust):
-         String jsonPayload = String.format(
-             "{\"taskdata\": {\"%s\": [%s]}}", 
-             formFieldId, 
-             assetJsonString // Assumes assetJsonString is the valid JSON object string from step 1
-         );
-         // --- End JSON construction --- 
+    public static void attachFileToTask(String orgId, String runId, String taskId,
+                                         String formFieldId, String assetJsonString,
+                                         String accessToken) {
+        String apiUrl = String.format(
+            "https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s",
+            orgId, runId, taskId);
+
+        String jsonPayload = String.format(
+            "{\"taskdata\": {\"%s\": [%s]}}",
+            formFieldId, assetJsonString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -897,12 +633,11 @@ public class AttachFile {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
             if (response.statusCode() == 200) {
-                System.out.println("Successfully attached file to task " + taskId + ":");
+                System.out.println("File attached to task " + taskId + ":");
                 System.out.println(response.body());
             } else {
-                System.err.println("Failed to attach file. Status: " + response.statusCode());
+                System.err.println("Failed. Status: " + response.statusCode());
                 System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
@@ -910,12 +645,6 @@ public class AttachFile {
             Thread.currentThread().interrupt();
         }
     }
-
-    // Example Usage (get assetJson from Step 1 first)
-    // public static void main(String[] args) { 
-    //    String assetJson = "{\"id\": \"asset_id...\", ...}"; 
-    //    attachFileToTask("orgId", "runId", "taskId", "formFieldId", assetJson, "token");
-    // }
 }
 ```
 </TabItem>
@@ -927,21 +656,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-    "time"
+	"time"
 )
 
-// assetObject should be the map[string]interface{} or struct from Step 1 response
-func attachFileToTask(orgId, runId, taskId, formFieldId string, assetObject map[string]interface{}, accessToken string) {
-	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s", orgId, runId, taskId)
+func attachFileToTask(orgId, runId, taskId, formFieldId string,
+	assetObject map[string]interface{}, accessToken string) {
 
-	// Construct payload
+	apiUrl := fmt.Sprintf(
+		"https://go.tallyfy.com/api/organizations/%s/runs/%s/tasks/%s",
+		orgId, runId, taskId)
+
 	payload := map[string]interface{}{
 		"taskdata": map[string]interface{}{
-			formFieldId: []interface{}{assetObject}, // Array containing the asset object
+			formFieldId: []interface{}{assetObject},
 		},
-		// Add other task updates if needed
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -953,7 +683,7 @@ func attachFileToTask(orgId, runId, taskId, formFieldId string, assetObject map[
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		fmt.Printf("Error creating attach request: %v\n", err)
+		fmt.Printf("Error creating request: %v\n", err)
 		return
 	}
 
@@ -964,110 +694,30 @@ func attachFileToTask(orgId, runId, taskId, formFieldId string, assetObject map[
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error executing attach request: %v\n", err)
+		fmt.Printf("Error executing request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading attach response body: %v\n", err)
+		fmt.Printf("Error reading response: %v\n", err)
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to attach file to task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(respBody))
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(respBody))
 		return
 	}
 
-	fmt.Println("Successfully attached file to task:")
-    // Optionally pretty print the JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(respBody))
-    }
+	fmt.Println("File attached successfully:")
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, respBody, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(respBody))
+	}
 }
-
-// Example Usage (after getting assetObject from Step 1):
-// assetMap := map[string]interface{}{"id": "asset_id...", "filename": "...", ...}
-// attachFileToTask("orgId", "runId", "taskId", "formFieldId", assetMap, "token")
-
-```
-</TabItem>
-<TabItem label="C++">
-```cpp
-#include <iostream>
-#include <string>
-#include <cpprest/http_client.h>
-#include <cpprest/json.h>
-
-using namespace web;
-using namespace web::http;
-using namespace web::http::client;
-using namespace web::json;
-
-// assetJsonValue should be the json::value object parsed from Step 1's response
-pplx::task<void> AttachFileToTask(const value& assetJsonValue, 
-                                const utility::string_t& orgId, 
-                                const utility::string_t& runId, 
-                                const utility::string_t& taskId, 
-                                const utility::string_t& formFieldId, 
-                                const utility::string_t& accessToken)
-{
-    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId 
-                              + U("/runs/") + runId + U("/tasks/") + taskId;
-
-    // Construct the payload
-    value payload = value::object();
-    value taskdata = value::object();
-    value assetArray = value::array();
-    assetArray[0] = assetJsonValue; // Add the asset object to the array
-    taskdata[formFieldId] = assetArray;
-    payload[U("taskdata")] = taskdata;
-    // Add other task updates to payload if needed
-
-    http_client client(apiUrl);
-    http_request request(methods::PUT);
-
-    request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
-    request.headers().add(U("Accept"), U("application/json"));
-    request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-    request.headers().set_content_type(U("application/json"));
-    request.set_body(payload);
-
-    return client.request(request).then([taskId](http_response response)
-    {
-        utility::string_t taskIdW = taskId;
-        return response.extract_json().then([response, taskIdW](pplx::task<value> task)
-        {
-            try {
-                value const & body = task.get();
-                if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully attached file to task " << taskIdW << L":\n" << body.serialize() << std::endl;
-                } else {
-                    std::wcerr << L"Failed to attach file. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
-                    // Indicate error
-                }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during attach: " << e.what() << std::endl;
-                 // Handle error based on response status code if possible
-            } catch (const std::exception& e) {
-                std::wcerr << L"Exception during attach file response handling: " << e.what() << std::endl;
-            }
-        });
-    });
-}
-
-// Example Usage (get assetJson from Step 1 first)
-// int main() {
-//     try {
-//         value assetVal = value::parse(U("{\"id\": \"asset_id...\", ...}")); // From Step 1 
-//         AttachFileToTask(assetVal, U("orgId"), U("runId"), U("taskId"), U("formFieldId"), U("token")).wait();
-//     } catch(...) { /* ... */ }
-//     return 0;
-// }
 ```
 </TabItem>
 <TabItem label="C#">
@@ -1076,131 +726,87 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes; // For easier JSON manipulation
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 public class TallyfyFileAttacher
 {
     private static readonly HttpClient client = new HttpClient();
 
-    // assetJsonString is the JSON string of the asset object from Step 1
-    public static async Task AttachFileToTaskStep2Async(string assetJsonString, string orgId, string runId, string taskId, string formFieldId, string accessToken)
+    public static async Task AttachFileToTaskAsync(string assetJsonString, string orgId,
+        string runId, string taskId, string formFieldId, string accessToken)
     {
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/tasks/{taskId}";
 
-        try
+        var assetNode = JsonNode.Parse(assetJsonString);
+        var payload = new JsonObject
         {
-            // Parse the asset JSON string from Step 1
-            var assetNode = JsonNode.Parse(assetJsonString);
-            if (assetNode == null) {
-                 Console.WriteLine("Error: Could not parse asset JSON from Step 1.");
-                 return;
-            }
-
-            // Construct the payload
-            var payload = new JsonObject
+            ["taskdata"] = new JsonObject
             {
-                ["taskdata"] = new JsonObject
-                {
-                    [formFieldId] = new JsonArray { JsonNode.Parse(assetNode.ToJsonString()) } // Create array with the asset node
-                }
-                // Add other task updates here if needed
-                // ["summary"] = "File attached via API" 
-            };
-
-            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
-            request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Successfully attached file to task {taskId}:");
-                // Pretty print the response
-                try {
-                     using var doc = JsonDocument.Parse(responseBody);
-                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                 } catch (JsonException) {
-                     Console.WriteLine(responseBody); // Print raw if not valid JSON
-                 }
+                [formFieldId] = new JsonArray { JsonNode.Parse(assetNode.ToJsonString()) }
             }
-            else
-            {
-                Console.WriteLine($"Failed to attach file. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
-        }
-        catch (JsonException jsonEx)
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
+        request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.SendAsync(request);
+        string responseBody = await response.Content.ReadAsStringAsync();
+
+        if (response.IsSuccessStatusCode)
         {
-             Console.WriteLine($"JSON Error during attach setup: {jsonEx.Message}");
+            Console.WriteLine($"File attached to task {taskId}:");
+            Console.WriteLine(responseBody);
         }
-        catch (HttpRequestException e)
+        else
         {
-            Console.WriteLine($"Request Exception during attach: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred during attach: {ex.Message}");
+            Console.WriteLine($"Failed. Status: {response.StatusCode}");
+            Console.WriteLine($"Response: {responseBody}");
         }
     }
-
-    // Example Usage (after getting assetJsonString from Step 1):
-    // static async Task Main(string[] args)
-    // {
-    //     string step1Response = await UploadFileStep1Async("/path/to/file");
-    //     if(step1Response != null) {
-    //        try {
-    //             var doc = JsonDocument.Parse(step1Response);
-    //             string assetJson = doc.RootElement.GetProperty("data")[0].GetRawText();
-    //             await AttachFileToTaskStep2Async(assetJson, "orgId", "runId", "taskId", "formFieldId", "token");
-    //        } catch (Exception e) { Console.WriteLine($"Error processing Step 1 response: {e.Message}"); }
-    //     } 
-    // }
 }
 ```
 </TabItem>
 </Tabs>
 
-#### Response examples for Step 2: Attach
+### Attach response
 
-A successful `PUT` request returns `200 OK` and the updated Task or Checklist object, reflecting the file attachment in the `taskdata` or `prerun.value` respectively.
+A successful `PUT` returns `200 OK` with the updated task or template object. The file attachment appears under the field's Capture ID in `taskdata`.
 
 ```json
 {
-  // ... other task properties ...
-  "taskdata": {
-    "CAPTURE_ID_OF_FILE_FIELD": [
-       {
-          "id": "asset_id_abc123xyz", 
+  "data": {
+    "taskdata": {
+      "CAPTURE_ID_OF_FILE_FIELD": [
+        {
+          "id": "asset_id_abc123xyz",
           "filename": "document.pdf",
           "version": 1,
-          "step_id": "step_id_xyz789", 
           "uploaded_from": "capture_id_abc123",
+          "uploaded_at": "2024-01-15T10:00:00Z",
+          "step_id": "step_id_xyz789",
+          "source": "local",
+          "uploaded_to_s3": true,
           "subject": {
-            "id": "run_id_or_checklist_id",
+            "id": "run_id_abc",
             "type": "Run"
-          },
-          "url": "...",
-          "uploaded_at": "...",
-          "uploaded_to_s3": true
-       }
-    ]
+          }
+        }
+      ]
+    }
   }
-  // ... other task properties ...
 }
 ```
 
-:::note[Common mistakes and troubleshooting]
-- **Do not use invalid routes**: `/assets/{id}/dl` does not exist. To download, use `GET /organizations/{org_id}/file/{file_id}/dl`. To view inline, use `GET /organizations/{org_id}/file/{file_id}`.
-- **Attach after upload**: Uploading creates an Asset, but it is not attached to a field until you update the Task using `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}` with the asset placed under the field’s Capture ID inside `taskdata` as an array.
-- **Send the entire asset object**: Place the full object from the upload response’s `data[0]` inside the array for the file field in `taskdata`.
-- **Verify upload context fields** (Task uploads): `uploaded_from` must be the field’s Capture ID; `subject_type` must be `Run`; `subject_id` must be the `run_id`; include both `checklist_id` and `step_id`.
-- **Verify upload context fields** (Kick-off uploads): `uploaded_from` must be `ko_field`; `subject_type` must be `Checklist`; `subject_id` must be the `checklist_id`.
+:::note[Common mistakes]
+- **Upload doesn't attach automatically.** You must complete Step 2 to link the file to a form field.
+- **Send the full asset object.** Place the complete object from `response.data` inside the array for the file field in `taskdata`.
+- **Task uploads need these fields:** `uploaded_from` = Capture ID, `subject_type` = `Run`, `subject_id` = run ID, plus `checklist_id` and `step_id`.
+- **Kick-off uploads need these fields:** `uploaded_from` = `ko_field`, `subject_type` = `Checklist`, `subject_id` = checklist ID.
+- **Download URLs:** To download a file, use `GET /organizations/{org_id}/file/{file_id}/dl`. To view inline, use `GET /organizations/{org_id}/file/{file_id}`.
 :::
 
 ---

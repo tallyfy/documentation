@@ -1,12 +1,12 @@
 ---
-description: This API endpoint retrieves detailed information about a specific tag
-  in an organization by its unique ID and supports optional parameters to include
-  additional data like usage statistics.
+description: Retrieve a specific tag's details by ID within your organization, with an
+  optional statistics include.
 id: fbd2f6470b62d048712222d38e8dce60
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Get tag
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/tags/{tag_id}`
 
-This endpoint retrieves the details for a single tag identified by its unique ID.
+Fetches a single tag by its ID within your organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{tag_id}` with the specific ID of the tag you want to retrieve.
+Replace `{org_id}` with your Organization ID and `{tag_id}` with the tag's ID.
 
 ### Headers
 
@@ -29,7 +29,7 @@ Replace `{org_id}` with your Organization ID and `{tag_id}` with the specific ID
 
 ### Query parameters (optional)
 
--   `with` (string): Include additional related data, e.g., `statistics`.
+-   `with` (string): Set to `statistics` to include usage counts (active/archived templates and processes).
 
 ### Code samples
 
@@ -38,9 +38,9 @@ Replace `{org_id}` with your Organization ID and `{tag_id}` with the specific ID
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const tagId = 'TAG_ID_TO_GET'; 
+const tagId = 'TAG_ID_TO_GET';
 
-const queryParams = '?with=usage_count'; // Example: Include usage stats
+const queryParams = '?with=statistics';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tags/${tagId}${queryParams}`;
 
 const headers = new Headers();
@@ -48,17 +48,14 @@ headers.append('Authorization', `Bearer ${accessToken}`);
 headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
-fetch(apiUrl, {
-    method: 'GET',
-    headers: headers
-})
+fetch(apiUrl, { method: 'GET', headers })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error(`Failed to get tag ${tagId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -87,22 +84,21 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-    'with': 'usage_count' # Example: Include usage statistics
+    'with': 'statistics'
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     tag_data = response.json()
     print(f'Successfully retrieved tag {tag_id}:')
     print(json.dumps(tag_data, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred getting tag {tag_id}: {http_err}") 
+    print(f"HTTP error getting tag {tag_id}: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
@@ -111,8 +107,6 @@ except json.JSONDecodeError:
     print(f"Failed to decode JSON response for tag {tag_id}")
     if response is not None:
         print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -125,7 +119,7 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class GetTag {
@@ -135,14 +129,13 @@ public class GetTag {
         String tagId = "TAG_ID_TO_GET";
         String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId);
 
-        // Optional: Add query parameters
         Map<String, String> queryParamsMap = new HashMap<>();
-        queryParamsMap.put("with", "usage_count"); 
-        
+        queryParamsMap.put("with", "statistics");
+
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-            
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -156,11 +149,10 @@ public class GetTag {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
+
             if (response.statusCode() == 200) {
                 System.out.println("Successfully retrieved tag " + tagId + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
                 System.err.println("Failed to get tag " + tagId + ". Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
@@ -168,9 +160,6 @@ public class GetTag {
         } catch (IOException | InterruptedException e) {
              System.err.println("Request failed: " + e.getMessage());
              Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -184,35 +173,34 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
 	tagId := "TAG_ID_TO_GET"
 
-	baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId)
-	
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-	queryParams.Set("with", "usage_count") // Example
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId)
 
-    apiUrl := baseUrl
-    if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	queryParams := url.Values{}
+	queryParams.Set("with", "statistics")
+
+	apiURL := baseURL
+	if len(queryParams) > 0 {
+		apiURL += "?" + queryParams.Encode()
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiUrl, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		fmt.Printf("Error creating get tag request for tag %s: %v\n", tagId, err)
+		fmt.Printf("Error creating request for tag %s: %v\n", tagId, err)
 		return
 	}
 
@@ -222,14 +210,14 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error executing get tag request for tag %s: %v\n", tagId, err)
+		fmt.Printf("Error executing request for tag %s: %v\n", tagId, err)
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading get tag response body for tag %s: %v\n", tagId, err)
+		fmt.Printf("Error reading response body for tag %s: %v\n", tagId, err)
 		return
 	}
 
@@ -239,14 +227,12 @@ func main() {
 	}
 
 	fmt.Printf("Successfully retrieved tag %s:\n", tagId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-    // TODO: Unmarshal JSON into a struct if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -264,14 +250,14 @@ using namespace web::json;
 
 pplx::task<void> GetTallyfyTag(const utility::string_t& tagId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("tags"));
     builder.append_path(tagId);
-    builder.append_query(U("with"), U("usage_count")); // Example query parameter
+    builder.append_query(U("with"), U("statistics"));
     utility::string_t apiUrl = builder.to_string();
 
     http_client client(apiUrl);
@@ -290,14 +276,13 @@ pplx::task<void> GetTallyfyTag(const utility::string_t& tagId)
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully retrieved tag " << tagIdW << L":\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")][U("title")].as_string();
                 } else {
                     std::wcerr << L"Failed to get tag " << tagIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
             } catch (const http_exception& e) {
                  std::wcerr << L"HTTP exception during get tag: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during get tag response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception during get tag: " << e.what() << std::endl;
             }
         });
     });
@@ -305,7 +290,7 @@ pplx::task<void> GetTallyfyTag(const utility::string_t& tagId)
 
 int main() {
     try {
-        GetTallyfyTag(U("TAG_ID_TO_GET")).wait(); // Replace with actual Tag ID
+        GetTallyfyTag(U("TAG_ID_TO_GET")).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error in main: " << e.what() << std::endl;
     }
@@ -321,7 +306,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyTagGetter
 {
@@ -331,10 +316,9 @@ public class TallyfyTagGetter
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "usage_count"; // Example
+        query["with"] = "statistics";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tags/{tagId}?{queryString}";
 
@@ -351,13 +335,11 @@ public class TallyfyTagGetter
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine($"Successfully retrieved tag {tagId}:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access data: doc.RootElement.GetProperty("data").GetProperty("title").GetString();
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -368,19 +350,11 @@ public class TallyfyTagGetter
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception getting tag {tagId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request exception getting tag {tagId}: {e.Message}");
         }
     }
 
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await GetTagAsync("TAG_ID_TO_GET");
-    // }
+    // static async Task Main(string[] args) => await GetTagAsync("TAG_ID_TO_GET");
 }
 ```
 </TabItem>
@@ -388,28 +362,30 @@ public class TallyfyTagGetter
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` field with the tag's details.
+A successful request returns a `200 OK` status and a JSON object with the tag details inside `data`.
 
 ```json
 {
   "data": {
-    "id": "TAG_ID_TO_GET", 
+    "id": "TAG_ID_TO_GET",
     "title": "Urgent",
     "color": "#e74c3c",
-    "template": 5,
-    "active_process": 12,
     "auto_generated": false,
     "created_at": "2024-01-15T10:00:00Z",
     "deleted_at": null,
-    // Included if requested with 'with=statistics'
     "statistics": {
-      // ... detailed usage counts ...
+      "data": {
+        "active_template": 5,
+        "archived_template": 2,
+        "active_process": 12,
+        "archived_process": 3
+      }
     }
   }
 }
 ```
 
-If the tag ID is not found or you lack permission, a `404 Not Found` or `403 Forbidden` error will be returned.
+The `statistics` object only appears when you pass `with=statistics`. If the tag isn't found or you don't have access, you'll get a `404` or `403` error.
 
 ---
 

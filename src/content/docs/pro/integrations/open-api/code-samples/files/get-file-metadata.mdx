@@ -1,12 +1,11 @@
 ---
-description: This API endpoint retrieves metadata for a specific uploaded file asset
-  in Tallyfy by making a GET request with organization and asset IDs and returns details
-  like filename and upload date in a JSON response.
+description: Retrieve metadata for a specific uploaded file asset in Tallyfy by making a GET request with your organization and asset IDs.
 id: 979b555e22f6e66cb95d8fa5bf6fed5b
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Get file metadata
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,21 +14,17 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/assets/{asset_id}`
 
-This endpoint retrieves metadata (like filename, upload date, related object) for a specific uploaded file (referred to as an "Asset" in Tallyfy's API).
+This endpoint retrieves metadata for a specific uploaded file (called an "asset" in Tallyfy's API). It returns details like the filename, upload date, and which object the file is attached to.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{asset_id}` with the Asset ID of the file whose metadata you want.
+Replace `{org_id}` with your Organization ID and `{asset_id}` with the asset ID of the file you want metadata for.
 
 ### Headers
 
 -   `Authorization: Bearer {your_access_token}`
 -   `Accept: application/json`
 -   `X-Tallyfy-Client: APIClient`
-
-### Query parameters (optional)
-
-No common query parameters are typically needed for this endpoint.
 
 ### Code samples
 
@@ -52,18 +47,17 @@ fetch(apiUrl, {
 })
 .then(response => {
     if (!response.ok) {
-        // Attempt to parse error as JSON, fallback to text
         return response.json()
-            .catch(() => response.text()) // If JSON parsing fails, get text
+            .catch(() => response.text())
             .then(errData => {
-                console.error(`Error response for asset ${assetId}:`, errData); 
+                console.error(`Error response for asset ${assetId}:`, errData);
                 throw new Error(`HTTP error! status: ${response.status}`);
             });
     }
     return response.json();
 })
 .then(data => {
-    console.log(`Successfully retrieved metadata for asset ${assetId}:`);
+    console.log(`Metadata for asset ${assetId}:`);
     console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
@@ -91,25 +85,22 @@ headers = {
 response = None
 try:
     response = requests.get(api_url, headers=headers)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     metadata = response.json()
-    print(f'Successfully retrieved metadata for asset {asset_id}:')
+    print(f'Metadata for asset {asset_id}:')
     print(json.dumps(metadata, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred for asset {asset_id}: {http_err}")
+    print(f"HTTP error for asset {asset_id}: {http_err}")
     if response is not None:
-        print(f"Response Body: {response.text}") 
+        print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
     print(f"Request failed for asset {asset_id}: {req_err}")
 except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for asset {asset_id}")
+    print(f"Failed to decode JSON for asset {asset_id}")
     if response is not None:
         print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
-
 ```
 </TabItem>
 <TabItem label="Java">
@@ -138,13 +129,10 @@ public class GetFileMetadata {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
+
             if (response.statusCode() == 200) {
-                System.out.println("Successfully retrieved metadata for asset " + assetId + ":");
+                System.out.println("Metadata for asset " + assetId + ":");
                 System.out.println(response.body());
-                // Consider using a JSON library (e.g., Jackson, Gson) for parsing:
-                // ObjectMapper mapper = new ObjectMapper();
-                // AssetMetadata metadata = mapper.readValue(response.body(), AssetMetadata.class);
             } else {
                  System.err.println("Failed to get metadata for asset " + assetId + ". Status: " + response.statusCode());
                  System.err.println("Response Body: " + response.body());
@@ -152,14 +140,8 @@ public class GetFileMetadata {
         } catch (IOException | InterruptedException e) {
              System.err.println("Request failed: " + e.getMessage());
              Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
-    // Define a simple AssetMetadata class if using Jackson/Gson for parsing
-    // static class AssetMetadata { public Data[] data; }
-    // static class Data { public String id; public String filename; /* ... other fields */ }
 }
 ```
 </TabItem>
@@ -173,19 +155,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
-
-// Basic struct matching the expected JSON structure (can be more detailed)
-type AssetMetadataResponse struct {
-	Data []struct {
-		ID         string `json:"id"`
-		Filename   string `json:"filename"`
-		Version    int    `json:"version"`
-		UploadedAt string `json:"uploaded_at"`
-		// Add other fields as needed
-	} `json:"data"`
-}
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
@@ -202,7 +173,7 @@ func main() {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
-		fmt.Printf("Error creating request for asset %s: %v\n", assetId, err)
+		fmt.Printf("Error creating request: %v\n", err)
 		return
 	}
 
@@ -212,34 +183,29 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error making request for asset %s: %v\n", assetId, err)
+		fmt.Printf("Error making request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body for asset %s: %v\n", assetId, err)
+		fmt.Printf("Error reading response: %v\n", err)
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to get metadata for asset %s. Status: %d\nBody: %s\n", assetId, resp.StatusCode, string(body))
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
-	// Attempt to unmarshal the JSON response
-	var metadata AssetMetadataResponse
-	err = json.Unmarshal(body, &metadata)
-	if err != nil {
-		fmt.Printf("Error unmarshalling JSON for asset %s: %v\n", assetId, err)
-        fmt.Printf("Raw response body: %s\n", string(body))
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Printf("Error parsing JSON: %v\nRaw: %s\n", err, string(body))
 		return
 	}
 
-	fmt.Printf("Successfully retrieved metadata for asset %s:\n", assetId)
-    // Pretty print the struct (or access fields like metadata.Data[0].Filename)
-    prettyJSON, _ := json.MarshalIndent(metadata, "", "  ")
+	prettyJSON, _ := json.MarshalIndent(result, "", "  ")
 	fmt.Println(string(prettyJSON))
 }
 ```
@@ -257,8 +223,8 @@ using namespace web::http::client;
 
 pplx::task<void> GetAssetMetadata(const utility::string_t& assetId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); // Replace
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); // Replace
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/assets/") + assetId;
 
     http_client client(apiUrl);
@@ -275,18 +241,15 @@ pplx::task<void> GetAssetMetadata(const utility::string_t& assetId)
         {
             return response.extract_json().then([assetIdW](json::value v)
             {
-                 std::wcout << L"Successfully retrieved metadata for asset " << assetIdW << L":\n" << v.serialize() << std::endl;
-                 // Access fields e.g., v[U("data")][0][U("filename")].as_string();
+                 std::wcout << L"Metadata for asset " << assetIdW << L":\n" << v.serialize() << std::endl;
             });
         }
         else
         {
-            // Handle error
             return response.extract_string().then([response, assetIdW](utility::string_t body)
             {
-                std::wcerr << L"Failed to get metadata for asset " << assetIdW << L". Status: " << response.status_code() << std::endl;
-                std::wcerr << L"Response Body: " << body << std::endl;
-                // Indicate error - throwing exception is another option
+                std::wcerr << L"Failed. Status: " << response.status_code() << std::endl;
+                std::wcerr << L"Body: " << body << std::endl;
                 return pplx::task_from_exception<void>(std::runtime_error("API request failed"));
             });
         }
@@ -295,7 +258,7 @@ pplx::task<void> GetAssetMetadata(const utility::string_t& assetId)
 
 int main()
 {
-    utility::string_t assetToGet = U("ASSET_ID_TO_GET_METADATA"); // Replace
+    utility::string_t assetToGet = U("ASSET_ID_TO_GET_METADATA");
     try
     {
         GetAssetMetadata(assetToGet).wait();
@@ -306,8 +269,7 @@ int main()
     }
     return 0;
 }
-// Note: Requires C++ REST SDK (Casablanca).
-// Proper JSON parsing (checking types, field existence) is recommended.
+// Requires C++ REST SDK (Casablanca).
 ```
 </TabItem>
 <TabItem label="C#">
@@ -315,23 +277,12 @@ int main()
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text.Json; // Or Newtonsoft.Json
+using System.Text.Json;
 using System.Threading.Tasks;
 
 public class TallyfyAssetMetadata
 {
     private static readonly HttpClient client = new HttpClient();
-
-    // Basic class structure for deserialization (adjust based on actual API response)
-    public class AssetMetadataResponse {
-        public AssetData[] Data { get; set; }
-    }
-    public class AssetData {
-        public string Id { get; set; }
-        public string Filename { get; set; }
-        public int Version { get; set; }
-        // Add other fields like UploadedAt, Subject, etc.
-    }
 
     public static async Task GetMetadataAsync(string assetId)
     {
@@ -351,41 +302,25 @@ public class TallyfyAssetMetadata
 
             if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Successfully retrieved metadata for asset {assetId}:");
-                // Deserialize and print nicely or use the data
-                try {
-                    // Using System.Text.Json
-                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                     var metadata = JsonSerializer.Deserialize<AssetMetadataResponse>(responseBody, options);
-                     Console.WriteLine(JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
-                     // Now you can access metadata.Data[0].Filename etc.
-                } catch (JsonException jsonEx) {
-                    Console.WriteLine("Failed to parse JSON response: " + jsonEx.Message);
-                    Console.WriteLine("Raw Response:");
-                    Console.WriteLine(responseBody); // Print raw body if parsing fails
-                }
+                Console.WriteLine($"Metadata for asset {assetId}:");
+                var doc = JsonDocument.Parse(responseBody);
+                Console.WriteLine(JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true }));
             }
             else
             {
-                Console.WriteLine($"Failed to get metadata for asset {assetId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response Body: {responseBody}");
+                Console.WriteLine($"Failed. Status: {response.StatusCode}");
+                Console.WriteLine($"Body: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception for asset {assetId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request error: {e.Message}");
         }
     }
 
-    // Example usage:
     // static async Task Main(string[] args)
     // {
-    //     string assetIdToGet = "ASSET_ID_TO_GET_METADATA";
-    //     await GetMetadataAsync(assetIdToGet);
+    //     await GetMetadataAsync("ASSET_ID_TO_GET_METADATA");
     // }
 }
 ```
@@ -394,30 +329,44 @@ public class TallyfyAssetMetadata
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array (usually with one element) holding the asset metadata.
+A successful request returns a `200 OK` status and a JSON object with the asset metadata inside a `data` property.
 
 ```json
 {
-  "data": [
-    {
-      "id": "ASSET_ID_TO_GET_METADATA",
-      "filename": "report_q1.pdf",
-      "version": 1,
-      "step_id": "step_id_xyz789", // If related to a task step
-      "uploaded_from": "capture_id_abc123", // Form field ID or 'ko_field'
-      "uploaded_to_s3": true,
-      "subject": {
-        "id": "run_id_or_checklist_id",
-        "type": "Run" // Or "Checklist"
-      },
-      "uploaded_at": "YYYY-MM-DDTHH:MM:SSZ"
-      // Other potential metadata fields like size, uploader ID, etc.
+  "data": {
+    "id": "ASSET_ID_TO_GET_METADATA",
+    "filename": "report_q1.pdf",
+    "version": 1,
+    "uploaded_from": "capture_id_abc123",
+    "uploaded_at": "2024-03-15T10:30:00Z",
+    "step_id": "step_id_xyz789",
+    "source": "local",
+    "system": null,
+    "uploaded_to_s3": true,
+    "subject": {
+      "id": "run_id_or_checklist_id",
+      "type": "Run"
     }
-  ]
+  }
 }
 ```
 
-If the asset ID is not found or you lack permission, Tallyfy will return a `404` or `403` error.
+Key fields in the response:
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique asset identifier |
+| `filename` | Original filename of the uploaded file |
+| `version` | Version number of the asset |
+| `uploaded_from` | Form field ID the file was uploaded from, or `ko_field` for kick-off fields |
+| `uploaded_at` | Timestamp when the file was uploaded |
+| `step_id` | Step ID if the file is attached to a task step (can be null) |
+| `source` | Upload source - defaults to `local` |
+| `system` | External storage system if applicable (e.g., Dropbox, Google Drive) |
+| `uploaded_to_s3` | Whether the file was stored in S3 |
+| `subject` | Object containing the parent's `id` and `type` (e.g., Run, Checklist, Organization) |
+
+If the asset ID isn't found or you don't have permission, you'll get a `404` or `403` error.
 
 ---
 

@@ -1,10 +1,11 @@
 ---
-description: Power Automate's conditional logic enables automated flows to make intelligent
-  decisions based on Tallyfy data using IF-THEN structures Switch controls and nested
-  conditions to create adaptive workflows that respond differently to various task
-  statuses form field values and process conditions.
+about_tallyfy: true
+description: Power Automate's conditional logic lets flows make decisions based on
+  Tallyfy data - using IF-THEN structures, Switch controls, and nested conditions
+  to route actions differently based on task statuses, form field values, and process
+  conditions.
 id: 7a4a216dbe73e917c981d0c0c5aa2612
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 7
 title: Using conditional logic in Power Automate
@@ -12,83 +13,69 @@ title: Using conditional logic in Power Automate
 
 import { Steps } from '@astrojs/starlight/components';
 
-Automated workflows become powerful when they can make decisions. Power Automate's **conditional logic** lets you build flows that adapt to different situations and perform different actions based on specific criteria from your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/). You'll create flexible automations that actually think.
+Conditional logic makes your Power Automate flows smart. Instead of running the same actions every time, your flow checks Tallyfy data and picks a different path based on what it finds -- sending escalation emails for high-priority [tasks](/products/pro/tracking-and-tasks/tasks/), routing approvals to different teams, or skipping steps entirely when they don't apply.
 
-## Introduction to conditional logic for Tallyfy integrations
+## How conditional logic works with Tallyfy
 
-Conditional logic lets your Power Automate flow answer questions about Tallyfy data - then act on the answers. When a condition related to a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/) is true, the flow takes one path. False? It takes another.
+Your flow asks a yes-or-no question about Tallyfy data, then takes one path if true, another if false. A customer support [process](/products/pro/tracking-and-tasks/processes/) is a good example -- the flow checks a "Priority" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) on each [task](/products/pro/tracking-and-tasks/tasks/). High priority gets escalated immediately. Low priority gets logged for routine follow-up.
 
-Why does this matter? Picture a customer support [process](/products/pro/tracking-and-tasks/processes/) in Tallyfy. Your flow checks the "Priority" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) in each [task](/products/pro/tracking-and-tasks/tasks/). High priority? The flow escalates it immediately. Low priority? It logs it for routine follow-up. All automatic.
-
-## The "Condition" control for Tallyfy data
+## The Condition control
 
 <Steps>
 
-1.  **Adding a condition:** In your flow, click **+ New step** and search for `Condition`. Select it from the Controls category.
+1.  **Add a condition** -- click **+ New step**, search for `Condition`, and select it from Controls.
 
-2.  **Structure:** The Condition control gives you an if-this-then-that structure for evaluating Tallyfy data:
-    *   **IF:** Define your condition(s) based on Tallyfy data.
-    *   **IF YES (THEN):** Actions here execute when the Tallyfy-related condition is true.
-    *   **IF NO (ELSE):** Actions here execute when the Tallyfy-related condition is false.
+2.  **Structure** -- the Condition control gives you three sections:
+    *   **IF:** Your condition based on Tallyfy data.
+    *   **IF YES (THEN):** Actions that run when the condition is true.
+    *   **IF NO (ELSE):** Actions that run when it's false.
 
-
-
-3.  **Defining the condition:**
-    *   **Value 1:** Select dynamic content from Tallyfy (e.g., output of a Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) action like "Get task details") or enter a static value.
-    *   **Operator:** Select a comparison operator from the dropdown menu. Common operators include:
-        *   `is equal to` / `is not equal to`
-        *   `contains` / `does not contain` (for text)
-        *   `is greater than` / `is less than` (for numbers or dates)
-        *   `starts with` / `ends with` (for text)
-        *   `is empty` / `is not empty` (to check if a field has a value)
-    *   **Value 2:** Click in the second box ("Choose a value"). This can be dynamic content or a static value that Value 1 gets compared against.
+3.  **Define the condition:**
+    *   **Value 1:** Pick dynamic content from a Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) action (like the output of **Get User Tasks**) or type a static value.
+    *   **Operator:** Choose a comparison -- `is equal to`, `contains`, `is greater than`, `starts with`, `is empty`, and their opposites.
+    *   **Value 2:** The value you're comparing against (dynamic content or static).
 
 </Steps>
 
-## Building a flow with simple conditional logic for Tallyfy
+## Building a conditional flow with Tallyfy
 
-Here's a real scenario: When someone completes a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/), you want to check the "Approval Outcome" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) and send different email notifications based on what it says.
+Here's a practical scenario: you've set up a Tallyfy webhook[^1] that fires when someone completes a task. Your Power Automate flow receives that webhook data, then sends different email notifications based on the task's priority level.
 
 <Steps>
 
-1.  **Trigger: Tallyfy - "When a task is completed".**
+1.  **Trigger: "When an HTTP request is received."**
     *   Start a new automated [cloud flow](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/).
-    *   Select the Tallyfy trigger **When a task is completed**.
-    *   Configure it to monitor a specific Tallyfy [procedure template](/products/pro/documenting/templates/) (Blueprint ID).
+    *   Use the **When an HTTP request is received** trigger, then paste the generated URL into your Tallyfy webhook configuration.
+    *   The webhook payload from Tallyfy includes task details and [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) values.
 
-2.  **Action: Tallyfy - "Get task details".**
-    Add this action to grab all the [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data.
-    *   **Task ID:** Use the `Task ID` dynamic content from the trigger.
+2.  **Action: Tallyfy - "Get User Tasks" (optional).**
+    If you need additional [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data beyond what the webhook provides, add the Tallyfy connector's **Get User Tasks** action to pull more details.
 
 3.  **Control: "Condition".**
     Add a Condition control.
-    *   **Value 1:** From dynamic content, select the output from "Get task details" for your "Approval Outcome" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) (e.g., `outputs('Get_task_details')?['body/forms/ApprovalOutcome/value']`).
+    *   **Value 1:** Select the priority field from the webhook body or Tallyfy action output.
     *   **Operator:** Select `is equal to`.
-    *   **Value 2:** Type `Approved`.
+    *   **Value 2:** Type `High`.
 
-
-
-4.  **IF YES branch actions:**
-    When the "Approval Outcome" equals "Approved":
+4.  **IF YES branch:**
+    When priority equals "High":
     *   Add action: **Send an email (V2)**.
-    *   **To:** Relevant stakeholder.
-    *   **Subject:** `Tallyfy Task '[Task Name from Get task details]' was Approved`.
-    *   **Body:** Include details and link to the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
+    *   **To:** Manager or escalation contact.
+    *   **Subject:** `Urgent: Tallyfy task '[Task Name]' needs attention`.
+    *   **Body:** Include the task details and a link to the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
 
-5.  **IF NO branch actions:**
-    When the "Approval Outcome" isn't "Approved":
+5.  **IF NO branch:**
+    When priority isn't "High":
     *   Add action: **Send an email (V2)**.
-    *   **To:** Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) assignee (`Assigned To Email` from "Get task details").
-    *   **Subject:** `Action Required: Tallyfy Task '[Task Name]' outcome was '[Approval Outcome]'`.
-    *   **Body:** `Please review Tallyfy task [Task Name]. Outcome: [Approval Outcome].`
+    *   **To:** The assigned team member.
+    *   **Subject:** `Tallyfy task '[Task Name]' completed - routine follow-up`.
+    *   **Body:** Summary of the task and next steps.
 
-6.  **Save and test your flow.** (See [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tips).
+6.  **Save and test your flow.** (See [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tips.)
 
 </Steps>
 
 ## Visualizing the conditional flow
-
-This diagram shows how Power Automate processes Tallyfy task data through conditional logic to route notifications appropriately.
 
 ```d2
 direction: down
@@ -150,54 +137,53 @@ EmailRegular -> End {
 }
 ```
 
-**What to notice:**
-- The diamond shape represents the decision point where your flow evaluates the Tallyfy form field value
-- Two distinct paths show how different outcomes trigger different email actions automatically
-- Each step in the flow corresponds directly to the numbered instructions above - making the logical flow instantly clear
+The diamond is the decision point. Two paths branch from it -- each leading to a different email action based on the form field value.
 
-## Handling multiple conditions (AND/OR) for Tallyfy data
+## Multiple conditions with AND/OR
 
-You'll often need to check multiple pieces of Tallyfy data at once.
+You'll often need to check more than one piece of Tallyfy data at once.
 
 *   **Adding rows:** Inside a Condition, click **+ Add** > **Add row**.
-*   **AND logic:** Default for multiple rows - all conditions must be true.
-*   **OR logic:** Change the operator at the top of the conditions group to OR - any single condition being true is enough.
+*   **AND logic:** The default -- all conditions must be true.
+*   **OR logic:** Switch the operator at the top to OR -- any single true condition is enough.
 
-*Tallyfy Example (AND):* IF Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) Priority ([form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)) is "High" **AND** its Due Date (from Tallyfy) is in the past, THEN send an escalation alert.
+*Example (AND):* IF a Tallyfy [task's](/products/pro/tracking-and-tasks/tasks/) Priority [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) is "High" **AND** its deadline has passed, THEN send an escalation alert.
 
-## Nested conditions for complex Tallyfy logic
+## Nested conditions
 
-Want more complex decision trees? Place a Condition control inside another Condition's branch.
+Need more complex decision trees? Place a Condition control inside another Condition's branch.
 
-*Example:* First, check if the Tallyfy [process](/products/pro/tracking-and-tasks/processes/) type is "Sales Order." If yes, add a nested condition to check whether the order value (a Tallyfy [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)) exceeds $10,000.
+*Example:* First, check if the Tallyfy [process](/products/pro/tracking-and-tasks/processes/) type is "Sales Order." If yes, nest another condition to check whether the order value ([form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)) exceeds $10,000.
 
-Things getting messy? Switch to a Switch control instead (see [advanced conditions and expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/)).
+When nesting gets messy, switch to a Switch control instead (see [advanced conditions and expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/)).
 
-## Introduction to Switch control (for multiple distinct options from Tallyfy)
+## Switch control for multiple options
 
-The **Switch** control beats multiple nested conditions when you're checking one Tallyfy value against many options. We cover this in detail in our [advanced conditions and expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) article.
+The **Switch** control works better than nested conditions when you're checking one Tallyfy value against several options. More detail in our [advanced conditions and expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) article.
 
-*   **Structure:** Pick a value to switch ON (like dynamic content from a Tallyfy [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)). Create multiple **CASE** branches - one for each possible Tallyfy value. The **DEFAULT** branch catches everything else.
+*   **Structure:** Pick a value to switch on (like a Tallyfy [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)). Create multiple **CASE** branches for each possible value. The **DEFAULT** branch catches everything else.
 
-*Tallyfy Example:* A Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) has a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) "Support Ticket Category" with values like "Billing Issue," "Technical Problem."
-    *   SWITCH ON Tallyfy "Support Ticket Category":
-        *   CASE "Billing Issue": Action - Notify finance.
-        *   CASE "Technical Problem": Action - Create urgent [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy "Tech Support" [process](/products/pro/tracking-and-tasks/processes/).
-        *   DEFAULT: Action - Notify general support.
+*Example:* A Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) has a "Support Ticket Category" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) with values like "Billing Issue" and "Technical Problem."
+*   SWITCH ON "Support Ticket Category":
+    *   CASE "Billing Issue": Notify finance.
+    *   CASE "Technical Problem": Create an urgent [task](/products/pro/tracking-and-tasks/tasks/) in a Tallyfy "Tech Support" [process](/products/pro/tracking-and-tasks/processes/).
+    *   DEFAULT: Notify general support.
 
-## Tips for using conditions with Tallyfy data
+## Tips for conditions with Tallyfy data
 
-*   **Data types:** Make sure data types match. Use [expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) (like `int()`) to convert Tallyfy text field values when comparing to numbers.
-*   **Case sensitivity:** For case-insensitive text comparisons of Tallyfy data, use expressions like `toLower()`.
-*   **Leverage Tallyfy outputs:** Data from Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) triggers and actions should drive your conditional logic.
-*   **Test all paths:** Test every single branch with different Tallyfy data inputs. Really.
+*   **Match data types** -- use [expressions](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) like `int()` to convert Tallyfy text values when comparing against numbers.
+*   **Handle case sensitivity** -- wrap text in `toLower()` for case-insensitive comparisons.
+*   **Use Tallyfy connector outputs** -- data from Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) actions should drive your conditional logic.
+*   **Test every branch** -- run through each path with different Tallyfy data inputs to catch edge cases.
+
+[^1]: Tallyfy webhooks send HTTP POST requests to your flow's URL when events happen -- like task completions or process launches
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Power Automate > Advanced conditions and expressions in Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/" > Power Automate's advanced conditional techniques including expressions grouped logic and Switch controls enable sophisticated decision-making in Tallyfy workflows by handling complex data scenarios multiple conditions and edge cases that basic if-then logic cannot accommodate. </LinkTitleCard>
-<LinkTitleCard header="<b>Automations > Logic operations explained</b>" href="/products/pro/documenting/templates/automations/logic-explained/" > Tallyfy automations use IF-THEN rules with AND/OR logic to adjust workflows based on form selections, task completions, and other conditions. </LinkTitleCard>
-<LinkTitleCard header="<b>Conditionals > Conditionals (IF) explained</b>" href="/products/pro/documenting/templates/automations/conditionals/conditionals-explained/" > Conditionals are the IF part of Tallyfy automations - checking step statuses or form field values to trigger actions automatically. </LinkTitleCard>
-<LinkTitleCard header="<b>Automations > Conditionals</b>" href="/products/pro/documenting/templates/automations/conditionals/" > Conditional logic in Tallyfy lets your processes make decisions automatically using IF-THEN rules based on form answers and step completions. </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > Logic operations explained</b>" href="/products/pro/documenting/templates/automations/logic-explained/" > Tallyfy's automation logic uses simple IF-THEN rules that watch user inputs and automatically adjust workflows based on conditions like form selections task approvals or specific requirements while combining multiple conditions with AND/OR logic to create intelligent processes that adapt to different business scenarios. </LinkTitleCard>
+<LinkTitleCard header="<b>Conditionals > Conditionals (IF) explained</b>" href="/products/pro/documenting/templates/automations/conditionals/conditionals-explained/" > Tallyfy automations use conditional logic to automatically handle tasks and decisions by checking step statuses or form field content with various operators like "contains" "is completed" or "is approved" to trigger specific actions without manual intervention. </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > Conditionals</b>" href="/products/pro/documenting/templates/automations/conditionals/" > Conditional logic in Tallyfy enables automated decision-making within processes through simple IF-THEN rules that respond to form answers step completions user roles time triggers and other conditions to create adaptive workflows while reducing manual work and ensuring consistency. </LinkTitleCard>
 </CardGrid>

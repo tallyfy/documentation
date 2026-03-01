@@ -1,54 +1,44 @@
 ---
-description: This guide explains how to implement advanced Postman workflows for Tallyfy
-  API testing including multi-organization environment switching and cross-org data
-  comparison along with performance monitoring through response time tracking and
-  endpoint analysis plus mock server configuration for simulating various API conditions
-  and comprehensive CI/CD integration using Newman with GitHub Actions for automated
-  testing pipelines and data-driven testing approaches using CSV and JSON files.
+about_tallyfy: true
+description: Implement advanced Postman workflows for Tallyfy API testing - including
+  multi-org environment switching, performance monitoring, mock servers, CI/CD with
+  Newman and GitHub Actions, and data-driven testing with CSV/JSON files.
 id: ea649e7c022319196d639ba604646383
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Advanced patterns and testing
 ---
 
-To implement advanced Postman workflows with Tallyfy's API, use collection runners for bulk operations, Newman for CI/CD integration, and monitors for scheduled checks. These patterns help scale from manual testing to automated workflow management.
+Collection runners handle bulk operations. Newman plugs into CI/CD pipelines. Monitors run scheduled checks. Together, these patterns take you from manual API testing to automated workflow validation.
 
 ## Multi-organization testing
 
-Many users work across multiple Tallyfy organizations. Here's how to test efficiently:
+If you work across several Tallyfy organizations, you'll want a fast way to switch between them during testing.
 
 ### Environment switching setup
 
-Create separate environments for each organization:
+Create a pre-request script that rotates through your orgs automatically:
 
 ```javascript
 // Pre-request script to rotate organizations
 const orgs = [
-    { 
-        name: "Production", 
-        id: "org_prod_123", 
+    {
+        name: "Production",
+        id: "org_prod_123",
         clientId: "client_prod",
         clientSecret: pm.environment.get("PROD_SECRET")
     },
-    { 
-        name: "Staging", 
-        id: "org_stage_456", 
+    {
+        name: "Staging",
+        id: "org_stage_456",
         clientId: "client_stage",
         clientSecret: pm.environment.get("STAGE_SECRET")
-    },
-    { 
-        name: "Development", 
-        id: "org_dev_789", 
-        clientId: "client_dev",
-        clientSecret: pm.environment.get("DEV_SECRET")
     }
 ];
 
-// Get current org index
 let currentIndex = pm.variables.get("ORG_INDEX") || 0;
 
-// Set current org variables
 const currentOrg = orgs[currentIndex];
 pm.environment.set("TALLYFY_ORG_ID", currentOrg.id);
 pm.environment.set("TALLYFY_CLIENT_ID", currentOrg.clientId);
@@ -56,42 +46,37 @@ pm.environment.set("TALLYFY_CLIENT_SECRET", currentOrg.clientSecret);
 
 console.log(`Testing with ${currentOrg.name} organization`);
 
-// Rotate to next org for next run
 const nextIndex = (currentIndex + 1) % orgs.length;
 pm.variables.set("ORG_INDEX", nextIndex);
 ```
 
 ### Cross-org data comparison
 
-Compare processes across organizations:
+Compare processes across organizations after fetching from each:
 
 ```javascript
-// After getting processes from multiple orgs
 const orgProcesses = pm.environment.get("ORG_PROCESSES") || {};
 const currentOrg = pm.environment.get("TALLYFY_ORG_ID");
 
-// Store current org's processes
+// Tallyfy wraps responses in a "data" property
 orgProcesses[currentOrg] = pm.response.json().data;
 pm.environment.set("ORG_PROCESSES", orgProcesses);
 
-// If we have data from all orgs, compare
 const orgIds = Object.keys(orgProcesses);
-if (orgIds.length >= 3) {
+if (orgIds.length >= 2) {
     console.log("Process count comparison:");
     orgIds.forEach(orgId => {
-        const count = orgProcesses[orgId].length;
-        console.log(`${orgId}: ${count} active processes`);
+        console.log(`${orgId}: ${orgProcesses[orgId].length} active processes`);
     });
-    
-    // Find processes with same name across orgs
+
+    // Find processes with the same name across orgs
     const processNames = new Set();
     orgIds.forEach(orgId => {
         orgProcesses[orgId].forEach(p => processNames.add(p.name));
     });
-    
-    console.log("\nCommon process names across orgs:");
+
     processNames.forEach(name => {
-        const orgsWithProcess = orgIds.filter(orgId => 
+        const orgsWithProcess = orgIds.filter(orgId =>
             orgProcesses[orgId].some(p => p.name === name)
         );
         if (orgsWithProcess.length > 1) {
@@ -103,18 +88,15 @@ if (orgIds.length >= 3) {
 
 ## Performance monitoring
 
-Track API performance to identify bottlenecks:
-
 ### Response time tracking
 
+Add this to your collection's Tests tab to track response times over multiple runs:
+
 ```javascript
-// Add to collection's Tests tab
 pm.test("Response time is acceptable", function () {
-    const maxTime = 1000; // 1 second
-    pm.expect(pm.response.responseTime).to.be.below(maxTime);
+    pm.expect(pm.response.responseTime).to.be.below(1000);
 });
 
-// Track performance over time
 const perfData = pm.environment.get("PERFORMANCE_DATA") || [];
 perfData.push({
     endpoint: pm.request.url.toString(),
@@ -125,40 +107,31 @@ perfData.push({
 });
 
 // Keep last 100 entries
-if (perfData.length > 100) {
-    perfData.shift();
-}
-
+if (perfData.length > 100) perfData.shift();
 pm.environment.set("PERFORMANCE_DATA", perfData);
 
-// Analyze trends
 const recentTimes = perfData.slice(-10).map(d => d.responseTime);
 const avgTime = recentTimes.reduce((a, b) => a + b, 0) / recentTimes.length;
 
 if (avgTime > 800) {
-    console.warn(`Performance degradation detected. Average response time: ${avgTime}ms`);
+    console.warn(`Performance degradation detected. Avg: ${avgTime}ms`);
 }
 ```
 
 ### Endpoint performance comparison
 
 ```javascript
-// Aggregate performance by endpoint
 const perfData = pm.environment.get("PERFORMANCE_DATA") || [];
 const endpointStats = {};
 
 perfData.forEach(entry => {
-    const endpoint = entry.endpoint.replace(/\/[a-f0-9\-]+/g, '/:id'); // Normalize IDs
-    
+    // Normalize UUIDs and numeric IDs to /:id
+    const endpoint = entry.endpoint.replace(/\/[a-f0-9\-]{8,}/g, '/:id');
+
     if (!endpointStats[endpoint]) {
-        endpointStats[endpoint] = {
-            count: 0,
-            totalTime: 0,
-            maxTime: 0,
-            minTime: Infinity
-        };
+        endpointStats[endpoint] = { count: 0, totalTime: 0, maxTime: 0, minTime: Infinity };
     }
-    
+
     const stats = endpointStats[endpoint];
     stats.count++;
     stats.totalTime += entry.responseTime;
@@ -166,177 +139,114 @@ perfData.forEach(entry => {
     stats.minTime = Math.min(stats.minTime, entry.responseTime);
 });
 
-console.log("Endpoint Performance Report:");
 Object.entries(endpointStats).forEach(([endpoint, stats]) => {
-    const avgTime = (stats.totalTime / stats.count).toFixed(0);
-    console.log(`${endpoint}:`);
-    console.log(`  Calls: ${stats.count}`);
-    console.log(`  Avg: ${avgTime}ms`);
-    console.log(`  Min: ${stats.minTime}ms`);
-    console.log(`  Max: ${stats.maxTime}ms`);
+    const avg = (stats.totalTime / stats.count).toFixed(0);
+    console.log(`${endpoint}: ${stats.count} calls, avg ${avg}ms, min ${stats.minTime}ms, max ${stats.maxTime}ms`);
 });
 ```
 
 ## Mock server setup
 
-Postman mock servers simulate API behavior for testing and development. Unlike simple stubs, they use sophisticated matching algorithms.
+Postman mock servers let you simulate API responses without hitting the real Tallyfy API. They match requests by HTTP method, path, query parameters, and headers like `x-mock-response-code` or `x-mock-response-name`.
 
-### Advanced mock server creation
-
-**Expert insight**: Mock servers in Postman use a request-response matching algorithm that considers HTTP method, path, query parameters, and custom headers (x-mock-response-code, x-mock-response-id, x-mock-response-name).
-
-1. **Intelligent example capture**:
-   ```javascript
-   // Enhanced response capturing with metadata
-   if (pm.response.code >= 200 && pm.response.code < 400) {
-       const examples = pm.environment.get("MOCK_EXAMPLES") || {};
-       const endpoint = pm.request.url.getPath();
-       const method = pm.request.method;
-       const key = `${method}_${endpoint.replace(/\//g, '_')}`;
-       
-       examples[key] = {
-           request: {
-               method: method,
-               url: pm.request.url.toString(),
-               headers: pm.request.headers.toObject(),
-               body: pm.request.body ? pm.request.body.raw : null
-           },
-           response: {
-               status: pm.response.code,
-               headers: pm.response.headers.toObject(),
-               body: pm.response.text(),
-               responseTime: pm.response.responseTime
-           },
-           timestamp: new Date().toISOString()
-       };
-       
-       pm.environment.set("MOCK_EXAMPLES", examples);
-       console.log(`Captured example for ${key}`);
-   }
-   ```
-
-2. **Dynamic mock server configuration**:
-   ```javascript
-   // Smart mock/real server switching
-   const mockConfig = {
-       development: {
-           useMock: true,
-           mockUrl: "https://mock-server-123.pstmn.io",
-           scenarios: ["success", "error", "timeout"]
-       },
-       staging: {
-           useMock: false,
-           realUrl: "https://go.tallyfy.com/api"
-       },
-       production: {
-           useMock: false,
-           realUrl: "https://go.tallyfy.com/api"
-       }
-   };
-   
-   const environment = pm.environment.get("TARGET_ENV") || "development";
-   const config = mockConfig[environment];
-   
-   if (config.useMock) {
-       pm.request.url.host = config.mockUrl.replace(/https?:\/\//, '').split('/');
-       pm.request.url.protocol = "https";
-       
-       // Add mock scenario headers
-       const scenario = pm.environment.get("MOCK_SCENARIO") || "success";
-       pm.request.headers.add({
-           key: 'x-mock-response-name',
-           value: scenario
-       });
-   }
-   ```
-
-3. **Mock server error simulation**:
-   ```javascript
-   // Simulate various API conditions
-   const errorSimulation = {
-       "rate_limit": {
-           code: 429,
-           headers: {"x-mock-response-code": "429"},
-           delay: 1000
-       },
-       "server_error": {
-           code: 500,
-           headers: {"x-mock-response-code": "500"}
-       },
-       "timeout": {
-           code: 408,
-           headers: {"x-mock-response-code": "408"},
-           delay: 30000
-       }
-   };
-   
-   const simulateError = pm.environment.get("SIMULATE_ERROR");
-   if (simulateError && errorSimulation[simulateError]) {
-       const error = errorSimulation[simulateError];
-       Object.entries(error.headers).forEach(([key, value]) => {
-           pm.request.headers.add({key, value});
-       });
-   }
-   ```
-
-### End-to-end testing with mock servers
-
-**Best practice insight**: Use mock servers to test system resilience without relying on external APIs you can't control.
+### Capturing examples for mocks
 
 ```javascript
-// E2E test pattern with mocked dependencies
-const testScenarios = {
-    "happy_path": {
-        mockResponses: ["success", "success", "success"],
-        expectedOutcome: "process_completed"
+// Save successful responses as mock examples
+if (pm.response.code >= 200 && pm.response.code < 400) {
+    const examples = pm.environment.get("MOCK_EXAMPLES") || {};
+    const key = `${pm.request.method}_${pm.request.url.getPath().replace(/\//g, '_')}`;
+
+    examples[key] = {
+        request: {
+            method: pm.request.method,
+            url: pm.request.url.toString(),
+            headers: pm.request.headers.toObject(),
+            body: pm.request.body ? pm.request.body.raw : null
+        },
+        response: {
+            status: pm.response.code,
+            headers: pm.response.headers.toObject(),
+            body: pm.response.text()
+        },
+        timestamp: new Date().toISOString()
+    };
+
+    pm.environment.set("MOCK_EXAMPLES", examples);
+}
+```
+
+### Switching between mock and real servers
+
+```javascript
+const mockConfig = {
+    development: {
+        useMock: true,
+        mockUrl: "https://mock-server-123.pstmn.io"
     },
-    "partial_failure": {
-        mockResponses: ["success", "error", "success"],
-        expectedOutcome: "process_retry"
+    staging: {
+        useMock: false,
+        realUrl: "https://go.tallyfy.com/api"
     },
-    "complete_failure": {
-        mockResponses: ["error", "error", "error"],
-        expectedOutcome: "process_failed"
+    production: {
+        useMock: false,
+        realUrl: "https://go.tallyfy.com/api"
     }
 };
 
-const currentScenario = pm.environment.get("E2E_SCENARIO") || "happy_path";
-const scenario = testScenarios[currentScenario];
+const env = pm.environment.get("TARGET_ENV") || "development";
+const config = mockConfig[env];
 
-// Set up mock responses for this scenario
-scenario.mockResponses.forEach((response, index) => {
-    pm.environment.set(`MOCK_STEP_${index + 1}`, response);
-});
+if (config.useMock) {
+    pm.request.url.host = config.mockUrl.replace(/https?:\/\//, '').split('/');
+    pm.request.url.protocol = "https";
+
+    const scenario = pm.environment.get("MOCK_SCENARIO") || "success";
+    pm.request.headers.add({ key: 'x-mock-response-name', value: scenario });
+}
+```
+
+### Error simulation
+
+```javascript
+const errorSimulation = {
+    "rate_limit": { headers: {"x-mock-response-code": "429"} },
+    "server_error": { headers: {"x-mock-response-code": "500"} },
+    "timeout": { headers: {"x-mock-response-code": "408"} }
+};
+
+const simulateError = pm.environment.get("SIMULATE_ERROR");
+if (simulateError && errorSimulation[simulateError]) {
+    Object.entries(errorSimulation[simulateError].headers).forEach(([key, value]) => {
+        pm.request.headers.add({key, value});
+    });
+}
 ```
 
 ## CI/CD integration
 
-### Newman vs Postman CLI: Choose the right tool
-
-You have two options for command-line collection execution:
+### Newman vs Postman CLI
 
 | Feature | Newman | Postman CLI |
 |---------|--------|-----------|
 | **Installation** | `npm install -g newman` | Download from Postman |
 | **Authentication** | API key only | Full OAuth support |
 | **Cloud features** | Limited | Full workspace sync |
-| **CI/CD integration** | Mature ecosystem | Newer, growing |
+| **CI/CD maturity** | Well-established | Newer, growing |
 | **Extensibility** | Rich plugin system | Limited but improving |
 
-**Newman setup for automated testing**:
+### Newman setup
 
 ```bash
 # Install Newman (requires Node.js v16+)
 npm install -g newman
-
-# Verify installation
 newman --version
 ```
 
-**Advanced Newman execution patterns**:
+### Running collections with Newman
 
 ```bash
-# Basic run with full reporting
+# Basic run with reporting
 newman run tallyfy-api.postman_collection.json \
   -e production.postman_environment.json \
   --reporters cli,json,html \
@@ -345,46 +255,26 @@ newman run tallyfy-api.postman_collection.json \
   --delay-request 100 \
   --timeout-request 30000
 
-# Parallel execution with data-driven testing
+# Data-driven run
 newman run collection.json \
   -e environment.json \
   -d test-data.csv \
-  --iteration-count 5 \
-  --parallel
+  --iteration-count 5
 
-# Advanced error handling
+# Stop on first failure
 newman run collection.json \
   --bail failure \
-  --ignore-redirects \
-  --disable-unicode \
   --global-var "API_BASE=https://go.tallyfy.com/api"
-```
 
-**Expert Newman configuration**:
-
-```bash
-# Custom delay patterns for rate limiting
-newman run collection.json \
-  --delay-request 200 \
-  --timeout-request 10000 \
-  --timeout-script 5000
-
-# Selective execution
+# Run a specific folder only
 newman run collection.json \
   --folder "Authentication Tests" \
   --env-var "SKIP_CLEANUP=true"
-
-# Output management
-newman run collection.json \
-  --reporter-cli-no-summary \
-  --reporter-cli-no-failures \
-  --reporter-json-export results.json \
-  --reporter-html-export detailed-report.html
 ```
 
 ### GitHub Actions integration
 
-**Production-ready CI/CD pipeline with advanced error handling**:
+Here's a working pipeline that tests against multiple environments:
 
 `.github/workflows/api-tests.yml`:
 ```yaml
@@ -392,7 +282,7 @@ name: Tallyfy API Tests
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours
+    - cron: '0 */4 * * *'
   workflow_dispatch:
   push:
     branches: [main, develop]
@@ -401,7 +291,6 @@ on:
 
 env:
   NODE_VERSION: '18'
-  NEWMAN_VERSION: 'latest'
 
 jobs:
   api-tests:
@@ -409,185 +298,98 @@ jobs:
     strategy:
       matrix:
         environment: [staging, production]
-        test-suite: [smoke, full, regression]
-    
+        test-suite: [smoke, full]
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-    
-    - name: Install Newman and reporters
-      run: |
-        npm install -g newman@${{ env.NEWMAN_VERSION }}
-        npm install -g newman-reporter-slack
-        npm install -g newman-reporter-teamcity
-    
-    - name: Validate collection syntax
-      run: |
-        newman run postman/tallyfy-api.json --dry-run
-    
-    - name: Run API Tests - ${{ matrix.environment }} - ${{ matrix.test-suite }}
+
+    - name: Install Newman
+      run: npm install -g newman newman-reporter-htmlextra
+
+    - name: Run API tests
       env:
         TALLYFY_CLIENT_ID: ${{ secrets[format('TALLYFY_CLIENT_ID_{0}', matrix.environment)] }}
         TALLYFY_CLIENT_SECRET: ${{ secrets[format('TALLYFY_CLIENT_SECRET_{0}', matrix.environment)] }}
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
       run: |
         newman run postman/tallyfy-api.json \
           -e postman/${{ matrix.environment }}.json \
           --folder "${{ matrix.test-suite }}" \
           --env-var "TALLYFY_CLIENT_ID=$TALLYFY_CLIENT_ID" \
           --env-var "TALLYFY_CLIENT_SECRET=$TALLYFY_CLIENT_SECRET" \
-          --reporters cli,json,html,slack \
+          --reporters cli,json \
           --reporter-json-export results-${{ matrix.environment }}-${{ matrix.test-suite }}.json \
-          --reporter-html-export report-${{ matrix.environment }}-${{ matrix.test-suite }}.html \
-          --reporter-slack-webhookurl "$SLACK_WEBHOOK" \
           --delay-request 100 \
           --timeout-request 30000 \
           --bail failure
       continue-on-error: true
-    
-    - name: Parse test results
+
+    - name: Parse results
       id: test-results
       run: |
         RESULT_FILE="results-${{ matrix.environment }}-${{ matrix.test-suite }}.json"
-        
         if [ -f "$RESULT_FILE" ]; then
           TOTAL=$(jq '.run.stats.requests.total' "$RESULT_FILE")
           FAILED=$(jq '.run.stats.requests.failed' "$RESULT_FILE")
-          ASSERTIONS_FAILED=$(jq '.run.stats.assertions.failed' "$RESULT_FILE")
-          
           echo "total_requests=$TOTAL" >> $GITHUB_OUTPUT
           echo "failed_requests=$FAILED" >> $GITHUB_OUTPUT
-          echo "failed_assertions=$ASSERTIONS_FAILED" >> $GITHUB_OUTPUT
-          
-          # Calculate success rate
-          SUCCESS_RATE=$(echo "scale=2; ($TOTAL - $FAILED) * 100 / $TOTAL" | bc)
-          echo "success_rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
         fi
-    
-    - name: Upload test artifacts
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.environment }}-${{ matrix.test-suite }}
-        path: |
-          results-*.json
-          report-*.html
+        path: results-*.json
         retention-days: 30
-    
-    - name: Comment PR with results
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const successRate = '${{ steps.test-results.outputs.success_rate }}';
-          const totalRequests = '${{ steps.test-results.outputs.total_requests }}';
-          const failedRequests = '${{ steps.test-results.outputs.failed_requests }}';
-          
-          const comment = `
-          ## 🧪 API Test Results - ${{ matrix.environment }} - ${{ matrix.test-suite }}
-          
-          - **Success Rate**: ${successRate}%
-          - **Total Requests**: ${totalRequests}
-          - **Failed Requests**: ${failedRequests}
-          
-          [View detailed results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          `;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
-    
-    - name: Fail if tests failed
+
+    - name: Fail on test failures
       if: steps.test-results.outputs.failed_requests > 0
       run: |
-        echo "❌ API tests failed: ${{ steps.test-results.outputs.failed_requests }} out of ${{ steps.test-results.outputs.total_requests }} requests failed"
+        echo "API tests failed: ${{ steps.test-results.outputs.failed_requests }}/${{ steps.test-results.outputs.total_requests }}"
         exit 1
-
-  notification:
-    needs: api-tests
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-    - name: Notify team of results
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        text: 'Tallyfy API tests completed'
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 ```
 
-### Advanced CI/CD patterns
-
-**Performance regression detection**:
+### Performance regression detection
 
 ```bash
-# Add to Newman command for performance tracking
 newman run collection.json \
   --reporters cli,json \
   --reporter-json-export current-results.json
 
-# Compare with baseline (add to CI script)
+# Compare against a saved baseline
 node scripts/performance-comparison.js \
   --baseline baseline-results.json \
   --current current-results.json \
-  --threshold 20  # 20% performance degradation threshold
-```
-
-**Environment-specific test execution**:
-
-```yaml
-# Advanced environment matrix
-strategy:
-  matrix:
-    include:
-      - environment: staging
-        test-type: smoke
-        timeout: 10000
-      - environment: staging  
-        test-type: full
-        timeout: 30000
-      - environment: production
-        test-type: health-check
-        timeout: 5000
+  --threshold 20
 ```
 
 ### Data-driven testing
 
-Postman supports both CSV and JSON data files for thorough data-driven testing approaches.
+Postman supports CSV and JSON data files. CSV works for flat data; JSON handles nested structures.
 
-**CSV format for simple data sets**:
-
-`test-data.csv`:
+**CSV example** - `test-data.csv`:
 ```csv
-process_name,template_id,assignee,priority,expected_status,deadline_days
-"Q1 Budget Review","template_123","john@company.com","high","active",7
-"Employee Onboarding","template_456","hr@company.com","medium","pending",14
-"Equipment Request","template_789","it@company.com","low","draft",30
+process_name,template_id,assignee,expected_status
+"Q1 Budget Review","template_123","john@company.com","active"
+"Employee Onboarding","template_456","hr@company.com","pending"
 ```
 
-**JSON format for complex data structures**:
-
-`test-data.json`:
+**JSON example** - `test-data.json`:
 ```json
 [
   {
     "process_name": "Q1 Budget Review",
-    "template_id": "template_123", 
+    "template_id": "template_123",
     "assignee": "john@company.com",
-    "priority": "high",
     "kick_off_data": {
       "field_department": "Finance",
-      "field_budget_amount": 50000,
-      "field_approval_required": true
+      "field_budget_amount": 50000
     },
     "expected_tasks": 5,
     "validation_rules": {
@@ -598,140 +400,95 @@ process_name,template_id,assignee,priority,expected_status,deadline_days
 ]
 ```
 
-**Advanced Newman execution with data**:
-
-```bash
-# Run with multiple data sets and detailed reporting
-newman run collection.json \
-  -e environment.json \
-  -d test-data.json \
-  --iteration-count 3 \
-  --delay-request 500 \
-  --reporters cli,json,html \
-  --reporter-html-template custom-template.hbs \
-  --reporter-json-export detailed-results.json
-
-# Parallel execution for performance testing
-newman run collection.json \
-  -d large-dataset.csv \
-  --parallel \
-  --reporter-cli-no-assertions \
-  --reporter-cli-no-console
-```
-
-**Dynamic data generation in scripts**:
+**Using data variables in tests**:
 
 ```javascript
-// Access CSV/JSON data in Postman scripts
-const processName = pm.variables.get("process_name");
-const templateId = pm.variables.get("template_id");
-const kickOffData = JSON.parse(pm.variables.get("kick_off_data") || '{}');
-
-// Dynamic validation based on data
 const expectedTasks = parseInt(pm.variables.get("expected_tasks"));
 const validationRules = JSON.parse(pm.variables.get("validation_rules") || '{}');
 
-pm.test(`Process has expected ${expectedTasks} tasks`, () => {
-    const process = pm.response.json();
-    pm.expect(process.tasks).to.have.lengthOf(expectedTasks);
+pm.test(`Process has ${expectedTasks} tasks`, () => {
+    const response = pm.response.json();
+    pm.expect(response.data.tasks).to.have.lengthOf(expectedTasks);
 });
 
-// Validate response time based on data
 if (validationRules.response_time_max) {
-    pm.test(`Response time under ${validationRules.response_time_max}ms`, () => {
+    pm.test(`Response under ${validationRules.response_time_max}ms`, () => {
         pm.expect(pm.response.responseTime).to.be.below(validationRules.response_time_max);
     });
 }
 
-// Validate required fields from data
 if (validationRules.required_fields) {
     validationRules.required_fields.forEach(field => {
-        pm.test(`Response has required field: ${field}`, () => {
-            pm.expect(pm.response.json()).to.have.property(field);
+        pm.test(`Has field: ${field}`, () => {
+            pm.expect(pm.response.json().data).to.have.property(field);
         });
     });
 }
 ```
 
-**Data-driven error scenario testing**:
+**Error scenario data file**:
 
 ```json
 [
   {
     "scenario": "invalid_template_id",
     "template_id": "invalid_123",
-    "expected_status": 404,
-    "expected_error": "Template not found"
+    "expected_status": 404
   },
   {
     "scenario": "missing_required_field",
     "template_id": "template_123",
     "kick_off_data": {},
-    "expected_status": 422,
-    "expected_error": "Validation failed"
+    "expected_status": 422
   }
 ]
 ```
 
 ```javascript
-// Test error scenarios from data
 const scenario = pm.variables.get("scenario");
 const expectedStatus = parseInt(pm.variables.get("expected_status"));
-const expectedError = pm.variables.get("expected_error");
 
-pm.test(`${scenario} returns expected status ${expectedStatus}`, () => {
+pm.test(`${scenario} returns ${expectedStatus}`, () => {
     pm.expect(pm.response.code).to.equal(expectedStatus);
 });
-
-if (expectedError) {
-    pm.test(`${scenario} returns expected error message`, () => {
-        const response = pm.response.json();
-        pm.expect(response.error || response.message).to.include(expectedError);
-    });
-}
 ```
 
 ## Collection runner patterns
 
 ### Workflow simulation
 
-Simulate complete workflows:
+Structure your collection to mirror a full workflow, passing data between requests:
 
 ```javascript
-// Collection structure:
+// Collection order:
 // 1. Authenticate
-// 2. Create Process
-// 3. Complete Task 1
-// 4. Complete Task 2
-// 5. Add Comment
-// 6. Complete Final Task
-// 7. Verify Process Complete
+// 2. Create process (POST /organizations/{org}/runs)
+// 3. Complete tasks (PUT /organizations/{org}/runs/{run}/tasks/{task})
+// 4. Add comment
+// 5. Verify process complete
 
-// Pass data between requests
-// In "Create Process" Tests:
-const processId = pm.response.json().id;
+// In "Create Process" Tests tab - note the .data wrapper:
+const processId = pm.response.json().data.id;
 pm.collectionVariables.set("CURRENT_PROCESS_ID", processId);
 
-// In subsequent requests, use:
-// {{CURRENT_PROCESS_ID}}
+// Subsequent requests reference {{CURRENT_PROCESS_ID}}
 ```
 
-### Parallel execution with async
+### Parallel API calls
 
-Run multiple operations concurrently:
+Fire multiple requests at once to compare response times:
 
 ```javascript
-// Execute multiple API calls in parallel
 async function parallelOperations() {
     const operations = [
         { name: "List Templates", endpoint: "/checklists" },
         { name: "List Processes", endpoint: "/runs" },
         { name: "List Tasks", endpoint: "/me/tasks" },
-        { name: "List Members", endpoint: "/members" }
+        { name: "List Users", endpoint: "/users" }
     ];
-    
+
     const results = await Promise.all(
-        operations.map(op => 
+        operations.map(op =>
             pm.sendRequest({
                 url: `${pm.environment.get("TALLYFY_BASE_URL")}/organizations/${pm.environment.get("TALLYFY_ORG_ID")}${op.endpoint}`,
                 method: 'GET',
@@ -747,14 +504,10 @@ async function parallelOperations() {
             }))
         )
     );
-    
-    console.log("Parallel operation results:");
+
     results.forEach(r => {
         console.log(`${r.name}: ${r.count} items in ${r.time}ms`);
     });
-    
-    const totalTime = Math.max(...results.map(r => r.time));
-    console.log(`Total parallel execution time: ${totalTime}ms`);
 }
 
 parallelOperations();
@@ -764,64 +517,48 @@ parallelOperations();
 
 ### Scheduled monitors
 
-Set up Postman monitors for continuous checking:
+Postman monitors run collections on a schedule. Two things worth monitoring:
 
-1. **Process health check**:
-   ```javascript
-   // Monitor collection to run every hour
-   pm.test("No stuck processes", function() {
-       const processes = pm.response.json().data;
-       const stuckCount = processes.filter(p => {
-           const hoursSinceUpdate = (Date.now() - new Date(p.updated_at)) / (1000 * 60 * 60);
-           return hoursSinceUpdate > 24 && p.status === 'active';
-       }).length;
-       
-       pm.expect(stuckCount).to.equal(0);
-   });
-   ```
+**Stuck process detection**:
+```javascript
+pm.test("No stuck processes", function() {
+    const processes = pm.response.json().data;
+    const stuckCount = processes.filter(p => {
+        const hoursSinceUpdate = (Date.now() - new Date(p.updated_at)) / 3600000;
+        return hoursSinceUpdate > 24 && p.status === 'active';
+    }).length;
 
-2. **API availability**:
-   ```javascript
-   pm.test("API is responsive", function() {
-       pm.response.to.have.status(200);
-       pm.expect(pm.response.responseTime).to.be.below(2000);
-   });
-   ```
+    pm.expect(stuckCount).to.equal(0);
+});
+```
 
-### Slack integration for alerts
+**API availability**:
+```javascript
+pm.test("API is responsive", function() {
+    pm.response.to.have.status(200);
+    pm.expect(pm.response.responseTime).to.be.below(2000);
+});
+```
 
-Send alerts when monitors detect issues:
+### Slack alerts on failure
 
 ```javascript
-// In monitor's Tests tab
 if (pm.test.failures && pm.test.failures.length > 0) {
-    const slackWebhook = pm.environment.get("SLACK_WEBHOOK_URL");
-    
     pm.sendRequest({
-        url: slackWebhook,
+        url: pm.environment.get("SLACK_WEBHOOK_URL"),
         method: 'POST',
-        header: {
-            'Content-Type': 'application/json'
-        },
+        header: { 'Content-Type': 'application/json' },
         body: {
             mode: 'raw',
             raw: JSON.stringify({
-                text: `🚨 Tallyfy API Monitor Alert`,
+                text: "Tallyfy API Monitor Alert",
                 attachments: [{
                     color: "danger",
-                    fields: [{
-                        title: "Failed Tests",
-                        value: pm.test.failures.map(f => f.name).join("\n"),
-                        short: false
-                    }, {
-                        title: "Environment",
-                        value: pm.environment.name,
-                        short: true
-                    }, {
-                        title: "Time",
-                        value: new Date().toISOString(),
-                        short: true
-                    }]
+                    fields: [
+                        { title: "Failed Tests", value: pm.test.failures.map(f => f.name).join("\n") },
+                        { title: "Environment", value: pm.environment.name, short: true },
+                        { title: "Time", value: new Date().toISOString(), short: true }
+                    ]
                 }]
             })
         }
@@ -829,87 +566,26 @@ if (pm.test.failures && pm.test.failures.length > 0) {
 }
 ```
 
-## Performance optimization strategies
+## Performance optimization
 
-### Request optimization patterns
+### Adaptive request delays
 
 ```javascript
-// Optimize requests for better performance
-const optimizationConfig = {
-    // Reuse connections
-    keepAlive: true,
-    
-    // Compress requests
-    compression: 'gzip',
-    
-    // Optimal timeouts
-    timeouts: {
-        request: 30000,
-        script: 5000,
-        dns: 5000
-    },
-    
-    // Rate limiting respect
-    delays: {
-        betweenRequests: 100,
-        onRateLimit: 5000
-    }
-};
-
-// Apply in pre-request script
-pm.request.timeout = optimizationConfig.timeouts.request;
-
-// Adaptive delay based on previous response
+// Slow down when the API responds slowly
 const lastResponseTime = pm.environment.get("LAST_RESPONSE_TIME");
 if (lastResponseTime > 2000) {
-    // Slow API, increase delay
     pm.environment.set("REQUEST_DELAY", 500);
 } else {
     pm.environment.set("REQUEST_DELAY", 100);
 }
 ```
 
-### Memory management for large test suites
+### Memory cleanup between iterations
 
 ```javascript
-// Clean up variables after each iteration
-const cleanupKeys = [
-    "TEMP_PROCESS_ID",
-    "TEMP_TASK_DATA", 
-    "CACHED_RESPONSE",
-    "ITERATION_STATE"
-];
-
-cleanupKeys.forEach(key => {
-    pm.environment.unset(key);
-});
-
-// Memory-efficient data handling
-const largeDataSet = pm.response.json();
-if (largeDataSet.length > 1000) {
-    // Process in chunks to avoid memory issues
-    const chunkSize = 100;
-    for (let i = 0; i < largeDataSet.length; i += chunkSize) {
-        const chunk = largeDataSet.slice(i, i + chunkSize);
-        // Process chunk
-        processDataChunk(chunk);
-    }
-}
+["TEMP_PROCESS_ID", "TEMP_TASK_DATA", "CACHED_RESPONSE", "ITERATION_STATE"]
+    .forEach(key => pm.environment.unset(key));
 ```
-
-## Next steps
-
-You've mastered advanced Postman patterns including:
-- ✅ Multi-environment testing with automated switching
-- ✅ CI/CD integration with Newman and GitHub Actions
-- ✅ Mock server strategies for E2E testing
-- ✅ Data-driven testing with CSV/JSON
-- ✅ Performance monitoring and optimization
-
-Continue with:
-- [Troubleshooting common issues](/products/pro/integrations/open-api/api-clients/postman/troubleshooting/)
-- [Collection organization best practices](/products/pro/integrations/open-api/api-clients/postman/collection-organization/)
-- [Webhook integration](/products/pro/integrations/webhooks/)
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

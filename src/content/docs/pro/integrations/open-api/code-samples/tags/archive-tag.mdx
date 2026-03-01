@@ -1,12 +1,12 @@
 ---
-description: This endpoint performs a soft delete on a tag by archiving it rather
-  than permanently removing it from the system and returns the archived tag details
-  with a deleted_at timestamp upon successful completion.
+about_tallyfy: true
+description: Permanently deletes a tag and all its associations from your organization.
+  This can't be undone - the API returns 204 No Content on success.
 id: 13a7486bb6bf4b5547608dbb83453ee2
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
-title: Archive tag
+title: Delete tag
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DELETE /organizations/{org_id}/tags/{tag_id}`
 
-This endpoint archives (soft deletes) an existing tag. Archived tags are generally hidden but not permanently removed.
+This permanently deletes a tag and removes all its associations with templates, processes, steps, and tasks. This action can't be undone.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{tag_id}` with the ID of the tag to archive.
+Replace `{org_id}` with your Organization ID and `{tag_id}` with the tag's ID.
 
 ### Headers
 
@@ -29,7 +29,7 @@ Replace `{org_id}` with your Organization ID and `{tag_id}` with the ID of the t
 
 ### Body
 
-No request body is needed for this DELETE request.
+No request body is needed.
 
 ### Code samples
 
@@ -38,7 +38,7 @@ No request body is needed for this DELETE request.
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const tagId = 'TAG_ID_TO_ARCHIVE'; 
+const tagId = 'TAG_ID_TO_DELETE';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tags/${tagId}`;
 
 const headers = new Headers();
@@ -47,37 +47,32 @@ headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
 fetch(apiUrl, {
-    method: 'DELETE', // DELETE archives the tag
+    method: 'DELETE',
     headers: headers
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
-        if (!response.ok) { // Expect 200 OK on success
-            console.error(`Failed to archive tag ${tagId}:`, data);
+    if (response.status === 204) {
+        console.log(`Tag ${tagId} deleted permanently.`);
+    } else if (!response.ok) {
+        return response.json().then(errData => {
+            console.error(`Failed to delete tag ${tagId}:`, errData);
             throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        console.log(`Successfully archived tag ${tagId}. Status: ${response.status}`);
-        return data; // Archive usually returns the updated tag object
-    });
-})
-.then(data => {
-    console.log('Archived tag details:');
-    console.log(JSON.stringify(data, null, 2));
+        });
+    }
 })
 .catch(error => {
-    console.error(`Error archiving tag ${tagId}:`, error.message);
+    console.error(`Error deleting tag ${tagId}:`, error.message);
 });
 ```
 </TabItem>
 <TabItem label="Python">
 ```python
 import requests
-import json
 import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-tag_id = 'TAG_ID_TO_ARCHIVE'
+tag_id = 'TAG_ID_TO_DELETE'
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/tags/{tag_id}'
 
 headers = {
@@ -89,29 +84,19 @@ headers = {
 response = None
 try:
     response = requests.delete(api_url, headers=headers)
-    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
+    response.raise_for_status()
 
-    print(f'Successfully archived tag {tag_id}. Status: {response.status_code}')
-    try:
-         # Attempt to parse JSON body if it exists
-        if response.content:
-            archived_tag = response.json()
-            print('Archived tag details:')
-            print(json.dumps(archived_tag, indent=4))
-        else:
-            print("(Response body empty)")
-    except json.JSONDecodeError:
-        print("(Could not parse response body as JSON)")
-        print(f"Raw Response Text: {response.text}")
+    if response.status_code == 204:
+        print(f'Tag {tag_id} deleted permanently.')
+    else:
+        print(f'Unexpected status: {response.status_code}')
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred archiving tag {tag_id}: {http_err}") 
+    print(f"HTTP error deleting tag {tag_id}: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed archiving tag {tag_id}: {req_err}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+    print(f"Request failed deleting tag {tag_id}: {req_err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -122,11 +107,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
 
-public class ArchiveTag {
+public class DeleteTag {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
-        String tagId = "TAG_ID_TO_ARCHIVE";
+        String tagId = "TAG_ID_TO_DELETE";
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -135,31 +120,21 @@ public class ArchiveTag {
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .DELETE() // DELETE archives the tag
+                .DELETE()
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) { 
-                System.out.println("Successfully archived tag " + tagId + ". Status: 200 OK");
-                 if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body (Archived Tag Details):");
-                     System.out.println(response.body());
-                     // TODO: Consider parsing JSON using Jackson/Gson
-                 } else {
-                      System.out.println("(Response body empty)");
-                 }
+            if (response.statusCode() == 204) {
+                System.out.println("Tag " + tagId + " deleted permanently.");
             } else {
-                 System.err.println("Failed to archive tag " + tagId + ". Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
+                System.err.println("Failed to delete tag " + tagId + ". Status: " + response.statusCode());
+                System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -170,65 +145,44 @@ public class ArchiveTag {
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    tagId := "TAG_ID_TO_ARCHIVE"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	tagId := "TAG_ID_TO_DELETE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags/%s", orgId, tagId)
 
 	client := &http.Client{Timeout: 15 * time.Second}
-    // Create DELETE request (DELETE archives the tag)
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating archive tag request for tag %s: %v\n", tagId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request for tag %s: %v\n", tagId, err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing archive tag request for tag %s: %v\n", tagId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request for tag %s: %v\n", tagId, err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading archive tag response body for tag %s: %v\n", tagId, err)
-        // Continue processing status code even if body read fails
-    }
-
-	if resp.StatusCode == http.StatusOK {
-        fmt.Printf("Successfully archived tag %s. Status: %d\n", tagId, resp.StatusCode)
-        if len(body) > 0 {
-            fmt.Println("Response Body (Archived Tag Details):")
-            // Pretty print JSON response
-            var prettyJSON bytes.Buffer
-            if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-                fmt.Println(prettyJSON.String())
-            } else {
-                fmt.Println(string(body))
-            }
-            // TODO: Unmarshal JSON if needed
-        } else {
-             fmt.Println("(Response body empty)")
-        }
+	if resp.StatusCode == http.StatusNoContent {
+		fmt.Printf("Tag %s deleted permanently.\n", tagId)
 	} else {
-		fmt.Printf("Failed to archive tag %s. Status: %d\nBody: %s\n", tagId, resp.StatusCode, string(body))
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("Failed to delete tag %s. Status: %d\nBody: %s\n", tagId, resp.StatusCode, string(body))
 	}
 }
 ```
@@ -243,53 +197,40 @@ func main() {
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
-using namespace web::json;
 
-pplx::task<void> ArchiveTallyfyTag(const utility::string_t& tagId)
+pplx::task<void> DeleteTallyfyTag(const utility::string_t& tagId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/tags/") + tagId;
 
     http_client client(apiUrl);
-    http_request request(methods::DEL); // DELETE archives the tag
+    http_request request(methods::DEL);
 
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-    // No request body needed
 
     return client.request(request).then([tagId](http_response response)
     {
-        status_code status = response.status_code();
-        return response.extract_string().then([status, tagId, response](utility::string_t responseBody)
-        {
-             utility::string_t tagIdW = tagId;
-             if (status == status_codes::OK) {
-                 std::wcout << L"Successfully archived tag " << tagIdW << L". Status: " << status << std::endl;
-                 if (!responseBody.empty()) {
-                     std::wcout << L"Response Body (Archived Tag Details):\n" << responseBody << std::endl;
-                     try {
-                         value jsonVal = value::parse(responseBody);
-                         // Process jsonVal...
-                     } catch (const std::exception& jsonEx) {
-                         std::wcerr << L"(Could not parse response body as JSON: " << jsonEx.what() << L")" << std::endl;
-                     }
-                 } else {
-                     std::wcout << L"(Response body empty)" << std::endl;
-                 }
-             } else {
-                 std::wcerr << L"Failed to archive tag " << tagIdW << L". Status: " << status << std::endl;
-                 std::wcerr << L"Response Body: " << responseBody << std::endl;
-                 throw std::runtime_error("Failed to archive tag");
-             }
-        });
+        if (response.status_code() == status_codes::NoContent) {
+            std::wcout << L"Tag " << tagId << L" deleted permanently." << std::endl;
+        } else {
+            return response.extract_string().then([tagId, response](utility::string_t body)
+            {
+                std::wcerr << L"Failed to delete tag " << tagId
+                           << L". Status: " << response.status_code() << std::endl;
+                std::wcerr << L"Response: " << body << std::endl;
+                throw std::runtime_error("Failed to delete tag");
+            });
+        }
+        return pplx::task_from_result();
     });
 }
 
 int main() {
     try {
-        ArchiveTallyfyTag(U("TAG_ID_TO_ARCHIVE")).wait(); // Replace with actual Tag ID
+        DeleteTallyfyTag(U("TAG_ID_TO_DELETE")).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -304,13 +245,12 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using System.Text.Json;
 
-public class TallyfyTagArchiver
+public class TallyfyTagDeleter
 {
     private static readonly HttpClient client = new HttpClient();
 
-    public static async Task ArchiveTagAsync(string tagId)
+    public static async Task DeleteTagAsync(string tagId)
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
@@ -322,47 +262,30 @@ public class TallyfyTagArchiver
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Add("X-Tallyfy-Client", "APIClient");
-            // No request body needed for DELETE archive
 
             HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Expect 200 OK
+            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
             {
-                Console.WriteLine($"Successfully archived tag {tagId}. Status: {response.StatusCode}");
-                if (!string.IsNullOrWhiteSpace(responseBody))
-                {
-                    Console.WriteLine("Archived tag details:");
-                    try {
-                        using var doc = JsonDocument.Parse(responseBody);
-                        Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    } catch (JsonException) {
-                        Console.WriteLine(responseBody);
-                    }
-                } else {
-                     Console.WriteLine("(Response body empty)");
-                }
+                Console.WriteLine($"Tag {tagId} deleted permanently.");
             }
             else
             {
-                Console.WriteLine($"Failed to archive tag {tagId}. Status: {response.StatusCode}");
+                string responseBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Failed to delete tag {tagId}. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception archiving tag {tagId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request exception deleting tag {tagId}: {e.Message}");
         }
     }
 
     // Example Usage:
     // static async Task Main(string[] args)
     // {
-    //     await ArchiveTagAsync("TAG_ID_TO_ARCHIVE");
+    //     await DeleteTagAsync("TAG_ID_TO_DELETE");
     // }
 }
 ```
@@ -371,21 +294,9 @@ public class TallyfyTagArchiver
 
 ## Response
 
-A successful archive request typically returns a `200 OK` status code. The response body usually contains the details of the archived tag, now including a `deleted_at` timestamp.
+A successful delete returns `204 No Content` with an empty response body. The tag and all its associations are permanently removed.
 
-```json
-{
-  "data": {
-    "id": "TAG_ID_TO_ARCHIVE",
-    "title": "Old Tag Name",
-    "color": "#cccccc",
-    // ... other tag properties ...
-    "deleted_at": "2025-05-21T21:00:00Z" // Timestamp indicates archival
-  }
-}
-```
-
-If the tag ID is not found, an error will be returned.
+If the tag ID doesn't exist, the endpoint still returns `204` -- it won't error on a missing tag.
 
 ---
 

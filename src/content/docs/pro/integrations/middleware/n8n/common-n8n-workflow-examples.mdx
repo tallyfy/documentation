@@ -3,15 +3,18 @@ description: n8n workflows automate Tallyfy integrations by triggering process l
   from CRM deals and form submissions while enabling parallel multi-system updates
   with intelligent AI-powered task routing and human-in-the-loop approval checkpoints
 id: ff15ac785a81f6cf9e624c81f786ab0e
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: Common n8n workflow examples
+about_tallyfy: false
 ---
 
 ## Practical n8n workflows for Tallyfy automation
 
-Need ready-to-use n8n workflows that actually work? You're in the right place. These examples show common integration patterns with Tallyfy - complete with workflow structures and configuration details you can copy directly.
+These examples show common n8n integration patterns with Tallyfy - complete with workflow structures and configuration details you can adapt directly.
+
+> All Tallyfy API URLs require your organization ID. Replace `{org_id}` with your actual organization ID in every endpoint below.
 
 ### Example 1: CRM to Tallyfy process automation
 
@@ -20,7 +23,7 @@ Automatically [launch](/products/pro/launching/) a customer onboarding [process]
 **Workflow components:**
 
 1. **Webhook node** (or CRM-specific trigger)
-   - Receives notification when deal status changes
+   - Receives deal status change notifications
    - Filters for "Won" status only
 
 2. **HTTP Request node** - Get customer details
@@ -29,11 +32,11 @@ Automatically [launch](/products/pro/launching/) a customer onboarding [process]
 
 3. **HTTP Request node** - Launch Tallyfy process
    - Method: POST
-   - URL: `https://go.tallyfy.com/api/runs`
+   - URL: `https://go.tallyfy.com/api/organizations/{org_id}/runs`
    - Body:
    ```json
    {
-     "blueprint_id": "customer_onboarding_template_id",
+     "checklist_id": "customer_onboarding_template_id",
      "name": "Onboarding - {{$json.customer_name}}",
      "kickoff": {
        "customer_name": "{{$json.customer_name}}",
@@ -45,11 +48,11 @@ Automatically [launch](/products/pro/launching/) a customer onboarding [process]
    ```
 
 4. **Slack node** (optional)
-   - Send notification to sales team about process launch
+   - Notify sales team about the process launch
 
 ### Example 2: Form submission to multi-system update
 
-Here's how to update multiple systems whenever someone submits a Tallyfy [form](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). No manual copying required.
+Update multiple systems whenever someone submits a Tallyfy [form](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) - no manual copying required.
 
 **Workflow components:**
 
@@ -66,14 +69,12 @@ Here's how to update multiple systems whenever someone submits a Tallyfy [form](
 4. **HTTP Request node** - Update CRM
    - Method: PUT
    - URL: CRM contact endpoint
-   - Map form fields to CRM fields
 
 5. **Google Sheets node** - Log submission
    - Append row with form data and timestamp
 
 6. **Email node** - Send confirmation
-   - To: Form submitter
-   - Include summary of submitted data
+   - To: Form submitter with summary of submitted data
 
 ### Visualizing n8n workflow patterns
 
@@ -107,22 +108,20 @@ Email -> Success
 ```
 
 **What to notice:**
-- **Parallel processing branches** - The workflow updates CRM, Google Sheets, and sends emails simultaneously, reducing total execution time
-- **Exponential backoff retry pattern** - Failed operations retry with increasing wait times (2s, 4s, 8s) to avoid overwhelming systems
-- **Conditional path handling** - The IF node prevents processing tasks without forms, saving resources and preventing errors
+- **Parallel branches** - CRM, Google Sheets, and email updates run simultaneously
+- **Conditional path** - The IF node skips tasks without forms, preventing unnecessary processing
 
 ### Example 3: Scheduled process launcher with data collection
 
-Want to launch weekly review processes that automatically gather data from your tools? This workflow does exactly that.
+Launch weekly review processes that automatically gather data from your tools.
 
 **Workflow components:**
 
 1. **Schedule Trigger node**
-   - Cron expression: `0 9 * * 1` (Every Monday at 9 AM)
+   - Cron expression: `0 9 * * 1` (every Monday at 9 AM)
 
 2. **HTTP Request node** - Get sales data
-   - Connect to your analytics API
-   - Fetch last week's metrics
+   - Connect to your analytics API for last week's metrics
 
 3. **HTTP Request node** - Get support tickets
    - Query helpdesk API for open tickets
@@ -142,12 +141,12 @@ Want to launch weekly review processes that automatically gather data from your 
 
 5. **HTTP Request node** - Launch Tallyfy process
    - Method: POST
-   - URL: `https://go.tallyfy.com/api/runs`
+   - URL: `https://go.tallyfy.com/api/organizations/{org_id}/runs`
    - Include collected data in kickoff fields
 
 ### Example 4: Document generation from completed processes
 
-Need PDF reports when your Tallyfy processes finish? Here's a workflow that creates them automatically.
+Generate PDF reports automatically when Tallyfy processes finish.
 
 **Workflow components:**
 
@@ -156,11 +155,11 @@ Need PDF reports when your Tallyfy processes finish? Here's a workflow that crea
 
 2. **HTTP Request node** - Get process details
    - Method: GET
-   - URL: `https://go.tallyfy.com/api/runs/{{$json.run_id}}`
+   - URL: `https://go.tallyfy.com/api/organizations/{org_id}/runs/{{$json.run_id}}`
 
 3. **HTTP Request node** - Get all task data
    - Method: GET
-   - URL: `https://go.tallyfy.com/api/tasks?run_id={{$json.run_id}}`
+   - URL: `https://go.tallyfy.com/api/organizations/{org_id}/runs/{{$json.run_id}}/tasks`
 
 4. **Code node** - Format report data
    ```javascript
@@ -177,18 +176,15 @@ Need PDF reports when your Tallyfy processes finish? Here's a workflow that crea
    return [{json: reportData}];
    ```
 
-5. **HTML node** - Generate HTML template
-   - Create formatted report layout
+5. **HTML node** - Generate formatted report layout
 
 6. **Convert to PDF node** (or external service)
-   - Convert HTML to PDF
 
-7. **Upload to cloud storage**
-   - Store in Google Drive, Dropbox, or S3
+7. **Upload to cloud storage** - Google Drive, Dropbox, or S3
 
 ### Example 5: Intelligent task routing with AI
 
-Let AI analyze your Tallyfy form responses and route tasks to the right people. Your team gets the work they're best at - automatically.
+Use AI to analyze Tallyfy form responses and route tasks to the right people automatically.
 
 **Workflow components:**
 
@@ -204,90 +200,84 @@ Let AI analyze your Tallyfy form responses and route tasks to the right people. 
 
 4. **HTTP Request node** (multiple) - Update task assignment
    - Method: PUT
-   - URL: `https://go.tallyfy.com/api/tasks/{{$json.task_id}}`
+   - URL: `https://go.tallyfy.com/api/organizations/{org_id}/tasks/{{$json.task_id}}`
    - Assign to appropriate Tallyfy [member](/products/pro/documenting/members/) based on routing
 
 5. **Notification nodes**
-   - Alert assigned team member via preferred channel
+   - Alert assigned team member via their preferred channel
 
 ![n8n AI Agent node connected to OpenRouter Chat Model and Simple Memory for building intelligent workflow automations](https://screenshots.tallyfy.com/tallyfy/pro/n8n-ai-agent-setup.png)
 
 ### Example 6: Human-in-the-loop workflows
 
-Sometimes you need a human to review AI outputs or approve actions before they continue. n8n's "Send and wait for response" nodes let you pause workflows for human input - turning hours of manual review into quick approval checks.
+n8n's "Send and wait for response" nodes pause workflows for human input - turning hours of manual review into quick approval checks.
 
-**Real-world pattern from production:**
+**Pattern:**
 
 1. **AI generates content** (proposal, report, blog post)
-2. **Workflow pauses** with notification to Slack/Email asking for review
+2. **Workflow pauses** with Slack/Email notification for review
 3. **Human reviews** and responds (approve/reject/modify)
 4. **Workflow continues** based on the response
 
 **Workflow components:**
 
-1. **Trigger node** - Start from webhook, schedule, or manual
+1. **Trigger node** - Webhook, schedule, or manual start
 
-2. **AI Agent node** - Generate the content that needs review
-   - Configure with appropriate LLM (Claude, GPT-4, etc.)
-   - Include clear system prompts for consistent output format
+2. **AI Agent node** - Generate content that needs review
+   - Configure with your preferred LLM (Claude, GPT-4, etc.)
+   - Use clear system prompts for consistent output
 
 3. **Slack node** (Human in the Loop category)
    - Action: **Send message and wait for reply**
-   - Send AI output with clear "Approve" / "Reject" / "Revise" instructions
-   - Workflow pauses here until response received
+   - Include "Approve" / "Reject" / "Revise" instructions
+   - Workflow pauses until a response arrives
 
 4. **Switch node** - Route based on response
-   - "Approved" → Continue to next action
-   - "Rejected" → Log and notify, end workflow
-   - "Revise" → Loop back to AI with feedback
+   - "Approved" - continue to next action
+   - "Rejected" - log, notify, and end
+   - "Revise" - loop back to AI with feedback
 
 5. **Action nodes** - Execute based on approval
-   - Send proposal to client
-   - Publish content
-   - Update CRM records
+   - Send proposal, publish content, or update CRM
 
-**Example use cases:**
-- **Review proposals before client delivery** - AI drafts, human verifies pricing and scope
-- **Approve AI-generated content before publishing** - Catch hallucinations or tone issues
-- **Validate data enrichment before CRM updates** - Confirm AI matched the right company
+**Use cases:**
+- **Review proposals before delivery** - AI drafts, human verifies pricing and scope
+- **Approve AI content before publishing** - catch hallucinations or tone issues
+- **Validate data enrichment** - confirm AI matched the right company
 
-**Pro tip**: You can stack multiple human-in-the-loop steps for multi-level approval workflows - just chain several "Send and wait" nodes with different reviewers.
+You can chain multiple "Send and wait" nodes with different reviewers for multi-level approvals.
 
 ### Switch nodes for intelligent routing
 
-The Switch node lets AI make decisions that branch your workflow into different paths. Instead of complex IF/ELSE chains, use AI classification combined with Switch routing.
+Use AI classification with a Switch node instead of complex IF/ELSE chains.
 
 **Pattern:**
 ```
 Webhook → AI Agent (classify request) → Switch Node → Multiple specialized paths
 ```
 
-**How to configure:**
+**Configuration:**
 
 1. **AI Agent node** - Classify the input
    - System prompt: "Classify this request as exactly one of: URGENT, NORMAL, or LOW_PRIORITY"
-   - Output should be a single keyword
+   - Output a single keyword
 
-2. **Switch node** - Create rules for each classification
+2. **Switch node** - Route by classification
    - Mode: **Rules**
-   - Add rule: Value equals "URGENT" → Output 0 (urgent path)
-   - Add rule: Value equals "NORMAL" → Output 1 (normal path)
+   - Rule: Value equals "URGENT" - Output 0 (urgent path)
+   - Rule: Value equals "NORMAL" - Output 1 (normal path)
    - Fallback: Output 2 (low priority path)
 
-3. **Different paths** - Each output connects to specialized handling
+3. **Specialized handling per path**
    - URGENT: Immediate Slack alert + assign to senior staff
    - NORMAL: Standard queue + email notification
    - LOW_PRIORITY: Batch processing + weekly digest
 
-This pattern works for:
-- Customer support ticket triage
-- Lead scoring and routing
-- Content categorization
-- Compliance checking
+Works well for support ticket triage, lead scoring, content categorization, and compliance checks.
 
 ### Best practices for n8n + Tallyfy workflows
 
-1. **Error handling**: Your workflows will fail eventually - plan for it:
+1. **Error handling** - workflows will fail eventually, so plan for it:
    ```
    On Error: Continue (Error Output)
    → Log error details
@@ -295,32 +285,17 @@ This pattern works for:
    → Store failed data for retry
    ```
 
-2. **Rate limiting**: Don't hammer the APIs. Add **Wait** nodes between bulk operations:
-   - Wait 1 second between API calls when processing many items
+2. **Rate limiting** - add **Wait** nodes between bulk operations. A 1-second delay between API calls prevents throttling.
 
-3. **Data validation**: Check your data before sending it. Use **IF** nodes to validate:
-   - Required fields actually exist
-   - Data formats match what Tallyfy expects
+3. **Data validation** - use **IF** nodes to confirm required fields exist and formats match what Tallyfy expects before sending data.
 
-4. **Workflow organization**: Future you will thank present you. Use **Sticky Note** nodes to document:
-   - Workflow purpose and triggers
-   - Required credentials and configuration
-   - Expected data formats
+4. **Workflow organization** - use **Sticky Note** nodes to document the workflow's purpose, required credentials, and expected data formats.
 
-5. **Testing approach**:
-   - Start with **Manual Trigger** for testing
-   - Add **Set** nodes with test data
-   - Use **Stop and Error** nodes for debugging
+5. **Testing** - start with **Manual Trigger** and **Set** nodes for test data. Use **Stop and Error** nodes for debugging.
 
-6. **Retry settings for reliability**: Configure retry behavior in workflow settings:
-   - Set retry count to 2+ for AI and HTTP nodes
-   - Use 5000ms (5 seconds) between retry attempts
-   - This handles temporary rate limits and network blips automatically
+6. **Retry settings** - set retry count to 2+ on AI and HTTP nodes with 5000ms between attempts. This handles temporary rate limits automatically.
 
-7. **Version history awareness**: n8n keeps workflow versions for 5 days:
-   - Use **Export as JSON** for permanent backups of important workflows
-   - You can restore previous versions from the workflow menu
-   - Before major changes, export a backup JSON file
+7. **Version history** - n8n keeps recent workflow versions, but use **Export as JSON** for permanent backups before major changes.
 
 ### Debugging tips
 
@@ -333,17 +308,15 @@ This pattern works for:
 
 ### Advanced patterns
 
-**Parallel processing**: Process multiple items at once (without breaking things). Use **Split In Batches** node to handle batches while respecting rate limits.
+**Parallel processing** - use the **Split In Batches** node to handle multiple items while respecting rate limits.
 
-**Retry logic**: Sometimes things fail. Here's smart retry with **Wait** and **IF** nodes:
-1. Set retry counter
-2. On error, increment counter
-3. Wait exponentially longer between retries (2s, 4s, 8s...)
-4. Stop after max retries reached
+**Retry logic** with **Wait** and **IF** nodes:
+1. Set a retry counter
+2. On error, increment the counter
+3. Wait exponentially longer between retries (2s, 4s, 8s)
+4. Stop after max retries
 
-**Data enrichment**: Need more context? Chain multiple API calls to gather complete data before launching Tallyfy processes. Perfect for pulling customer history, support tickets, or sales data into one complete picture.
-
-Ready to build? These examples give you working patterns to start from. Tweak them for your specific needs and systems.
+**Data enrichment** - chain multiple API calls to gather complete data before launching Tallyfy processes. Pull customer history, support tickets, or sales data into one picture before kicking off a workflow.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
@@ -351,6 +324,6 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <CardGrid>
 <LinkTitleCard header="<b>N8N > Connecting n8n</b>" href="/products/pro/integrations/middleware/n8n/connecting-n8n-to-tallyfy/" > n8n connects to Tallyfy through a dedicated community node or HTTP Request nodes enabling workflow automation with 60+ operations across blueprints processes tasks and users while supporting real-time webhook events and offering both self-hosted and cloud deployment options. </LinkTitleCard>
 <LinkTitleCard header="<b>Middleware > n8n</b>" href="/products/pro/integrations/middleware/n8n/" > n8n connects Tallyfy with over 400 business applications through visual workflows using a dedicated connector with 60+ operations while offering self-hosting options and AI-native automation capabilities for launching processes managing tasks and orchestrating cross-system data synchronization. </LinkTitleCard>
+<LinkTitleCard header="<b>Templates > Automations</b>" href="/products/pro/documenting/templates/automations/" > Tallyfy automations turn static workflows into adaptive processes using IF-THEN rules that automatically route tasks adjust deadlines and show or hide steps based on real-time user input and form responses. </LinkTitleCard>
 <LinkTitleCard header="<b>Webhooks > Details about webhooks</b>" href="/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/" > Tallyfy webhooks automatically transmit JSON data to external URLs when workflow events occur at either the template level (firing on any step completion or process launch) or step level (firing only for specific task completions) and include retry logic for failed deliveries along with organizational ID headers for security validation. </LinkTitleCard>
-<LinkTitleCard header="<b>Miscellaneous > Glossary</b>" href="/products/pro/miscellaneous/glossary/" > This glossary defines essential Tallyfy workflow platform terminology from Administrator roles and API integrations to webhooks and workflow automation enabling teams to communicate precisely about business process management and digital transformation initiatives. </LinkTitleCard>
 </CardGrid>

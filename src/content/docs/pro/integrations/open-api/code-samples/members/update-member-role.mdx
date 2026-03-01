@@ -1,25 +1,26 @@
 ---
-description: This endpoint allows administrators to modify a member's role within
-  a Tallyfy organization by sending a PUT request with the new role name (such as
-  admin standard or light) and returns the updated user profile upon successful completion.
+description: Administrators can change a member's role in Tallyfy by sending a PUT
+  request with the new role name (admin, standard, or light) to get back the updated
+  user profile.
 id: 6dc48930596a7a7acf0f8a74b81af180
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
+about_tallyfy: true
 title: Update member role
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Endpoint
+## Change a member's role via API
 
 `PUT /organizations/{org_id}/users/{user_id}/role`
 
-This endpoint updates the role of a specific member within your Tallyfy organization.
+This endpoint changes a member's role within your Tallyfy organization. Only administrators can use it.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID of the member whose role you want to change.
+Replace `{org_id}` with your Organization ID and `{user_id}` with the member's numeric ID.
 
 ### Headers
 
@@ -30,11 +31,9 @@ Replace `{org_id}` with your Organization ID and `{user_id}` with the numeric ID
 
 ### Body (JSON)
 
-The request body requires a JSON object specifying the new role.
+Send a JSON object with the new role. The three valid roles are `admin`, `standard`, and `light`.
 
--   `role` (string, required): The new role name (such as `admin`, `standard`, `light`). Check your Tallyfy organization settings or documentation for available role names.
-
-**Example Body:**
+-   `role` (string, required): Must be one of `admin`, `standard`, or `light`.
 
 ```json
 {
@@ -49,11 +48,11 @@ The request body requires a JSON object specifying the new role.
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const userId = 12345; // ID of the member whose role to update
+const userId = 12345;
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/users/${userId}/role`;
 
 const roleData = {
-  role: "admin" // Promote to Admin (valid Tallyfy roles: "admin", "standard", "light")
+  role: "admin" // Valid roles: "admin", "standard", "light"
 };
 
 const headers = new Headers();
@@ -68,17 +67,17 @@ fetch(apiUrl, {
     body: JSON.stringify(roleData)
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error(`Failed to update role for member ${userId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
     console.log(`Successfully updated role for member ${userId}:`);
-    console.log(JSON.stringify(data, null, 2)); // Response likely shows the updated user profile
+    console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
     console.error(`Error updating role for member ${userId}:`, error.message);
@@ -93,7 +92,7 @@ import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
-user_id = 12345 # ID of the member
+user_id = 12345
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/users/{user_id}/role'
 
 headers = {
@@ -104,13 +103,13 @@ headers = {
 }
 
 role_payload = {
-    'role': 'light' # Example: Demote to Light user (valid Tallyfy roles: "admin", "standard", "light")
+    'role': 'light' # Valid roles: "admin", "standard", "light"
 }
 
 response = None
 try:
     response = requests.put(api_url, headers=headers, json=role_payload)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     updated_member = response.json()
     print(f'Successfully updated role for member {user_id}:')
@@ -124,16 +123,11 @@ except requests.exceptions.HTTPError as http_err:
     except json.JSONDecodeError:
         if response is not None:
              error_details = response.text
-    
-    print(f"HTTP error occurred updating role for member {user_id}: {http_err}") 
+    print(f"HTTP error updating role for member {user_id}: {http_err}")
     print(f"Response Body: {error_details}")
 
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed updating role for member {user_id}: {req_err}")
-except json.JSONDecodeError:
-    print(f"Failed to decode successful JSON response for member {user_id} role update")
-    if response is not None:
-        print(f"Response Text: {response.text}")
+    print(f"Request failed for member {user_id}: {req_err}")
 except Exception as err:
      print(f"An unexpected error occurred: {err}")
 ```
@@ -145,34 +139,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Requires a JSON library like Jackson or Gson
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import java.util.Map;
 
 public class UpdateMemberRole {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         int userId = 12345;
-        String newRole = "standard"; // Valid Tallyfy roles: "admin", "standard", or "light"
+        String newRole = "standard"; // Valid: "admin", "standard", "light"
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/users/%d/role", orgId, userId);
 
-        // --- Payload Construction --- 
-        // Using Jackson/Gson recommended:
-        /*
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, String> roleData = Map.of("role", newRole);
-        String jsonPayload;
-        try {
-            jsonPayload = mapper.writeValueAsString(roleData);
-        } catch (Exception e) {
-            System.err.println("Failed to serialize JSON: " + e.getMessage());
-            return;
-        }
-        */
-        // Simple manual JSON string:
-        String jsonPayload = String.format("{\"role\": \"%s\"}", newRole); 
-        // --- End Payload --- 
+        String jsonPayload = String.format("{\"role\": \"%s\"}", newRole);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -186,21 +162,16 @@ public class UpdateMemberRole {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
             if (response.statusCode() == 200) {
-                System.out.println("Successfully updated role for member " + userId + " to " + newRole + ":");
+                System.out.println("Updated role for member " + userId + " to " + newRole + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON response
             } else {
-                System.err.println("Failed to update role for member " + userId + ". Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Failed. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -218,17 +189,17 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    userId := 12345
-    newRole := "admin" // Valid Tallyfy roles: "admin", "standard", or "light"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/%s/role", orgId, strconv.Itoa(userId))
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	userId := 12345
+	newRole := "admin" // Valid: "admin", "standard", "light"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users/%s/role", orgId, strconv.Itoa(userId))
 
 	roleData := map[string]interface{}{
 		"role": newRole,
@@ -236,16 +207,16 @@ func main() {
 
 	jsonData, err := json.Marshal(roleData)
 	if err != nil {
-        fmt.Printf("Error marshalling JSON: %v\n", err)
-        return
-    }
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
-    if err != nil {
-        fmt.Printf("Error creating update role request for user %d: %v\n", userId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -253,32 +224,30 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing update role request for user %d: %v\n", userId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Request failed: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading update role response body for user %d: %v\n", userId, err)
-        return
-    }
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to update role for user %d. Status: %d\nBody: %s\n", userId, resp.StatusCode, string(body))
+	if err != nil {
+		fmt.Printf("Error reading response: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Successfully updated role for member %d to %s:\n", userId, newRole)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON if needed
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Failed. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		return
+	}
+
+	fmt.Printf("Updated role for member %d to %s:\n", userId, newRole)
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -296,12 +265,11 @@ using namespace web::json;
 
 pplx::task<void> UpdateTallyfyMemberRole(int userId, const utility::string_t& newRole)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t userIdStr = utility::conversions::to_string_t(std::to_string(userId));
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/users/") + userIdStr + U("/role");
 
-    // Construct payload
     value payload = value::object();
     payload[U("role")] = value::string(newRole);
 
@@ -321,14 +289,12 @@ pplx::task<void> UpdateTallyfyMemberRole(int userId, const utility::string_t& ne
             try {
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully updated role for member " << userId << L" to " << newRole << L":\n" << body.serialize() << std::endl;
+                    std::wcout << L"Updated role for member " << userId << L" to " << newRole << L":\n" << body.serialize() << std::endl;
                 } else {
-                    std::wcerr << L"Failed to update role for member " << userId << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                    std::wcerr << L"Failed. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during update role: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during update role response handling: " << e.what() << std::endl;
+                std::wcerr << L"Error: " << e.what() << std::endl;
             }
         });
     });
@@ -336,10 +302,9 @@ pplx::task<void> UpdateTallyfyMemberRole(int userId, const utility::string_t& ne
 
 int main() {
     try {
-        // Ensure the role string is valid ("admin", "standard", "light")
-        UpdateTallyfyMemberRole(12345, U("light")).wait(); // Replace user ID
+        UpdateTallyfyMemberRole(12345, U("light")).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -361,7 +326,7 @@ public class TallyfyMemberRoleUpdater
 
     public class RolePayload
     {
-        public string Role { get; set; } // Required: "admin", "standard", or "light"
+        public string Role { get; set; } // "admin", "standard", or "light"
     }
 
     public static async Task UpdateMemberRoleAsync(int userId, string newRole)
@@ -385,9 +350,9 @@ public class TallyfyMemberRoleUpdater
             HttpResponseMessage response = await client.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Expect 200 OK
+            if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Successfully updated role for member {userId} to {newRole}:");
+                Console.WriteLine($"Updated role for member {userId} to {newRole}:");
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
@@ -397,28 +362,23 @@ public class TallyfyMemberRoleUpdater
             }
             else
             {
-                Console.WriteLine($"Failed to update role for member {userId}. Status: {response.StatusCode}");
+                Console.WriteLine($"Failed. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception updating role for member {userId}: {e.Message}");
-        }
-        catch (JsonException jsonEx)
-        {
-             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
+            Console.WriteLine($"Request error: {e.Message}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
     }
 
-    // Example Usage:
     // static async Task Main(string[] args)
     // {
-    //     await UpdateMemberRoleAsync(12345, "admin"); // Replace user ID
+    //     await UpdateMemberRoleAsync(12345, "admin");
     // }
 }
 ```
@@ -427,7 +387,7 @@ public class TallyfyMemberRoleUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the member's full profile, reflecting the updated `user_role`.
+A `200 OK` response returns the member's full profile with the updated role.
 
 ```json
 {
@@ -436,14 +396,13 @@ A successful request returns a `200 OK` status code and a JSON object containing
     "email": "specific.user@example.com",
     "first_name": "Specific",
     "last_name": "User",
-    "user_role": "light", // Role is updated
+    "role": "light",
     // ... other user properties ...
-    "last_updated": "YYYY-MM-DDTHH:mm:ssZ" // Timestamp reflects the update
   }
 }
 ```
 
-If the user ID or role name is invalid, or you lack permission, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+If the member isn't found, you'll get a `404`. An invalid role value returns `422`. Missing admin permissions returns `403`.
 
 ---
 

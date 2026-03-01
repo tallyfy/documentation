@@ -1,13 +1,12 @@
 ---
-description: This API endpoint retrieves complete details for a specific Tallyfy task
-  by its unique ID and supports optional query parameters to include related data
-  like process run information and form fields while returning a JSON response containing
-  task properties such as title status owners and deadline.
+description: Retrieve full details for a specific task by ID, with optional related
+  data like the process run, form fields, step info, and tags.
 id: c29e53885525a08349e494b0b5ef2df1
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Get task
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -16,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/tasks/{task_id}`
 
-This endpoint retrieves the full details for a single Tallyfy task (either a one-off task or a task within a process run) identified by its unique ID.
+Retrieves a single task by its ID. This works for both standalone (one-off) tasks and process tasks. For process tasks, you can also use `GET /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{task_id}` with the specific ID of the task you want to retrieve.
+Replace `{org_id}` with your Organization ID and `{task_id}` with the task's unique ID.
 
 ### Headers
 
@@ -30,7 +29,7 @@ Replace `{org_id}` with your Organization ID and `{task_id}` with the specific I
 
 ### Query parameters (optional)
 
--   `with` (string): Include related data. For tasks, common options might include `run`, `step`, `threads`, `assets`, `form_fields`, `tags`, `summary`. Example: `with=run,step,form_fields`.
+-   `with` (string): Comma-separated list of related data to include. Options: `run`, `step`, `form_fields`, `tags`, `threads`, `issues`, `assets`, `folders`, `roles`, `activities`, `ko-form-fields`, `summary`, `member_watchers`, `guest_watchers`, `threads_count`. Example: `with=run,step,form_fields`.
 
 ### Code samples
 
@@ -39,9 +38,9 @@ Replace `{org_id}` with your Organization ID and `{task_id}` with the specific I
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const taskId = 'TASK_ID_TO_GET'; // ID of the task
+const taskId = 'TASK_ID_TO_GET';
 
-const queryParams = '?with=run,step,form_fields,tags'; // Example: get related info
+const queryParams = '?with=run,step,form_fields,tags';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks/${taskId}${queryParams}`;
 
 const headers = new Headers();
@@ -49,17 +48,14 @@ headers.append('Authorization', `Bearer ${accessToken}`);
 headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
-fetch(apiUrl, {
-    method: 'GET',
-    headers: headers
-})
+fetch(apiUrl, { method: 'GET', headers })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error(`Failed to get task ${taskId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -88,32 +84,29 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-    'with': 'run,step,form_fields,tags' # Example: Include related data
+    'with': 'run,step,form_fields,tags'
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     task_data = response.json()
     print(f'Successfully retrieved task {task_id}:')
     print(json.dumps(task_data, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred getting task {task_id}: {http_err}") 
+    print(f"HTTP error getting task {task_id}: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed getting task {task_id}: {req_err}")
+    print(f"Request failed for task {task_id}: {req_err}")
 except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for task {task_id}")
+    print(f"Failed to decode JSON for task {task_id}")
     if response is not None:
         print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -126,7 +119,7 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class GetTask {
@@ -137,14 +130,13 @@ public class GetTask {
         String taskId = "TASK_ID_TO_GET";
         String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId);
 
-        // Optional: Add query parameters
         Map<String, String> queryParamsMap = new HashMap<>();
-        queryParamsMap.put("with", "run,step,form_fields"); 
-        
+        queryParamsMap.put("with", "run,step,form_fields");
+
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-            
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -158,21 +150,16 @@ public class GetTask {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
             if (response.statusCode() == 200) {
                 System.out.println("Successfully retrieved task " + taskId + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
                 System.err.println("Failed to get task " + taskId + ". Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
     }
 }
@@ -186,53 +173,53 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    taskId := "TASK_ID_TO_GET"
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	taskId := "TASK_ID_TO_GET"
 	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks/%s", orgId, taskId)
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-    queryParams.Add("with", "run,step,form_fields,tags") // Example
+	// Optional: Add query parameters
+	queryParams := url.Values{}
+	queryParams.Add("with", "run,step,form_fields,tags")
 
-    apiUrl := baseURL
-     if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	apiUrl := baseURL
+	if len(queryParams) > 0 {
+		apiUrl += "?" + queryParams.Encode()
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating get task request for task %s: %v\n", taskId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request for task %s: %v\n", taskId, err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing get task request for task %s: %v\n", taskId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request for task %s: %v\n", taskId, err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading get task response body for task %s: %v\n", taskId, err)
-        return
-    }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response for task %s: %v\n", taskId, err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Failed to get task %s. Status: %d\nBody: %s\n", taskId, resp.StatusCode, string(body))
@@ -240,14 +227,12 @@ func main() {
 	}
 
 	fmt.Printf("Successfully retrieved task %s:\n", taskId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a struct if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -265,19 +250,18 @@ using namespace web::json;
 
 pplx::task<void> GetTallyfyTask(const utility::string_t& taskId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("tasks"));
     builder.append_path(taskId);
-    builder.append_query(U("with"), U("run,step,form_fields,tags")); // Example query parameter
+    builder.append_query(U("with"), U("run,step,form_fields,tags"));
     utility::string_t apiUrl = builder.to_string();
 
     http_client client(apiUrl);
     http_request request(methods::GET);
-
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
@@ -291,14 +275,11 @@ pplx::task<void> GetTallyfyTask(const utility::string_t& taskId)
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully retrieved task " << taskIdW << L":\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")][U("title")].as_string();
                 } else {
                     std::wcerr << L"Failed to get task " << taskIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during get task: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during get task response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception getting task: " << e.what() << std::endl;
             }
         });
     });
@@ -306,9 +287,9 @@ pplx::task<void> GetTallyfyTask(const utility::string_t& taskId)
 
 int main() {
     try {
-        GetTallyfyTask(U("TASK_ID_TO_GET")).wait(); // Replace with actual Task ID
+        GetTallyfyTask(U("TASK_ID_TO_GET")).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -322,7 +303,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyTaskGetter
 {
@@ -332,12 +313,10 @@ public class TallyfyTaskGetter
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "run,step,form_fields,tags"; // Example
-        string queryString = query.ToString();
-        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks/{taskId}?{queryString}";
+        query["with"] = "run,step,form_fields,tags";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks/{taskId}?{query}";
 
         try
         {
@@ -352,13 +331,11 @@ public class TallyfyTaskGetter
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine($"Successfully retrieved task {taskId}:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access data: doc.RootElement.GetProperty("data").GetProperty("title").GetString();
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -369,19 +346,9 @@ public class TallyfyTaskGetter
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception getting task {taskId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request exception getting task {taskId}: {e.Message}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await GetTaskAsync("TASK_ID_TO_GET");
-    // }
 }
 ```
 </TabItem>
@@ -389,45 +356,61 @@ public class TallyfyTaskGetter
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` field. The value of `data` is an object representing the requested task with its full details.
+Returns a `200 OK` with a JSON object containing a `data` field that holds the task's full details.
 
 ```json
 {
   "data": {
-    "id": "TASK_ID_TO_GET",
+    "id": "task_id_abc",
     "increment_id": 1205,
     "title": "Review Proposal",
-    "summary": "Review the proposal document attached.",
     "run_id": "run_id_xyz",
-    "step_id": "step_id_123",
+    "checklist_id": "checklist_id_123",
+    "step_id": "step_id_456",
+    "alias": "review-proposal",
     "status": "active",
-    "task_type": "member", // or "guest"
-    "owners": { ... },
-    "deadline": "YYYY-MM-DDTHH:MM:SSZ",
-    "created_at": "YYYY-MM-DDTHH:MM:SSZ",
-    "last_updated": "YYYY-MM-DDTHH:MM:SSZ",
+    "status_label": "Active",
+    "task_type": "task",
+    "is_oneoff_task": false,
+    "is_completable": true,
+    "is_approved": false,
+    "owners": {
+      "users": [1234],
+      "guests": [],
+      "groups": []
+    },
     "position": 1,
-    // ... other task properties ...
-    // Included if requested with 'with=form_fields':
-    "form_fields": [
-      {
-        "id": "capture_id_abc",
-        "label": "Approval Status",
-        "field_type": "dropdown",
-        "value": { "id": 1, "text": "Approved", "value": null }, // Value depends on field type
-        "required": true
-        // ... other form field details ...
-      }
-    ],
-    // Included if requested with 'with=run':
-    "run": { ... process run details ... },
-    // Included if requested with 'with=step':
-    "step": { ... template step details ... }
+    "started_at": "2025-01-10T09:00:00Z",
+    "deadline": "2025-01-15T17:00:00Z",
+    "created_at": "2025-01-10T09:00:00Z",
+    "last_updated": "2025-01-12T14:30:00Z",
+    "completed_at": null,
+    "archived_at": null,
+    "starter_id": 1234,
+    "completer_id": null,
+    "everyone_must_complete": false,
+    "can_complete_only_assignees": true,
+    "max_assignable": 1,
+    "webhook": null,
+    "top_secret": false,
+    "form_fields": {
+      "data": [
+        {
+          "id": "capture_id_abc",
+          "label": "Approval Status",
+          "field_type": "dropdown",
+          "value": { "id": 1, "text": "Approved" },
+          "required": true
+        }
+      ]
+    },
+    "run": { "data": { "...": "process run details" } },
+    "step": { "data": { "...": "template step details" } }
   }
 }
 ```
 
-If the task ID is not found or you don't have permission, you will likely receive a `404 Not Found` or `403 Forbidden` error.
+The `form_fields`, `run`, and `step` objects only appear when you request them via the `with` parameter. If the task isn't found, you'll get a `404`. If you lack permission, expect a `403`.
 
 ---
 

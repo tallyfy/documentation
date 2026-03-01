@@ -1,12 +1,11 @@
 ---
-description: A DELETE endpoint that removes guest users from an organization by their
-  email address and returns either a success status code or guest record details upon
-  completion.
+description: Remove a guest user from your organization using the DELETE endpoint with their email address.
 id: 802af3f146a14e117b97089eaf228279
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Delete guest
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,15 +14,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DELETE /organizations/{org_id}/guests/{guest_email}`
 
-This endpoint removes a guest user record from your Tallyfy organization, identified by their email address. This action prevents the guest from accessing any further tasks or information within this organization.
-
-:::note[Alternative Endpoint]
-The Swagger specification also lists `DELETE /organizations/{org}/guests/{guestID}/delete`. This suggests you might also be able to delete a guest using their unique ID (`guest_code`) instead of their email. Check the specific endpoint behavior if needed.
-:::
+This endpoint removes a guest from your Tallyfy organization by email address. It detaches the guest from all tasks, removes the org association, and soft-deletes the guest record if they don't belong to any other organizations.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{guest_email}` with the URL-encoded email address of the guest to remove.
+Replace `{org_id}` with your organization ID and `{guest_email}` with the URL-encoded email address of the guest to remove.
 
 ### Headers
 
@@ -33,7 +28,7 @@ Replace `{org_id}` with your Organization ID and `{guest_email}` with the URL-en
 
 ### Body
 
-No request body is needed for this DELETE request.
+No request body is needed.
 
 ### Code samples
 
@@ -43,7 +38,7 @@ No request body is needed for this DELETE request.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const guestEmail = "guest.to.delete@example.com";
-const encodedEmail = encodeURIComponent(guestEmail); // Ensure email is URL encoded
+const encodedEmail = encodeURIComponent(guestEmail);
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests/${encodedEmail}`;
 
 const headers = new Headers();
@@ -56,35 +51,21 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    // Check for successful status codes (200, 201, 204)
-    if (response.status === 200 || response.status === 201 || response.status === 204) { 
-        console.log(`Successfully deleted guest ${guestEmail}. Status: ${response.status}`);
-        // Attempt to parse JSON only if not 204
-         if (response.status !== 204) {
-             return response.json().catch(e => {
-                 console.warn("Could not parse JSON response for success status:", e);
-                 return null; // Continue successfully but without data
-             });
-         }
-         return null; // For 204 No Content
+    if (response.ok) {
+        return response.json();
     } else {
-        // Try to parse error JSON, fallback to text
-        return response.json()
-            .catch(() => response.text()) // If JSON parse fails
-            .then(errData => { 
-                console.error(`Failed to delete guest ${guestEmail}. Status: ${response.status}`, errData);
-                throw new Error(`HTTP error! status: ${response.status}`); 
-            });
+        return response.json().then(errData => {
+            console.error(`Failed to delete guest. Status: ${response.status}`, errData);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        });
     }
 })
 .then(data => {
-    if (data) { // Only log if data was parsed (i.e., status 200 or 201 with body)
-      console.log('Deleted guest details (if returned):');
-      console.log(JSON.stringify(data, null, 2));
-    }
+    console.log('Deleted guest details:');
+    console.log(JSON.stringify(data, null, 2));
 })
 .catch(error => {
-    console.error(`Error during deletion of guest ${guestEmail}:`, error.message);
+    console.error(`Error deleting guest ${guestEmail}:`, error.message);
 });
 ```
 </TabItem>
@@ -98,7 +79,7 @@ from urllib.parse import quote
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 guest_email = "guest.to.delete@example.com"
-encoded_email = quote(guest_email) # URL-encode the email
+encoded_email = quote(guest_email)
 api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/guests/{encoded_email}'
 
 headers = {
@@ -107,37 +88,14 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-response = None
-try:
-    response = requests.delete(api_url, headers=headers)
-    
-    # Check for successful status codes
-    if response.status_code in [200, 201]:
-        print(f'Successfully deleted guest {guest_email}. Status: {response.status_code}')
-        try:
-            # Attempt to parse JSON if content exists
-            if response.content:
-                 deleted_guest = response.json()
-                 print('Deleted guest details (if returned):')
-                 print(json.dumps(deleted_guest, indent=4))
-            else:
-                print("(Response body empty)")
-        except json.JSONDecodeError:
-            print(f"(Received status {response.status_code} but body is not valid JSON: {response.text})")
-    elif response.status_code == 204:
-        print(f'Successfully deleted guest {guest_email}. Status: 204 No Content')
-    else:
-        # Raise an exception for other non-success status codes
-        response.raise_for_status()
+response = requests.delete(api_url, headers=headers)
 
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred deleting guest {guest_email}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed deleting guest {guest_email}: {req_err}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+if response.status_code == 200:
+    print(f'Successfully deleted guest {guest_email}.')
+    print(json.dumps(response.json(), indent=4))
+else:
+    print(f'Failed to delete guest. Status: {response.status_code}')
+    print(response.text)
 ```
 </TabItem>
 <TabItem label="Java">
@@ -170,27 +128,17 @@ public class DeleteGuest {
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200 || response.statusCode() == 201) { 
-                System.out.println("Successfully deleted guest " + guestEmail + ". Status: " + response.statusCode());
-                 if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body (Deleted Guest Details):");
-                     System.out.println(response.body());
-                     // TODO: Consider parsing JSON
-                 } else {
-                      System.out.println("(Response body empty)");
-                 }
-            } else if (response.statusCode() == 204) {
-                 System.out.println("Successfully deleted guest " + guestEmail + ". Status: 204 No Content");
+            if (response.statusCode() == 200) {
+                System.out.println("Successfully deleted guest " + guestEmail);
+                System.out.println("Response:");
+                System.out.println(response.body());
             } else {
-                 System.err.println("Failed to delete guest " + guestEmail + ". Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
+                System.err.println("Failed to delete guest. Status: " + response.statusCode());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
     }
 }
@@ -202,29 +150,27 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
 	email := "guest.to.delete@example.com"
 
-	// URL-encode the email address
-	encodedEmail := url.PathEscape(email) // Use PathEscape for path segments
-
+	encodedEmail := url.PathEscape(email)
 	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests/%s", orgId, encodedEmail)
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
 	if err != nil {
-		fmt.Printf("Error creating delete guest request for %s: %v\n", email, err)
+		fmt.Printf("Error creating request: %v\n", err)
 		return
 	}
 
@@ -234,29 +180,18 @@ func main() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error executing delete guest request for %s: %v\n", email, err)
+		fmt.Printf("Error executing request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-        // Might occur for 204, check status first
-	}
+	body, _ := io.ReadAll(resp.Body)
 
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		fmt.Printf("Successfully deleted guest %s. Status: %d\n", email, resp.StatusCode)
-		if len(body) > 0 {
-			fmt.Println("Response Body (Deleted Guest Details):")
-			fmt.Println(string(body))
-			// TODO: Unmarshal JSON if needed
-        } else {
-            fmt.Println("(Response body empty)")
-        }
-	} else if resp.StatusCode == http.StatusNoContent {
-        fmt.Printf("Successfully deleted guest %s. Status: %d No Content\n", email, resp.StatusCode)
-    } else {
-		fmt.Printf("Failed to delete guest %s. Status: %d\nBody: %s\n", email, resp.StatusCode, string(body))
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("Successfully deleted guest %s\n", email)
+		fmt.Println(string(body))
+	} else {
+		fmt.Printf("Failed to delete guest. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 	}
 }
 ```
@@ -265,43 +200,22 @@ func main() {
 ```cpp
 #include <iostream>
 #include <string>
-#include <urlmon.h> // For UrlEscape (Windows specific example)
-#include <windows.h> // Include before cpprest includes on Windows
 #include <cpprest/http_client.h>
 #include <cpprest/json.h>
-#pragma comment(lib, "urlmon.lib")
 
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
-using namespace web::json;
-
-// Helper function for basic URL encoding (consider a more robust library for production)
-utility::string_t UrlEncode(const utility::string_t& input) {
-     // Using Windows UrlEscape - requires linking urlmon.lib
-     // Consider cross-platform alternatives like cpp-netlib or manual implementation.
-     DWORD size = 0;
-     UrlEscape(input.c_str(), nullptr, &size, URL_ESCAPE_PERCENT);
-     if (size == 0) return input; // Error or nothing to escape
-
-     std::vector<wchar_t> buffer(size);
-     if (S_OK == UrlEscape(input.c_str(), buffer.data(), &size, URL_ESCAPE_PERCENT)) {
-         return utility::string_t(buffer.data());
-     } else {
-         // Handle error
-         return input; 
-     }
-}
 
 pplx::task<void> DeleteTallyfyGuest(const utility::string_t& guestEmail)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    utility::string_t encodedEmail = UrlEncode(guestEmail); // URL Encode the email
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+    utility::string_t encodedEmail = uri::encode_data_string(guestEmail);
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/guests/") + encodedEmail;
 
     http_client client(apiUrl);
-    http_request request(methods::DEL); 
+    http_request request(methods::DEL);
 
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
@@ -309,27 +223,21 @@ pplx::task<void> DeleteTallyfyGuest(const utility::string_t& guestEmail)
 
     return client.request(request).then([guestEmail](http_response response)
     {
-        utility::string_t emailW = guestEmail;
         status_code status = response.status_code();
 
-        if (status == status_codes::OK || status == status_codes::Created) {
-            return response.extract_json().then([emailW, status](pplx::task<value> task) {
-                 try {
-                     value const & body = task.get();
-                     std::wcout << L"Successfully deleted guest " << emailW << L". Status: " << status << L"\nResponse Body:\n" << body.serialize() << std::endl;
-                 } catch (const http_exception& e) {
-                      std::wcout << L"Successfully deleted guest " << emailW << L". Status: " << status << L" (Body extraction failed: " << e.what() << L")." << std::endl;
-                 }
+        if (status == status_codes::OK) {
+            return response.extract_json().then([guestEmail, status](pplx::task<value> task) {
+                try {
+                    value const & body = task.get();
+                    std::wcout << L"Successfully deleted guest. Response:\n" << body.serialize() << std::endl;
+                } catch (const http_exception& e) {
+                    std::wcout << L"Deleted guest but couldn't parse response: " << e.what() << std::endl;
+                }
             });
-        } else if (status == status_codes::NoContent) {
-            std::wcout << L"Successfully deleted guest " << emailW << L". Status: " << status << L" No Content." << std::endl;
-            return pplx::task_from_result(); // Completed successfully
         } else {
-            // Handle error
-            return response.extract_string().then([status, emailW](utility::string_t errorBody) {
-                std::wcerr << L"Failed to delete guest " << emailW << L". Status: " << status << std::endl;
-                std::wcerr << L"Response Body: " << errorBody << std::endl;
-                throw std::runtime_error("Failed to delete guest");
+            return response.extract_string().then([status, guestEmail](utility::string_t errorBody) {
+                std::wcerr << L"Failed to delete guest. Status: " << status << std::endl;
+                std::wcerr << L"Response: " << errorBody << std::endl;
             });
         }
     });
@@ -337,13 +245,13 @@ pplx::task<void> DeleteTallyfyGuest(const utility::string_t& guestEmail)
 
 int main() {
     try {
-        DeleteTallyfyGuest(U("guest.to.delete@example.com")).wait(); 
+        DeleteTallyfyGuest(U("guest.to.delete@example.com")).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
-// Requires C++ REST SDK (Casablanca). URL encoding example uses Windows API.
+// Requires C++ REST SDK (Casablanca)
 ```
 </TabItem>
 <TabItem label="C#">
@@ -353,7 +261,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility.UrlEncode
+using System.Web;
 
 public class TallyfyGuestDeleter
 {
@@ -363,7 +271,7 @@ public class TallyfyGuestDeleter
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        var encodedEmail = HttpUtility.UrlEncode(guestEmail); // URL encode the email
+        var encodedEmail = HttpUtility.UrlEncode(guestEmail);
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/guests/{encodedEmail}";
 
         try
@@ -374,39 +282,26 @@ public class TallyfyGuestDeleter
             request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
             HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync(); 
+            string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Checks for 2xx (200, 201, 204)
+            if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Successfully deleted guest {guestEmail}. Status: {response.StatusCode}");
-                if (response.StatusCode != System.Net.HttpStatusCode.NoContent && !string.IsNullOrWhiteSpace(responseBody))
-                {
-                    Console.WriteLine("Deleted guest details (if returned):");
-                    try {
-                         using var doc = JsonDocument.Parse(responseBody);
-                         Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                     } catch (JsonException) {
-                         Console.WriteLine(responseBody); 
-                     }
-                }
+                Console.WriteLine($"Successfully deleted guest {guestEmail}.");
+                using var doc = JsonDocument.Parse(responseBody);
+                Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
             }
             else
             {
-                Console.WriteLine($"Failed to delete guest {guestEmail}. Status: {response.StatusCode}");
+                Console.WriteLine($"Failed to delete guest. Status: {response.StatusCode}");
                 Console.WriteLine($"Response: {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception deleting guest {guestEmail}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request exception: {e.Message}");
         }
     }
 
-    // Example Usage:
     // static async Task Main(string[] args)
     // {
     //     await DeleteGuestAsync("guest.to.delete@example.com");
@@ -418,11 +313,9 @@ public class TallyfyGuestDeleter
 
 ## Response
 
-A successful deletion might return `201 Created`, `200 OK`, or `204 No Content`. 
-- If `201` or `200`, the body might contain the details of the deleted guest record.
-- If `204`, there is no response body.
+A successful request returns a `200 OK` status with the deleted guest's details wrapped in a `data` object. The guest is detached from all tasks and removed from the organization. If the guest doesn't belong to any other organizations, the record is soft-deleted.
 
-If the guest email is not found in your Tallyfy organization, a `404 Not Found` error will be returned.
+If the email isn't found, you'll get a `422` validation error since the email must exist in the guests table.
 
 ---
 

@@ -1,4 +1,5 @@
 ---
+about_tallyfy: true
 description: Tallyfy Analytics transforms workflow data through a five-step pipeline
   that detects events extracts process details converts data to Apache Parquet format
   stores it securely in Amazon S3 and provides AWS credentials for connecting business
@@ -12,37 +13,37 @@ title: How Tallyfy Analytics works
 
 ## How Tallyfy Analytics prepares your data
 
-Tallyfy Analytics transforms your workflow data into a format that business reporting tools can understand. Want to analyze your processes in Power BI or Tableau? Here's exactly how your data travels from Tallyfy to those tools.
+Tallyfy Analytics transforms your workflow data into a format that BI tools like Power BI and Tableau can query directly. Here's how your data travels from Tallyfy to those tools.
 
-### Overview of the Data Process
+### Overview of the data pipeline
 
 Your data goes through five steps to become analytics-ready:
 
-1. **Detecting an event**: Tallyfy watches for important changes - task completions, status updates, and more.
-2. **Extracting the data**: We capture every detail about the process where the event occurred.
-3. **Converting the format**: The data gets converted to Apache Parquet[^1] - a format built for fast analysis.
-4. **Storing securely**: Everything lands in your private Amazon S3 storage bucket.
-5. **Providing access**: You receive AWS credentials to connect your favorite BI tools.
+1. **Detecting an event** - Tallyfy watches for changes like task completions, process status updates, and user changes.
+2. **Extracting the data** - A complete snapshot of the process where the event occurred gets captured.
+3. **Converting the format** - Data is converted to Apache Parquet[^1] for fast, compressed analysis.
+4. **Storing securely** - Everything lands in your private Amazon S3 storage bucket.
+5. **Providing access** - You receive AWS credentials to connect your BI tools.
 
-### How the process works in detail
+### How the pipeline works in detail
 
 #### 1. Spotting an event
 
-Tasks get completed. Statuses change. Forms get submitted. When these actions happen in Tallyfy, the system flags them as analytics events worth tracking.
+Tasks get completed. Statuses change. Forms get submitted. Processes are created, archived, or restored. When these actions happen in Tallyfy, the system queues them for analytics processing.
 
 #### 2. Getting the data
 
-Every event triggers a complete process snapshot. We capture:
-- Basic process info (who owns it, status, start and end times)
-- Details about each task
-- Information submitted in form fields
-- Who was assigned to tasks
-- Comments added
+Each queued event triggers a full process snapshot. The export captures:
+- Process metadata (owner, status, template name/version, tags, completion timestamps)
+- Every task's status, assignees, and due dates
+- Form field questions and answers
+- User and guest assignments (including group-based assignments)
+- Comments and reported issues
 
-All this data initially gets saved as a CSV file - just like a spreadsheet you'd open in Excel.
+This data is initially saved as a CSV file.
 
 :::note[Timestamp storage format]
-All timestamps in the exported data are stored in ISO 8601 format without timezone information. This universal format ensures consistent data storage for reliable analysis across different timezones. When users view this data in Tallyfy's interface, timestamps are automatically converted to display in their personal timezone setting.
+Timestamps in the exported data use `Y-m-d H:i:s` format without timezone information - for example, `2024-03-15 14:30:00`. This keeps data storage consistent for analysis across different timezones. In Tallyfy's interface, timestamps are converted to each user's personal timezone setting.
 :::
 
 :::tip[Understanding time data]
@@ -51,39 +52,39 @@ Task timestamps capture when work was assigned and completed - not how long some
 
 #### 3. Changing the format
 
-That CSV file won't cut it for serious analytics. Tallyfy automatically converts it to Apache Parquet format, which:
-- Analyzes significantly faster than CSV files
-- Takes up much less storage space
-- Works seamlessly with Power BI, Tableau, and other BI tools
+CSV alone won't cut it for serious analytics. Tallyfy automatically converts it to Apache Parquet format using snappy compression, which:
+- Queries much faster than raw CSV files
+- Takes up significantly less storage space
+- Works natively with Power BI, Tableau, and other BI tools
 
 #### 4. Storing safely
 
-Your Parquet files land in a secure home:
-- **Amazon S3** handles the storage (yes, the same service Netflix uses)
-- You get a **private folder** - no one else can access it
-- **AWS security** protects everything with encryption at rest
+Your Parquet files land in a dedicated S3 bucket:
+- Each organization gets a **private folder** - no other accounts can access it
+- **AWS encryption at rest** protects stored data
+- Both the Parquet files and original CSVs are stored for redundancy
 - Files stay available throughout your Tallyfy Analytics subscription
 
 #### 5. Allowing access for analysis
 
-Here's where the magic happens. Tallyfy gives you AWS IAM credentials - think of them as special keys to your data warehouse. With these credentials, your BI tools can:
-- Connect straight to your data through **Amazon Athena[^2]** 
-- Run SQL queries to slice and dice your process information
-- Use familiar JDBC/ODBC connections (every BI tool supports these)
-- Build dashboards that actually answer your questions
+Tallyfy provides you with AWS IAM credentials that let your BI tools connect. With these credentials, you can:
+- Query your data through **Amazon Athena[^2]** without managing any database infrastructure
+- Run SQL queries against your process data
+- Use standard JDBC/ODBC connections (supported by virtually every BI tool)
+- Build dashboards and reports on top of the queried data
 
-### Technical Diagram
+### Technical diagram
 
-Want to see the complete journey? This diagram maps out every step:
+This diagram shows the complete data flow:
 
 ![Tallyfy Analytics data pipeline from API to BI tools](https://screenshots.tallyfy.com/tallyfy/pro/analytics-data-pipeline-diagram.png)
 
-### Activating Analytics
+### Activating analytics
 
-Ready to get started? A few things to know:
-- Data processing begins the moment Tallyfy Analytics activates on your account - not before
+A few things to know before you start:
+- Data processing begins the moment Tallyfy Analytics is activated on your account - not before
 - You'll receive your AWS IAM credentials right after activation
-- Connect your BI tools in under 10 minutes using standard drivers
+- Most BI tools can be connected in about 15 minutes using standard JDBC/ODBC drivers
 - Need data stored in a specific region or format? Contact Tallyfy support first
 
 import { CardGrid, LinkTitleCard } from "~/components";

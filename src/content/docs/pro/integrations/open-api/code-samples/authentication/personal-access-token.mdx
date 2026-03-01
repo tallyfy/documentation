@@ -1,9 +1,10 @@
 ---
+about_tallyfy: true
 description: The Tallyfy API uses personal access tokens for authentication which
   requires including the token in the Authorization header along with Accept and X-Tallyfy-Client
   headers for all API requests with tokens being invalidated upon logout.
 id: 0802cf276a18762356b32a3b36039e90
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Get & use a personal access token
@@ -11,60 +12,39 @@ title: Get & use a personal access token
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Overview
+The quickest way to authenticate with the Tallyfy API is using your personal `access_token`. This token acts on your behalf, granting API requests the same permissions you have within Tallyfy. No OAuth flow required for basic usage.
 
-The primary way to authenticate with the Tallyfy API is using your personal `access_token`. This token acts on your behalf, granting API requests the same permissions you have within Tallyfy. Simple and straightforward - no OAuth dance required for basic usage.
+## Getting your token
 
-### Getting your personal access token
+1. Log in to your Tallyfy account at [https://go.tallyfy.com/](https://go.tallyfy.com/).
+2. Navigate to **Settings** > **Integrations** > **REST API**.
+3. Copy your personal `access_token` and store it securely.
 
-1.  Log in to your Tallyfy account at [https://go.tallyfy.com/](https://go.tallyfy.com/).
-2.  Navigate to **Settings** (usually via your profile picture or menu).
-3.  Go to the **Integrations** section.
-4.  Select **REST API**.
-5.  Your personal `access_token` will be displayed here. Copy it securely.
+Personal access tokens expire after **6 months** from the time they're issued.
 
-:::caution[Keep Your Token Secure]
-Treat your personal access token like a password. Do not share it publicly or commit it to version control. Anyone with your token can access your Tallyfy data. Yes, this includes that "temporary" commit you were planning to fix later.
+:::caution[Keep your token secure]
+Treat your personal access token like a password. Don't share it publicly or commit it to version control. Anyone with your token can access your Tallyfy data.
 :::
 
-:::warning[Token Invalidation on Logout]
-**Important**: Your personal access token is automatically invalidated and regenerated every time you log out of Tallyfy. This is a security feature that can impact your integrations.
+:::warning[Token invalidation on logout]
+Your personal access token is deleted when you log out of the Tallyfy web interface. This means any integrations using that token will stop working and return `401` errors.
 
-**What causes token invalidation**:
-- Manual logout from the web interface
-- Automatic session timeout after inactivity
-- Browser clearing cookies/sessions
-- Switching between multiple Tallyfy organizations
-- Password reset operations
-
-**Impact on automations**:
-- All API calls using the old token will return 401/403 errors
-- Automations will stop working immediately
-- You'll need to manually update the token in all integrations
-
-**Best practices for stable API access**:
-1. **Dedicated service accounts** - Create a specific user for API integrations who never logs out
-2. **Error handling** - Implement 401/403 detection with alerts for token refresh
-3. **Token monitoring** - Track token validity and alert on unexpected changes
-4. **Document dependencies** - Keep a list of all systems using each token
-5. **Consider OAuth flow** - For production systems, use OAuth with refresh tokens
-6. **Enterprise options** - Contact support about application tokens that don't expire on logout
+**To keep integrations stable** - create a dedicated user account for API access that doesn't log out. For production systems, consider the [OAuth client credentials flow](/products/pro/integrations/open-api/code-samples/authentication/client-credentials-flow/) instead, which issues tokens independently of user sessions.
 :::
 
-:::note[API Access Plans]
-Direct API access using personal tokens is typically available on paid Tallyfy plans. If you are on a trial or free plan, contact Tallyfy Support to request API access (they're pretty responsive).
+:::note[API access plans]
+API access with personal tokens is available on paid Tallyfy plans. If you're on a trial or free plan, contact Tallyfy Support to request access.
 :::
 
-### Using your token in API requests
+## Using your token in API requests
 
-Once you have your token, you need to include it in the `Authorization` header of every API request you make. The format is `Bearer {your_access_token}`.
+Include these three headers with every request:
 
-You also need to include two other standard headers:
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient` (required - you'll get `401` errors without it)
 
--   `Accept: application/json` (Tells the API you expect a JSON response)
--   `X-Tallyfy-Client: APIClient` (Identifies the request as coming from a custom API client - don't forget this header or you'll get 401s)
-
-Here's how to add these headers in different languages:
+Here's how to set these headers in different languages:
 
 <Tabs>
 <TabItem label="Javascript">
@@ -176,7 +156,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -204,7 +184,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading response body: %v\n", err)
 		return
@@ -358,7 +338,7 @@ public class TallyfyApiRequest
 </TabItem>
 </Tabs>
 
-Remember to replace `YOUR_PERSONAL_ACCESS_TOKEN` and `YOUR_ORGANIZATION_ID` with your actual Tallyfy values. (And please don't copy-paste these placeholders into production - we've all been there, but it's never fun to debug.)
+Replace `YOUR_PERSONAL_ACCESS_TOKEN` and `YOUR_ORGANIZATION_ID` with your actual values before running any of these examples.
 
 ---
 

@@ -1,10 +1,9 @@
 ---
-description: This API endpoint retrieves comprehensive details about a specific Tallyfy
-  process run using its unique ID and supports optional query parameters to include
-  related data like tasks and form field values along with a special next_task parameter
-  that returns the first visible incomplete task in the process.
+description: Retrieve details for a specific process run by ID, with optional includes
+  for tasks, form fields, and the next upcoming task.
+about_tallyfy: true
 id: 9a1bb0ecc154611c384ad00bce78f669
-lastUpdated: 2025-10-20
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Get process
@@ -16,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/runs/{run_id}`
 
-This endpoint retrieves the full details for a single Tallyfy process instance (run) identified by its unique ID.
+Retrieves full details for a single process (run) by its unique ID.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{run_id}` with the specific ID of the process run you want to retrieve.
+Replace `{org_id}` with your Organization ID and `{run_id}` with the run's ID.
 
 ### Headers
 
@@ -30,42 +29,26 @@ Replace `{org_id}` with your Organization ID and `{run_id}` with the specific ID
 
 ### Query parameters (optional)
 
--   `with` (string): A comma-separated list to include related data (e.g., `checklist`, `tasks`, `tags`, `assets`, `next_task`, `tasks.step`, `tasks.threads`, `form_fields`, `ko_form_fields`).
--   `form_fields_values` (boolean, e.g., `true`): Include the values submitted to form fields.
+-   `with` (string): Comma-separated list of related data to include. Options: `checklist`, `tasks`, `tags`, `assets`, `next_task`, `permissions`, `tasks_meta`, `ko_form_fields`, `form_fields`, `stages`, `folders`, `member_watchers`, `guest_watchers`. The controller also supports `tasks.threads` and `tasks.form_fields` for nested eager loading.
+-   `form_fields_values` (boolean, e.g., `true`): Include values submitted to form fields across all tasks.
 
 #### Understanding `with=next_task`
 
-When you include `next_task` in the `with` parameter, the API returns information about the next task that needs attention in the process.
+Including `next_task` returns the next task needing attention in the process.
 
-**What does `next_task` return?**
-- The first visible incomplete task ordered by position number
-- **Visible** means not hidden/auto-skipped by automation rules
-- **Incomplete** means not yet completed (includes tasks currently in-progress)
-- **Ordered by position** means task 1, task 2, task 3, etc.
-- Returns `null` if all tasks in the process are completed
+**What it returns:**
+- The first incomplete task, sorted by deadline (earliest deadline first)
+- **Incomplete** means not yet completed -- in-progress tasks are included
+- Auto-skipped tasks are excluded (they're filtered from the `tasks` relationship)
+- Returns as a collection wrapper: `"next_task": {"data": [...]}`
+- Returns an empty collection if all tasks are completed
+
+**Fields returned per task:** `id`, `increment_id`, `title`, `alias`, `owners` (with `users`, `guests`, `groups` arrays), and `deadline`.
 
 **When to use it:**
-- Determining which task to display to the user next
-- Automating assignments or notifications for upcoming tasks
-- Building custom dashboards that show current process status
-- Integration logic that needs to know what's pending
-
-**Example response snippet:**
-```json
-{
-  "data": {
-    "id": "run123",
-    "name": "Customer Onboarding",
-    "next_task": {
-      "id": "task456",
-      "title": "Review Application",
-      "position": 3,
-      "status": "not-started",
-      "deadline": "2025-11-25T17:00:00Z"
-    }
-  }
-}
-```
+- Showing which task a user should work on next
+- Automating notifications for upcoming deadlines
+- Building dashboards that display current process state
 
 ### Code samples
 
@@ -76,7 +59,7 @@ const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const runId = 'PROCESS_RUN_ID_TO_GET';
 
-const queryParams = '?with=checklist,tasks,tags,form_fields&form_fields_values=true'; // Example: get related data and field values
+const queryParams = '?with=checklist,tasks,tags,form_fields&form_fields_values=true';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}${queryParams}`;
 
 const headers = new Headers();
@@ -84,26 +67,15 @@ headers.append('Authorization', `Bearer ${accessToken}`);
 headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
-fetch(apiUrl, {
-    method: 'GET',
-    headers: headers
-})
+fetch(apiUrl, { method: 'GET', headers })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
-        if (!response.ok) {
-            console.error(`Failed to get process ${runId}:`, data);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return data; // Pass successful data along
+    return response.json().then(data => {
+        if (!response.ok) throw new Error(`Error ${response.status}: ${JSON.stringify(data)}`);
+        return data;
     });
 })
-.then(data => {
-    console.log(`Successfully retrieved process ${runId}:`);
-    console.log(JSON.stringify(data, null, 2));
-})
-.catch(error => {
-    console.error(`Error getting process ${runId}:`, error.message);
-});
+.then(data => console.log('Process:', JSON.stringify(data, null, 2)))
+.catch(error => console.error('Failed:', error.message));
 ```
 </TabItem>
 <TabItem label="Python">
@@ -123,33 +95,15 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
     'with': 'checklist,tasks,tags,form_fields',
-    'form_fields_values': 'true' # Include values entered into form fields
+    'form_fields_values': 'true'
 }
 
-response = None
-try:
-    response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+response = requests.get(api_url, headers=headers, params=params)
+response.raise_for_status()
 
-    process_data = response.json()
-    print(f'Successfully retrieved process {run_id}:')
-    print(json.dumps(process_data, indent=4))
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred getting process {run_id}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed getting process {run_id}: {req_err}")
-except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for process {run_id}")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+print(json.dumps(response.json(), indent=4))
 ```
 </TabItem>
 <TabItem label="Java">
@@ -162,26 +116,17 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
-import java.util.stream.Collectors;
 
 public class GetProcess {
     public static void main(String[] args) {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String runId = "PROCESS_RUN_ID_TO_GET";
-        String baseUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId);
 
-        // Optional: Add query parameters
-        Map<String, String> queryParamsMap = new HashMap<>(); 
-        queryParamsMap.put("with", "checklist,tasks");
-        queryParamsMap.put("form_fields_values", "true");
-        
-        String queryParamsString = queryParamsMap.entrySet().stream()
-            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
-            .collect(Collectors.joining("&", "?", ""));
-            
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
+        String queryString = "?with=" + URLEncoder.encode("checklist,tasks", StandardCharsets.UTF_8)
+            + "&form_fields_values=true";
+        String apiUrl = String.format(
+            "https://go.tallyfy.com/api/organizations/%s/runs/%s%s", orgId, runId, queryString);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -194,21 +139,14 @@ public class GetProcess {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
             if (response.statusCode() == 200) {
-                System.out.println("Successfully retrieved process " + runId + ":");
-                System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
+                System.out.println("Process: " + response.body());
             } else {
-                System.err.println("Failed to get process " + runId + ". Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Error " + response.statusCode() + ": " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
     }
 }
@@ -222,69 +160,45 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    runId := "PROCESS_RUN_ID_TO_GET"
-    baseUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	runId := "PROCESS_RUN_ID_TO_GET"
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-    queryParams.Add("with", "checklist,tasks,tags,form_fields") 
-    queryParams.Add("form_fields_values", "true")
-    
-    apiUrl := baseUrl
-    if len(queryParams) > 0 {
-         apiUrl += "?" + queryParams.Encode()
-    }
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
+	params := url.Values{}
+	params.Add("with", "checklist,tasks,tags,form_fields")
+	params.Add("form_fields_values", "true")
+	apiURL := baseURL + "?" + params.Encode()
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating get process request for run %s: %v\n", runId, err)
-        return
-    }
-
+	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing get process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil { fmt.Printf("Request error: %v\n", err); return }
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading get process response body for run %s: %v\n", runId, err)
-        return
-    }
-
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to get process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
+		fmt.Printf("Error %d: %s\n", resp.StatusCode, string(body))
 		return
 	}
 
-	fmt.Printf("Successfully retrieved process %s:\n", runId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a struct if needed
+	var out bytes.Buffer
+	json.Indent(&out, body, "", "  ")
+	fmt.Println(out.String())
 }
 ```
 </TabItem>
@@ -295,59 +209,35 @@ func main() {
 #include <cpprest/http_client.h>
 #include <cpprest/json.h>
 
-using namespace web;
-using namespace web::http;
-using namespace web::http::client;
-using namespace web::json;
+using namespace web; using namespace web::http;
+using namespace web::http::client; using namespace web::json;
 
-pplx::task<void> GetTallyfyProcess(const utility::string_t& runId)
-{
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+int main() {
+    auto accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    auto orgId = U("YOUR_ORGANIZATION_ID");
+    auto runId = U("PROCESS_RUN_ID_TO_GET");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
-    builder.append_path(orgId);
-    builder.append_path(U("runs"));
-    builder.append_path(runId);
-    builder.append_query(U("with"), U("checklist,tasks,tags,form_fields")); // Example query parameters
+    builder.append_path(orgId).append_path(U("runs")).append_path(runId);
+    builder.append_query(U("with"), U("checklist,tasks,tags,form_fields"));
     builder.append_query(U("form_fields_values"), U("true"));
-    utility::string_t apiUrl = builder.to_string();
 
-    http_client client(apiUrl);
+    http_client client(builder.to_string());
     http_request request(methods::GET);
-
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
 
-    return client.request(request).then([runId](http_response response)
-    {
-        utility::string_t runIdW = runId;
-        return response.extract_json().then([response, runIdW](pplx::task<value> task)
-        {
-            try {
-                value const & body = task.get();
-                if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully retrieved process " << runIdW << L":\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")][U("name")].as_string();
-                } else {
-                    std::wcerr << L"Failed to get process " << runIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
-                }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during get process: " << e.what() << std::endl;
-            } catch (const std::exception& e) {
-                std::wcerr << L"Exception during get process response handling: " << e.what() << std::endl;
-            }
+    client.request(request).then([](http_response response) {
+        return response.extract_json().then([response](pplx::task<value> task) {
+            auto body = task.get();
+            if (response.status_code() == status_codes::OK)
+                std::wcout << body.serialize() << std::endl;
+            else
+                std::wcerr << L"Error " << response.status_code()
+                           << L": " << body.serialize() << std::endl;
         });
-    });
-}
-
-int main() {
-    try {
-        GetTallyfyProcess(U("PROCESS_RUN_ID_TO_GET")).wait(); // Replace with actual Run ID
-    } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
-    }
+    }).wait();
     return 0;
 }
 // Requires C++ REST SDK (Casablanca)
@@ -360,67 +250,42 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
-public class TallyfyProcessGetter
+public class GetProcess
 {
     private static readonly HttpClient client = new HttpClient();
 
-    public static async Task GetProcessAsync(string runId)
+    public static async Task Main(string[] args)
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+        var runId = "PROCESS_RUN_ID_TO_GET";
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "checklist,tasks,tags,form_fields"; // Example
+        query["with"] = "checklist,tasks,tags,form_fields";
         query["form_fields_values"] = "true";
-        string queryString = query.ToString();
-        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}?{queryString}";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}?{query}";
 
-        try
+        using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (response.IsSuccessStatusCode)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
-
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Successfully retrieved process {runId}:");
-                // Pretty print JSON
-                try {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access data: doc.RootElement.GetProperty("data").GetProperty("name").GetString();
-                } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to get process {runId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
+            using var doc = JsonDocument.Parse(body);
+            Console.WriteLine(JsonSerializer.Serialize(doc.RootElement,
+                new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch (HttpRequestException e)
+        else
         {
-            Console.WriteLine($"Request Exception getting process {runId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Error {response.StatusCode}: {body}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await GetProcessAsync("PROCESS_RUN_ID_TO_GET");
-    // }
 }
 ```
 </TabItem>
@@ -428,39 +293,44 @@ public class TallyfyProcessGetter
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` field with the process run's details.
+Returns `200 OK` with the process run wrapped in a `data` object.
 
 ```json
 {
   "data": {
-    "id": "PROCESS_RUN_ID_TO_GET",
+    "id": "run_id_abc",
     "increment_id": 5015,
-    "checklist_id": "template_id_abc",
+    "checklist_id": "template_timeline_id",
     "checklist_title": "Client Onboarding V3",
     "name": "Onboarding - Globex Corp",
-    "summary": "New client onboarding process run.",
+    "summary": "New client onboarding run.",
     "status": "active",
-    "progress": { ... },
+    "progress": { },
+    "whole_progress": { },
     "started_by": 1002,
     "owner_id": 1002,
+    "prerun": { },
+    "prerun_status": "complete",
+    "starred": false,
     "created_at": "2025-05-20T11:00:00Z",
+    "started_at": "2025-05-20T11:00:00Z",
     "last_updated": "2025-05-21T09:30:00Z",
-    "prerun": { // Kick-off form field values if filled
-        "kickoff_field_id_1": "Globex Corporation",
-        "kickoff_field_id_2": "2025-06-01T00:00:00Z"
-    },
-    // Included if requested with 'with=checklist'
-    "checklist": { ... template details ... },
-    // Included if requested with 'with=tasks'
-    "tasks": [ { ... task details ... } ],
-    // Included if requested with 'with=tags'
-    "tags": [ { ... tag details ... } ]
-    // ... other run properties ...
+    "archived_at": null,
+    "completed_at": null,
+    "type": "procedure",
+    "is_public": false,
+    "users": [],
+    "groups": [],
+    "checklist": { },
+    "tasks": { "data": [] },
+    "tags": { "data": [] }
   }
 }
 ```
 
-If the run ID is not found or you lack permission, a `404 Not Found` or `403 Forbidden` error will be returned.
+Key fields: `archived_at` maps from the internal `deleted_at` column. `started_by` maps from the internal `user_id`. Included relationships like `tasks`, `tags`, and `checklist` only appear when you request them via `with`.
+
+If the run isn't found or you don't have access, you'll get a `404` or `403` error.
 
 ---
 

@@ -1,11 +1,11 @@
 ---
-description: Third-party applications can integrate with Tallyfy's API using the OAuth
-  2.0 client credentials flow which involves obtaining client credentials from Tallyfy
-  Support then authenticating to get an application-level token that enables programmatic
-  user provisioning and the generation of user-specific tokens for performing API
-  actions on behalf of individual users within the organization.
+description: Third-party applications integrate with Tallyfy's API through the OAuth
+  2.0 client credentials flow - get client credentials from Tallyfy Support, authenticate
+  for an app-level token, provision users programmatically, and generate user-specific
+  tokens to perform API actions on behalf of individual users.
 id: c636eea1808d918ab86fd241978ea636
-lastUpdated: 2026-01-20
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 20
 title: API usage as a third-party application instead of a user
@@ -13,36 +13,29 @@ title: API usage as a third-party application instead of a user
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Third-party application integration with Tallyfy API
+## How third-party apps access Tallyfy's API
 
-This guide explains how to integrate your application with Tallyfy using the client credentials flow. This allows your application to make Tallyfy API requests on behalf of your users.
+Your application can make Tallyfy API calls on behalf of users through the OAuth 2.0 client credentials flow[^1]. You'll get an app-level token first, then exchange it for user-specific tokens that let you act as individual users.
 
-### Use cases for on-behalf-of access
+### When to use this pattern
 
-This integration pattern is useful for organizations that want to:
+- Embed Tallyfy workflow features inside your own software
+- Automate user provisioning for clients or employees
+- Run process management actions without users logging into Tallyfy directly
 
-- Embed Tallyfy functionality within their own software
-- Provide integrated workflow capabilities to their users
-- Automate process management for clients or employees
-- Maintain an integrated user experience in their application
-- Handle user provisioning programmatically
+### What you'll need
 
-### Implementation overview
+- A paid Tallyfy Pro or Enterprise subscription
+- Client credentials (client ID and secret) from Tallyfy Support
+- Familiarity with OAuth 2.0 client credentials flow
 
-#### Requirements
-
-- Paid Tallyfy Professional or Enterprise subscription
-- Client credentials (client ID and secret) from Tallyfy
-- Basic understanding of OAuth 2.0 client credentials flow
-- Development environment for testing API integration
-
-:::caution[Enterprise Feature]
-The client credentials grant type is only available to paid organizations and is not accessible during free trials. Contact Tallyfy Support to request access to this feature.
+:::caution[Paid feature]
+Client credentials access is only available to paid organizations - not during free trials. Contact Tallyfy Support to get set up.
 :::
 
 ## OAuth client credentials flow
 
-This diagram shows the complete authentication flow for third-party applications to access Tallyfy on behalf of users.
+Here's the full authentication flow for third-party applications.
 
 ```d2
 direction: right
@@ -111,28 +104,27 @@ App -> User: "10. Return result\nto user" {
 ```
 
 **What to notice:**
-- The application first authenticates itself with client credentials to get an app-level token
-- User provisioning and user token generation both require the app-level token, creating a secure chain of trust
-- Each token type (app vs user) has specific permissions - the app token manages users while user tokens perform actual workflow actions
+- Your app authenticates itself first to get an app-level token
+- Both user provisioning and user token generation need that app-level token - this creates a chain of trust
+- App tokens manage users. User tokens perform workflow actions. They're distinct on purpose.
 
-#### Step 1: Request client credentials
+#### Step 1 - Get client credentials
 
 <Steps>
-1. Contact Tallyfy Support to request client credentials for your organization
-2. Provide details about your integration use case and requirements
-3. Tallyfy will provision a client ID and secret specific to your organization
-4. Store these credentials securely in your application environment
+1. Contact Tallyfy Support and describe your integration use case
+2. Tallyfy provisions a client ID and secret tied to your organization
+3. Store these credentials securely (environment variables, secrets manager, etc.)
 </Steps>
 
-#### Step 2: Obtain application access token
+#### Step 2 - Get an application access token
 
-To authenticate your application with Tallyfy, you must first obtain an application-level access token:
+Send a POST request to get your app-level token.
 
 ```
 POST https://account.tallyfy.com/oauth/token
 ```
 
-**Request Body (form-encoded):**
+**Request body (form-encoded):**
 ```
 grant_type=client_credentials
 client_id=12345
@@ -154,13 +146,13 @@ Content-Type: application/x-www-form-urlencoded
 }
 ```
 
-:::note[Token Expiration]
-Application access tokens are valid for 7 days (`expires_in: 604800` seconds). Your application should implement automatic token refresh - simply request a new token before the current one expires.
+:::note[Token expiration]
+App tokens last 7 days (604,800 seconds). Request a fresh token before the current one expires - there's no separate refresh endpoint.
 :::
 
-#### Step 3: Provision users programmatically
+#### Step 3 - Provision users
 
-With your application access token, you can create and manage users in your Tallyfy organization:
+Create users in your Tallyfy organization using the app token.
 
 ```
 POST https://go.tallyfy.com/api/applications/{orgID}/users
@@ -173,7 +165,7 @@ Content-Type: application/json
 X-Tallyfy-Client: APIClient
 ```
 
-**Request Body:**
+**Request body:**
 ```json
 {
     "first_name": "John",
@@ -184,10 +176,12 @@ X-Tallyfy-Client: APIClient
 }
 ```
 
-**Available Roles:**
-- `admin` - Full organization administration access
-- `standard` - Regular user with process creation capabilities
-- `light` - Limited user who can only complete assigned tasks
+**Available roles:**
+- `admin` - full organization administration access
+- `standard` - can create and manage processes
+- `light` - can only complete assigned tasks
+
+Both `first_name` and `last_name` are required (max 32 characters each). The `role` and `timezone` fields are optional.
 
 **Response:**
 ```json
@@ -203,9 +197,9 @@ X-Tallyfy-Client: APIClient
 }
 ```
 
-#### Step 4: Generate user-specific access tokens
+#### Step 4 - Generate user-specific tokens
 
-To perform Tallyfy actions on behalf of a specific user, you need to obtain a user-specific token:
+To act as a specific user, request a token for their email address.
 
 ```
 POST https://go.tallyfy.com/api/applications/{orgID}/users/{email}/token
@@ -218,7 +212,7 @@ Content-Type: application/json
 X-Tallyfy-Client: APIClient
 ```
 
-**Note:** No request body is required - the user's email is specified in the URL path.
+No request body needed - the email goes in the URL path. The user must already exist in your organization.
 
 **Response:**
 ```json
@@ -229,13 +223,13 @@ X-Tallyfy-Client: APIClient
 }
 ```
 
-:::note[User Token Validity]
-User-specific tokens are valid for 3 months (`expires_in: 7776000` seconds). Plan your token refresh strategy accordingly.
+:::note[User token validity]
+User tokens last 3 months (7,776,000 seconds). Build your refresh logic around this timeline.
 :::
 
-#### Step 5: Make API requests on behalf of users
+#### Step 5 - Make API calls as that user
 
-Use the user-specific token to make Tallyfy API requests as if they were made by the user:
+Use the user-specific token for any Tallyfy API call. It works exactly as if the user made the request themselves.
 
 ```
 GET https://go.tallyfy.com/api/organizations/{orgID}/me/tasks
@@ -248,31 +242,30 @@ Content-Type: application/json
 X-Tallyfy-Client: APIClient
 ```
 
-:::caution[Required Header]
-Always include the `X-Tallyfy-Client: APIClient` header in all direct API calls to Tallyfy endpoints. Requests without this header will be rejected.
+:::caution[Required header]
+Always include `X-Tallyfy-Client: APIClient` in every API call. Requests without it may not work correctly.
 :::
 
-### Security considerations
+### Security tips
 
-When implementing on-behalf-of Tallyfy API access:
-
-- Store client credentials in secure, encrypted storage
-- Implement proper access controls to user tokens
-- Rotate secrets periodically according to your security policies
-- Validate that user emails belong to your organization before requesting tokens
-- Use HTTPS for all API communication
-- Implement token expiration handling and refresh logic
+- Keep client credentials in encrypted storage or a secrets manager
+- Control which parts of your app can access user tokens
+- Confirm user emails belong to your organization before requesting tokens
+- Handle token expiration gracefully - refresh before they expire, not after
 
 ### Troubleshooting
 
-| Error | Description | Solution |
-|-------|-------------|----------|
-| 401 Unauthorized | Invalid client credentials | Verify client ID and secret |
-| 403 Forbidden | Insufficient permissions | Ensure the client has appropriate scopes |
-| 404 Not Found | User not found | Verify the user email and organization ID |
-| 429 Too Many Requests | Rate limit exceeded | Implement request throttling and retries |
+| Error | Cause | Fix |
+|-------|-------|-----|
+| 401 Unauthorized | Bad client credentials | Double-check your client ID and secret |
+| 403 Forbidden | Token doesn't match the organization | Verify the client is linked to the correct org |
+| 404 Not Found | User doesn't exist | Check the email and organization ID |
+| 422 Unprocessable | User not in your org | The email exists but isn't part of your organization |
+| 429 Too Many Requests | Rate limit hit | Add request throttling and retry logic |
 
-For assistance with this integration, contact Tallyfy Support with specific details about your use case and any error messages encountered.
+Contact Tallyfy Support if you're stuck - include your error messages and the endpoint you're calling.
+
+[^1]: OAuth 2.0 is an industry-standard protocol for delegated authorization without sharing passwords
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -5,6 +5,7 @@ description: This guide demonstrates how to connect Looker to Tallyfy workflow d
   visualizations from processes steps form fields and user data.
 id: 2ae471ffb4ba0a7fac0a5b00d0f5155d
 lastUpdated: 2025-12-29
+about_tallyfy: true
 sidebar:
   order: 1
 title: Connecting Looker to analytics data
@@ -14,132 +15,130 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Connect Looker to Tallyfy data
 
-You can connect Looker (the enterprise BI platform) to Tallyfy in about 15-20 minutes using Amazon Athena. Once connected, you'll build LookML models and interactive dashboards that make your workflow data actually useful.
+You can connect Looker to Tallyfy's analytics data through Amazon Athena in about 15-20 minutes. Tallyfy exports your workflow data as Parquet files (with Snappy compression) to S3, and Athena lets Looker query that data directly - so you can build LookML models and dashboards from real process metrics.
 
 :::note[Looker vs Looker Studio]
-This guide covers **Looker** (Google Cloud's enterprise BI platform). Looking for **Looker Studio** (the free visualization tool)? Check out the [Looker Studio connection guide](/products/pro/integrations/analytics/looker/how-to-connect-looker-studio-to-tallyfy-data/) instead.
+This guide covers **Looker** (Google Cloud's enterprise BI platform). For **Looker Studio** (the free visualization tool), see the [Looker Studio connection guide](/products/pro/integrations/analytics/looker/how-to-connect-looker-studio-to-tallyfy-data/) instead.
 :::
 
 ### Requirements
 
-Before you start, make sure you have these five things:
+Before you start, confirm you have:
 
-- Tallyfy Analytics subscription activated for your organization
-- Looker access (self-hosted or Looker Cloud)
-- Administrative permissions in Looker to create database connections
-- Administrative access to your computer for driver installation (if self-hosted)
-- Authentication credentials provided by Tallyfy Support
+- Tallyfy Analytics enabled for your organization (the `analytics_enabled` flag must be active)
+- Looker access - either self-hosted or Looker Cloud
+- Admin permissions in Looker to create database connections
+- Admin access to your machine for driver installation (self-hosted only)
+- AWS Access Key credentials from Tallyfy Support
 
-## Authentication Overview
+## Authentication overview
 
-Amazon Athena (which hosts Tallyfy Analytics data) offers two authentication methods:
+Athena supports two authentication methods. For Looker, you want Access Keys.
 
-| Method | Description | Best For |
+| Method | Description | Best for |
 |--------|-------------|----------|
 | IAM Username/Password | Web console access credentials | AWS Console access only |
 | Access Key/Secret | Token-based authentication | BI tool connections (recommended) |
 
-:::caution[Important Note]
-When Tallyfy provisions your Analytics account, you'll receive two distinct credential sets:
-- **AWS IAM login** - Use only for accessing the AWS web console
-- **Access Key + Secret Access Key** - Use for connecting Looker and other BI tools
+:::caution[Two separate credential sets]
+Tallyfy provisions two credential sets when activating Analytics:
+- **AWS IAM login** - for the AWS web console only
+- **Access Key + Secret Access Key** - for connecting Looker and other BI tools
+
+Use the Access Keys for Looker. Token-based auth avoids "security token invalid" errors that plague console-credential connections.
 :::
 
-Why does this matter? Token-based authentication (Access Key + Secret Access Key) gives you reliable connections without those frustrating "security token invalid" errors. Trust me - use the Access Keys for Looker.
+## Setup process
 
-## Setup Process
+### Step 1: Install the JDBC driver (self-hosted Looker only)
 
-### Step 1: Install Required Drivers (Self-Hosted Looker Only)
-
-If you're using Looker Cloud, skip this step - Google handles the drivers. For self-hosted Looker instances:
+Using Looker Cloud? Skip ahead - Google pre-installs the Athena drivers. For self-hosted instances:
 
 <Steps>
 1. Download the **Simba Athena JDBC Driver** from the [AWS Athena JDBC documentation page](http://docs.aws.amazon.com/athena/latest/ug/connect-with-jdbc.html/).
-2. Install the driver in your Looker instance's JDBC driver directory (typically `/usr/local/looker/looker/lib/custom/`)
-3. Restart your Looker instance to load the new driver
+2. Place the driver in your Looker JDBC directory (typically `/usr/local/looker/looker/lib/custom/`)
+3. Restart Looker to load the new driver
 </Steps>
 
-:::note[Driver Versions]
-AWS maintains two JDBC driver versions (2.x and 3.x). The 3.x driver offers better performance, especially for large result sets. Grab the latest 3.x version unless you have specific compatibility requirements.
+:::note[Driver versions]
+AWS provides 2.x and 3.x JDBC drivers. The 3.x driver handles large result sets better. Use the latest 3.x unless you have compatibility constraints.
 :::
 
-### Step 2: Configure Looker Connection
+### Step 2: Configure the Looker connection
 
 <Steps>
-1. Log into your Looker instance as an administrator
-2. Navigate to **Admin** > **Database** > **Connections**
+1. Log into Looker as an administrator
+2. Go to **Admin** > **Database** > **Connections**
 3. Click **Add Connection**
 4. Select **Amazon Athena** as the dialect
-5. Configure the connection parameters:
-   - **Name**: Give it a descriptive name (e.g., "Tallyfy Analytics")
-   - **Host**: `athena.us-east-1.amazonaws.com` (or your specific AWS region)
+5. Fill in the connection parameters:
+   - **Name**: Something descriptive (e.g., "Tallyfy Analytics")
+   - **Host**: `athena.us-east-1.amazonaws.com` (Tallyfy's default AWS region is us-east-1)
    - **Port**: `443`
    - **Database**: Your assigned database name (typically your organization name)
-   - **Username**: Your Tallyfy-provided Access Key ID
-   - **Password**: Your Tallyfy-provided Secret Access Key
+   - **Username**: Your Access Key ID from Tallyfy
+   - **Password**: Your Secret Access Key from Tallyfy
 6. In **Additional Params**, add:
-   ```
+   ```text
    s3_staging_dir=s3://your-staging-bucket/looker-results/
    ```
 7. Click **Test** to verify the connection
-8. If successful, click **Connect**
+8. If the test passes, click **Connect**
 </Steps>
 
 ![](https://screenshots.tallyfy.com/looker-athena-connection.png)
 
-:::tip[S3 Staging Directory]
-The S3 staging directory is where Athena stores query results. Tallyfy Support provides this path when they provision your Analytics account. Make sure your Access Key has write permissions to this bucket.
+:::tip[S3 staging directory]
+Athena stores query results in this S3 location. Tallyfy Support provides the path when provisioning your Analytics account. Your Access Key needs write permissions to this bucket.
 :::
 
-### Step 3: Configure Performance Settings
-
-Want faster queries? Here's how to optimize:
+### Step 3: Tune performance settings
 
 <Steps>
-1. In the connection settings, locate **Additional Params**
-2. Add performance optimization parameters:
-   ```
+1. In the connection settings, find **Additional Params**
+2. Append these performance parameters:
+   ```text
    ;UseResultsetStreaming=1;MaxConcurrentQueries=20
    ```
-3. **UseResultsetStreaming=1** - Enables streaming for large result sets (requires `athena:GetQueryResultsStream` policy)
-4. **MaxConcurrentQueries=20** - Increases connection pool size for heavy usage
+3. **UseResultsetStreaming=1** enables streaming for large result sets (requires the `athena:GetQueryResultsStream` IAM policy)
+4. **MaxConcurrentQueries=20** increases the connection pool for heavier usage
 5. Save the connection settings
 </Steps>
 
-:::note[Connection Pooling]
-The default is 5 concurrent connections. If Looker is your primary analytics tool for Tallyfy data, bump this to 10-20. If you're just doing occasional exploration, leave it at 5 to conserve resources.
+:::note[Connection pooling]
+Default is 5 concurrent connections. If Looker is your primary Tallyfy analytics tool, raise this to 10-20. For occasional exploration, 5 is fine.
 :::
 
-### Step 4: Set Up Temp Database for PDTs
+### Step 4: Set up temp database for PDTs
 
-Persistent Derived Tables (PDTs) cache complex calculations for faster dashboard loading:
+Persistent Derived Tables (PDTs)[^1] cache complex calculations so dashboards load faster:
 
 <Steps>
 1. In your connection settings, find **Temp Database**
-2. Enter only the S3 directory path: `tallyfy-athena-results/looker-pdts/`
-3. Looker will store pre-calculated tables here for reuse
+2. Enter the S3 directory path: `tallyfy-athena-results/looker-pdts/`
+3. Looker stores pre-calculated tables here for reuse
 4. Save the settings
 </Steps>
 
-## Working with Tallyfy Data in Looker
+## Working with Tallyfy data in Looker
 
-### Available Data Tables
+### Available data
 
-Tallyfy Analytics gives you access to four main tables:
+Tallyfy Analytics exports two categories of data to S3 as Parquet files:
 
-- **processes** - Completed and in-progress workflow instances
-- **steps** - Individual task data within processes
-- **form_fields** - Form field values collected during workflows
-- **users** - User activity and participation metrics
+- **Run analytics** - per-process data including process metadata (blueprint name, status, owner), task details (assignments, completion dates, due dates), form field values (questions and answers), comments, and issue tracking
+- **Members** - user activity and profile data (email, name, role, login history, status)
 
-### Building Your First LookML Model
+These are organized per-organization in S3, and Athena tables may present this data across views for processes, steps, form fields, and users.
 
-Ready to start modeling? Here's a basic example:
+### Building a LookML model
+
+Here's a basic starting point:
 
 <Steps>
-1. In Looker, navigate to **Develop** > **LookML Projects**
-2. Create a new project or select an existing one
-3. Create a new model file and define your connection:
+1. In Looker, go to **Develop** > **LookML Projects**
+2. Create a new project or pick an existing one
+3. Create a model file with your connection:
    ```yaml
    connection: "tallyfy_analytics"
 
@@ -150,65 +149,58 @@ Ready to start modeling? Here's a basic example:
      }
    }
    ```
-4. Create view files for each table (processes, steps, form_fields, users)
+4. Create view files for each data table
 5. Define dimensions and measures based on your business needs
 </Steps>
 
-### Creating Effective Visualizations
+### Dashboard ideas
 
-What can you actually build? Here are the most popular dashboards:
+Some practical dashboards you can build from Tallyfy data:
 
-1. **Process Duration Analysis** - See where workflows get stuck (remember: durations show elapsed time, not effort)
-2. **Team Performance Scorecards** - Track completion rates and average handling times per user
-3. **Form Data Analytics** - Spot trends in customer requests or quality issues
-4. **Real-time Process Monitors** - Dashboard showing active processes and their current status
-5. **SLA Compliance Tracking** - Measure whether tasks complete within target timeframes
+1. **Process duration analysis** - find where workflows get stuck (durations show elapsed time, not effort)
+2. **Team performance scorecards** - completion rates and average handling times per user
+3. **Form data analytics** - spot trends in customer requests or quality issues
+4. **Active process monitors** - real-time view of running processes and their current status
+5. **SLA compliance tracking** - measure whether tasks complete within target timeframes
 
 :::caution[Interpreting time metrics]
-Duration and handling time metrics show elapsed calendar time between task assignment and completion. This includes weekends, holidays, and waiting periods. For actual effort tracking, see [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
+Duration metrics show elapsed calendar time between task assignment and completion - including weekends, holidays, and waiting periods. For actual effort tracking, see [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
 :::
 
-## Advanced Features
+## Advanced features
 
-### Embedding Looker Dashboards
+### Embedding Looker dashboards
 
-Want to share insights beyond Looker? Use the Looker API to embed dashboards:
+The Looker API lets you share insights outside Looker itself:
 
-- Embed in internal portals or wikis
+- Embed dashboards in internal portals or wikis
 - Share via Slack using Looker's Slack integration
 - Schedule email delivery of reports
 - Create public dashboards with controlled access
 
-### Query Optimization Tips
+### Query optimization
 
-Make your queries blazing fast:
+A few ways to keep queries fast:
 
-- **Use Aggregate Awareness** - Pre-calculate common metrics in PDTs
-- **Use Incremental PDTs** - Only recalculate changed data
-- **Apply Smart Filters** - Push filtering to Athena rather than post-processing in Looker
-- **Monitor Query Performance** - Use Looker's Query History to identify slow queries
+- **Aggregate awareness** - pre-calculate common metrics in PDTs
+- **Incremental PDTs** - only recalculate changed data
+- **Push filters to Athena** - filter at the query level rather than post-processing in Looker
+- **Monitor query performance** - use Looker's Query History to find slow queries
 
-## Troubleshooting Connection Issues
+## Troubleshooting
 
-Connection not working? Let's fix it. Check these things in order:
+Connection not working? Check these in order:
 
-- Double-check your Access Key and Secret Access Key - even one wrong character breaks everything
+- Double-check your Access Key and Secret Access Key - one wrong character breaks the connection
 - Verify the S3 staging directory path is correct and your credentials have write access
-- Make sure the JDBC driver is installed correctly (self-hosted only)
-- Test if your Looker instance can reach `athena.us-east-1.amazonaws.com` on port 443
-- Verify your Tallyfy Analytics subscription is active in your account settings
-- Check driver logs by adding `;LogLevel=DEBUG;LogPath=/tmp/athena_debug.log` to Additional Params
+- Confirm the JDBC driver is installed properly (self-hosted only)
+- Test that Looker can reach `athena.us-east-1.amazonaws.com` on port 443
+- Verify your Tallyfy Analytics subscription is active
+- Enable debug logging by adding `;LogLevel=DEBUG;LogPath=/tmp/athena_debug.log` to **Additional Params**, then check `/tmp/athena_debug.log` for details
 
-Still stuck? Contact Tallyfy Support with the exact error message you're seeing.
+Still stuck? Contact Tallyfy Support with the exact error message.
 
-## Debugging Tips
-
-Enable detailed logging to diagnose issues:
-
-1. Add to **Additional Params**: `;LogLevel=DEBUG;LogPath=/tmp/athena_debug.log`
-2. Attempt your connection
-3. Check `/tmp/athena_debug.log` for detailed error information
-4. Share relevant log excerpts with Tallyfy Support if needed
+[^1]: Looker's caching layer that pre-computes query results and stores them in S3 for faster repeat access
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -1,10 +1,9 @@
 ---
-description: This endpoint creates standalone one-off tasks in Tallyfy that exist
-  independently from process templates by sending a POST request with task details
-  like name and optional fields such as description and deadline and assignees and
-  tags.
+about_tallyfy: true
+description: Create standalone one-off tasks in Tallyfy via a POST request with required
+  fields like title, task type, owners, and deadline.
 id: 8ec357c11bff3e7e4ee4c9d00edd6243
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 4
 title: Create one-off task
@@ -16,7 +15,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `POST /organizations/{org_id}/tasks`
 
-This endpoint creates a new standalone ("one-off") Tallyfy task that is not part of a process run initiated from a template.
+Creates a standalone one-off task that isn't part of any process run.
 
 ## Request
 
@@ -31,34 +30,34 @@ Replace `{org_id}` with your Organization ID.
 
 ### Body (JSON)
 
-The request body requires a JSON object defining the new task.
+#### Required fields
 
-Refer to the `#definitions/createStandaloneTaskInput` schema in Swagger for all available properties. Key fields include:
+-   `title` (string, max 600 chars): The task title.
+-   `task_type` (string): One of `task`, `approval`, `expiring`, `email`, or `expiring_email`.
+-   `owners` (object): Assignees - structure: `{ "users": [<user_ids>], "guests": ["email@example.com"], "groups": [<group_ids>] }`.
+-   `deadline` (string): Due date/time in ISO 8601 format.
 
--   `name` (string, required): The title of the task.
--   `description` (string): A description or instructions for the task.
--   `owners` (object): Assignees for the task (structure: `{ "users": [...], "guests": [...], "groups": [...] }`).
--   `deadline` (string): When work should be **complete** on the task (due date/time in ISO 8601 format).
--   `started_at` (string): When work should **begin** on the task (start date/time in ISO 8601 format).
--   `task_type` (string): Usually `member` or `guest`.
--   `separate_task_for_each_assignee` (boolean): If true, creates individual tasks for each person in `owners`.
--   `max_assignable` (integer): Maximum number of assignees.
--   `prevent_guest_comment` (boolean).
--   `tags` (array of strings): Tag IDs to apply.
+#### Optional fields
 
-**Minimal Example Body:**
+-   `description` (string): Instructions or details for the task.
+-   `started_at` (string): Start date/time in ISO 8601 format.
+-   `separate_task_for_each_assignee` (boolean): If `true`, creates one task per assignee.
+-   `max_assignable` (integer): Maximum number of assignees allowed.
+-   `prevent_guest_comment` (boolean): Block guests from commenting.
+-   `everyone_must_complete` (boolean): Whether all assignees must complete the task.
+-   `can_complete_only_assignees` (boolean): Only assigned people can complete it.
+-   `tags` (array of strings): 32-character tag IDs to apply.
+-   `form_fields` (array): Form fields to capture data on completion.
+-   `webhook` (string): URL to call when the task is completed.
+-   `top_secret` (boolean): Mark the task as confidential.
+-   `run_id` (string): Link this task to an existing process run.
+
+**Example body:**
 
 ```json
 {
-  "name": "Follow up with ACME Corp"
-}
-```
-
-**More Comprehensive Example Body:**
-
-```json
-{
-  "name": "Prepare Q3 Report",
+  "title": "Prepare Q3 Report",
+  "task_type": "task",
   "description": "Gather data and prepare the quarterly report slides.",
   "owners": {
     "users": [1001, 1002],
@@ -66,7 +65,7 @@ Refer to the `#definitions/createStandaloneTaskInput` schema in Swagger for all 
     "guests": []
   },
   "deadline": "2025-07-15T17:00:00Z",
-  "tags": ["reporting", "finance"]
+  "tags": ["a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"]
 }
 ```
 
@@ -80,7 +79,8 @@ const orgId = 'YOUR_ORGANIZATION_ID';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tasks`;
 
 const taskData = {
-  name: "JS One-Off Task: Review Budget",
+  title: "JS One-Off Task: Review Budget",
+  task_type: "task",
   description: "Review the draft budget spreadsheet.",
   owners: {
     users: [12345]
@@ -135,14 +135,15 @@ headers = {
 }
 
 task_payload = {
-    'name': 'Python One-Off Task: Plan Meeting',
+    'title': 'Python One-Off Task: Plan Meeting',
+    'task_type': 'task',
     'description': 'Schedule and plan the project kickoff meeting.',
     'owners': {
         'users': [1001],
         'guests': [],
         'groups': []
      },
-    'tags': ["planning", "kickoff"]
+    'deadline': '2025-06-30T17:00:00Z'
 }
 
 response = None
@@ -189,7 +190,11 @@ public class CreateOneOffTask {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/tasks";
 
-        String jsonPayload = "{\"name\": \"Java One-Off: Simple Task\"}";
+        String jsonPayload = """
+                {"title": "Java One-Off: Simple Task",
+                 "task_type": "task",
+                 "owners": {"users": [12345]},
+                 "deadline": "2025-06-30T17:00:00Z"}""";
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -207,7 +212,7 @@ public class CreateOneOffTask {
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             
-            if (response.statusCode() == 200 || response.statusCode() == 201) {
+            if (response.statusCode() == 201) {
                 System.out.println("Successfully created one-off task:");
                 System.out.println(response.body());
             } else {
@@ -233,7 +238,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
     "time"
@@ -247,12 +252,12 @@ func main() {
     apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tasks", orgId)
 
 	taskData := map[string]interface{}{
-		"name": "Go One-Off Task: Send Update",
-        "owners": map[string][]interface{}{
-            "users": {1005},
-        },
-        "deadline": "2025-06-30T10:00:00Z",
-        "tags": []string{"go_api", "updates"},
+		"title":     "Go One-Off Task: Send Update",
+		"task_type": "task",
+		"owners": map[string][]interface{}{
+			"users": {1005},
+		},
+		"deadline": "2025-06-30T10:00:00Z",
 	}
 
 	jsonData, err := json.Marshal(taskData)
@@ -280,13 +285,13 @@ func main() {
     }
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
     if err != nil {
         fmt.Printf("Error reading create task response body: %v\n", err)
         return
     }
 
-    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+    if resp.StatusCode != http.StatusCreated {
 		fmt.Printf("Failed to create task. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
@@ -335,7 +340,7 @@ pplx::task<void> CreateTallyfyOneOffTask(const value& taskPayload)
         {
             try {
                 value const & body = task.get();
-                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                if (response.status_code() == status_codes::Created) {
                     std::wcout << L"Successfully created one-off task:\n" << body.serialize() << std::endl;
                 } else {
                     std::wcerr << L"Failed to create task. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
@@ -352,19 +357,16 @@ pplx::task<void> CreateTallyfyOneOffTask(const value& taskPayload)
 int main() {
     try {
         value payload = value::object();
-        payload[U("name")] = value::string(U("C++ Task: Prepare Presentation"));
-        
+        payload[U("title")] = value::string(U("C++ Task: Prepare Presentation"));
+        payload[U("task_type")] = value::string(U("task"));
+
         value owners = value::object();
         value users = value::array();
         users[0] = value::number(12345);
         owners[U("users")] = users;
         payload[U("owners")] = owners;
-        
-        payload[U("deadline")] = value::string(U("2025-07-20T17:00:00Z"));
 
-        value tags = value::array();
-        tags[0] = value::string(U("presentations"));
-        payload[U("tags")] = tags;
+        payload[U("deadline")] = value::string(U("2025-07-20T17:00:00Z"));
 
         CreateTallyfyOneOffTask(payload).wait();
     } catch (const std::exception &e) {
@@ -401,13 +403,13 @@ public class TallyfyOneOffTaskCreator
 
     public class TaskPayload
     {
-        public string Name { get; set; }
+        public string Title { get; set; }
+        [JsonPropertyName("task_type")]
+        public string TaskType { get; set; }
+        public TaskOwners Owners { get; set; }
+        public string Deadline { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Description { get; set; }
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public TaskOwners Owners { get; set; }
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Deadline { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string> Tags { get; set; }
     }
@@ -418,8 +420,8 @@ public class TallyfyOneOffTaskCreator
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tasks";
 
-        if (string.IsNullOrWhiteSpace(payload?.Name)) {
-            Console.WriteLine("Error: Task Name is required.");
+        if (string.IsNullOrWhiteSpace(payload?.Title)) {
+            Console.WriteLine("Error: Task title is required.");
             return;
         }
 
@@ -472,7 +474,7 @@ public class TallyfyOneOffTaskCreator
 
 ## Response
 
-A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created Tallyfy one-off task, including its assigned `id`.
+A successful request returns a `201 Created` status and a JSON object with the new task's details.
 
 ```json
 {
@@ -480,25 +482,26 @@ A successful request returns a `200 OK` or `201 Created` status code and a JSON 
     "id": "new_one_off_task_id_789",
     "increment_id": 1250,
     "title": "Python One-Off Task: Plan Meeting",
-    "description": "Schedule and plan the project kickoff meeting.",
     "run_id": null,
     "step_id": null,
-    "status": "active",
+    "status": "not-started",
+    "task_type": "task",
     "owners": {
       "users": [
         { "id": 1001, "full_name": "Bob", "profile_pic": "..." }
-       ],
+      ],
       "guests": [],
       "groups": []
-     },
-    "deadline": null,
+    },
+    "deadline": "2025-06-30T17:00:00.000Z",
+    "started_at": null,
     "created_at": "2025-05-20T18:00:00.000Z",
     "last_updated": "2025-05-20T18:00:00.000Z"
   }
 }
 ```
 
-Make note of the returned `id` to manage this task later (get, update, complete, delete).
+Save the returned `id` -- you'll need it to get, update, complete, or delete this task later.
 
 ---
 

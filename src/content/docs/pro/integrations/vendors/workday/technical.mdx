@@ -3,6 +3,8 @@ description: Technical implementation details for connecting Workday with Tallyf
   including API integration examples, webhook handling, data mapping, and authentication
   configuration for enterprise deployments.
 id: 4fc78f1a31eb0668d1a77361d4c2eb93
+lastUpdated: 2026-02-25
+about_tallyfy: false
 sidebar:
   order: 2
 title: Workday technical integration
@@ -12,7 +14,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Integration options
 
-Workday provides several integration methods. Choose based on your technical requirements and partnership status.
+Workday offers several integration methods. Pick the one that fits your technical needs and partnership status.
 
 ### Workday Integration Cloud (XML)
 
@@ -33,7 +35,7 @@ Use Workday's native integration platform for scheduled data sync:
   </transformation>
   <target>
     <tallyfy-api>
-      <endpoint>https://api.tallyfy.com/v1/workflows</endpoint>
+      <endpoint>https://go.tallyfy.com/api/organizations/{org_id}/runs</endpoint>
       <template>enterprise_onboarding</template>
     </tallyfy-api>
   </target>
@@ -49,34 +51,39 @@ const processWorkdayEvent = async (event) => {
   if (event.type === 'WORKER_HIRED') {
     const worker = await workdayAPI.getWorker(event.workerId);
 
-    const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        template_id: 'enterprise_onboarding',
-        data: {
-          employee_id: worker.employeeID,
-          name: worker.legalName,
-          email: worker.workEmail,
-          cost_center: worker.costCenter,
-          location: worker.primaryWorkLocation,
-          job_profile: worker.jobProfile,
-          manager: worker.manager
-        }
-      })
-    });
+    const response = await fetch(
+      'https://go.tallyfy.com/api/organizations/{org_id}/runs',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer YOUR_TALLYFY_TOKEN',
+          'X-Tallyfy-Client': 'APIClient',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          checklist_id: 'enterprise_onboarding',
+          prerun: {
+            employee_id: worker.employeeID,
+            name: worker.legalName,
+            email: worker.workEmail,
+            cost_center: worker.costCenter,
+            location: worker.primaryWorkLocation,
+            job_profile: worker.jobProfile,
+            manager: worker.manager
+          }
+        })
+      }
+    );
 
-    return workflow.json();
+    return response.json();
   }
 };
 ```
 
 ## Data mapping
 
-Common Workday fields to map to Tallyfy workflow variables:
+Common Workday fields to map to Tallyfy process variables:
 
 | Workday Field | Tallyfy Variable | Description |
 |---------------|------------------|-------------|
@@ -86,22 +93,22 @@ Common Workday fields to map to Tallyfy workflow variables:
 | `costCenter` | `cost_center` | Cost center code |
 | `businessUnit` | `business_unit` | Business unit name |
 | `primaryWorkLocation` | `location` | Office location |
-| `jobProfile` | `job_title` | Job title/role |
+| `jobProfile` | `job_title` | Job title / role |
 | `manager` | `manager_name` | Direct manager |
 | `workerType` | `employee_type` | Full-time, contractor, etc. |
 
 ## Authentication
 
-Workday uses OAuth 2.0 with JWT for API authentication. Store credentials securely and never expose them in client-side code.
+Workday uses OAuth 2.0 with JWT for API authentication. Store credentials securely - don't expose them in client-side code.
 
 ## iPaaS alternatives
 
-If direct API access is unavailable, use integration platforms:
+If you don't have direct API access, use an integration platform instead:
 
-- **Celigo**: NetSuite-native with Workday connectors
-- **Workato**: Enterprise automation recipes
-- **MuleSoft**: Anypoint Platform connectors
-- **Boomi**: Dell Boomi AtomSphere
+- **Celigo** - NetSuite-native with Workday connectors
+- **Workato** - Enterprise automation recipes
+- **MuleSoft** - Anypoint Platform connectors
+- **Boomi** - Dell Boomi AtomSphere
 
 ## Related articles
 <CardGrid>

@@ -1,8 +1,9 @@
 ---
-description: The DELETE endpoint permanently removes a process run instance and its
-  associated data including tasks comments and form values with no option for recovery.
+description: The DELETE endpoint permanently removes an archived process and all its
+  associated data including tasks, comments, and form values with no recovery option.
+about_tallyfy: true
 id: 3f1f42889d8a98ae097c76bbd2ab014c
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 7
 title: Delete process
@@ -14,25 +15,33 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DELETE /organizations/{org_id}/runs/{run_id}/delete`
 
-This endpoint permanently deletes a specific Tallyfy process instance (run) and all its associated data (tasks, comments, form field values, etc.).
+Permanently deletes an archived process (run) and all its related data -- tasks, comments, form field values, attachments, tags, and watchers.
 
-:::danger[Irreversible Action]
-Permanently deleting a Tallyfy process run cannot be undone. All data related to this specific run will be lost. Consider archiving unless you're absolutely certain.
+:::danger[Irreversible action]
+This can't be undone. All data tied to this run is permanently removed from the database. If you're unsure, archive the process first and leave it archived.
+:::
+
+:::caution[Must be archived first]
+You can only permanently delete a process that's already been archived (soft-deleted). Calling this on an active process returns an error. Archive it first using `DELETE /organizations/{org_id}/runs/{run_id}`.
+:::
+
+:::note[Admin only]
+This endpoint requires the admin role. Non-admin members will get a `403 Forbidden` response.
 :::
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to delete permanently.
+Replace `{org_id}` with your Organization ID and `{run_id}` with the run ID to delete.
 
 ### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
 
 ### Body
 
-No request body is needed for this DELETE request.
+No request body is needed.
 
 ### Code samples
 
@@ -42,7 +51,7 @@ No request body is needed for this DELETE request.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 const runId = 'PROCESS_RUN_ID_TO_DELETE';
-const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/delete`; // Note the /delete path segment
+const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/delete`;
 
 const headers = new Headers();
 headers.append('Authorization', `Bearer ${accessToken}`);
@@ -54,53 +63,39 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    // Expect 200 OK or 204 No Content on successful deletion
-    if (response.status === 200 || response.status === 204) { 
-        console.log(`Successfully deleted process ${runId}. Status: ${response.status}`);
-        // Body might be empty or contain success message
-         if (response.status !== 204) {
-             // Try parse if not 204, but handle non-JSON text
-             return response.text().then(text => {
-                 try {
-                     return text ? JSON.parse(text) : null;
-                 } catch (e) {
-                     console.warn("Delete response body was not JSON:", text);
-                     return null; // Success but no parsable data
-                 }
-             });
-         }
-         return null; // For 204 No Content
+    if (response.ok) {
+        console.log(`Permanently deleted process ${runId}. Status: ${response.status}`);
+        return response.text().then(text => {
+            if (text) {
+                try { return JSON.parse(text); }
+                catch (e) { return null; }
+            }
+            return null;
+        });
     } else {
-        // Try to parse error JSON, fallback to text
         return response.json()
             .catch(() => response.text())
-            .then(errData => { 
-                console.error(`Failed to delete process ${runId}. Status: ${response.status}`, errData);
-                throw new Error(`HTTP error! status: ${response.status}`); 
+            .then(errData => {
+                console.error(`Failed (${response.status}):`, errData);
+                throw new Error(`HTTP error ${response.status}`);
             });
     }
 })
 .then(data => {
-    if (data) { 
-      console.log('Delete response details (if returned):');
-      console.log(JSON.stringify(data, null, 2));
-    }
+    if (data) console.log(JSON.stringify(data, null, 2));
 })
-.catch(error => {
-    console.error(`Error during deletion of process ${runId}:`, error.message);
-});
+.catch(error => console.error('Delete failed:', error.message));
 ```
 </TabItem>
 <TabItem label="Python">
 ```python
 import requests
-import json
 import os
 
 access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
 org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
 run_id = 'PROCESS_RUN_ID_TO_DELETE'
-api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/delete' # Note /delete path
+api_url = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/delete'
 
 headers = {
     'Authorization': f'Bearer {access_token}',
@@ -108,36 +103,15 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-response = None
 try:
     response = requests.delete(api_url, headers=headers)
-
-    # Check for successful status codes (200 or 204)
-    if response.status_code == 200:
-        print(f'Successfully deleted process {run_id}. Status: 200 OK')
-        try:
-            if response.content:
-                delete_response = response.json()
-                print('Delete response details:')
-                print(json.dumps(delete_response, indent=4))
-            else:
-                print("(Response body empty for 200 OK)")
-        except json.JSONDecodeError:
-            print(f"(Received status 200 but body not valid JSON: {response.text})")
-    elif response.status_code == 204:
-        print(f'Successfully deleted process {run_id}. Status: 204 No Content')
-    else:
-        # Raise an exception for other non-success status codes
-        response.raise_for_status()
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred deleting process {run_id}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed deleting process {run_id}: {req_err}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+    response.raise_for_status()
+    print(f'Permanently deleted process {run_id}. Status: {response.status_code}')
+except requests.exceptions.HTTPError as e:
+    print(f'HTTP error deleting process {run_id}: {e}')
+    print(f'Response: {e.response.text}')
+except requests.exceptions.RequestException as e:
+    print(f'Request failed: {e}')
 ```
 </TabItem>
 <TabItem label="Java">
@@ -153,8 +127,8 @@ public class DeleteProcess {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String runId = "PROCESS_RUN_ID_TO_DELETE";
-        // Ensure the /delete path segment is included
-        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/delete", orgId, runId); 
+        String apiUrl = String.format(
+            "https://go.tallyfy.com/api/organizations/%s/runs/%s/delete", orgId, runId);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -169,26 +143,13 @@ public class DeleteProcess {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                System.out.println("Successfully deleted process " + runId + ". Status: 200 OK");
-                 if (response.body() != null && !response.body().isEmpty()) {
-                     System.out.println("Response Body:");
-                     System.out.println(response.body());
-                     // TODO: Consider parsing JSON if applicable (e.g., for a success message)
-                 } else {
-                    System.out.println("(Response body empty)");
-                 }
-            } else if (response.statusCode() == 204) {
-                 System.out.println("Successfully deleted process " + runId + ". Status: 204 No Content");
+                System.out.println("Permanently deleted process " + runId);
             } else {
-                 System.err.println("Failed to delete process " + runId + ". Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
+                System.err.println("Failed (" + response.statusCode() + "): " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -199,65 +160,48 @@ public class DeleteProcess {
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    runId := "PROCESS_RUN_ID_TO_DELETE"
-    // Ensure the /delete path segment is included
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/delete", orgId, runId) 
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	runId := "PROCESS_RUN_ID_TO_DELETE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/delete", orgId, runId)
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodDelete, apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating delete process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing delete process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        // Might happen for 204, check status first
-    }
+	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode == http.StatusOK {
-        fmt.Printf("Successfully deleted process %s. Status: %d OK\n", runId, resp.StatusCode)
-        if len(body) > 0 {
-             fmt.Println("Response Body:")
-             // Pretty print JSON if possible
-             var prettyJSON bytes.Buffer
-             if json.Indent(&prettyJSON, body, "", "  ") == nil {
-                 fmt.Println(prettyJSON.String())
-             } else {
-                 fmt.Println(string(body)) // Print raw if not JSON
-             }
-        } else {
-            fmt.Println("(Response body empty)")
-        }
-    } else if resp.StatusCode == http.StatusNoContent {
-         fmt.Printf("Successfully deleted process %s. Status: %d No Content\n", runId, resp.StatusCode)
+		fmt.Printf("Permanently deleted process %s\n", runId)
+		if len(body) > 0 {
+			fmt.Println(string(body))
+		}
 	} else {
-		fmt.Printf("Failed to delete process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
+		fmt.Printf("Failed (%d): %s\n", resp.StatusCode, string(body))
 	}
 }
 ```
@@ -272,51 +216,39 @@ func main() {
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
-using namespace web::json;
 
 pplx::task<void> DeleteTallyfyProcess(const utility::string_t& runId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    // Ensure the /delete path segment is included
-    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/runs/") + runId + U("/delete");
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId
+        + U("/runs/") + runId + U("/delete");
 
     http_client client(apiUrl);
-    http_request request(methods::DEL); 
+    http_request request(methods::DEL);
 
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-    // No request body needed
 
     return client.request(request).then([runId](http_response response)
     {
         status_code status = response.status_code();
-        utility::string_t runIdW = runId;
-
-        // Handle potential body (string) for errors or 200 OK message
-        return response.extract_string().then([status, runIdW](utility::string_t responseBody)
+        return response.extract_string().then([status, runId](utility::string_t body)
         {
-             if (status == status_codes::OK) {
-                 std::wcout << L"Successfully deleted process " << runIdW << L". Status: " << status << L" OK." << std::endl;
-                 if (!responseBody.empty()) {
-                    std::wcout << L"Response Body: " << responseBody << std::endl;
-                     // Optionally try to parse as JSON if a message is expected
-                 }
-             } else if (status == status_codes::NoContent) {
-                 std::wcout << L"Successfully deleted process " << runIdW << L". Status: " << status << L" No Content." << std::endl;
-             } else {
-                 std::wcerr << L"Failed to delete process " << runIdW << L". Status: " << status << std::endl;
-                 std::wcerr << L"Response Body: " << responseBody << std::endl;
-                 throw std::runtime_error("Failed to delete process");
-             }
+            if (status == status_codes::OK) {
+                std::wcout << L"Permanently deleted process " << runId << std::endl;
+            } else {
+                std::wcerr << L"Failed (" << status << L"): " << body << std::endl;
+                throw std::runtime_error("Failed to delete process");
+            }
         });
     });
 }
 
 int main() {
     try {
-        DeleteTallyfyProcess(U("PROCESS_RUN_ID_TO_DELETE")).wait(); // Replace with actual Run ID
+        DeleteTallyfyProcess(U("PROCESS_RUN_ID_TO_DELETE")).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -331,7 +263,6 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using System.Text.Json;
 
 public class TallyfyProcessDeleter
 {
@@ -339,10 +270,11 @@ public class TallyfyProcessDeleter
 
     public static async Task DeleteProcessAsync(string runId)
     {
-        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
-        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        // Ensure the /delete path segment is included
-        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/delete"; 
+        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN")
+            ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID")
+            ?? "YOUR_ORGANIZATION_ID";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/delete";
 
         try
         {
@@ -350,43 +282,25 @@ public class TallyfyProcessDeleter
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Add("X-Tallyfy-Client", "APIClient");
-            // No request body needed
 
             HttpResponseMessage response = await client.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Checks for 2xx (expect 200 or 204)
+            if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine($"Successfully deleted process {runId}. Status: {response.StatusCode}");
-                if (response.StatusCode == System.Net.HttpStatusCode.OK && !string.IsNullOrWhiteSpace(responseBody))
-                {
-                    Console.WriteLine("Delete response details (if returned):");
-                    try {
-                         // Attempt to pretty print if it's JSON, otherwise just print text
-                         using var doc = JsonDocument.Parse(responseBody);
-                         Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                     } catch (JsonException) {
-                         Console.WriteLine(responseBody);
-                     }
-                }
+                Console.WriteLine($"Permanently deleted process {runId}");
             }
             else
             {
-                Console.WriteLine($"Failed to delete process {runId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
+                Console.WriteLine($"Failed ({response.StatusCode}): {responseBody}");
             }
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception deleting process {runId}: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Request failed: {e.Message}");
         }
     }
 
-    // Example Usage:
     // static async Task Main(string[] args)
     // {
     //     await DeleteProcessAsync("PROCESS_RUN_ID_TO_DELETE");
@@ -398,11 +312,14 @@ public class TallyfyProcessDeleter
 
 ## Response
 
-A successful permanent deletion typically returns a `200 OK` or `204 No Content` status code.
-- If `200 OK`, the body might contain a success message.
-- If `204 No Content`, the deletion was successful, and there is no response body.
+A successful permanent deletion returns `200 OK` with an empty response body. The process and all related data have been permanently removed.
 
-If the process run ID is not found or you lack permission, an error (`404`, `403`) will be returned.
+| Status | Meaning |
+|--------|---------|
+| `200`  | Process permanently deleted |
+| `403`  | You don't have admin role permissions |
+| `404`  | Process not found (wrong ID or not archived) |
+| `422`  | Process isn't archived yet -- archive it first |
 
 ---
 

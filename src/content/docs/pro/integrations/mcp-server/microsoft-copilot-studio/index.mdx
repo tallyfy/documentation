@@ -1,12 +1,11 @@
 ---
-description: Microsoft Copilot Studio provides enterprise-grade MCP integration with
-  Tallyfy through Azure Functions and Power Platform custom connectors enabling multi-agent
-  orchestration for complex workflows like employee onboarding with features including
-  Virtual Network isolation and Data Loss Prevention policies and deep integration
-  with Dynamics 365 and Power BI though it requires multiple license tiers and has
-  regional availability limitations.
+description: Connect Tallyfy's MCP server with Microsoft Copilot Studio through Azure
+  Functions and Power Platform connectors for multi-agent workflow orchestration with
+  VNet isolation and DLP policies plus Dynamics 365 and Power BI integration though
+  licensing and regional availability vary.
+about_tallyfy: true
 id: b52cf52fa43abd282cf4a12ac69313d2
-lastUpdated: 2026-02-20
+lastUpdated: 2026-02-25
 sidebar:
   order: 30
 title: Using Tallyfy MCP server with Microsoft Copilot Studio
@@ -20,43 +19,35 @@ An MCP server can be used by any MCP client that supports it. Although you can u
 
 ## Overview
 
-Microsoft Copilot Studio brings enterprise-grade MCP support to organizations that need AI agents connected to their business systems. Connect Tallyfy's MCP server with Copilot Studio, and you'll build intelligent agents that automate workflows, manage processes, and interact with your Tallyfy data through natural language commands.
+Microsoft Copilot Studio adds MCP support for organizations that need AI agents connected to business systems. Connect Tallyfy's MCP server with Copilot Studio to build agents that automate workflows, manage processes, and interact with your Tallyfy data through natural language.
 
-Want to know how it all works? This guide walks you through configuring Tallyfy's MCP server with Microsoft Copilot Studio, tapping into unique enterprise features, working around limitations, and implementing battle-tested production practices.
+This guide covers configuring Tallyfy's MCP server with Copilot Studio, working with enterprise features, handling limitations, and production practices.
 
-## Microsoft Copilot Studio MCP support status
+## Copilot Studio MCP support status
 
-Here's the current state of MCP support in Copilot Studio (generally available as of early 2026):
+MCP server support is generally available in Copilot Studio as of early 2026:
 
-- **Generally available**: MCP server support is GA across Copilot Studio
-- **Transport methods**: Streamable HTTP only (SSE is deprecated and no longer supported)
-- **MCP resources**: Full support for files and images in MCP responses
-- **Enterprise features**: Virtual Network integration, Data Loss Prevention (DLP), multiple authentication methods
-- **Admin visibility**: MCP-enabled agents visible in M365 admin center for governance
-- **Agent 365**: Unified control plane for managing AI agents across Microsoft ecosystem
+- **Transport**: Streamable HTTP only (SSE is deprecated)
+- **MCP resources**: Files and images supported in responses
+- **Enterprise features**: VNet integration, DLP, multiple auth methods
+- **Admin visibility**: MCP-enabled agents visible in M365 admin center
 - **Platform integration**: Native Power Platform connector infrastructure
-- **Prebuilt connectors**: GitHub, Asana, Jira, Dataverse, Dynamics 365 (Sales, Finance, Supply Chain, Service), Microsoft Fabric
-- **MCP governance**: MCP now governed by Agentic AI Foundation under Linux Foundation (December 2025)
-
-**Note:** SSE transport is deprecated - Copilot Studio only supports Streamable HTTP for MCP. Use Streamable HTTP for all implementations.
+- **Prebuilt connectors**: GitHub, Asana, Jira, Dataverse, Dynamics 365, Microsoft Fabric
+- **Governance**: MCP governed by Agentic AI Foundation under Linux Foundation (December 2025)
 
 ## Prerequisites
 
-You'll need a few things in place before diving in:
-
 - Microsoft Copilot Studio license (trial or paid)
-- Tallyfy API key (grab it from your Tallyfy organization settings)
-- Power Apps or Power Automate access (for creating custom connectors)
+- Tallyfy API key from your organization settings
+- Power Apps or Power Automate access (for custom connectors)
 - Generative Orchestration enabled in your Copilot Studio agent
-- Environment in a supported region (check Microsoft documentation for current availability)
+- Environment in a supported region (check Microsoft docs for availability)
 
-## Setting up Tallyfy MCP Server with Microsoft Copilot Studio
-
-Ready to get started? Here's how to connect everything:
+## Setting up Tallyfy MCP server with Copilot Studio
 
 ## Integration flow overview
 
-This diagram shows how Tallyfy MCP Server connects with Microsoft Copilot Studio through the Power Platform infrastructure.
+This diagram shows how Tallyfy's MCP server connects with Copilot Studio through Power Platform infrastructure.
 
 ```d2
 direction: down
@@ -133,13 +124,13 @@ CopilotStudio -> CopilotStudio: "9. Process with\nGenerative AI" {
 ```
 
 **What to notice:**
-- The setup involves multiple Microsoft services (Azure, Power Apps, Copilot Studio) that must be configured in sequence
+- Setup involves multiple Microsoft services (Azure, Power Apps, Copilot Studio) configured in sequence
 - Authentication happens at the Power Apps connector level using your Tallyfy API key
-- DLP policies provide an additional security layer for enterprise deployments
+- DLP policies add a security layer for enterprise deployments
 
 ## Multi-agent orchestration pattern
 
-See how Copilot Studio coordinates multiple specialized agents for complex workflows like employee onboarding.
+Copilot Studio can coordinate multiple specialized agents for workflows like employee onboarding.
 
 ```d2
 direction: down
@@ -236,13 +227,13 @@ Tallyfy -> End: "Process\ncomplete" {
 ```
 
 **What to notice:**
-- The Primary Agent acts as an orchestrator, delegating specific tasks to specialized agents
+- The Primary Agent acts as an orchestrator, delegating to specialized agents
 - Each agent creates and manages its tasks through Tallyfy's API
-- All progress is centrally monitored through Tallyfy's tracker view for complete visibility
+- All progress is monitored through Tallyfy's tracker view
 
 ## Enterprise deployment architecture
 
-This shows the recommended architecture for large organizations requiring high availability and security.
+Recommended architecture for large organizations needing high availability and security.
 
 ```d2
 direction: right
@@ -308,58 +299,28 @@ MCP2 -> API: "API calls\n(with auth)" {
 **What to notice:**
 - Multiple MCP server instances provide high availability behind a load balancer
 - Security is layered with WAF, DLP policies, and VNet isolation
-- Managed identities eliminate the need to store credentials in code
+- Managed identities remove the need to store credentials in code
 
 <Steps>
 
-1. **Create an MCP server for Tallyfy**
-   
-   First, you'll need to develop an MCP server that exposes Tallyfy's capabilities. You can use Microsoft's SDKs or deploy to Azure:
-   
-   ```javascript
-   // Example using Node.js on Azure Functions
-   const { createMcpServer } = require('@microsoft/mcp-sdk');
-   const axios = require('axios');
-   
-   module.exports = async function (context, req) {
-     const server = createMcpServer({
-       name: 'Tallyfy MCP Server',
-       version: '1.0.0',
-       tools: [
-         {
-           name: 'search_tasks',
-           description: 'Search for tasks in Tallyfy',
-           parameters: {
-             query: { type: 'string', required: true },
-             status: { type: 'string', enum: ['open', 'completed', 'overdue'] }
-           },
-           handler: async (params) => {
-             const response = await axios.get('https://mcp.tallyfy.com/tasks', {
-               headers: { 'Authorization': `Bearer ${process.env.TALLYFY_API_KEY}` },
-               params: { q: params.query, status: params.status }
-             });
-             return response.data;
-           }
-         }
-       ]
-     });
-     
-     context.res = await server.handleRequest(req);
-   };
-   ```
+1. **Connect to Tallyfy's MCP server**
+
+   Tallyfy provides a hosted MCP server at `https://mcp.tallyfy.com` that exposes 40+ tools for managing tasks, processes, templates, users, and automation. You don't need to build your own MCP server - instead, you'll create a connector that points to Tallyfy's existing server.
+
+   The server uses OAuth 2.1 with PKCE for authentication. Discovery starts at `/.well-known/oauth-authorization-server` (per RFC 8414), and scopes use dot notation like `mcp.tasks.read`, `mcp.processes.write`, etc.
 
 2. **Create an OpenAPI specification**
-   
-   Next up - create a YAML file describing your MCP server for the Power Platform connector:
-   
+
+   Create a YAML file describing the MCP server for the Power Platform connector:
+
    ```yaml
    swagger: '2.0'
    info:
      title: Tallyfy MCP Server
      description: MCP server for Tallyfy workflow management
      version: 1.0.0
-   host: tallyfy-mcp.azurewebsites.net
-   basePath: /api
+   host: mcp.tallyfy.com
+   basePath: /
    schemes:
      - https
    paths:
@@ -416,8 +377,8 @@ MCP2 -> API: "API calls\n(with auth)" {
    4. Configure connector classifications (Business/Non-Business/Blocked)
 
 7. **Test the integration**
-   
-   Time to see if it works! In your Copilot Studio agent, try these queries:
+
+   In your Copilot Studio agent, try queries like:
    ```
    "Find all open tasks assigned to the sales team"
    "Show me overdue processes for customer onboarding"
@@ -426,18 +387,16 @@ MCP2 -> API: "API calls\n(with auth)" {
 
 </Steps>
 
-## Practical demonstrations
+## Practical examples
 
-### Example 1: Multi-agent orchestration
-
-**Scenario**: Coordinate multiple agents for complex workflows.
+### Multi-agent orchestration
 
 **User prompt:**
 ```
 Start the employee onboarding process for Jane Smith, assign tasks to HR and IT, and schedule training sessions.
 ```
 
-**Copilot Studio with MCP will:**
+**What happens:**
 1. Primary agent receives the request
 2. Delegates to HR agent for documentation tasks via Tallyfy
 3. Delegates to IT agent for system access setup
@@ -445,276 +404,195 @@ Start the employee onboarding process for Jane Smith, assign tasks to HR and IT,
 5. Monitors progress across all sub-agents
 6. Reports consolidated status back to you
 
-### Example 2: Power Platform integration
-
-**Scenario**: Combine Tallyfy workflows with Microsoft tools.
+### Power Platform integration
 
 **User prompt:**
 ```
 When a new sales opportunity is created in Dynamics 365, start our proposal process in Tallyfy and create a Teams channel for collaboration.
 ```
 
-**Implementation:**
+**What happens:**
 1. Power Automate flow triggers on Dynamics 365 opportunity
 2. MCP server creates Tallyfy process instance
-3. Teams connector creates dedicated channel
+3. Teams connector creates a dedicated channel
 4. Agent monitors and reports progress
 
-### Example 3: Enterprise compliance workflow
-
-**Scenario**: Automated compliance checking with approvals.
+### Enterprise compliance workflow
 
 **User prompt:**
 ```
 Review all completed audit processes this quarter and generate a compliance report with any violations highlighted.
 ```
 
-**Copilot Studio with MCP will:**
-1. Query Tallyfy for audit process data
-2. Analyze completion times against SLAs
-3. Check for required approvals
-4. Generate formatted report in SharePoint
-5. Route to compliance team if violations found
+**What happens:**
+1. Queries Tallyfy for audit process data
+2. Analyzes completion times against SLAs
+3. Checks for required approvals
+4. Generates formatted report in SharePoint
+5. Routes to compliance team if violations are found
 
-## Unique Microsoft Copilot Studio features
+## Copilot Studio features for MCP
 
-### 1. Enterprise security and governance
+### Enterprise security and governance
 
-Here's where Copilot Studio really shines - it taps into Microsoft's entire enterprise infrastructure:
+- **VNet integration** - isolate MCP traffic within your network
+- **Data Loss Prevention (DLP)** - apply policies to prevent data exfiltration
+- **Azure AD authentication** - use your existing identity management
+- **Compliance certifications** - inherit Microsoft's compliance framework
 
-- **Virtual Network (VNet) integration**: Isolate MCP traffic within your network
-- **Data Loss Prevention (DLP)**: Apply policies to prevent data exfiltration
-- **Azure AD authentication**: Use your existing identity management
-- **Compliance certifications**: Inherit Microsoft's compliance framework
+### Power Platform ecosystem
 
-### 2. Power Platform ecosystem
+- **Power Automate flows** - trigger workflows from MCP actions
+- **Power Apps integration** - build custom UIs for Tallyfy data
+- **Dataverse storage** - store workflow metadata in Microsoft's database
+- **Power BI reporting** - create dashboards from Tallyfy analytics
 
-You get deep integration with Microsoft's low-code platform - and that's huge:
-
-- **Power Automate flows**: Trigger complex workflows from MCP actions
-- **Power Apps integration**: Build custom UIs for Tallyfy data
-- **Dataverse storage**: Store workflow metadata in Microsoft's database
-- **Power BI reporting**: Create dashboards from Tallyfy analytics
-
-### 3. Multi-agent orchestration
-
-This is where Copilot Studio really excels. It coordinates multiple agents like a pro:
+### Multi-agent orchestration
 
 - Delegate tasks between specialized agents
 - Maintain context across agent handoffs
 - Central monitoring of multi-agent workflows
 - Built-in error handling and fallback mechanisms
 
-### 4. Tools and prompts framework
+### Tools and prompts framework
 
-Centralized management of reusable components:
+- **Prompt library** - create and share custom prompts across agents
+- **Tool catalog** - browse and install prebuilt MCP connectors
+- **Version control** - track changes to tools and prompts
+- **Testing framework** - validate tools before deployment
 
-- **Prompt library**: Create and share custom prompts across agents
-- **Tool catalog**: Browse and install prebuilt MCP connectors
-- **Version control**: Track changes to tools and prompts
-- **Testing framework**: Validate tools before deployment
+## Limitations
 
-## Limitations in Microsoft Copilot Studio
+### Licensing complexity
 
-Let's be honest - MCP with Copilot Studio isn't perfect. You'll hit some roadblocks:
-
-### 1. Licensing complexity
-
-**Challenge**: Multiple license tiers with varying capabilities.
-
-**Limitations:**
-- MCP requires Generative Orchestration (extra cost - ouch)
+- MCP requires Generative Orchestration (additional cost)
 - Message limits vary by plan (25K to 200K messages/month)
 - Some features need Power Platform licenses too
-- Multi-agent orchestration still in preview for select customers
+- Multi-agent orchestration may still be in preview for some customers
 
-### 2. Regional availability
+### Regional availability
 
-**Challenge**: Not all features available globally.
-
-**Limitations:**
 - MCP available in limited regions initially
 - Data residency requirements may restrict usage
 - Preview features often US-only at launch
-- Compliance varies by geography
 
-### 3. Connector development overhead
+### Connector development overhead
 
-**Challenge**: Creating custom connectors requires additional steps.
-
-**Limitations:**
 - Must create OpenAPI specifications
 - Power Apps/Automate knowledge needed
-- Testing takes longer than direct MCP
+- Testing takes longer than direct MCP connections
 - Versioning and updates require republishing
 
-### 4. Performance considerations
+### Performance considerations
 
-**Challenge**: Enterprise features add latency.
-
-**Limitations:**
 - DLP policy evaluation adds processing time
 - VNet routing increases response times (10-50ms typically)
 - Large result sets require pagination
-- Rate limits shared across Power Platform
+- Rate limits are shared across Power Platform
 
-## Ideal use cases for Copilot Studio + Tallyfy MCP
+## Ideal use cases
 
-Where does this combo really shine? Let me show you:
+### Enterprise workflow automation
 
-### 1. Enterprise workflow automation
-
-**Strength**: Microsoft's ecosystem handles end-to-end automation beautifully.
-
-**Example:**
 ```
 "When a purchase order exceeds $50,000 in Dynamics 365, initiate our approval workflow in Tallyfy, notify stakeholders in Teams, and track in Power BI."
 ```
 
-### 2. Compliance and audit management
+### Compliance and audit management
 
-**Strength**: Built-in governance and security features.
-
-**Example:**
 ```
 "Monitor all SOX compliance processes, ensure proper segregation of duties, and generate audit reports with full trail documentation."
 ```
 
-### 3. Cross-functional process orchestration
+### Cross-functional process orchestration
 
-**Strength**: Multi-agent coordination capabilities.
-
-**Example:**
 ```
 "Coordinate our product launch process across marketing, sales, and operations teams, with each department's agent handling their specific tasks."
 ```
 
-### 4. Intelligent process mining
+### Intelligent process mining
 
-**Strength**: Analytics and AI-powered insights.
-
-**Example:**
 ```
 "Analyze our customer service processes to identify bottlenecks, suggest optimizations, and automatically implement approved changes."
 ```
 
-### 5. Regulated industry workflows
+### Regulated industry workflows
 
-**Strength**: Enterprise compliance and security.
-
-**Example:**
 ```
 "Manage our FDA submission process with full audit trails, approval chains, and automatic compliance checking at each step."
 ```
 
 ## Security considerations
 
-You can't skip security when deploying Tallyfy MCP in Copilot Studio. Here's what matters:
-
-1. **Network security**
-   - Deploy MCP servers within VNet for isolation
-   - Use Private Endpoints for Azure services
-   - Implement Web Application Firewall (WAF) rules
-   - Enable DDoS protection for public endpoints
-
-2. **Authentication and authorization**
-   - Use Azure AD for user authentication
-   - Implement service principal authentication for server-to-server
-   - Apply conditional access policies
-   - Enable multi-factor authentication
-
-3. **Data protection**
-   - Classify data sensitivity levels
-   - Apply DLP policies based on classification
-   - Enable encryption at rest and in transit
-   - Implement data retention policies
-
-4. **Monitoring and compliance**
-   - Enable Azure Monitor for MCP servers
-   - Configure alerts for anomalous behavior
-   - Regular security assessments
-   - Maintain audit logs for compliance
+1. **Network security** - deploy within VNet for isolation, use Private Endpoints, implement WAF rules, enable DDoS protection
+2. **Authentication** - use Azure AD, implement service principal auth for server-to-server, apply conditional access policies, enable MFA
+3. **Data protection** - classify data sensitivity levels, apply DLP policies, enable encryption at rest and in transit
+4. **Monitoring** - enable Azure Monitor, configure anomaly alerts, maintain audit logs for compliance
 
 ## Deployment architectures
 
-### Basic deployment (Small organizations)
+### Basic (small organizations)
 
 ```
-[Copilot Studio] → [Custom Connector] → [Azure Function MCP Server] → [Tallyfy API]
+[Copilot Studio] → [Custom Connector] → [Tallyfy MCP Server] → [Tallyfy API]
 ```
 
-### Enterprise deployment (Large organizations)
+### Enterprise (large organizations)
 
 ```
-[Copilot Studio] 
+[Copilot Studio]
     ↓ (VNet Integration)
-[API Management] 
+[API Management]
     ↓ (Private Endpoint)
 [App Service Environment]
-    ├── [MCP Server Instance 1]
-    ├── [MCP Server Instance 2]
+    ├── [MCP Proxy Instance 1]
+    ├── [MCP Proxy Instance 2]
     └── [Load Balancer]
          ↓ (Managed Identity)
-    [Tallyfy API]
+    [Tallyfy MCP Server]
 ```
 
-### Hybrid deployment (Multi-cloud)
+### Hybrid (multi-cloud)
 
 ```
-[Copilot Studio] → [ExpressRoute] → [On-premises MCP Server] → [Tallyfy Private Instance]
-                 ↘                                           ↗
-                   [Azure MCP Server] → [Tallyfy Cloud]
+[Copilot Studio] → [ExpressRoute] → [On-premises Proxy] → [Tallyfy MCP Server]
+                 ↘                                        ↗
+                   [Azure Proxy] → [Tallyfy MCP Server]
 ```
 
 ## Best practices
 
-Want your implementation to succeed? Follow these proven practices:
-
-1. **Start with prebuilt connectors**: Use Microsoft's MCP connectors as templates
-2. **Implement retry logic**: Handle transient failures gracefully
-3. **Use managed identities**: Never store credentials in code (yes, we've all been tempted)
-4. **Monitor usage**: Track message consumption against limits
-5. **Plan for scale**: Design for multi-agent scenarios from day one
-6. **Test extensively**: Use Copilot Studio's testing framework
-7. **Document thoroughly**: Your IT teams will thank you later
+1. **Start with prebuilt connectors** - use Microsoft's MCP connectors as templates
+2. **Implement retry logic** - handle transient failures gracefully
+3. **Use managed identities** - never store credentials in code
+4. **Monitor usage** - track message consumption against limits
+5. **Plan for scale** - design for multi-agent scenarios from the start
+6. **Test extensively** - use Copilot Studio's testing framework
 
 ## Known issues and workarounds
 
-These issues pop up regularly - here's how to handle them:
-
-1. **SSE no longer supported**: Migrate all implementations to Streamable HTTP - SSE endpoints will not work
-2. **Tool naming conflicts**: Prefix Tallyfy tools to avoid collisions with other MCP servers
-3. **Large payload handling**: Implement pagination for result sets over 100 items
-4. **Session timeout**: Implement keep-alive mechanisms for long-running operations
-5. **Regional latency**: Deploy MCP servers in same region as Copilot Studio
-6. **MCP resource rendering**: Files and images in responses may require additional handling in custom UIs
-7. **Admin center visibility**: MCP-enabled agents must be properly registered to appear in M365 admin center
+1. **SSE not supported** - use Streamable HTTP for all implementations
+2. **Tool naming conflicts** - prefix Tallyfy tools to avoid collisions with other MCP servers
+3. **Large payloads** - implement pagination for result sets over 100 items
+4. **Session timeout** - implement keep-alive mechanisms for long-running operations
+5. **Regional latency** - deploy connectors in same region as Copilot Studio
+6. **Resource rendering** - files and images in responses may need extra handling in custom UIs
+7. **Admin center visibility** - MCP-enabled agents must be registered to appear in M365 admin center
 
 ## Future outlook
 
-What's coming next? Microsoft's roadmap looks promising:
+- **Continued GA expansion** - more features and regions over time
+- **Agent 365 expansion** - unified control plane for AI agents across Microsoft's ecosystem
+- **Better debugging tools** - more visibility into MCP interactions
+- **Expanded connector marketplace** - more prebuilt enterprise connectors (GitHub, Asana, Jira already available)
+- **Zero-trust architecture** - support with full M365 admin governance
+- **Performance optimizations** - reduced latency and higher throughput
 
-- **Post-GA expansion**: MCP support is GA with continued expansion of features and regions
-- **Agent 365 expansion**: Unified control plane for all AI agents across Microsoft ecosystem
-- **Enhanced multi-agent capabilities**: More sophisticated orchestration patterns
-- **Improved debugging tools**: Better visibility into MCP interactions
-- **Expanded connector marketplace**: More prebuilt enterprise connectors (GitHub, Asana, Jira already available)
-- **Advanced security features**: Zero-trust architecture support with full M365 admin governance
-- **Performance optimizations**: Reduced latency and higher throughput
-- **MCP resource enhancements**: Richer file and image handling in agent responses
+Microsoft is a founding member of the Agentic AI Foundation, ensuring continued commitment to MCP as an industry standard.
 
-Microsoft is a founding member of the Agentic AI Foundation, ensuring continued commitment to MCP as the industry standard for AI-tool integration.
+## Summary
 
-## Conclusion
-
-Microsoft Copilot Studio's MCP implementation brings enterprise-grade capabilities to Tallyfy workflow automation. Yes, setup takes more effort than simpler alternatives. But look at what you get:
-
-- Rock-solid security and compliance features
-- Deep integration with Microsoft's entire ecosystem
-- Multi-agent orchestration that actually works
-- Enterprise architecture that scales
-
-Already using Microsoft tools? Copilot Studio's MCP support is your natural path to intelligent workflow automation with Tallyfy.
+Copilot Studio's MCP support takes more setup effort than simpler alternatives, but you get strong security and compliance features, deep Microsoft ecosystem integration, multi-agent orchestration, and enterprise-grade architecture. If you're already using Microsoft tools, it's a natural fit for workflow automation with Tallyfy.
 
 ## Related articles
 <CardGrid>

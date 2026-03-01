@@ -1,4 +1,5 @@
 ---
+about_tallyfy: true
 description: Sigma Computing is a cloud-native analytics platform that provides spreadsheet-like
   data exploration capabilities but currently does not support direct connections
   to AWS Athena which powers Tallyfy Analytics.
@@ -9,28 +10,18 @@ sidebar:
 title: Sigma Computing
 ---
 
-## Sigma Computing Overview
+## Sigma Computing and Tallyfy Analytics
 
-Sigma Computing is a cloud-native BI platform that feels like using a spreadsheet - but with the power of cloud data warehouses behind it. Here's the catch: it can't connect directly to AWS Athena, which powers Tallyfy Analytics.
+Sigma Computing can't connect directly to AWS Athena - which is the query engine behind Tallyfy Analytics. If you're set on using Sigma, you'll need a workaround.
 
-### About Sigma Computing
+Sigma is a cloud-native BI platform that gives business users a spreadsheet-like interface on top of cloud data warehouses. No SQL required. If you're comfortable with Excel, you'll pick it up fast.
 
-Sigma lets business users explore data without writing a single line of SQL. If you're comfortable with Excel, you'll feel right at home. The platform focuses on:
+### What Sigma connects to
 
-- **Familiar Interface** - Spreadsheet-like experience for data exploration
-- **Cloud-Native Architecture** - Built specifically for cloud data platforms
-- **Self-Service Analytics** - Empowers business users to create their own analyses
-- **Live Data Connections** - Real-time queries without data extraction
-- **Collaborative Features** - Team-based workbook editing and sharing
+Sigma requires persistent, always-on connections to data warehouses. It supports these platforms natively:
 
-### Current Connection Limitations
-
-**Important Note**: Sigma Computing does not currently support connections to AWS Athena, which is the query engine that powers Tallyfy Analytics.
-
-Sigma Computing connects directly to these data warehouse platforms:
-
-| Supported Platforms | Connection Type |
-|-------------------|-----------------|
+| Platform | Connection type |
+|----------|----------------|
 | Snowflake | Native connector |
 | Google BigQuery | Native connector |
 | Amazon Redshift | Native connector |
@@ -41,51 +32,26 @@ Sigma Computing connects directly to these data warehouse platforms:
 | AlloyDB | Native connector |
 | Starburst | Native connector |
 
-### Why Sigma Doesn't Support Athena
+AWS Athena isn't on this list because it's serverless - it doesn't maintain persistent connections. Athena runs queries on demand against S3 storage, which is a fundamentally different pattern than what Sigma expects.
 
-Sigma needs persistent connections to data warehouses - think of it like keeping a phone line open. AWS Athena works differently. It's serverless, which means:
+### Workarounds for Tallyfy Analytics
 
-- **Serverless Architecture** - Athena doesn't maintain persistent connections
-- **Query-on-Demand** - Different connection patterns than traditional warehouses
-- **S3-Based Storage** - Data stored in S3 rather than warehouse tables
+Three paths forward:
 
-### Potential Workarounds
+**Bridge through Redshift Spectrum** - If you already have Amazon Redshift, use Redshift Spectrum to query the S3 data where Tallyfy Analytics stores everything. Then connect Sigma to Redshift normally.
 
-Can't connect directly? You've got options:
+**Migrate to a supported warehouse** - Copy your analytics data into Snowflake, BigQuery, or Redshift. Any of these work natively with Sigma.
 
-#### Option 1: Use Redshift Spectrum
-Got Amazon Redshift? Use Redshift Spectrum to query your S3 data (that's where Tallyfy Analytics stores everything). Then connect Sigma to Redshift. Problem solved.
+**Switch BI tools instead** - If you'd rather keep Athena, use a tool that supports it directly:
+- Power BI (with the appropriate ODBC drivers)
+- Tableau (via JDBC connection)
+- AWS QuickSight (built specifically for Athena)
 
-#### Option 2: Data Warehouse Migration
-Move your analytics data to a warehouse Sigma actually supports:
-- **Snowflake** - The go-to for most teams running analytics
-- **BigQuery** - Google's serverless option (yes, serverless but still works)
-- **Redshift** - Amazon's tried-and-true warehouse
+### Practical recommendation
 
-#### Option 3: Alternative BI Tools
-Want to stick with Athena? These tools play nice with it:
-- Power BI (just install the right drivers)
-- Tableau (works great with JDBC)
-- AWS QuickSight (built for Athena - no surprises there)
+If you're already using Tallyfy Analytics, Power BI or Tableau are the straightforward choices - they connect to Athena without extra infrastructure. Sigma is a strong platform, but the Athena gap means added complexity you probably don't need.
 
-### Future Considerations
-
-Things change fast in the data world. Here's what you can do:
-
-- **Monitor Sigma's Roadmap** - They might add Athena support eventually
-- **Submit Feature Requests** - Tell Sigma you need this (the squeaky wheel gets the grease)
-- **Evaluate Architectural Changes** - Maybe it's time to rethink your data stack anyway?
-
-### Getting Started with Sigma
-
-If you decide to go with Sigma (and a compatible warehouse), they'll give you:
-
-- Free trials to test things out
-- Tons of documentation and training
-- Professional help if you need it
-- An active community
-
-But let's be honest - if you're using Tallyfy Analytics right now, stick with Power BI or Tableau. They work perfectly with Athena.
+Keep an eye on Sigma's roadmap. They may add Athena support in the future, and submitting a feature request to Sigma directly helps signal demand.
 
 import PageTree from '@/components/PageTree.astro';
 

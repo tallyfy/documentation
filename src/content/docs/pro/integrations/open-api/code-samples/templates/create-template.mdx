@@ -1,10 +1,10 @@
 ---
-description: This endpoint enables the creation of new Tallyfy templates (blueprints)
-  within an organization by sending a POST request with required title and optional
-  configuration parameters like summary owner webhook settings permissions and kick-off
-  form definitions across multiple programming languages.
+description: Create a new Tallyfy template (blueprint) in an organization by POSTing
+  a JSON body with a title, type, and optional settings like summary, owner, webhook,
+  permissions, and kick-off form fields.
 id: c3c0588e1503223ee6b128513a903dff
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 2
 title: Create a template
@@ -12,7 +12,7 @@ title: Create a template
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-This endpoint allows you to create a new Tallyfy template (also known as a blueprint) within a specified organization.
+Send a `POST` request to create a new template (called a "checklist" in the API) inside an organization. The response returns the newly created template with a **201 Created** status.
 
 ## Endpoint
 
@@ -20,45 +20,45 @@ This endpoint allows you to create a new Tallyfy template (also known as a bluep
 POST https://go.tallyfy.com/api/organizations/{org}/checklists
 ```
 
-### Path Parameters
+### Path parameters
 
 | Parameter | Type     | Description                            |
 | :-------- | :------- | :------------------------------------- |
-| `org`     | string   | **Required.** The ID of the organization. |
+| `org`     | string   | **Required.** The organization ID. |
 
-### Body Parameters
+### Body parameters
 
-The request body should be a JSON object containing the desired properties for the new Tallyfy template.
+Pass a JSON object with the template properties you want to set.
 
 | Parameter                      | Type    | Description                                                                                                |
 | :----------------------------- | :------ | :--------------------------------------------------------------------------------------------------------- |
-| `title`                        | string  | **Required.** The title of the template.                                                                       |
-| `summary`                      | string  | A brief summary or description of the template.                                                            |
-| `owner_id`                     | integer | The ID of the member who will own the template.                                                            |
-| `webhook`                      | string  | A URL to send webhook notifications to for template events.                                                  |
-| `explanation_video`            | string  | URL of a video explaining the template.                                                                    |
-| `starred`                      | boolean | Whether the template should be starred by default.                                                         |
-| `guidance`                     | string  | Detailed guidance or instructions for using the template.                                                  |
-| `icon`                         | string  | Name of an icon to associate with the template.                                                            |
-| `is_public`                    | boolean | Whether the template should be publicly accessible in the library.                                           |
-| `is_featured`                  | boolean | Whether the template should be featured in the public library.                                             |
-| `public_cover`                 | string  | URL for a cover image for the public library listing.                                                      |
-| `type`                         | string  | The type of template (e.g., `procedure`, `form`, `document`).                                              |
-| `default_process_name_format`  | string  | A format string for automatically naming processes launched from this template (uses variables).         |
-| `is_public_kickoff`            | boolean | Whether the kick-off form for this template is public.                                                   |
-| `auto_naming`                  | boolean | Enable or disable automatic naming of processes launched from this template based on the format string.    |
-| `users`                        | array   | An array of member IDs who have default access permissions to this template.                             |
-| `groups`                       | array   | An array of group IDs that have default access permissions to this template.                             |
-| `prerun`                       | array   | An array of objects defining kick-off form fields for the template. See `swagger.json` for structure.     |
-| `folderize_process`            | boolean | Automatically create a folder for processes launched from this template.                                   |
-| `tag_process`                  | boolean | Automatically tag processes launched from this template.                                                   |
-| `allow_launcher_change_name`   | boolean | Whether the user launching a process can override the default process name.                                |
-| `ko_form_blueprint_id`         | string  | ID of another template to use as the kick-off form.                                                        |
-| `default_folder`               | string  | The ID of the folder where processes launched from this template should be placed by default.                |
-| `folder_changeable_by_launcher`| boolean | Whether the user launching a process can change the default folder.                                        |
-| `kickoff_sharing_user_id`      | integer | The ID of the user whose sharing settings should be used for the public kick-off form.                   |
+| `title`                        | string  | **Required.** Template title (max 250 characters).                                                         |
+| `type`                         | string  | **Required.** One of `procedure`, `form`, or `document`.                                                   |
+| `summary`                      | string  | Short description (max 2000 characters).                                                                   |
+| `owner_id`                     | integer | Member ID of the template owner. Must belong to the organization.                                          |
+| `user_id`                      | integer | Member ID of the template starter. Must belong to the organization.                                        |
+| `webhook`                      | string  | URL for webhook notifications on template events. Must be a valid URL.                                     |
+| `explanation_video`            | string  | URL of a video explaining the template. Must be a valid URL.                                               |
+| `starred`                      | boolean | Whether to star the template.                                                                              |
+| `guidance`                     | string  | Instructions or guidance for using the template.                                                           |
+| `icon`                         | string  | Icon name to associate with the template.                                                                  |
+| `is_public`                    | boolean | Make the template publicly visible in the library.                                                         |
+| `is_featured`                  | boolean | Feature the template in the public library.                                                                |
+| `public_cover`                 | string  | Cover image URL for the public library listing.                                                            |
+| `folder_id`                    | string  | ID of an existing folder to place the template in.                                                         |
+| `default_process_name_format`  | string  | Format string for auto-naming processes launched from this template.                                       |
+| `is_public_kickoff`            | boolean | Make the kick-off form publicly accessible.                                                                |
+| `auto_naming`                  | boolean | Turn on automatic process naming using `default_process_name_format`.                                      |
+| `dual_version_enabled`         | boolean | Enable dual-version (draft/published) mode.                                                                |
+| `users`                        | array   | Array of member IDs who get default access to this template.                                               |
+| `groups`                       | array   | Array of group IDs that get default access to this template.                                               |
+| `prerun`                       | array   | Array of objects defining kick-off form fields. Each needs `label`, `field_type`, and `required` at minimum.|
+| `folderize_process`            | boolean | Auto-create a folder for processes launched from this template.                                             |
+| `tag_process`                  | boolean | Auto-tag processes launched from this template.                                                            |
+| `allow_launcher_change_name`   | boolean | Let the launcher override the default process name. Only applies when `auto_naming` is off.                |
+| `can_add_oot`                  | boolean | Allow adding one-off tasks to processes from this template.                                                |
 
-## Code Samples
+## Code samples
 
 <Tabs>
 <TabItem label="Javascript">
@@ -68,11 +68,10 @@ const orgId = 'YOUR_ORGANIZATION_ID'; // Replace with actual Org ID
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists`;
 
 const templateData = {
-    title: "New JS API Template", // Required
+    title: "New JS API Template",       // Required
+    type: "procedure",                  // Required: "procedure", "form", or "document"
     summary: "Template created via Fetch API.",
-    owner_id: 12345, // Optional: Specify owner User ID
-    type: "procedure" // Or "form", "document"
-    // Add other optional fields like prerun, users, groups, etc. as needed
+    owner_id: 12345                     // Optional: owner member ID
 };
 
 const headers = new Headers();
@@ -87,14 +86,14 @@ fetch(apiUrl, {
     body: JSON.stringify(templateData)
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to create template:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-         // Expect 200 OK or 201 Created
-        console.log(`Template creation initiated. Status: ${response.status}`);
-        return data; // Pass successful data along
+        // Expect 201 Created
+        console.log(`Template created. Status: ${response.status}`);
+        return data;
     });
 })
 .then(data => {
@@ -125,12 +124,10 @@ headers = {
 }
 
 template_payload = {
-    'title': 'New Python API Template', # Required
+    'title': 'New Python API Template',  # Required
+    'type': 'procedure',                 # Required: "procedure", "form", or "document"
     'summary': 'Template created via Python requests.',
-    'owner_id': 12345, # Optional: Specify owner User ID
-    'type': 'procedure',
-    # Example: Add default users with access
-    # 'users': [1001, 1005]
+    'owner_id': 12345,                   # Optional: owner member ID
 }
 
 response = None
@@ -218,7 +215,7 @@ public class CreateTemplate {
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             
-            if (response.statusCode() == 200 || response.statusCode() == 201) { // API might return 201 Created
+            if (response.statusCode() == 201) { // 201 Created on success
                 System.out.println("Successfully created template:");
                 System.out.println(response.body());
                 // TODO: Consider parsing the JSON response
@@ -298,8 +295,7 @@ func main() {
         return
     }
 
-    // API might return 201 Created
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated {
 		fmt.Printf("Failed to create template. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
 		return
 	}
@@ -349,8 +345,7 @@ pplx::task<void> CreateTallyfyTemplate(const value& templatePayload)
         {
             try {
                 value const & body = task.get();
-                // API might return 201 Created
-                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
+                if (response.status_code() == status_codes::Created) {
                     std::wcout << L"Successfully created template:\n" << body.serialize() << std::endl;
                     // Extract new template ID: body[U("data")][U("id")].as_string();
                 } else {
@@ -442,7 +437,7 @@ public class TallyfyTemplateCreator
             HttpResponseMessage response = await client.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Check for 200 OK or 201 Created
+            if (response.IsSuccessStatusCode) // Expect 201 Created
             {
                 Console.WriteLine("Successfully created template:");
                  try {
@@ -488,54 +483,59 @@ public class TallyfyTemplateCreator
 </TabItem>
 </Tabs>
 
-## Example Response (200 OK)
+## Example response (201 Created)
+
+A successful call returns the full template object wrapped in `data`:
 
 ```json
 {
   "data": {
-    "id": "b3d9c1a8e7f6...", // Unique ID of the newly created template
+    "id": "b3d9c1a8e7f6...",
+    "increment_id": 42,
     "title": "New Client Onboarding Template",
     "summary": "Standard procedure for onboarding new clients.",
     "starred": false,
     "webhook": null,
-    "explanation_video": null,
     "guidance": null,
-    "icon": null,
-    "alias": "new-client-onboarding-template-b3d9c1", // Auto-generated alias
-    "prerun": [], // Empty array as no kick-off fields were defined
-    "automated_actions": [],
-    "created_by": 123, // ID of the user who made the API call
+    "alias": "new-client-onboarding-template-b3d9c1",
+    "folder_id": null,
+    "prerun": [],
+    "created_by": 123,
     "owner_id": 12345,
-    "started_processes": 0,
     "kickoff_title": null,
     "kickoff_description": null,
+    "started_processes": 0,
     "created_at": "2025-10-27T10:00:00.000Z",
     "last_updated": "2025-10-27T10:00:00.000Z",
     "archived_at": null,
     "is_public": false,
-    "is_featured": false,
-    "users": [],
-    "groups": [],
-    "public_cover": null,
-    "industry_tags": [],
+    "automated_actions": [],
     "topic_tags": [],
+    "industry_tags": [],
+    "public_cover": null,
+    "icon": null,
     "type": "procedure",
-    "default_process_name_format": null,
+    "steps_count": 0,
     "is_public_kickoff": false,
+    "default_process_name_format": null,
     "dual_version_enabled": false,
-    "is_published_state": false, // Templates are created in draft state
+    "is_published_state": false,
+    "is_featured": false,
     "auto_naming": false,
     "last_updated_by": 123,
-    "linked_tasks": [],
+    "status": null,
+    "explanation_video": null,
+    "users": [],
+    "groups": [],
+    "is_pinned": false,
     "folderize_process": false,
     "tag_process": false,
     "allow_launcher_change_name": false,
-    "is_pinned": false,
     "ko_form_blueprint_id": null,
     "default_folder": null,
     "folder_changeable_by_launcher": false,
+    "can_add_oot": false,
     "kickoff_sharing_user_id": null
-    // ... other template properties with default values
   }
 }
 ```

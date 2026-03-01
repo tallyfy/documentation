@@ -1,268 +1,123 @@
 ---
-description: Tallyfy is developing a native Workato connector that will enable enterprise-scale
-  bidirectional workflow automation between Tallyfy and business systems like Salesforce
-  SAP and Workday through OAuth 2.0 authentication and recipe-based triggers while
-  developers can currently build custom integrations using Workato's HTTP connector
-  or Connector SDK with Tallyfy's REST API.
+about_tallyfy: true
+description: Tallyfy's Workato connector lets you automate workflows between Tallyfy
+  and enterprise systems like Salesforce, SAP, and Workday through OAuth 2.0
+  authentication with built-in actions for launching processes, completing tasks,
+  and polling triggers for new assignments.
 id: fffe905571a5b8ee8d84e1967c5c2a74
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
-snippet: Workato enables enterprise-grade integration between Tallyfy and thousands
-  of business applications through custom connectors and HTTP actions, supporting
-  complex workflow automation and data synchronization without coding.
+snippet: Tallyfy's Workato connector automates process launches, task completions,
+  and assignment tracking between Tallyfy and enterprise apps through OAuth 2.0
+  and Workato's recipe builder.
 title: Workato
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Planned Workato integration for Tallyfy workflows
+## Workato connector for Tallyfy
 
-:::note[Coming Soon - Developer Preview Available]
-Tallyfy's native Workato connector is under active development. While not yet available in Workato's marketplace, developers can build custom integrations today using Workato's Connector SDK and Tallyfy's REST API. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to join our beta program or get early access guidance.
-:::
+Tallyfy has a Workato connector built on Workato's Ruby SDK. It connects Tallyfy to enterprise systems through Workato's recipe-based automation - so you can launch processes, complete tasks, and track assignments across your tech stack without switching tools.
 
-Workato's enterprise automation platform specializes in connecting business systems at scale - handling complex workflows across IT, HR, Finance, and Sales operations. While Workato doesn't currently offer a pre-built Tallyfy connector, the upcoming native connector will expand capabilities significantly, enabling organizations to automate sophisticated multi-system workflows with enterprise-grade reliability and monitoring.
+Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) for access to the connector or guidance on getting started.
 
-### How the Tallyfy-Workato connector will work
+### What the connector does
 
-The planned integration will use Workato's recipe-based automation engine and API management capabilities to create bidirectional data flows between Tallyfy and your entire technology stack.
+The connector supports five actions and three polling triggers that cover the most common integration patterns.
 
-**Key integration patterns we're designing:**
+**Actions:**
 
-1. **Process triggers from business events** - CRM opportunities automatically launch sales workflows in Tallyfy
-2. **Task orchestration across systems** - Completed Tallyfy tasks trigger actions in ERP, HRIS, and financial systems
-3. **Enterprise data synchronization** - Keep process data synchronized across Tallyfy and data warehouses
-4. **Intelligent task routing** - Use Workato's data transformations to dynamically assign Tallyfy tasks based on complex business rules
+- **Start process** - launches a new process from a template, with dynamic kick-off form fields pulled from the template's configuration
+- **Complete task** - marks a task as done, optionally submitting form data along with it
+- **Update task** - changes a task's name, description, deadline, or assignees (users, guests, or groups)
+- **Add comment** - posts a comment or problem report on a specific task
+- **Get process** - retrieves process details, optionally including all its tasks
 
-### Planned connector capabilities
+**Triggers (polling-based):**
 
-Our Workato connector will support these core functions:
+- **New task assigned** - fires when a task gets assigned to the connected user
+- **Process completed** - fires when a process reaches completed status
+- **New process started** - fires when a new process is created, with optional filtering by template
 
-**Process automation:**
-- Launch Tallyfy processes from any Workato-connected application
-- Trigger processes based on complex conditional logic using Workato's recipe builder
-- Pass data from source systems into Tallyfy kick-off forms with field mapping
-- Handle enterprise-scale volumes with automatic retry and error recovery
+### How authentication works
 
-**Task management:**
-- Complete tasks programmatically when conditions are met across multiple systems
-- Reassign tasks based on workload balancing or skill-based routing
-- Update task form fields with transformed data from integrated applications
-- Create cross-system comments and audit trails
+The connector uses OAuth 2.0. You'll need three pieces of information to set up the connection:
 
-**Data operations:**
-- Export process metrics to BI platforms through Workato
-- Synchronize master data between Tallyfy and MDM systems
-- Transform data formats using Workato's advanced mapping capabilities
-- Maintain compliance audit trails across all connected applications
+1. **Client ID** - from your Tallyfy OAuth application
+2. **Client Secret** - from the same OAuth application
+3. **Organization ID** - found in Tallyfy Settings > Organization
+
+The OAuth flow goes through `account.tallyfy.com/oauth/authorize` for authorization and `account.tallyfy.com/oauth/token` for token exchange. Workato handles token refresh automatically, so you won't deal with expired sessions.
+
+Every API call includes the `Authorization` bearer token header and an `X-Organization-ID` header.
 
 ### Architecture overview
-
-The connector will utilize Workato's enterprise connector framework:
 
 ```
 Your Systems → Workato Platform → Tallyfy API
     ↓              ↓                  ↓
-Salesforce    Recipe Engine     Process Launch
-SAP           Data Transform    Task Updates
-Workday       Error Handling    Data Export
-ServiceNow    Monitoring        Webhooks
+Salesforce    Recipe Engine     Start Process
+SAP           Data Transform    Complete Task
+Workday       Error Handling    Update Task
+ServiceNow    Polling Triggers  Add Comment
 ```
 
-**Authentication approach:**
-- OAuth 2.0 bearer tokens for secure API access
-- Encrypted credential storage in Workato's vault
-- Support for multiple Tallyfy organizations and environments
-- Automatic token refresh and session management
+### Dynamic kick-off form fields
 
-### Implementation scenarios
+When you pick a template in the "Start process" action, the connector fetches that template's kick-off form fields and generates matching input fields in Workato. It maps Tallyfy field types to Workato controls - text, number, date, dropdown, multiselect, boolean, email, and URL fields all get proper input types.
 
-**Deal-to-fulfillment workflow:**
-When a deal closes in Salesforce, Workato triggers a Tallyfy customer onboarding process. The process pulls customer data from CRM, routes through implementation tasks, provisions accounts in multiple systems, and updates project status in real-time across all platforms.
+This means your recipes can pass data directly into Tallyfy's kick-off forms without manual field mapping.
 
-**Employee lifecycle automation:**
-New hires in Workday trigger complete onboarding processes in Tallyfy. Workato orchestrates data flow between HRIS, IT service management, facilities systems, and Tallyfy's task management - ensuring complete automation from offer letter to first day.
+### Example scenarios
 
-**Incident escalation handling:**
-Service desk tickets reaching SLA thresholds in ServiceNow automatically launch Tallyfy escalation workflows. Workato maintains bidirectional sync between ticket status, Tallyfy task progress, and stakeholder communication platforms.
+**Deal-to-onboarding:** When a deal closes in Salesforce, a Workato recipe starts a Tallyfy customer onboarding process. The recipe maps the customer name, contract value, and account manager from CRM fields into the kick-off form.
 
-### Practical implementation examples
+**Task completion sync:** The "process completed" trigger watches for finished Tallyfy processes, then pushes status updates to your ERP or project management tool.
 
-**Creating a task via Workato recipe:**
-```javascript
-// Workato recipe configuration for task creation
-{
-  "app": "tallyfy",
-  "action": "create_task",
-  "input": {
-    "name": "{{datapill.task_title}}",
-    "description": "{{datapill.task_description}}",
-    "assignee": "{{datapill.assigned_user}}",
-    "due_date": "{{datapill.deadline}}",
-    "priority": "{{datapill.priority_level}}"
-  }
-}
-```
+**Assignment routing:** The "new task assigned" trigger picks up fresh assignments and sends notifications through Slack, Teams, or email - whatever your team prefers.
 
-**Launching a process from external trigger:**
-```javascript
-// Trigger Tallyfy process when opportunity reaches 'Closed Won'
-{
-  "app": "tallyfy",
-  "action": "launch_process",
-  "input": {
-    "blueprint_id": "customer_onboarding_v2",
-    "kickoff_data": {
-      "customer_name": "{{salesforce.account_name}}",
-      "contract_value": "{{salesforce.opportunity_amount}}",
-      "start_date": "{{salesforce.close_date}}",
-      "account_manager": "{{salesforce.owner_email}}"
-    }
-  }
-}
-```
+### Key API endpoints used
 
-### Developer program and marketplace listing
+The connector talks to Tallyfy's v2 API at `app.tallyfy.com`:
 
-Workato enables developers to create and publish connectors through their Connector SDK program. Once enrolled, you can:
-- Access the cloud-based Connector SDK development environment
-- Build custom Tallyfy connectors using Ruby DSL
-- Test connectors with real API calls in sandbox environments
-- Package and publish to Workato's community library
-- Support both OAuth 2.0 and API token authentication
-- Handle webhook events for real-time recipe triggers
+- `POST /api/v2/runs` - start a new process from a template
+- `PUT /api/v2/runs/{process_id}/tasks/{task_id}` - complete or update a task
+- `POST /api/v2/runs/{process_id}/tasks/{task_id}/comments` - add a comment to a task
+- `GET /api/v2/runs/{process_id}` - get process details
+- `GET /api/v2/tasks` - list tasks (used by the assignment trigger)
+- `GET /api/v2/runs` - list processes (used by the process triggers)
+- `GET /api/v2/blueprints` - list active templates for dropdown pick lists
 
-To get started, sign up for a Workato account and request Connector SDK access through your workspace admin.
+### API terminology mapping
 
-### Authentication options for developers
+- "Templates" in the UI = "Blueprints" or "Checklists" in the API
+- "Processes" in the UI = "Runs" in the API
+- "Form fields" in the UI = "Captures" in the API
+- "Steps" in templates = "Tasks" in running processes
 
-**Personal Access Token (Quick Start)**:
-- Fastest development approach using user API tokens
-- Navigate to Settings > Integrations > REST API in Tallyfy
-- Copy your access token for immediate use
-- Token acts with full permissions of the user account
-- Remember to include `X-Tallyfy-Client: APIClient` header
+### Guest assignment rules
 
-**OAuth 2.0 (Recommended for production)**:
-- Best for public connectors requiring user authorization
-- Contact Tallyfy support for OAuth Client ID and Secret
-- Supports granular permission scopes
-- Handles token refresh automatically through Workato
-- Encrypted credential storage in Workato's connection vault
+The connector enforces Tallyfy's business rule that guests (external users) can't be the sole assignees on a task. If you assign only guest email addresses, the connector automatically adds the current user as a co-assignee. It also validates guest emails against the organization domain - if someone with an internal email is listed as a guest, the connector looks up their user ID instead.
 
-### Building custom integrations today
+### Error handling
 
-While waiting for the native connector, you can integrate Tallyfy with Workato using these proven approaches:
+The connector returns clear error messages for common failures:
 
-**HTTP connector method:**
-1. Create a new recipe with HTTP connector action
-2. Configure authentication using Bearer token header
-3. Map Tallyfy's REST endpoints for processes and tasks
-4. Build recipes using Workato's visual interface
-5. Add error handling and retry logic
+- **401** - authentication failed, token refresh needed
+- **403** - missing organization access
+- **404** - resource doesn't exist or user lacks access
+- **422** - validation errors with field-level details
+- **429** - rate limit exceeded
 
-**Custom connector development:**
-1. Access Workato's Connector SDK in your workspace
-2. Create new connector project for Tallyfy
-3. Define connection configuration with API authentication
-4. Implement actions for common operations (launch, complete, update)
-5. Test thoroughly before publishing to community library
+### Getting started
 
-**Webhook recipe pattern:**
-- Configure webhook triggers in Workato recipes
-- Set up Tallyfy webhooks to send events to Workato endpoints
-- Process events through recipe logic to update connected systems
-- Use Workato's data pills for dynamic field mapping
-- Enable real-time bidirectional sync between platforms
+To use the Tallyfy-Workato connector:
 
-**Core Tallyfy API endpoints for Workato:**
-- `POST /api/v1/processes` - Launch new processes from blueprints
-- `POST /api/v1/tasks` - Create standalone tasks
-- `GET /api/v1/tasks` - Retrieve task details and status
-- `PUT /api/v1/tasks/{id}` - Update task status or mark complete
-- `POST /api/v1/webhooks` - Configure real-time event notifications
-- `GET /api/v1/blueprints` - List available process templates
-- `POST /api/v1/runs` - Create process instances with kickoff data
-
-**API terminology mapping:**
-- "Templates" in UI = "Blueprints" in API
-- "Processes" in UI = "Runs" in API
-- "Form fields" in UI = "Captures" in API
-- "Steps" in templates = "Tasks" in processes
-
-### Technical requirements
-
-To prepare for the Workato integration:
-
-**Tallyfy configuration:**
-- API access enabled in your Tallyfy organization
-- REST API token or OAuth credentials obtained
-- Webhook endpoints configured for relevant events
-- Process templates designed with integration fields
-- User permissions set for system accounts
-- Review API documentation at go.tallyfy.com/api
-
-**Workato platform setup:**
-- Workato account with appropriate recipe limits
-- Connector SDK access for custom development
-- HTTP connector permissions enabled
-- Recipe monitoring and error alerts configured
-- Connection management for secure credential storage
-
-### Why Workato for workflow automation
-
-Workato brings unique strengths to process automation:
-
-- **Enterprise scale** - Handles millions of transactions with guaranteed delivery
-- **Recipe marketplace** - Extensive library of pre-built automation templates
-- **Advanced error handling** - Automatic retry with exponential backoff
-- **Visual recipe builder** - No-code automation design for business users
-- **Multi-environment support** - Development, staging, production recipe deployment
-
-Combined with Tallyfy's process management, you get complete automation across your entire enterprise technology ecosystem.
-
-### Publishing process for community connectors
-
-For developers creating custom Tallyfy connectors:
-
-**Development workflow:**
-1. Build and test connector in Workato SDK environment
-2. Implement core actions (launch process, complete task, update data)
-3. Add thorough error handling and logging
-4. Document all actions with clear descriptions and examples
-5. Test with real Tallyfy API in sandbox environment
-
-**Publishing requirements:**
-1. Remove all hardcoded credentials from connector code
-2. Provide clear connector title and description
-3. Upload Tallyfy logo for connector identification
-4. Select appropriate category tags (Workflow, Project Management)
-5. Accept Workato developer agreement
-6. Submit for review (typically approved within 1 business day)
-
-**Community connector best practices:**
-- Include helpful hints in action descriptions
-- Provide example recipes demonstrating common use cases
-- Link to Tallyfy API documentation for reference
-- Offer both token and OAuth authentication options
-- Keep connector open source for community trust
-- Set up support channel for user questions
-
-### Getting early access
-
-The official Tallyfy-Workato connector is under development. To participate:
-
-1. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to join the beta program
-2. Request guidance on building custom connectors
-3. Share your specific use cases and integration requirements
-4. Provide feedback on the planned capabilities outlined above
-
-We're particularly interested in hearing about:
-- Your current Workato recipes that could benefit from Tallyfy integration
-- Specific data transformations you need between systems
-- Volume and complexity of workflows you plan to automate
-- Enterprise requirements for error handling and monitoring
+1. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to get OAuth credentials
+2. Set up the connection in Workato with your Client ID, Client Secret, and Organization ID
+3. Build recipes using the connector's actions and triggers
+4. Test with a sandbox template before going live
 
 import PageTree from '@/components/PageTree.astro';
 

@@ -1,8 +1,9 @@
 ---
-description: Technical implementation details for connecting BambooHR with Tallyfy
-  including REST API examples, webhook signatures, data mapping, and authentication
-  configuration for HR workflows.
+about_tallyfy: false
+description: Technical details for connecting BambooHR with Tallyfy - REST API
+  examples, webhook signatures, data mapping, and authentication for HR workflows.
 id: 9628e7cc7e59c2974601554aa4ba70cf
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: BambooHR technical integration
@@ -10,16 +11,17 @@ title: BambooHR technical integration
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Integration options
+## Connecting BambooHR to Tallyfy
 
-BambooHR provides REST APIs with webhook support. Their API uses simple API key authentication and supports SHA-256 HMAC webhook signatures.
+BambooHR's REST API supports API key authentication and SHA-256 HMAC webhook signatures. You can pull employee data from BambooHR and launch Tallyfy processes automatically.
 
 ### REST API integration
 
-Use BambooHR's REST API to fetch employee data and trigger Tallyfy workflows:
+Fetch employee data from BambooHR, then launch a Tallyfy process with that data:
 
 ```javascript
 const handleBambooHREmployee = async (employeeId) => {
+  // Fetch employee from BambooHR
   const employee = await fetch(
     `https://api.bamboohr.com/api/gateway.php/${subdomain}/v1/employees/${employeeId}`,
     {
@@ -30,56 +32,58 @@ const handleBambooHREmployee = async (employeeId) => {
     }
   ).then(res => res.json());
 
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'employee_onboarding',
-      name: `Onboarding - ${employee.firstName} ${employee.lastName}`,
-      data: {
-        employee_id: employee.id,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        email: employee.workEmail,
-        department: employee.department,
-        location: employee.location,
-        job_title: employee.jobTitle,
-        manager: employee.supervisor,
-        start_date: employee.hireDate
-      }
-    })
-  });
+  // Launch a Tallyfy process (run) for this employee
+  const run = await fetch(
+    `https://go.tallyfy.com/api/organizations/${orgId}/runs`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer YOUR_TALLYFY_TOKEN',
+        'X-Tallyfy-Client': 'APIClient',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        checklist_id: 'your_onboarding_template_id',
+        name: `Onboarding - ${employee.firstName} ${employee.lastName}`,
+        data: {
+          employee_id: employee.id,
+          full_name: `${employee.firstName} ${employee.lastName}`,
+          email: employee.workEmail,
+          department: employee.department,
+          location: employee.location,
+          job_title: employee.jobTitle,
+          manager: employee.supervisor,
+          start_date: employee.hireDate
+        }
+      })
+    }
+  );
 
-  return workflow.json();
+  return run.json();
 };
 ```
 
 ### Webhook integration
 
-BambooHR webhooks use SHA-256 HMAC signatures for verification:
+BambooHR webhooks use SHA-256 HMAC signatures. Verify every incoming request before processing it:
 
 ```javascript
 const express = require('express');
 const crypto = require('crypto');
-
 const app = express();
 
 app.post('/bamboohr-webhook', express.raw({ type: '*/*' }), async (req, res) => {
-  // Verify webhook signature using SHA-256 HMAC
   const signature = req.headers['x-bamboohr-signature'];
-  const expectedSignature = crypto
+  const expected = crypto
     .createHmac('sha256', process.env.BAMBOOHR_WEBHOOK_SECRET)
     .update(req.body)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  if (signature !== expected) {
     return res.status(401).send('Invalid signature');
   }
 
-  const payload = JSON.parse(req.body);
-  const { type, employees } = payload;
+  const { type, employees } = JSON.parse(req.body);
 
   for (const employeeId of employees) {
     switch (type) {
@@ -101,7 +105,7 @@ app.post('/bamboohr-webhook', express.raw({ type: '*/*' }), async (req, res) => 
 
 ### Polling for changes
 
-BambooHR also supports change reports for systems that cannot receive webhooks:
+If your system can't receive webhooks, BambooHR supports change reports you can poll on a schedule:
 
 ```javascript
 const pollBambooHRChanges = async () => {
@@ -125,25 +129,25 @@ const pollBambooHRChanges = async () => {
 
 ## Data mapping
 
-Common BambooHR fields to map to Tallyfy workflow variables:
+Common BambooHR fields mapped to Tallyfy form field variables:
 
-| BambooHR Field | Tallyfy Variable | Description |
-|----------------|------------------|-------------|
-| `id` | `employee_id` | Employee record ID |
-| `firstName` + `lastName` | `full_name` | Employee name |
-| `workEmail` | `email` | Work email address |
-| `department` | `department` | Department name |
-| `division` | `division` | Division name |
+| BambooHR field | Tallyfy variable | Notes |
+|----------------|------------------|-------|
+| `id` | `employee_id` | Record ID |
+| `firstName` + `lastName` | `full_name` | Combined name |
+| `workEmail` | `email` | Work email |
+| `department` | `department` | Department |
+| `division` | `division` | Division |
 | `location` | `location` | Work location |
-| `jobTitle` | `job_title` | Job title |
-| `supervisor` | `manager` | Direct supervisor name |
-| `supervisorEmail` | `manager_email` | Supervisor email |
+| `jobTitle` | `job_title` | Title |
+| `supervisor` | `manager` | Direct manager name |
+| `supervisorEmail` | `manager_email` | Manager's email |
 | `hireDate` | `start_date` | Hire date |
-| `employmentHistoryStatus` | `status` | Current employment status |
+| `employmentHistoryStatus` | `status` | Employment status |
 
 ## Authentication
 
-BambooHR uses API key authentication with HTTP Basic auth. The API key is the username and 'x' is the password.
+BambooHR uses HTTP Basic auth - the API key is the username and `x` is the password:
 
 ```javascript
 const getBambooHRHeaders = () => ({
@@ -152,24 +156,24 @@ const getBambooHRHeaders = () => ({
 });
 ```
 
-## Available webhook events
+## Webhook events
 
-BambooHR webhooks can trigger on various field changes:
+BambooHR webhooks can fire on these field changes:
 
-- **Employee created** - New employee added
-- **Job information** - Title, department, or location changed
-- **Employment status** - Status changed (active, terminated, on leave)
-- **Compensation** - Salary or pay rate changed
-- **Time off** - Time off requests or balances changed
+- **Employee created** - new employee added
+- **Job information** - title, department, or location changed
+- **Employment status** - active, terminated, or on leave
+- **Compensation** - salary or pay rate changed
+- **Time off** - requests or balances changed
 
 ## iPaaS alternatives
 
-If direct API development is not available:
+If you'd rather not build a direct API integration:
 
-- **Merge API**: Unified HRIS API with BambooHR support
-- **Finch**: Employment system API
-- **Zapier**: Pre-built BambooHR triggers and actions
-- **Make**: Visual workflow builder with BambooHR connector
+- **Merge API** - unified HRIS API that includes BambooHR
+- **Finch** - employment system API
+- **Zapier** - pre-built BambooHR triggers and actions
+- **Make** - visual workflow builder with a BambooHR connector
 
 ## Related articles
 <CardGrid>

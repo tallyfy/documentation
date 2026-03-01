@@ -1,9 +1,9 @@
 ---
-description: Idempotency ensures integrations handle duplicate events gracefully by
-  preventing the same action from being processed multiple times even when webhooks
-  fire repeatedly or external systems send duplicate requests.
+about_tallyfy: true
+description: Idempotency prevents duplicate actions when webhooks fire multiple times
+  or external systems send repeated requests to Tallyfy's API.
 id: 94b9f5b4a9b14d90c081d09cc35f0a2f
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 20
 snippet: Learn how to handle idempotency when integrating with Tallyfy's webhooks
@@ -14,72 +14,61 @@ title: Handling idempotency
 
 ## What is idempotency and why it matters
 
-Idempotency ensures your integrations work correctly when the same thing happens twice. Think of it like pressing an elevator button - no matter how many times you press it, the elevator only comes once. That's what you want when building integrations with Tallyfy's [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/).
+Idempotency means your integration handles the same event twice without breaking anything. Like pressing an elevator button multiple times - the elevator still only comes once.
 
-Here's the reality: webhooks can fire multiple times for the same event. External systems might send duplicate API requests. Network glitches happen. Without proper idempotency handling, you'll face a mess - duplicate records in your database, customers getting charged twice, or inventory counts going haywire.
+This matters because Tallyfy [webhooks](/products/pro/integrations/webhooks/) can fire more than once for the same logical event. External systems might retry [API](/products/pro/integrations/open-api/) requests. Network issues happen. Without idempotency handling, you'll end up with duplicate database records, double-sent emails, or repeated charges.
 
 ## Common scenarios requiring idempotency
 
-### Webhooks firing multiple times
+### Task reopened and recompleted
 
-Let's say someone completes a [task](/products/pro/tracking-and-tasks/tasks/) in Tallyfy. Your webhook gets the "task completed" event - great! But what if they reopen that task and complete it again? You'll get another webhook for the exact same task.
-
-It happens more than you'd think:
+Someone completes a [task](/products/pro/tracking-and-tasks/tasks/) in Tallyfy, then reopens it and completes it again. Your webhook fires both times - same task, different timestamps.
 
 1. User completes the task
 2. Your webhook receives the event
-3. User realizes they forgot something, reopens the task
-4. User completes it again
-5. Your webhook receives another event - same task, different timestamp
+3. User reopens the task, then completes it again
+4. Your webhook receives another event for the same task
 
-Without idempotency handling, you're looking at chaos:
-- Duplicate records cluttering your database
-- Customers getting three confirmation emails for one action
-- Payment systems processing the same order twice (yikes!)
-- Inventory numbers that don't match reality
+Without deduplication, this creates duplicate records, repeated emails, and double-processed payments.
 
-### Process-level webhooks generating multiple events
+### Template-level webhooks fire per task
 
-Set up a webhook at the [process](/products/pro/tracking-and-tasks/processes/) level, and you're in for a surprise - it fires for every single task completion in that process. Got 10 tasks? That's 10 webhook events coming your way.
+When you set a webhook URL on a [template](/products/pro/tracking-and-tasks/processes/), it fires on every task completion in any process launched from that template - not just once per process. A 10-task process means 10 webhook events. The same webhook URL also fires when the process is launched.
 
-The math gets scary fast:
-- 10-task process = 10 webhook events minimum
-- Tasks get reopened and recompleted? More events pile up
-- Your system better be ready for the flood
+### External systems sending duplicates
 
-### External systems sending duplicate events
-
-It's not just Tallyfy that can send duplicates - your own systems can too. We've seen it all:
-
-- Helpdesk software hiccups and sends the same ticket update twice
-- Network timeout triggers an automatic retry, but the first request actually went through
-- Someone double-clicks a button (we've all been there) and fires off multiple API calls
+Your own systems can cause duplicates too - a helpdesk retries a failed request that actually succeeded, or a user double-clicks a button that fires multiple API calls.
 
 ## Implementing idempotency strategies
 
-### Use unique identifiers
+### Use unique identifiers from the payload
 
-Tallyfy gives you everything you need to catch duplicates - unique IDs in every webhook payload. Use them!
+Tallyfy webhook payloads include unique IDs you can use for deduplication. A task completion webhook contains a nested structure with task details:
 
 ```json
 {
-  "event": "task.completed",
-  "task_id": "abc123",
-  "process_id": "xyz789",
-  "completed_at": "2024-01-15T10:30:00Z",
-  "completed_by": "user@example.com"
+  "this_task": {
+    "id": "abc123",
+    "title": "Review document",
+    "alias": "review_doc",
+    "status": "completed",
+    "completed_at": "2024-01-15T10:30:00Z",
+    "completed_by": { "email": "user@example.com" },
+    "captures": { ... }
+  },
+  "process": {
+    "id": "xyz789",
+    "name": "Document Review",
+    "status": "active"
+  }
 }
 ```
 
-**Your game plan:**
-1. Store the `task_id` and `completed_at` combo in your database
-2. Check this combination before processing any webhook
-3. Already seen it? Skip or update the existing record
-4. Brand new? Process away
+Use the task `id` combined with `completed_at` as your deduplication key. Check this combination before processing, and skip if you've seen it before.
 
-### Implement event deduplication
+### Build an event deduplication table
 
-You need a dedicated place to track what you've already processed. A simple table works wonders:
+Track processed events in a dedicated table:
 
 ```sql
 CREATE TABLE processed_events (
@@ -91,130 +80,95 @@ CREATE TABLE processed_events (
 ```
 
 Each time a webhook arrives:
-1. Build a unique event ID: `task_id + event_type + timestamp`
-2. Check your table - have you seen this ID before?
-3. New event? Process it and save that ID
-4. Old news? Log it and move on
+1. Build a unique event ID from `task_id + event_type + timestamp`
+2. Check if that ID exists in your table
+3. If new, process it and store the ID
+4. If it exists, log and skip
 
-### Design for graceful failure
+### Handle duplicates gracefully
 
-Here's where things get interesting. When duplicate API requests come in, don't fight them - work with them:
+When duplicate API requests arrive, don't throw errors - work with them:
 
-1. **Return success for duplicate requests**: External system tries to create the same record twice? Don't throw an error. Send back a 200 OK with the existing record. Everyone's happy.
+1. **Return success for duplicates** - If an external system tries to create a record that already exists, return a 200 OK with the existing record instead of an error.
 
-2. **Use conditional updates**: Before updating [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) through the API, check what's already there:
-   - Value already matches? Skip the update
-   - Different value? Go ahead and update
-   - Always add a comment for the audit trail
+2. **Use conditional updates** - Before updating [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) through the API, check the current value first. If it already matches, skip the update.
 
-3. **Use request IDs**: Make external systems include a unique ID with each call:
-   ```
-   X-Request-ID: unique-request-identifier-123
-   ```
-   Keep these IDs for 24 hours. When you see a repeat, you'll know it's a retry.
+3. **Track request IDs on your side** - Have external systems include a unique ID with each call and cache results for 24 hours. When you see a repeated ID, return the cached response.
 
 ## Best practices for specific integrations
 
-### Handling task completion webhooks
+### Task completion webhooks
 
-Tasks get reopened and recompleted all the time. You've got to track the full history:
+Tasks can be reopened and recompleted. Decide your strategy up front:
 
-1. Keep a record of every completion:
-   ```json
-   {
-     "task_id": "abc123",
-     "completions": [
-       {"completed_at": "2024-01-15T10:30:00Z", "completed_by": "user1@example.com"},
-       {"completed_at": "2024-01-15T14:45:00Z", "completed_by": "user2@example.com"}
-     ]
-   }
-   ```
+- **First completion only** - Ignore subsequent completions for the same task ID
+- **Track all completions** - Store each completion separately with its timestamp
+- **Latest wins** - Update your records each time, keeping only the most recent completion
 
-2. Pick your strategy based on what makes sense:
-   - Care only about the first completion? Ignore the rest
-   - Need to track every completion? Store them all separately
-   - Only the latest matters? Update your records each time
+### Managing template-level webhook volume
 
-### Managing process-level webhook volume
+A process with many tasks generates many webhooks. To handle the volume:
 
-Got a process with 50 tasks? That's 50 webhooks headed your way. Here's how to handle the deluge:
+1. **Batch processing** - Collect events and process in chunks every few minutes instead of one at a time
+2. **Use queues** - Push webhook events into a message queue so your system doesn't get overwhelmed
+3. **Filter by task** - Check the payload's `this_task.alias` or `this_task.position` and only process the tasks you care about
 
-1. **Batch processing**: Don't process events one by one. Collect them and process in chunks every 5 minutes
-2. **Use queues**: Message queues are your friend - they'll prevent your system from choking on the volume
-3. **Filter smartly**: Not all tasks are equal. Check the payload and process only what matters to you
+### Preventing duplicate API calls to Tallyfy
 
-### Preventing duplicate API submissions
+Before sending write requests to Tallyfy's API, check the current state first:
 
-Stop duplicates before they start when external systems talk to Tallyfy:
-
-1. **Use idempotency keys**: Every operation needs its own unique key:
-   ```
-   POST /api/processes/launch
-   X-Idempotency-Key: ticket-12345-launch-attempt-1
-   ```
-
-2. **Check before you leap**: Always verify the current state first:
-   - About to launch a process? Check if it already exists
-   - Completing a task? Make sure it's not already done
-   - Updating a form field? Confirm it needs changing
+- About to launch a process? Query whether one already exists for this trigger
+- Completing a task? Verify it isn't already completed
+- Updating a form field? Confirm the current value differs from what you're sending
 
 ## Example implementation patterns
 
-### Pattern 1: Webhook processor with deduplication
+### Pattern 1 - Webhook processor with deduplication
 
 ```javascript
 async function processWebhook(payload) {
-  // Generate unique event key
-  const eventKey = `${payload.task_id}-${payload.event}-${payload.timestamp}`;
-  
-  // Check if already processed
-  const existing = await db.query('SELECT * FROM processed_events WHERE event_key = ?', [eventKey]);
-  
+  const task = payload.this_task;
+  const eventKey = `${task.id}-completed-${task.completed_at}`;
+
+  const existing = await db.query(
+    'SELECT * FROM processed_events WHERE event_id = ?', [eventKey]
+  );
+
   if (existing.length > 0) {
-    console.log('Duplicate event detected, skipping:', eventKey);
-    return { status: 'duplicate', message: 'Event already processed' };
+    console.log('Duplicate event, skipping:', eventKey);
+    return { status: 'duplicate' };
   }
-  
-  // Process the event
+
   await handleEvent(payload);
-  
-  // Mark as processed
-  await db.query('INSERT INTO processed_events (event_key, processed_at) VALUES (?, NOW())', [eventKey]);
-  
-  return { status: 'processed', message: 'Event processed successfully' };
+
+  await db.query(
+    'INSERT INTO processed_events (event_id, processed_at) VALUES (?, NOW())',
+    [eventKey]
+  );
+
+  return { status: 'processed' };
 }
 ```
 
-### Pattern 2: API integration with retry safety
+### Pattern 2 - API integration with retry safety
 
 ```javascript
 async function updateTaskField(taskId, fieldName, fieldValue, requestId) {
-  // Check if this request was already processed
   const cachedResult = await cache.get(`request:${requestId}`);
-  if (cachedResult) {
-    return cachedResult;
-  }
-  
-  // Get current task state
+  if (cachedResult) return cachedResult;
+
   const task = await tallyfyApi.getTask(taskId);
-  
-  // Check if update is needed
+
   if (task.fields[fieldName] === fieldValue) {
-    const result = { status: 'unchanged', message: 'Field already has the desired value' };
-    await cache.set(`request:${requestId}`, result, 86400); // Cache for 24 hours
+    const result = { status: 'unchanged' };
+    await cache.set(`request:${requestId}`, result, 86400);
     return result;
   }
-  
-  // Perform update
+
   const updatedTask = await tallyfyApi.updateTask(taskId, {
     fields: { [fieldName]: fieldValue }
   });
-  
-  // Add comment for audit trail
-  await tallyfyApi.addComment(taskId, 
-    `Field "${fieldName}" updated to "${fieldValue}" via API integration`
-  );
-  
+
   const result = { status: 'updated', task: updatedTask };
   await cache.set(`request:${requestId}`, result, 86400);
   return result;
@@ -223,33 +177,29 @@ async function updateTaskField(taskId, fieldName, fieldValue, requestId) {
 
 ## Testing your idempotency implementation
 
-Don't wait for production to find out if your deduplication works. Test it now:
-
-1. **Simulate duplicate webhooks**: Fire the same webhook at your system 3-4 times in a row
-2. **Test network retries**: Use tools like Postman to simulate connection timeouts and automatic retries
-3. **Check data consistency**: After your tests, verify your data isn't corrupted or duplicated
-4. **Monitor production logs**: Watch for duplicate patterns - they'll show up eventually
+1. **Simulate duplicate webhooks** - Fire the same payload at your endpoint 3-4 times in a row and confirm only one record is created
+2. **Test network retries** - Use Postman or curl to simulate timeouts and verify retries don't create duplicates
+3. **Check data consistency** - After tests, verify no corrupted or duplicated data
+4. **Monitor production logs** - Watch for duplicate patterns once live
 
 ## Troubleshooting common issues
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| Duplicate records in database | Not checking for existing records before insert | Implement unique constraints and check before insert |
-| Missing webhook events | Treating duplicates as errors | Log duplicates but don't fail the webhook response |
-| Inconsistent data state | Processing events out of order | Use timestamps to ensure correct ordering |
-| API rate limits from retries | Not caching successful responses | Implement response caching with appropriate TTL |
+| Duplicate records in database | No check before insert | Add unique constraints and check before inserting |
+| Missing webhook events | Treating duplicates as errors | Log duplicates but always return a 2xx response |
+| Inconsistent data state | Events processed out of order | Use timestamps for correct ordering |
+| Rate limits from retries | Not caching successful responses | Cache responses with an appropriate TTL |
 
-:::warning[Important consideration]
-Always respond with a 2xx status code to webhook requests, even for duplicates. If you return an error, Tallyfy thinks something went wrong and retries - creating even more duplicates. Don't make things worse!
+:::warning[Important]
+Always respond with a 2xx status code to Tallyfy webhook requests, even for duplicates. Returning an error code could cause issues with delivery tracking. A 200 response with a "duplicate" message in the body is the safest approach.
 :::
 
 ## Next steps
 
-You've built idempotency into your integration - now keep it running smoothly:
-
-1. Monitor your logs for duplicate patterns (they'll reveal retry behaviors you didn't expect)
-2. Fine-tune your deduplication window based on real-world data
-3. Need complete audit trails? Consider event sourcing for the full picture
+1. Monitor logs for duplicate patterns - they'll reveal retry behaviors you didn't expect
+2. Tune your deduplication window based on real-world data
+3. For full audit trails, consider event sourcing
 4. Stay current with Tallyfy's [webhook documentation](/products/pro/integrations/webhooks/) - payload formats can evolve
 
 import { CardGrid, LinkTitleCard } from "~/components";

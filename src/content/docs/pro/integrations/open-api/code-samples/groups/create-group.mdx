@@ -1,12 +1,11 @@
 ---
-description: This documentation explains how to create a new group within a Tallyfy
-  organization using a POST API endpoint that accepts group details like name and
-  description along with optional member IDs and guest email addresses through authenticated
-  requests in various programming languages.
+description: Create a new group in your Tallyfy organization using a POST API endpoint
+  with a name, description, optional member IDs and guest emails.
 id: 89830988b67d70af61b2179e9e66c9fe
-lastUpdated: 2025-08-15
 sidebar:
   order: 2
+lastUpdated: 2026-02-25
+about_tallyfy: true
 title: Create group
 ---
 
@@ -16,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `POST /organizations/{org_id}/groups`
 
-This endpoint creates a new group within your Tallyfy organization.
+Creates a new group in your Tallyfy organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID.
+Replace `{org_id}` with your actual Organization ID.
 
 ### Headers
 
@@ -31,24 +30,14 @@ Replace `{org_id}` with your Organization ID.
 
 ### Body (JSON)
 
-The request body requires a JSON object defining the new group.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Group name (max 200 chars, must be unique in the org) |
+| `description` | string | Yes | A description for the group |
+| `members` | array of integers | No | User IDs to add as members |
+| `guests` | array of strings | No | Email addresses for guests to add |
 
-Refer to the `#definitions/createGroupInput` schema in Swagger. Key fields:
-
--   `name` (string, required): The name of the group.
--   `description` (string, optional): A description for the group.
--   `members` (array of integers, optional): An array of User IDs for members to add to the group.
--   `guests` (array of strings, optional): An array of email addresses for guests to add to the group.
-
-**Minimal Example Body:**
-
-```json
-{
-  "name": "Project Alpha Team"
-}
-```
-
-**Example Body with Members/Guests:**
+**Example body:**
 
 ```json
 {
@@ -59,7 +48,7 @@ Refer to the `#definitions/createGroupInput` schema in Swagger. Key fields:
 }
 ```
 
-## Code Samples
+## Code samples
 
 <Tabs>
 <TabItem label="Javascript">
@@ -75,33 +64,23 @@ const groupData = {
   guests: ["freelancer@design.co"]
 };
 
-const headers = new Headers();
-headers.append('Authorization', `Bearer ${accessToken}`);
-headers.append('Accept', 'application/json');
-headers.append('X-Tallyfy-Client', 'APIClient');
-headers.append('Content-Type', 'application/json');
-
-fetch(apiUrl, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(groupData)
-})
-.then(response => {
-    return response.json().then(data => {
-        if (!response.ok) {
-            console.error("Failed to create group:", data);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return data;
-    });
-})
-.then(data => {
-    console.log('Successfully created group:');
-    console.log(JSON.stringify(data, null, 2));
-})
-.catch(error => {
-    console.error('Error creating group:', error.message);
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(groupData)
 });
+
+const data = await response.json();
+if (!response.ok) {
+  console.error("Failed to create group:", data);
+} else {
+  console.log('Created group:', JSON.stringify(data, null, 2));
+}
 ```
 </TabItem>
 <TabItem label="Python">
@@ -123,30 +102,14 @@ headers = {
 
 group_payload = {
     'name': 'Finance Approvers',
+    'description': 'Team handling finance approval workflows.',
     'members': [1004, 1006]
 }
 
-response = None
-try:
-    response = requests.post(api_url, headers=headers, json=group_payload)
-    response.raise_for_status()
+response = requests.post(api_url, headers=headers, json=group_payload)
+response.raise_for_status()
 
-    created_group = response.json()
-    print('Successfully created group:')
-    print(json.dumps(created_group, indent=4))
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred: {http_err}")
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed: {req_err}")
-except json.JSONDecodeError:
-    print("Failed to decode JSON response")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-    print(f"An unexpected error occurred: {err}")
+print(json.dumps(response.json(), indent=4))
 ```
 </TabItem>
 <TabItem label="Java">
@@ -155,15 +118,18 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.io.IOException;
 
 public class CreateGroup {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String apiUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/groups";
 
-        String jsonPayload = "{\"name\": \"Support Escalation Team\", \"members\": [1002, 1003]}";
+        String jsonPayload = """
+            {"name": "Support Escalation Team",
+             "description": "Handles escalated support tickets.",
+             "members": [1002, 1003]}
+            """;
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -175,23 +141,9 @@ public class CreateGroup {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                 .build();
 
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
-            if (response.statusCode() == 200 || response.statusCode() == 201) {
-                System.out.println("Successfully created group:");
-                System.out.println(response.body());
-            } else {
-                 System.err.println("Failed to create group. Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
-            }
-        } catch (IOException | InterruptedException e) {
-            System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
-        }
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        System.out.println(response.statusCode());
+        System.out.println(response.body());
     }
 }
 ```
@@ -204,37 +156,29 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups", orgId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups", orgId)
 
 	groupData := map[string]interface{}{
-		"name": "Go Development Team",
-        "members": []int{1010, 1011},
-        "guests": []string{"go.contractor@example.dev"},
+		"name":        "Go Development Team",
+		"description": "Backend engineers working in Go.",
+		"members":     []int{1010, 1011},
+		"guests":      []string{"go.contractor@example.dev"},
 	}
 
-	jsonData, err := json.Marshal(groupData)
-	if err != nil {
-        fmt.Printf("Error marshalling JSON: %v\n", err)
-        return
-    }
-
+	jsonData, _ := json.Marshal(groupData)
 	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
-    if err != nil {
-        fmt.Printf("Error creating request: %v\n", err)
-        return
-    }
+	req, _ := http.NewRequest(http.MethodPost, apiUrl, bytes.NewBuffer(jsonData))
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -242,30 +186,11 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing request: %v\n", err)
-        return
-    }
+	if err != nil { fmt.Printf("Request failed: %v\n", err); return }
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading response body: %v\n", err)
-        return
-    }
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		fmt.Printf("Failed to create group. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
-		return
-	}
-
-	fmt.Println("Successfully created group:")
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
+	body, _ := io.ReadAll(resp.Body)
+	fmt.Printf("Status: %d\n%s\n", resp.StatusCode, string(body))
 }
 ```
 </TabItem>
@@ -282,152 +207,78 @@ using namespace web::http;
 using namespace web::http::client;
 using namespace web::json;
 
-pplx::task<void> CreateTallyfyGroup(const utility::string_t& groupName, 
-                                  const std::vector<int>& memberIds,
-                                  const std::vector<utility::string_t>& guestEmails)
-{
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/groups");
+int main() {
+    auto accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    auto orgId = U("YOUR_ORGANIZATION_ID");
+    auto apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/groups");
 
     value payload = value::object();
-    payload[U("name")] = value::string(groupName);
-
-    if (!memberIds.empty()) {
-        value membersArray = value::array(memberIds.size());
-        for (size_t i = 0; i < memberIds.size(); ++i) {
-            membersArray[i] = value::number(memberIds[i]);
-        }
-        payload[U("members")] = membersArray;
-    }
-     if (!guestEmails.empty()) {
-        value guestsArray = value::array(guestEmails.size());
-        for (size_t i = 0; i < guestEmails.size(); ++i) {
-            guestsArray[i] = value::string(guestEmails[i]);
-        }
-        payload[U("guests")] = guestsArray;
-    }
+    payload[U("name")] = value::string(U("C++ Created Team"));
+    payload[U("description")] = value::string(U("Team created via C++ client."));
+    value membersArray = value::array(2);
+    membersArray[0] = value::number(1001);
+    membersArray[1] = value::number(1005);
+    payload[U("members")] = membersArray;
 
     http_client client(apiUrl);
     http_request request(methods::POST);
-
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
     request.headers().set_content_type(U("application/json"));
     request.set_body(payload);
 
-    return client.request(request).then([](http_response response)
-    {
-        return response.extract_json().then([response](pplx::task<value> task)
-        {
-            try {
-                value const & body = task.get();
-                if (response.status_code() == status_codes::OK || response.status_code() == status_codes::Created) {
-                    std::wcout << L"Successfully created group:\n" << body.serialize() << std::endl;
-                } else {
-                    std::wcerr << L"Failed to create group. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
-                }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during create group: " << e.what() << std::endl;
-            } catch (const std::exception& e) {
-                std::wcerr << L"Exception during create group response handling: " << e.what() << std::endl;
-            }
-        });
-    });
-}
+    client.request(request).then([](http_response response) {
+        return response.extract_json();
+    }).then([](value body) {
+        std::wcout << body.serialize() << std::endl;
+    }).wait();
 
-int main() {
-    try {
-        std::vector<int> members = {1001, 1005};
-        std::vector<utility::string_t> guests = {U("client.liaison@partner.com")};
-        CreateTallyfyGroup(U("C++ Created Team"), members, guests).wait();
-    } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
-    }
     return 0;
 }
 ```
 </TabItem>
 <TabItem label="C#">
 ```csharp
-using System;
-using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
-public class TallyfyGroupCreator
-{
-    private static readonly HttpClient client = new HttpClient();
+var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
+var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
+var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups";
 
-    public class GroupPayload
-    {
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public List<int> Members { get; set; }
-        public List<string> Guests { get; set; }
-    }
+using var client = new HttpClient();
+using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
-    public static async Task CreateGroupAsync(GroupPayload payload)
-    {
-        var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
-        var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups";
+var payload = new {
+    name = "Onboarding Specialists",
+    description = "Team responsible for new client onboarding.",
+    members = new[] { 1001, 1005, 1008 },
+    guests = new[] { "client.liaison@partner.com" }
+};
 
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+request.Content = new StringContent(
+    JsonSerializer.Serialize(payload),
+    Encoding.UTF8,
+    "application/json"
+);
 
-            var options = new JsonSerializerOptions { IgnoreNullValues = true };
-            string jsonPayload = JsonSerializer.Serialize(payload, options);
-            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                Console.WriteLine("Successfully created group:");
-                try {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                } catch (JsonException) {
-                    Console.WriteLine(responseBody);
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to create group. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
-        }
-        catch (HttpRequestException e)
-        {
-            Console.WriteLine($"Request Exception: {e.Message}");
-        }
-         catch (JsonException jsonEx)
-        {
-             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
-        }
-    }
-}
+var response = await client.SendAsync(request);
+var body = await response.Content.ReadAsStringAsync();
+Console.WriteLine($"Status: {response.StatusCode}");
+Console.WriteLine(body);
 ```
 </TabItem>
 </Tabs>
 
 ## Response
 
-A successful request returns a `200 OK` or `201 Created` status code and a JSON object containing the details of the newly created group, including its assigned `id`.
+A successful request returns a `201 Created` status. The response JSON wraps the new group inside a `data` object.
 
 ```json
 {
@@ -438,14 +289,13 @@ A successful request returns a `200 OK` or `201 Created` status code and a JSON 
     "logo": null,
     "members": [1001, 1005, 1008],
     "guests": ["client.liaison@partner.com"],
-    "created_at": "YYYY-MM-DDTHH:MM:SSZ",
-    "updated_at": "YYYY-MM-DDTHH:MM:SSZ",
-    "deleted_at": null
+    "created_at": "2025-06-10T14:30:00.000Z",
+    "last_updated": "2025-06-10T14:30:00.000Z"
   }
 }
 ```
 
-Make note of the returned `id` to manage this group later through Tallyfy's API (get, update, delete).
+Save the returned `id` -- you'll need it to get, update, or delete this group later.
 
 ---
 

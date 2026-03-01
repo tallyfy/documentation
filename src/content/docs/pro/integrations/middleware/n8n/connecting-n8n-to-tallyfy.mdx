@@ -4,19 +4,18 @@ description: n8n connects to Tallyfy through a dedicated community node or HTTP 
   tasks and users while supporting real-time webhook events and offering both self-hosted
   and cloud deployment options.
 id: 453c767597f639655737478b8aeed689
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Connecting n8n
+about_tallyfy: false
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
 ## Connect n8n to Tallyfy
 
-Connecting n8n to Tallyfy takes about 5 minutes now that we have a dedicated connector. You have two options: use our community-built Tallyfy node for instant setup, or use HTTP Request nodes for maximum flexibility. Both approaches work with Tallyfy's [Open API](/products/pro/integrations/open-api/) and handle authentication seamlessly.
-
-The dedicated connector covers most common use cases, while HTTP Request nodes give you complete control for advanced integrations.
+Connecting n8n to Tallyfy takes about 5 minutes. You've got two options: use the community-built Tallyfy node for quick setup, or use HTTP Request nodes for full flexibility. Both work with Tallyfy's [Open API](/products/pro/integrations/open-api/) and handle authentication automatically.
 
 ### Integration architecture overview
 
@@ -101,69 +100,67 @@ Debug -> Auth: "Fix & retry" {
 ```
 
 **What to notice:**
-- The Tallyfy node provides instant setup for most use cases, while HTTP Request nodes offer complete flexibility for custom integrations
-- Both methods converge at the authentication test - if this fails, check your API token and permissions before proceeding
-- After successful connection, you gain access to many operations across multiple resources, with webhook support for real-time event handling
+- The Tallyfy node handles most use cases. HTTP Request nodes give you complete flexibility for custom integrations.
+- Both methods converge at the authentication test - if it fails, check your API token and permissions first.
+- After connecting, you get access to 60+ operations across multiple resources.
 
 ### Prerequisites
 
-Before starting, you'll need:
-
 - An active Tallyfy account with API access
-- n8n installed (self-hosted, cloud, or local development)
-- Your Tallyfy API key and Organization ID
-- For custom integrations: basic understanding of REST APIs
+- n8n installed (self-hosted, cloud, or local)
+- Your Tallyfy API token and Organization ID
+- For HTTP Request method: basic REST API knowledge
 
 ### Step 1: Get your Tallyfy API credentials
 
 <Steps>
 
-1. Log into your Tallyfy account and navigate to **Settings** > **Personal Settings** > **API Tokens**.
+1. Log into Tallyfy and go to **Settings** > **Integrations** > **REST API**.
 
-2. Click **Create Personal Access Token** and give it a descriptive name like "n8n Integration".
+2. Create a Personal Access Token and give it a descriptive name like "n8n Integration".
 
-3. Copy your API token immediately - you won't see it again after closing the dialog.
+3. Copy your API token right away - you won't see it again after closing the dialog.
 
-4. Find your Organization ID in your Tallyfy URL: `https://go.tallyfy.com/o/YOUR_ORG_ID/` or check the API settings.
+4. Find your Organization ID in your Tallyfy URL: `https://app.tallyfy.com/org/YOUR_ORG_ID`.
 
-5. Note the base URL: `https://go.tallyfy.com/api` for all API calls.
+5. Note the base URL for all API calls: `https://go.tallyfy.com/api`.
 
 </Steps>
 
-:::warning[API Key Security]
-Treat your API key like a password. Never share it publicly or commit it to version control. In n8n, use the Credentials feature to store it securely.
+:::warning[API token security]
+Treat your API token like a password. Never share it publicly or commit it to version control. In n8n, always use the Credentials feature to store it securely.
 :::
 
 ### Step 2: Set up Tallyfy credentials in n8n
 
-**Using the Tallyfy Node (Recommended)**
+**Using the Tallyfy node (recommended)**
 
 <Steps>
 
 1. Install the Tallyfy community node:
-   - For self-hosted: `npm install n8n-nodes-tallyfy`
-   - For n8n Cloud: Request community node installation via support
-   - Manual installation: Download from [GitHub](https://github.com/tallyfy/n8n/releases)
+   - Self-hosted: `npm install n8n-nodes-tallyfy`
+   - n8n Cloud: Request community node installation through support
+   - Manual: Download from [GitHub](https://github.com/tallyfy/n8n/releases)
 
-2. In n8n, go to **Credentials** and create **Tallyfy API** credential:
+2. In n8n, go to **Credentials** and create a **Tallyfy API** credential:
    - **Access Token**: Your Personal Access Token from Step 1
-   - **Organization ID**: Your Organization ID from your Tallyfy URL
-   - **Base URL**: `https://go.tallyfy.com/api` (default)
+   - **Organization ID**: From your Tallyfy URL
+   - **Base URL**: `https://go.tallyfy.com/api` (pre-filled by default)
 
-3. Test the connection using the built-in credential test (calls `/me` endpoint).
+3. Test the connection with the built-in credential test. It calls the `/me` endpoint to verify your token works.
 
 </Steps>
 
-**Alternative: HTTP Request Method**
+**Alternative: HTTP Request method**
 
 <Steps>
 
-1. For custom integrations, create **HTTP Request** credential:
+1. For custom integrations, create an **HTTP Request** credential:
    - **Authentication**: Header Auth
    - **Name**: Authorization
    - **Value**: `Bearer YOUR_ACCESS_TOKEN`
 
-2. Add recommended headers: `X-Tallyfy-Client: n8n`, `Accept: application/json`
+2. Add these headers: `X-Tallyfy-Client: n8n`, `Accept: application/json`
 
 </Steps>
 
@@ -173,54 +170,51 @@ Treat your API key like a password. Never share it publicly or commit it to vers
 
 1. Create a new workflow in n8n.
 
-2. Add a **Tallyfy** node from the node palette (under "Regular nodes").
+2. Add a **Tallyfy** node from the node palette.
 
-3. Configure the test:
+3. Configure it:
    - **Credential**: Select your Tallyfy API credential
    - **Resource**: User
    - **Operation**: Get Current
 
 4. Click **Test step** to verify the connection.
 
-5. Success shows your user details, confirming authentication works.
+5. You should see your user details, confirming authentication works.
 
 </Steps>
 
 **Alternative test with HTTP Request:**
 - **Method**: GET, **URL**: `https://go.tallyfy.com/api/me`
-- Use your configured credential
 
-### Step 4: Available operations in the Tallyfy node
+### Step 4: Available operations
 
-**Available resources and operations:**
-
-| Resource | Operations Available | Key Use Cases |
-|----------|---------------------|---------------|
-| **Blueprint** | Get, Get Many, Create, Update, Delete | Template management and process design |
-| **Process** | Launch, Get, Get Many, Update, Archive, Get Tasks | Process lifecycle and monitoring |
-| **Task** | Create One-Off, Complete, Get, Get Many, Update Properties, Delete, Clone | Task management and workflow control |
-| **Form Field** | Get Fields, Update Value (with guest access) | Dynamic data collection |
-| **Comment** | Create, Create Bot, Report Problem, Resolve Issue, Update, Delete | Communication and issue tracking |
+| Resource | Operations | Use cases |
+|----------|-----------|-----------|
+| **Blueprint** | Get, Get Many, Create, Update, Delete | Template management |
+| **Process** | Launch, Get, Get Many, Update, Archive, Get Tasks | Process lifecycle |
+| **Task** | Create One-Off, Complete, Get, Get Many, Update Properties, Delete, Clone | Task management |
+| **Form Field** | Get Fields, Update Value | Data collection |
+| **Comment** | Create, Create Bot, Report Problem, Resolve Issue, Update, Delete | Communication |
 | **User** | Get Current, Get, Get Many, Invite, Update Role, Enable, Disable, Convert to Guest | Team management |
-| **Guest** | Create, Get, Get Many, Update, Delete, Convert to Member | External participant management |
+| **Guest** | Create, Get, Get Many, Update, Delete, Convert to Member | External participants |
 | **Group** | Create, Get, Get Many, Update, Delete | Team organization |
-| **Search** | Global, Tasks, Processes, Blueprints | Resource discovery |
-| **ID Finder** | Find Process/Task/Blueprint/Form Field/User/Group IDs | Resource identification utilities |
+| **Search** | Global, Tasks, Processes, Blueprints | Finding resources |
+| **ID Finder** | Find Process/Task/Blueprint/Form Field/User/Group IDs | Resource lookup |
 
 **Key features:**
-- Built-in pagination handling ("Return All" option)
+- Built-in pagination with a "Return All" toggle
 - Automatic error handling and retry logic
 - Field validation and type checking
-- Support for dynamic field values using expressions
+- Dynamic field values through n8n expressions
 
-### Step 5: Launch a process using the Tallyfy node
+### Step 5: Launch a process
 
 <Steps>
 
 1. Add a **Tallyfy** node and configure:
    - **Resource**: Process
    - **Operation**: Launch
-   - **Blueprint ID**: Enter your template ID (e.g., `blueprint_abc123`)
+   - **Blueprint ID**: Your template ID (e.g., `blueprint_abc123`)
 
 2. Set the **Process Name**: "Process launched from n8n - `{{$json.customer_name}}`"
 
@@ -233,19 +227,15 @@ Treat your API key like a password. Never share it publicly or commit it to vers
    }
    ```
 
-4. **Optional settings**:
-   - **Assignees**: Specify users, guests, or groups for task assignment
-   - **Due Date**: Set process deadline
-   - **Visibility**: Control who can see the process
+4. **Optional**: Set assignees, due dates, or visibility as needed.
 
-5. The node returns the launched process details including process ID and status.
+5. The node returns the launched process details including its ID and status.
 
 </Steps>
 
-**Launch data tips:**
+**Tips:**
 - Field names must match your blueprint's kickoff form fields exactly
 - Use n8n expressions to map data from previous nodes
-- Support for text, numbers, dates, users, and file attachments
 - Leave optional fields empty - the node handles undefined values gracefully
 
 ### Step 6: Handle real-time updates with webhooks
@@ -254,60 +244,31 @@ Treat your API key like a password. Never share it publicly or commit it to vers
 
 1. Add a **Webhook** node as your workflow trigger:
    - **HTTP Method**: POST
-   - **Path**: `/tallyfy-events` (or custom path)
+   - **Path**: `/tallyfy-events` (or any custom path)
    - **Response Mode**: Last Node
 
 2. Copy the generated webhook URL from n8n.
 
-3. In Tallyfy, go to **Settings** > **Organization Settings** > **Webhooks**.
+3. In Tallyfy, configure a webhook to point at your n8n URL. Select the event types you want to receive (e.g., task completed, process launched).
 
-4. Create a webhook:
-   - **URL**: Your n8n webhook URL
-   - **Events**: Choose from 15+ event types:
-     - `task.completed`
-     - `process.launched`
-     - `task.assigned`
-     - `form.submitted`
-     - `process.completed`
-   - **Headers**: Optional custom headers
-   - **Secret**: For webhook signature verification
-
-5. Test using Tallyfy's built-in webhook tester.
-
-6. Activate your n8n workflow to start receiving events.
+4. Test the webhook, then activate your n8n workflow to start receiving events.
 
 </Steps>
 
-:::danger[Test vs Production URL - common mistake]
-When building workflows with webhooks, n8n provides two different URLs: a **Test URL** and a **Production URL**. The production URL only becomes active when you switch the workflow to "Active" status.
+:::danger[Test vs production URL - common mistake]
+n8n gives you two webhook URLs: a **Test URL** and a **Production URL**. The production URL only works when the workflow is set to "Active."
 
-Many users spend hours debugging because they:
-1. Build and test with the Test URL
+A common trap:
+1. You build and test with the Test URL
 2. Switch the workflow to Active mode
 3. Forget to update the URL in Tallyfy to the Production URL
 
-**Always update your webhook URLs in Tallyfy when going live.** The Test URL stops working once you activate the workflow.
+**Always swap to the Production URL in Tallyfy when going live.** The Test URL stops working once you activate.
 :::
-
-**Real webhook payload structure:**
-```json
-{
-  "event": "task.completed",
-  "organization_id": "org_123",
-  "data": {
-    "task_id": "task_456",
-    "run_id": "run_789",
-    "blueprint_id": "blueprint_abc",
-    "user_id": "user_123",
-    "completed_at": "2024-03-15T10:30:00Z",
-    "form_data": { /* task form responses */ }
-  }
-}
-```
 
 ### Webhook event flow
 
-This sequence diagram illustrates how Tallyfy sends real-time events to n8n with retry logic.
+This diagram shows how events flow from Tallyfy to n8n.
 
 ```d2
 direction: right
@@ -321,8 +282,8 @@ n8n: n8n Workflow
 S -> T: 1. User completes task
 T -> T: 2. Check webhook config
 
-T -> Q: "3. Queue webhook event" 
-T -> T: "Skip webhook" 
+T -> Q: "3. Queue webhook event"
+T -> T: "Skip webhook"
 
 Q -> W: 4. Process webhook
 
@@ -333,71 +294,66 @@ W -> n8n: "5. POST to webhook_url" {
 n8n -> W: "6. Success response (2xx)"
 W -> T: "7. Mark delivered"
 # Log success
-n8n -> W: "Error or timeout" 
-W -> W: "Wait (exponential backoff)" 
+n8n -> W: "Error or timeout"
+W -> W: "Wait (exponential backoff)"
 # 1st: 1min 2nd: 5min 3rd: 15min
 
-W -> T: "8. Mark failed (All attempts failed)" 
+W -> T: "8. Mark failed (All attempts failed)"
 # Alert administrators
 ```
 
 **What to notice:**
-- Events are queued immediately when triggered (step 3), ensuring no events are lost even during high load
-- The retry mechanism uses exponential backoff (steps 8-10) to handle temporary network issues without overwhelming your n8n instance  
-- Failed webhooks after 3 attempts trigger admin notifications (step 12) so you can investigate integration issues
+- Events queue immediately when triggered, so nothing gets lost during high load
+- Retries use exponential backoff to handle temporary network issues without overwhelming your n8n instance
 
-### Debugging with the Executions panel
+### Debugging with the executions panel
 
-The Executions panel is one of n8n's most powerful features for debugging workflows. Every time a workflow runs - whether in test or production - n8n records the complete execution with input and output data at each node.
+n8n records every workflow execution with full input/output data at each node. This makes debugging straightforward.
 
 ![n8n workflow canvas showing multiple trigger types including Webhook, Chat message, Schedule Trigger, and Execute Workflow nodes](https://screenshots.tallyfy.com/tallyfy/pro/n8n-workflow-canvas-triggers.png)
 
 **Viewing execution history:**
-- Click **Executions** tab at the top of the workflow editor
-- Each execution shows status (success/error), timing, and trigger source
-- Click any execution to see the data that flowed through each node
-- Use filters to find specific executions by date or status
+- Click **Executions** at the top of the workflow editor
+- Each entry shows status (success/error), timing, and trigger source
+- Click any execution to inspect the data flowing through each node
+- Filter by date or status to find specific runs
 
-**Data Pinning - skip expensive operations during testing:**
+**Data pinning - skip expensive operations during testing:**
 
-When building complex workflows with AI agents or external API calls, re-running every node each time you test is slow and expensive. Data Pinning lets you "freeze" a node's output so it's reused in subsequent test runs.
+When building workflows with AI agents or external API calls, re-running every node on each test is slow and costly. Data Pinning freezes a node's output so it's reused in subsequent test runs.
 
-To pin data:
 1. Run your workflow to get real data through the nodes
-2. Click on any node that has output data
+2. Click on any node with output data
 3. Click the **Pin** icon to lock that output
-4. Now when you test, n8n skips that node and uses the pinned data instead
+4. On future tests, n8n skips that node and uses the pinned data
 
-This is particularly useful when:
-- Testing AI agent workflows (avoid repeated LLM calls)
-- Debugging nodes downstream of slow API calls
-- Developing with rate-limited external services
+This is especially useful for AI agent workflows, slow API calls, or rate-limited services.
 
 **Copy execution to editor:**
 
-If a production execution fails or produces unexpected results, you can load that exact execution back into the editor to debug:
-1. Find the problematic execution in the Executions panel
+If a production execution fails, you can reload it into the editor for debugging:
+1. Find the execution in the Executions panel
 2. Click the three-dot menu and select **Copy to Editor**
-3. The workflow opens with all the original input data loaded
+3. The workflow opens with all the original input data
 4. Test individual nodes or modify and re-run
 
 ### Troubleshooting guide
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| **401 Unauthorized** | Invalid or expired token | Regenerate API token in Tallyfy settings |
-| **403 Forbidden** | Insufficient permissions | Check user role allows API access |
-| **404 Not Found** | Wrong endpoint or missing resource | Verify Organization ID and resource IDs |
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| **401 Unauthorized** | Invalid or expired token | Regenerate your API token in Tallyfy |
+| **403 Forbidden** | Insufficient permissions | Check that your user role allows API access |
+| **404 Not Found** | Wrong endpoint or resource ID | Verify your Organization ID and resource IDs |
 | **422 Unprocessable Entity** | Invalid data format | Check required fields and data types |
-| **Rate limiting (429)** | Too many requests | Add 1-2 second delays between calls |
-| **Connection timeout** | Network or server issues | Add retry logic with exponential backoff |
-| **Webhook not receiving data** | URL or events misconfigured | Verify webhook URL and selected events |
-| **Webhook works in test but not production** | Using Test URL instead of Production URL | Update Tallyfy to use Production URL after activating workflow |
-| **AI node timing out during development** | Re-running expensive operations | Use Data Pinning to cache AI outputs while building |
+| **429 Rate limiting** | Too many requests | Add 1-2 second delays between calls |
+| **Connection timeout** | Network or server issues | Enable retry logic with exponential backoff |
+| **Webhook not firing** | URL or events misconfigured | Double-check the webhook URL and selected events |
+| **Webhook works in test only** | Using Test URL in production | Swap to the Production URL after activating the workflow |
+| **AI node timeouts** | Re-running expensive operations | Use Data Pinning to cache outputs while building |
 
 **Advanced debugging:**
 - Enable **Retry on Failure** in node settings
-- Use **Split in Batches** for processing large datasets
+- Use **Split in Batches** for large datasets
 - Add **Function** nodes to log request/response data
 - Test authentication with the `/me` endpoint first
 
@@ -407,46 +363,24 @@ If a production execution fails or produces unexpected results, you can load tha
 - Store API tokens in n8n credentials, never in code
 - Use webhook secrets to verify payload authenticity
 - Rotate API tokens quarterly or after team changes
-- Enable n8n's IP whitelist for production environments
 
-**Performance and reliability:**
+**Performance:**
 - Use **Split in Batches** for processing 50+ items
 - Add 500ms delays between API calls to avoid rate limits
 - Enable **Retry on Failure** with exponential backoff
-- Set appropriate timeouts (30s for complex operations)
-
-**Monitoring and maintenance:**
-- Add error notifications via email or Slack
-- Log important workflow events for debugging
-- Test critical workflows monthly with sample data
-- Monitor n8n execution metrics and set alerts
 
 **Data handling:**
-- Use pagination for large datasets (Tallyfy returns 25 items by default)
+- Use pagination for large datasets (Tallyfy defaults to 10 items per page)
 - Validate required fields before sending API requests
 - Handle edge cases like missing users or archived processes
-- Cache frequently accessed data to reduce API calls
 
 ### Advanced integration patterns
 
-Once connected, you can build sophisticated automations:
+Once connected, you can build automations like:
 
-**AI-enhanced workflows:**
-- Analyze form responses with AI and route processes accordingly
-- Generate process summaries and executive reports using LLMs
-- Automatically categorize and prioritize incoming requests
-
-**Multi-system orchestration:**
-- Launch Tallyfy processes from CRM deal updates
-- Sync completed tasks back to project management tools
-- Create approval workflows spanning multiple platforms
-
-**Real-time business intelligence:**
-- Stream process metrics to BI dashboards
-- Send alerts when SLAs are at risk
-- Generate compliance reports automatically
-
-Explore the workflow examples below to see these patterns in action.
+- **AI-enhanced workflows** - Analyze form responses with AI, generate summaries, or auto-categorize incoming requests
+- **Multi-system orchestration** - Launch Tallyfy processes from CRM deals, sync tasks to project tools, or build cross-platform approvals
+- **Real-time dashboards** - Stream process metrics to BI tools or send alerts when SLAs are at risk
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

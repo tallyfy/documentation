@@ -1,12 +1,11 @@
 ---
-description: This API endpoint retrieves all guest users associated with a Tallyfy
-  organization by making a GET request with proper authorization headers and optional
-  query parameters for pagination and additional statistics data.
 id: 13fe291c92f16413b757266e7d8d3144
-lastUpdated: 2025-08-15
+title: List guests
+description: Retrieve all guest users for a Tallyfy organization with optional search, sorting, and pagination.
 sidebar:
   order: 1
-title: List guests
+lastUpdated: 2026-02-25
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,22 +14,28 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/guests`
 
-This endpoint retrieves a list of guest users associated with the specified Tallyfy organization.
+Retrieves a paginated list of guest users in your organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID.
+Replace `{org_id}` with your organization ID.
 
 ### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
 
 ### Query parameters (optional)
 
--   `with` (string): Include additional data, e.g., `stats`.
--   Pagination parameters (`page`, `per_page`) may also be available.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `q` | string | Search query to filter guests by email |
+| `sort` | string | Sort field (also accepts `sort_by`). Defaults to `created_at` |
+| `per_page` | integer | Results per page (defaults to `999`) |
+| `page` | integer | Page number |
+| `without_pagination` | boolean | Return all results without pagination |
+| `with` | string | Include extra data. Use `stats` for completion statistics |
 
 ### Code samples
 
@@ -40,7 +45,7 @@ Replace `{org_id}` with your Organization ID.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = ''; // Example: Add query params like '?with=stats&page=2'
+const queryParams = '?with=stats&per_page=50&page=1';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/guests${queryParams}`;
 
 const headers = new Headers();
@@ -53,12 +58,12 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to list guests:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -86,24 +91,23 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-     'with': 'stats', 
-     'page': 1,
-     'per_page': 50
+    'with': 'stats',
+    'page': 1,
+    'per_page': 50
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     guests_data = response.json()
     print('Successfully listed guests:')
     print(json.dumps(guests_data, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing guests: {http_err}") 
+    print(f"HTTP error occurred listing guests: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
@@ -113,7 +117,7 @@ except json.JSONDecodeError:
     if response is not None:
         print(f"Response Text: {response.text}")
 except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+    print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -134,12 +138,11 @@ public class ListGuests {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/guests";
 
-        // Optional: Add query parameters
-        Map<String, String> queryParamsMap = Map.of("with", "stats", "page", "1"); 
+        Map<String, String> queryParamsMap = Map.of("with", "stats", "page", "1", "per_page", "50");
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-        
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -153,21 +156,20 @@ public class ListGuests {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
+
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed guests:");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
                 System.err.println("Failed to list guests. Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("An unexpected error occurred: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
@@ -181,34 +183,34 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests", orgId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/guests", orgId)
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-    queryParams.Add("with", "stats")
-    queryParams.Add("page", "1")
-    
-    apiUrl := baseURL
-    if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	queryParams := url.Values{}
+	queryParams.Add("with", "stats")
+	queryParams.Add("page", "1")
+	queryParams.Add("per_page", "50")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	apiUrl := baseURL
+	if len(queryParams) > 0 {
+		apiUrl += "?" + queryParams.Encode()
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
-		fmt.Printf("Error creating list guests request: %v\n", err)
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
 		return
 	}
 
@@ -217,15 +219,15 @@ func main() {
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-		fmt.Printf("Error executing list guests request: %v\n", err)
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-		fmt.Printf("Error reading list guests response body: %v\n", err)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
 		return
 	}
 
@@ -235,14 +237,12 @@ func main() {
 	}
 
 	fmt.Println("Successfully listed guests:")
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a slice of guest structs if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -260,14 +260,15 @@ using namespace web::json;
 
 pplx::task<void> ListTallyfyGuests()
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("guests"));
-    builder.append_query(U("with"), U("stats")); // Example query parameter
-    // builder.append_query(U("page"), 1); // Example pagination
+    builder.append_query(U("with"), U("stats"));
+    builder.append_query(U("per_page"), 50);
+    builder.append_query(U("page"), 1);
     utility::string_t apiUrl = builder.to_string();
 
     http_client client(apiUrl);
@@ -285,14 +286,13 @@ pplx::task<void> ListTallyfyGuests()
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully listed guests:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
                 } else {
                     std::wcerr << L"Failed to list guests. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
             } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during list guests: " << e.what() << std::endl;
+                std::wcerr << L"HTTP exception: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during list guests response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception: " << e.what() << std::endl;
             }
         });
     });
@@ -300,9 +300,9 @@ pplx::task<void> ListTallyfyGuests()
 
 int main() {
     try {
-        ListTallyfyGuests().wait(); 
+        ListTallyfyGuests().wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -316,7 +316,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyGuestLister
 {
@@ -326,11 +326,11 @@ public class TallyfyGuestLister
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "stats"; // Example
-        // query["page"] = "1";
+        query["with"] = "stats";
+        query["per_page"] = "50";
+        query["page"] = "1";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/guests?{queryString}";
 
@@ -347,12 +347,11 @@ public class TallyfyGuestLister
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully listed guests:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -363,7 +362,7 @@ public class TallyfyGuestLister
         }
         catch (HttpRequestException e)
         {
-            Console.WriteLine($"Request Exception listing guests: {e.Message}");
+            Console.WriteLine($"Request exception: {e.Message}");
         }
         catch (Exception ex)
         {
@@ -371,7 +370,7 @@ public class TallyfyGuestLister
         }
     }
 
-    // Example Usage:
+    // Example usage:
     // static async Task Main(string[] args)
     // {
     //     await ListGuestsAsync();
@@ -383,44 +382,67 @@ public class TallyfyGuestLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element represents a guest associated with the Tallyfy organization.
+A successful request returns a `200 OK` status with a JSON object containing a `data` array of guest objects and a `meta` object with pagination details.
 
 ```json
 {
   "data": [
     {
-      "id": "guest_code_abc123", // Unique guest code/identifier
+      "id": 1234,
       "email": "guest.user@external.com",
       "last_accessed_at": "2025-05-15T10:00:00Z",
       "last_known_ip": "192.0.2.1",
       "last_known_country": "US",
       "details": {
-        "first_name": "External",
-        "last_name": "Collaborator",
-        "status": "active", // Can be active, disabled
+        "status": "active",
         "phone_1": null,
+        "phone_2": null,
+        "timezone": "America/Chicago",
+        "image_url": null,
+        "contact_url": null,
+        "company_url": null,
+        "opportunity_url": null,
         "company_name": "External Inc.",
-        "timezone": "UTC",
-        "disabled_on": null,
+        "opportunity_name": null,
+        "external_sync_source": null,
+        "external_date_creation": null,
+        "cadence_days": null,
+        "associated_members": null,
+        "last_city": null,
+        "last_country": "US",
+        "last_accessed_at": "2025-05-15T10:00:00Z",
+        "disabled_at": null,
         "disabled_by": null,
-        // ... other detail fields ...
+        "reactivated_at": null,
+        "reactivated_by": null
       },
-       // Included if requested with 'with=stats'
+      "first_name": "External",
+      "last_name": "Collaborator",
+      "created_at": "2025-01-10T08:30:00Z",
+      "deleted_at": null,
+      "link": "https://go.tallyfy.com/...",
       "stats": {
-          "active_tasks": 2,
-          "completed_tasks": 5
-          // ... other stats ...
+        "assigned_tasks": 2,
+        "tasks_completed": 5,
+        "last_task_completed_at": "2025-05-14T16:30:00Z",
+        "one_off_tasks_completed": 1,
+        "last_one_off_task_completed_at": "2025-04-20T12:00:00Z"
       }
-    },
-    {
-       "id": "guest_code_def456",
-       "email": "another.guest@domain.com",
-       // ... details ...
     }
-  ]
-  // Potential meta object for pagination if supported
+  ],
+  "meta": {
+    "pagination": {
+      "total": 25,
+      "count": 25,
+      "per_page": 999,
+      "current_page": 1,
+      "total_pages": 1
+    }
+  }
 }
 ```
+
+The `stats` object only appears when you request `with=stats`. The `link` field contains the guest's forever-link URL for accessing their tasks.
 
 ---
 

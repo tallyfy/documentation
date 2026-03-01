@@ -1,10 +1,11 @@
 ---
-description: Launching Tallyfy processes from templates in Postman requires using
-  template IDs with kick-off form data in request bodies while understanding the API
-  terminology difference where templates are called checklists and processes are called
-  runs.
+about_tallyfy: true
+description: Working with Tallyfy templates and processes through the API in Postman
+  requires understanding that the API uses "checklists" for templates and "runs" for
+  processes, with process creation done via POST to the runs endpoint with a checklist_id
+  in the request body.
 id: 495f20325d8943c1a756b4f52f5c4119
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Working with templates and processes
@@ -12,20 +13,20 @@ title: Working with templates and processes
 
 import { Steps } from '@astrojs/starlight/components';
 
-To launch Tallyfy processes from templates in Postman, use the template ID with kick-off form data in the request body. The API accepts preruns for form fields and member assignments for process participants.
+To launch Tallyfy processes from templates via the API in Postman, you'll create a run by posting to the runs endpoint with the template's checklist ID and optional kick-off form data.
 
-## Understanding templates vs processes
+## API naming vs UI naming
 
 Quick refresher on Tallyfy terminology:
-- **Templates** = Blueprints that define your workflow (API calls them "checklists")
-- **Processes** = Running instances of templates (API calls them "runs")
-- **Kick-off forms** = Data collection before launching (API calls them "preruns")
+- **Templates** = Blueprints that define your workflow (the API calls them "checklists")
+- **Processes** = Running instances of templates (the API calls them "runs")
+- **Kick-off forms** = Data collected before launching (the API calls them "prerun")
 
-This naming difference catches everyone. Just remember: Template → Process in Tallyfy UI equals Checklist → Run in API.
+This naming difference catches everyone. Just remember: Template equals Checklist, Process equals Run.
 
 ## Template to process launch flow
 
-This diagram shows the complete API flow from listing templates to launching and managing processes.
+This diagram shows the API flow from listing templates to launching and managing processes.
 
 ```d2
 direction: down
@@ -47,22 +48,22 @@ Process: "Process\nInstance" {
 }
 
 # Step 1: List templates
-Postman -> API: "1. GET /templates\n(list available)" {
+Postman -> API: "1. GET /checklists\n(list available)" {
   style.stroke: "#333"
 }
 
-API -> Postman: "2. Return template\nlist with IDs" {
+API -> Postman: "2. Return checklist\nlist with IDs" {
   style.stroke: "#333"
   style.stroke-dash: 3
 }
 
 # Step 2: Select and launch
-Postman -> Postman: "3. Select template\nbased on rules" {
+Postman -> Postman: "3. Select checklist\nbased on rules" {
   style.stroke: "#666"
   style.stroke-dash: 3
 }
 
-Postman -> API: "4. POST /launch\nwith form data" {
+Postman -> API: "4. POST /runs\nwith checklist_id" {
   style.stroke: "#333"
   style.stroke-width: 2
 }
@@ -71,25 +72,25 @@ API -> API: "5. Validate\nkick-off data" {
   style.stroke: "#333"
 }
 
-API -> Process: "6. Create process\ninstance" {
+API -> Process: "6. Create run\ninstance" {
   style.stroke: "#333"
 }
 
-Process -> API: "7. Process created" {
+Process -> API: "7. Run created" {
   style.stroke: "#333"
   style.stroke-dash: 3
 }
 
-API -> Postman: "8. Return process\nID & details" {
+API -> Postman: "8. Return run\nID & details" {
   style.stroke: "#333"
   style.stroke-dash: 3
 }
 ```
 
 **What to notice:**
-- **Step 3**: Templates are selected dynamically based on business rules (purchase amount thresholds determine approval levels)
-- **Step 5**: Kick-off form data (`preruns`) is validated before creating the process instance
-- **Step 8**: Process details include the unique process ID needed for subsequent operations
+- **Step 3**: Templates are selected dynamically based on business rules
+- **Step 5**: Kick-off form data (`prerun`) gets validated before the run is created
+- **Step 8**: The response includes the run ID you'll need for all subsequent operations
 
 ## Listing available templates
 
@@ -101,6 +102,7 @@ GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists
 Headers:
 Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
 X-Tallyfy-Client: APIClient
+Accept: application/json
 ```
 
 Response includes:
@@ -110,34 +112,59 @@ Response includes:
     {
       "id": "checklist_abc123",
       "name": "Employee Onboarding",
-      "description": "Standard process for new hires",
-      "is_public": false,
-      "steps_count": 12
+      "guidance": "Standard process for new hires",
+      "prerun": [
+        {
+          "id": "field_abc123",
+          "label": "Employee Name",
+          "field_type": "text"
+        }
+      ]
     }
   ]
 }
 ```
 
-**Pro tip**: Save template IDs as environment variables for easy reuse.
+**Pro tip**: Save template IDs as Postman environment variables for easy reuse.
+
+## Getting template details
+
+To see a template's full structure including kick-off form fields and steps:
+
+```
+GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists/{{CHECKLIST_ID}}?with=steps
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+Accept: application/json
+```
+
+The `prerun` array in the response contains all kick-off form fields with their IDs, labels, and types.
 
 ## Launching a process
 
 ### Basic launch (no kick-off form)
 
+Processes are created by posting to the runs endpoint with a `checklist_id`:
+
 ```
-POST {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists/{{TEMPLATE_ID}}/launch
+POST {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs
 
 Headers:
 Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
 X-Tallyfy-Client: APIClient
 Content-Type: application/json
+Accept: application/json
 
 Body:
 {
-  "name": "Onboarding - Jane Smith",
-  "deadline_date": "2025-02-15"
+  "checklist_id": "{{CHECKLIST_ID}}",
+  "name": "Onboarding - Jane Smith"
 }
 ```
+
+The `checklist_id` field is required. It must be the template's timeline ID (a 32-character UUID without hyphens).
 
 ### Launch with kick-off form data
 
@@ -145,84 +172,82 @@ Most templates have kick-off forms. Here's how to pre-fill them:
 
 ```json
 {
+  "checklist_id": "{{CHECKLIST_ID}}",
   "name": "Purchase Request - MacBook Pro",
-  "preruns": {
+  "prerun": {
     "field_abc123": "John Smith",
     "field_def456": 2499.99,
-    "field_ghi789": "Engineering team needs upgraded hardware",
-    "field_jkl012": ["Option A", "Option B"]  // Multi-select field
-  },
-  "deadline_date": "2025-02-20"
-}
-```
-
-### Finding field IDs
-
-Three ways to find kick-off form field IDs:
-
-1. **Chrome DevTools method** (easiest):
-   - Launch process manually in Tallyfy
-   - Open Network tab
-   - Look for the launch request
-   - Copy field IDs from payload
-
-2. **API exploration**:
-   ```
-   GET {{TALLYFY_BASE_URL}}/checklists/{{TEMPLATE_ID}}
-   ```
-   Look for `prerun_fields` in response
-
-3. **Postman console**:
-   - Enable Postman console (View → Show Postman Console)
-   - Make requests and inspect full responses
-
-## Advanced launch patterns
-
-### Launch with specific assignees
-
-Assign members during launch:
-
-```json
-{
-  "name": "Q1 Budget Review",
-  "members": {
-    "member_123": ["step_1", "step_3", "step_5"],
-    "member_456": ["step_2", "step_4"],
-    "member_789": ["step_6", "step_7", "step_8"]
+    "field_ghi789": "Engineering team needs upgraded hardware"
   }
 }
 ```
 
+Note the field name is `prerun` (singular), not `preruns`.
+
+### Finding kick-off field IDs
+
+Three ways to find kick-off form field IDs:
+
+1. **Chrome DevTools method** (easiest):
+   - Launch a process manually in Tallyfy
+   - Open the Network tab
+   - Look for the POST request to `/runs`
+   - Copy field IDs from the `prerun` object in the payload
+
+2. **API exploration**:
+   ```
+   GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists/{{CHECKLIST_ID}}
+   ```
+   Look for `prerun` in the response - it contains an array of field objects with `id` and `label` properties.
+
+3. **Form fields endpoint**:
+   ```
+   GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists/{{CHECKLIST_ID}}/form-fields
+   ```
+
+## Advanced launch patterns
+
+### Launch with task assignments
+
+Override task assignees during launch using the `tasks` object keyed by step timeline ID:
+
+```json
+{
+  "checklist_id": "{{CHECKLIST_ID}}",
+  "name": "Q1 Budget Review",
+  "tasks": {
+    "step_timeline_id_1": {
+      "owners": {
+        "users": ["user_id_123", "user_id_456"],
+        "guests": ["guest@example.com"],
+        "groups": ["group_id_789"]
+      }
+    }
+  },
+  "users": ["user_id_123", "user_id_456"]
+}
+```
+
+You can also assign users and groups at the process level with the `users` and `groups` arrays.
+
 ### Conditional launch based on data
 
-Use pre-request scripts for dynamic launches:
+Use Postman's pre-request scripts for dynamic launches:
 
 ```javascript
 // Determine template based on request amount
 const amount = pm.variables.get("purchase_amount");
-let templateId;
+let checklistId;
 
 if (amount < 1000) {
-    templateId = "template_simple";
+    checklistId = "checklist_simple";
 } else if (amount < 10000) {
-    templateId = "template_manager_approval";
+    checklistId = "checklist_manager_approval";
 } else {
-    templateId = "template_executive_approval";
+    checklistId = "checklist_executive_approval";
 }
 
-pm.variables.set("DYNAMIC_TEMPLATE_ID", templateId);
-
-// Set deadline based on priority
-const priority = pm.variables.get("priority");
-const deadline = new Date();
-
-if (priority === "urgent") {
-    deadline.setDate(deadline.getDate() + 1);
-} else {
-    deadline.setDate(deadline.getDate() + 7);
-}
-
-pm.variables.set("DEADLINE", deadline.toISOString().split('T')[0]);
+pm.variables.set("CHECKLIST_ID", checklistId);
 ```
 
 ### Bulk process launching
@@ -231,26 +256,28 @@ Launch multiple processes efficiently:
 
 ```javascript
 const employees = [
-    { name: "Alice Johnson", dept: "Engineering", start: "2025-02-01" },
-    { name: "Bob Smith", dept: "Sales", start: "2025-02-05" },
-    { name: "Carol White", dept: "Marketing", start: "2025-02-10" }
+    { name: "Alice Johnson", dept: "Engineering", start: "2026-02-01" },
+    { name: "Bob Smith", dept: "Sales", start: "2026-02-05" },
+    { name: "Carol White", dept: "Marketing", start: "2026-02-10" }
 ];
 
 employees.forEach((emp, index) => {
     setTimeout(() => {
         pm.sendRequest({
-            url: `${pm.environment.get("TALLYFY_BASE_URL")}/organizations/${pm.environment.get("TALLYFY_ORG_ID")}/checklists/${pm.environment.get("ONBOARDING_TEMPLATE_ID")}/launch`,
+            url: `${pm.environment.get("TALLYFY_BASE_URL")}/organizations/${pm.environment.get("TALLYFY_ORG_ID")}/runs`,
             method: 'POST',
             header: {
                 'Authorization': `Bearer ${pm.environment.get("TALLYFY_ACCESS_TOKEN")}`,
                 'X-Tallyfy-Client': 'APIClient',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: {
                 mode: 'raw',
                 raw: JSON.stringify({
+                    checklist_id: pm.environment.get("ONBOARDING_CHECKLIST_ID"),
                     name: `Onboarding - ${emp.name}`,
-                    preruns: {
+                    prerun: {
                         field_name: emp.name,
                         field_dept: emp.dept,
                         field_start: emp.start
@@ -273,44 +300,66 @@ employees.forEach((emp, index) => {
 ```
 GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs?status=active
 
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+Accept: application/json
+
 Query parameters:
-- status: active, completed, archived
-- updated_after: 2025-01-01T00:00:00Z
-- limit: 50
-- offset: 0
+- status: active, complete, problem, archived, delayed
+- per_page: 10 (default)
+- with: checklist,tasks_meta
 ```
 
 ### Get process details
 
 ```
-GET {{TALLYFY_BASE_URL}}/runs/{{PROCESS_ID}}
+GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs/{{RUN_ID}}?with=tasks,checklist
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+Accept: application/json
 ```
 
-Returns complete process info including:
-- Current status of all tasks
-- Assigned members
-- Form field values
-- Comments and activity
+Returns the full process including task statuses, assigned members, form field values, and comments.
 
 ### Update process metadata
 
 ```
-PUT {{TALLYFY_BASE_URL}}/runs/{{PROCESS_ID}}
+PUT {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs/{{RUN_ID}}
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+Content-Type: application/json
+Accept: application/json
 
 Body:
 {
   "name": "Updated Process Name",
-  "deadline_date": "2025-03-01"
+  "owner_id": "new_owner_user_id"
 }
 ```
 
-### Archive completed processes
+### Archive a process (soft delete)
 
 ```
-PUT {{TALLYFY_BASE_URL}}/runs/{{PROCESS_ID}}/archive
+DELETE {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs/{{RUN_ID}}
+
+Headers:
+Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
+X-Tallyfy-Client: APIClient
+Accept: application/json
 ```
 
-## Process monitoring patterns
+To unarchive (reactivate) a process:
+
+```
+PUT {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/runs/{{RUN_ID}}/activate
+```
+
+## Process monitoring in Postman
 
 ### Find stuck processes
 
@@ -322,7 +371,7 @@ const processes = pm.response.json().data;
 const stuckThreshold = 3; // days
 
 const stuckProcesses = processes.filter(p => {
-    const lastUpdate = new Date(p.updated_at);
+    const lastUpdate = new Date(p.last_updated_at);
     const daysSinceUpdate = (Date.now() - lastUpdate) / (1000 * 60 * 60 * 24);
     return daysSinceUpdate > stuckThreshold && p.status === 'active';
 });
@@ -332,15 +381,12 @@ if (stuckProcesses.length > 0) {
     stuckProcesses.forEach(p => {
         console.log(`- ${p.name} (ID: ${p.id})`);
     });
-    
-    // Save for further action
+
     pm.environment.set("STUCK_PROCESSES", JSON.stringify(stuckProcesses));
 }
 ```
 
-### Process completion tracking
-
-Track completion rates by template:
+### Track completion rates by template
 
 ```javascript
 // After getting all processes
@@ -348,19 +394,19 @@ const processes = pm.response.json().data;
 const stats = {};
 
 processes.forEach(p => {
-    const templateId = p.checklist_id;
-    if (!stats[templateId]) {
-        stats[templateId] = { total: 0, completed: 0 };
+    const checklistId = p.checklist_id;
+    if (!stats[checklistId]) {
+        stats[checklistId] = { total: 0, completed: 0 };
     }
-    stats[templateId].total++;
-    if (p.status === 'completed') {
-        stats[templateId].completed++;
+    stats[checklistId].total++;
+    if (p.status === 'complete') {
+        stats[checklistId].completed++;
     }
 });
 
-Object.entries(stats).forEach(([templateId, data]) => {
+Object.entries(stats).forEach(([checklistId, data]) => {
     const rate = (data.completed / data.total * 100).toFixed(1);
-    console.log(`Template ${templateId}: ${rate}% completion rate`);
+    console.log(`Checklist ${checklistId}: ${rate}% completion rate`);
 });
 ```
 
@@ -368,25 +414,25 @@ Object.entries(stats).forEach(([templateId, data]) => {
 
 ### "Template not found" errors
 
-- Verify template ID is correct
-- Check template isn't archived
-- Ensure you have permission to launch
+- Verify the `checklist_id` is correct (32-character UUID, no hyphens)
+- Check the template isn't archived or in draft mode
+- Confirm you have launch permission for that template
 
 ### Kick-off form validation failures
 
 Common issues:
-- Required fields missing
+- Required fields missing from `prerun`
 - Wrong data type (string vs number)
 - Invalid option for select fields
 
-Debug by getting template details first to see field requirements.
+Debug by getting template details first - the `prerun` array shows each field's type and requirements.
 
-### Process launch limits
+### Rate limiting
 
-Tallyfy may limit concurrent launches. If bulk launching:
-- Add delays between requests (100-500ms)
+If you're bulk launching:
+- Add delays between requests (200-500ms)
 - Batch in groups of 10-20
-- Monitor for 429 rate limit errors
+- Watch for 429 rate limit responses
 
 ## Next steps
 
@@ -399,7 +445,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Processes > Launch process</b>" href="/products/pro/integrations/open-api/code-samples/processes/launch-process/" > The API endpoint POST /organizations/[org_id]/runs launches new Tallyfy process instances from templates by specifying required fields like checklist_id and name along with optional parameters for pre-filling kick-off forms and overriding task assignments and deadlines. </LinkTitleCard>
-<LinkTitleCard header="<b>Pro > Launching</b>" href="/products/pro/launching/" > Launch a process in Tallyfy to turn a reusable template into an active tracked instance with assignments and deadlines - using manual, API, form, email, or magic link methods. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Launching</b>" href="/products/pro/launching/" > Tallyfy's process launching feature transforms reusable workflow templates into active trackable instances with specific assignments and deadlines that operate independently through multiple launch methods including manual API webhooks forms email triggers and magic links while allowing customization during launch and protecting running processes from template changes. </LinkTitleCard>
+<LinkTitleCard header="<b>Launching > Launch manually</b>" href="/products/pro/launching/how-can-i-launch-a-process-in-tallyfy/" > Manual process launching in Tallyfy transforms reusable templates into active workflow instances by clicking Launch Process on template cards and providing unique names to ensure complete step tracking and customization control throughout workflow execution. </LinkTitleCard>
 <LinkTitleCard header="<b>Tutorials > Launch a process</b>" href="/products/pro/tutorials/your-first-process/" > This tutorial demonstrates launching workflow processes in Tallyfy by using to templates selecting the desired template clicking Launch Process completing any kick-off forms naming the instance optionally reviewing settings and finalizing the launch to create an active trackable workflow with automatic notifications. </LinkTitleCard>
-<LinkTitleCard header="<b>Triggers > Launch via API</b>" href="/products/pro/launching/triggers/via-api/" > Tallyfy's REST API enables automated process launching through code integration with external systems by authenticating via API key or OAuth and sending POST requests with template IDs and kick-off form data to create processes triggered by events like CRM deal closures or IoT sensor alerts. </LinkTitleCard>
 </CardGrid>

@@ -4,244 +4,180 @@ description: Chrome DevTools enables developers to monitor and analyze Tallyfy's
   inspect endpoints headers payloads and responses to understand how to replicate
   the platform's API calls for custom integrations.
 id: bf574aea3590f1b2f090c1671e1bf1c3
-lastUpdated: 2025-12-16
+lastUpdated: 2026-02-25
 sidebar:
   order: 15
 title: Sniff API calls using Chrome
+about_tallyfy: true
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Monitoring Tallyfy API calls with Chrome DevTools
+## Inspecting Tallyfy API calls with Chrome DevTools
 
-Tallyfy's "API-first" architecture enables developers to understand how the platform communicates with its backend. By inspecting these Tallyfy API calls, you can implement your own integrations.
+Tallyfy uses an API-first architecture, which means every action in the web app makes API calls you can inspect. By watching these calls in Chrome DevTools, you can figure out exactly how to replicate them for your own integrations.
 
-### Requirements
+### Before you start
 
-Before starting:
 - Chrome browser (latest version recommended)
-- A Tallyfy account with appropriate permissions
+- A Tallyfy account with the right permissions
 - Basic understanding of HTTP requests and JSON
-- Familiarity with the Tallyfy feature you want to analyze
 
-:::note[API Documentation]
-Complete API reference documentation is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
+:::note[API documentation]
+Full API reference is available at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
 :::
 
-### Important API header requirement
+### Required API header
 
-When making direct API calls to Tallyfy endpoints, you must always include this header:
+When making direct API calls to Tallyfy, you must always include this header:
 
 ```
 X-Tallyfy-Client: APIClient
 ```
 
-:::caution[Header Requirement]
-Requests without this header will be automatically rejected. This is a security measure.
+:::caution[Header requirement]
+Requests without this header will be rejected. It's a security requirement.
 :::
 
-## Capturing API calls with Chrome DevTools
+## Capturing API calls
 
-### Setup process
+### Setting up DevTools
 
 <Steps>
-1. Navigate to the Tallyfy web application and sign in.
-2. Open Chrome DevTools by right-clicking anywhere and selecting **Inspect**.
-3. Click the **Network** tab in the DevTools panel.
-4. Ensure recording is enabled (the red record button should be active).
-5. Check the **Preserve log** checkbox to maintain requests between page loads.
-6. Select **Disable cache** to ensure fresh responses.
-7. Clear existing requests by clicking the 🚫 icon.
-8. Perform the Tallyfy action you want to analyze (e.g., load processes, launch a process, complete a task).
-9. Click the **Fetch/XHR** filter button at the top of the Network panel.
+1. Sign in to Tallyfy in Chrome.
+2. Right-click anywhere on the page and select **Inspect** to open DevTools.
+3. Click the **Network** tab.
+4. Make sure recording is active (the red record button should be filled in).
+5. Check **Preserve log** to keep requests between page navigations.
+6. Check **Disable cache** for fresh responses.
+7. Clear existing entries by clicking the clear button.
+8. Perform the Tallyfy action you want to analyze - load a template, launch a process, complete a task, etc.
+9. Click the **Fetch/XHR** filter at the top of the Network panel.
 10. Type `/api/` in the filter box to show only Tallyfy API calls.
-11. Click on a Tallyfy `/api/` request in the filtered list to open its details.
+11. Click any request in the filtered list to open its details.
 </Steps>
 
-### Analyzing request details
+### Reading request details
 
-#### Request headers section
+#### Headers tab
 
-In the **Headers** tab, examine:
+In the **Headers** tab, you'll find:
 
-- **General information**: 
-  - Request URL: The full endpoint path
-  - Request method: GET, POST, PUT, DELETE, etc.
-  - Status code: 200 (success), 400 (client error), etc.
+- **General info**: The full request URL, HTTP method (GET, POST, PUT, DELETE), and status code (200 for success, 400 for client errors, etc.)
 
-- **Request Headers**: 
-  - `Authorization: Bearer <token>` for authentication
-  - `X-Tallyfy-Client: APIClient` required for direct API calls
-  - `Content-Type: application/json` for data formatting
+- **Request headers**: Look for `Authorization: Bearer <token>`, `X-Tallyfy-Client: APIClient`, and `Content-Type: application/json`
 
-- **Response Headers**: 
-  - Server response metadata
-  - Rate limiting information
-  - Caching directives
+- **Response headers**: Server metadata, rate limiting info, and caching directives
 
-#### Request payload section
+#### Payload tab
 
-For POST, PUT, or PATCH requests:
+For POST, PUT, or PATCH requests, click the **Payload** tab to see what was sent:
 
-- Click the **Payload** tab to view the request body
-- Review the following views:
-  - **Form Data**: URL-encoded parameters
-  - **Request Payload**: JSON structure
-  - **View Source**: Raw data exactly as sent
+- **Form Data** shows URL-encoded parameters
+- **Request Payload** shows the JSON body
+- **View Source** shows the raw data exactly as sent
 
-- Copy method:
-  <Steps>
-  1. Select the **view source** tab
-  2. Click anywhere in the payload area
-  3. Select all the text
-  4. Copy the selected text
-  5. This exact format can be used in your own Tallyfy API implementations
-  </Steps>
+To copy the payload:
+<Steps>
+1. Click the **view source** subtab.
+2. Select all the text in the payload area.
+3. Copy it - you can use this exact format in your own API calls.
+</Steps>
 
-#### Response data section
+#### Response tab
 
-Examine the server's response:
+Check what came back from the server:
 
-- Click the **Response** tab to view raw data returned from the server
-- Click the **Preview** tab to see formatted JSON structure
-- Analyze:
-  - Data objects and their structure
-  - Success/error messages
-  - Pagination information for list responses
-  - Timestamps and formatting patterns
+- The **Response** tab shows raw data
+- The **Preview** tab shows formatted JSON
 
-    ![Chrome DevTools showing Tallyfy API request payload](https://screenshots.tallyfy.com/tallyfy/pro/api-chrome-devtools-sniff.png)
+Look at data structure, success/error messages, pagination info, and timestamp formats.
 
-### Authentication analysis
+   ![Chrome DevTools showing Tallyfy API request payload](https://screenshots.tallyfy.com/tallyfy/pro/api-chrome-devtools-sniff.png)
 
-When examining authentication in Tallyfy API calls:
-
-- **Bearer Token Format**: Note the structure and length of the JWT token
-- **Token Lifespan**: Tokens typically expire after a set period
-- **Scope Information**: What permissions the token includes
-- **User Context**: Which user the token represents
-
-#### Required headers for API replication
+### Required headers for replicating calls
 
 | Header | Value | Purpose |
 |--------|-------|---------|
 | `Authorization` | `Bearer YOUR_TOKEN` | Authentication |
 | `X-Tallyfy-Client` | `APIClient` | Required identifier |
-| `Content-Type` | `application/json` | Format specification |
+| `Content-Type` | `application/json` | Request format |
 | `Accept` | `application/json` | Response format |
 
-### Testing your API understanding
+### Testing your captured calls
 
-To verify you've correctly understood a Tallyfy API call:
+To verify you've correctly captured a Tallyfy API call:
 
 <Steps>
-1. Copy the endpoint URL, headers, and payload
-2. Use a tool like Postman, Insomnia, or cURL to recreate the request
-3. Compare your response with what you observed in DevTools
-4. Troubleshoot any differences in the responses
+1. Copy the endpoint URL, headers, and payload from DevTools.
+2. Recreate the request using Postman, Insomnia, or cURL.
+3. Compare your response with what you saw in DevTools.
+4. Troubleshoot any differences.
 </Steps>
 
 #### Example cURL command
 
-For a typical Tallyfy API call, your cURL might look like:
+Here's what a typical Tallyfy API call looks like in cURL - this one launches a process from a template:
 
 ```bash
-curl -X POST "https://go.tallyfy.com/api/organizations/{orgID}/processes" \
+curl -X POST "https://go.tallyfy.com/api/organizations/{org_id}/runs" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -H "X-Tallyfy-Client: APIClient" \
+  -H "Accept: application/json" \
   -d '{
-    "template_id": 12345,
-    "name": "Test Process",
-    "assignees": [{"email": "user@example.com"}]
+    "checklist_id": "abc123",
+    "name": "Test Process"
   }'
 ```
 
-### Advanced DevTools features
+### Useful DevTools features
+
+#### Exporting a request as cURL
+
+<Steps>
+1. Right-click on any API request in the Network panel.
+2. Select **Copy** > **Copy as cURL**.
+3. Paste it into a terminal or text file - it'll include all headers and auth tokens automatically.
+</Steps>
 
 #### Throttling network speed
 
-To test how your Tallyfy API implementation performs under different conditions:
+You can simulate slow connections to test how your integration handles latency. Click the dropdown next to **Online** in the Network panel and pick a throttling preset.
 
-<Steps>
-1. Click the **Network Conditions** tab in DevTools (or use the dropdown next to "Online")
-2. Select a preset throttling profile or create a custom one
-3. Observe how the API behaves with slower connections
-</Steps>
+### Troubleshooting
 
-#### Exporting request data
+#### No requests showing up
 
-To save a request for later reference:
+- Make sure DevTools is open *before* you perform the action
+- Enable **Preserve log** in the Network tab
+- Disable cache and hard-refresh the page
+- Check you're looking at the correct browser tab
 
-<Steps>
-1. Right-click on the API request
-2. Select **Copy** > **Copy as cURL**
-3. Paste into a text file for future reference
-</Steps>
+#### Filter isn't showing results
 
-#### Using Integuru for automated API integration
+- Verify the filter text matches part of the API URL
+- Try clicking **Fetch/XHR** instead of using the text filter
+- Clear all filters to confirm requests exist at all
 
-For developers looking to automate API interactions with Tallyfy or other platforms, [Integuru](https://github.com/Integuru-AI/Integuru/) provides an advanced solution. Integuru is an open-source AI agent that can generate integration code by reverse-engineering platforms' internal API
+#### Getting 401 authentication errors
 
-Key features:
-- Automatically generates a dependency graph of API requests
-- Creates runnable Python code that reproduces your actions
-- Identifies relationships between different API calls
-- Handles authentication and session management
-
-To use Integuru with Tallyfy:
-
-<Steps>
-1. Install Integuru following the instructions on their GitHub repository
-2. Run `python create_har.py` to start a browser session
-3. Log into Tallyfy and perform the workflow action you want to automate
-4. Use the generated HAR file with Integuru to create Python code that reproduces the API calls
-</Steps>
-
-This approach can significantly accelerate API integration development by automatically analyzing the full sequence of API calls needed for complex operations.
-
-### Troubleshooting common issues
-
-#### No requests appearing
-
-If no API calls appear in DevTools:
-- Ensure DevTools is open before performing the action
-- Try enabling **Preserve log** option in the Network tab
-- Disable cache and perform a hard refresh
-- Verify you're looking at the correct browser tab
-- Check if content blockers are interfering with network requests
-
-#### Filtering problems
-
-If filtering doesn't show expected results:
-- Verify the filter string exactly matches part of the API URL
-- Try the built-in **Fetch/XHR** filter instead of text filtering
-- Clear all filters to check if requests appear at all
-- Ensure your browser isn't blocking certain requests
-
-#### Authentication errors
-
-If calls return HTTP 401 or similar errors:
-- Verify your Tallyfy session is active
-- Check that your API token is valid and properly formatted
-- Ensure all required headers are included in your requests
-- Confirm your user account has permission for the requested action
+- Check that your Tallyfy session is still active
+- Verify the Bearer token hasn't expired
+- Make sure all required headers are included
+- Confirm your account has permission for the action
 
 #### CORS or preflight issues
 
-For cross-origin implementation challenges:
-- Note any CORS preflight (`OPTIONS`) requests
-- Check response headers for CORS permissions
-- Understand allowed origins and methods
+If you're making cross-origin requests from your own app:
+- Watch for `OPTIONS` preflight requests in DevTools
+- Check the response headers for allowed origins and methods
 
-### Security considerations
+### Security reminders
 
-When working with API calls:
-
-- **Never share authentication tokens** publicly
-- **Mask sensitive data** in screenshots or shared requests
-- **Be aware of data access implications** when replicating calls
-- **Remember that all actions through the API are tracked** in audit logs
+- **Never share your auth tokens** publicly or in screenshots
+- **Mask sensitive data** before sharing request details
+- **All API actions are logged** in Tallyfy's audit trail
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

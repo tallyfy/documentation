@@ -1,9 +1,9 @@
 ---
-description: The PUT endpoint allows modification of existing Tallyfy process instance
-  properties like name summary owner tags and folders where providing arrays for tags
-  or folders completely replaces the existing values rather than appending to them.
+description: Update properties of a running Tallyfy process using PUT - change name
+  summary owner assignees visibility and kick-off form field values.
+about_tallyfy: true
 id: 42e62fe73cd88d7fb0e8a8d5a13dd5c2
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 4
 title: Update process
@@ -15,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `PUT /organizations/{org_id}/runs/{run_id}`
 
-This endpoint allows you to update certain properties of an existing Tallyfy process instance (run).
+Updates properties of an existing process (run). You only need to send the fields you want to change.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to update.
+Replace `{org_id}` with your Organization ID and `{run_id}` with the process run ID.
 
 ### Headers
 
@@ -30,38 +30,34 @@ Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the p
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the process properties you wish to modify. You only need to include the fields you want to change.
+Send a JSON object with only the fields you want to modify. Updatable fields:
 
-Refer to the `#definitions/createRunInput` schema (often similar for updates) in Swagger. Common updatable fields include:
+-   `name` (string): Process name (max 550 characters).
+-   `summary` (string): Process description text.
+-   `owner_id` (string): User ID of the new process owner. Must belong to the organization.
+-   `starred` (boolean): Whether the process is starred/favorited.
+-   `is_public` (boolean): Whether the process is publicly accessible.
+-   `publicly_hidden_fields` (array): Field IDs to hide from public view.
+-   `users` (array of strings): User IDs assigned to the process. **Replaces** all current user assignees.
+-   `groups` (array of strings): Group IDs assigned to the process. **Replaces** all current group assignees.
+-   `prerun` (object): Update kick-off form field values. Keys are field timeline IDs, values depend on field type. See [Launch process](/products/pro/integrations/open-api/code-samples/processes/launch-process/).
 
--   `name` (string): New name for the process instance.
--   `summary` (string): New summary/description.
--   `owner_id` (integer): Change the process owner.
--   `tags` (array of strings): **Replaces** the current list of tag IDs associated with the process.
--   `folders` (array of strings): **Replaces** the current list of folder IDs.
--   `prerun` (array): Update kick-off form field values (structure depends on field type, see [Launch Process](/products/pro/integrations/open-api/code-samples/processes/launch-process/)).
--   `prevent_guest_comment` (boolean): Enable/disable guest comments.
-
-### Updating form fields using `taskdata`
-
-To update form field values, include a `taskdata` object in the request body. The keys within `taskdata` are the **Form Field IDs (Capture IDs)**, and the values depend on the field type:
-
-:::note[Updating Tasks within a Process]
-To update individual tasks (assignees, deadlines, form fields) within a running process, use the [Update Task](/products/pro/integrations/open-api/code-samples/tasks/update-task/) endpoint (`PUT /organizations/{org}/runs/{run_id}/tasks/{task_id}`) instead.
+:::note[Updating tasks within a process]
+To update individual tasks (assignees, deadlines, form fields) within a running process, use the [Update task](/products/pro/integrations/open-api/code-samples/tasks/update-task/) endpoint (`PUT /organizations/{org}/runs/{run_id}/tasks/{task_id}`) instead.
 :::
 
-:::caution[Replacing Arrays (Tags/Folders)]
-Providing the `owners` object *replaces* all existing assignees with the ones specified in the `users`, `groups`, and `guests` arrays within the object. To remove all assignees, provide empty arrays for all three.
+:::caution[Replacing assignee arrays]
+Sending `users` or `groups` arrays **replaces** all existing assignees of that type. Fetch the current process first if you need to add or remove individual assignees without losing the rest.
 :::
 
-**Example Body:**
+**Example body:**
 
 ```json
 {
   "name": "Onboarding - Globex Corp (Updated)",
   "summary": "Updated summary notes for this run.",
-  "tags": ["tag_id_urgent", "tag_id_onboarding"],
-  "prevent_guest_comment": true
+  "starred": true,
+  "users": ["user_id_1", "user_id_2"]
 }
 ```
 
@@ -78,10 +74,7 @@ const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}`
 const updateData = {
   name: "JS Updated Process Name",
   summary: "Adding more details here.",
-  prevent_guest_comment: true,
-  // Replace tags (get current tags first if adding/removing incrementally)
-  // tags: ["tag_id_1", "tag_id_2"]
-  // owner_id: 1005
+  starred: true
 };
 
 const headers = new Headers();
@@ -96,12 +89,12 @@ fetch(apiUrl, {
     body: JSON.stringify(updateData)
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error(`Failed to update process ${runId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -131,36 +124,32 @@ headers = {
     'Content-Type': 'application/json'
 }
 
-# Note: Sending 'tags' or 'folders' replaces the existing list.
-# Get the current process run first if you need to add/remove incrementally.
+# Note: Sending 'users' or 'groups' replaces all existing assignees of that type.
 update_payload = {
     'name': 'Python Updated Process Name',
     'summary': 'Updated via Python requests.',
-    # Example: Replace tags
-    'tags': ['tag_id_new', 'tag_id_existing']
+    'starred': True
 }
 
 response = None
 try:
     response = requests.put(api_url, headers=headers, json=update_payload)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     updated_process = response.json()
     print(f'Successfully updated process {run_id}:')
     print(json.dumps(updated_process, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred updating process {run_id}: {http_err}")
+    print(f"HTTP error updating process {run_id}: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed updating process {run_id}: {req_err}")
+    print(f"Request failed for process {run_id}: {req_err}")
 except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for process update {run_id}")
+    print(f"Failed to decode JSON response for process {run_id}")
     if response is not None:
         print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -170,11 +159,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Requires a JSON library like Jackson or Gson
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import java.util.Map;
-// import java.util.HashMap;
-// import java.util.List;
 
 public class UpdateProcess {
     public static void main(String[] args) {
@@ -183,24 +167,8 @@ public class UpdateProcess {
         String runId = "PROCESS_RUN_ID_TO_UPDATE";
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId);
 
-        // --- Payload Construction ---
-        // Using Jackson/Gson recommended:
-        /*
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> updateData = new HashMap<>();
-        updateData.put("name", "Java Updated Run Name");
-        updateData.put("tags", List.of("tag1", "tag2")); // Replaces existing tags
-        String jsonPayload;
-        try {
-            jsonPayload = mapper.writeValueAsString(updateData);
-        } catch (Exception e) {
-            System.err.println("Failed to serialize JSON: " + e.getMessage());
-            return;
-        }
-        */
-        // Simple manual JSON string for example:
-        String jsonPayload = "{\"summary\": \"Java updated summary notes.\"}";
-        // --- End Payload ---
+        // Use Jackson or Gson for production payloads
+        String jsonPayload = "{\"name\": \"Java Updated Run Name\", \"summary\": \"Updated summary.\"}";
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -214,21 +182,16 @@ public class UpdateProcess {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
             if (response.statusCode() == 200) {
                 System.out.println("Successfully updated process " + runId + ":");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON response
             } else {
                 System.err.println("Failed to update process " + runId + ". Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Response: " + response.body());
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -242,38 +205,37 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    runId := "PROCESS_RUN_ID_TO_UPDATE"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	runId := "PROCESS_RUN_ID_TO_UPDATE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s", orgId, runId)
 
-    // Note: Sending 'tags' or 'folders' replaces the existing list.
 	updateData := map[string]interface{}{
-		"name": "Go Updated Process",
-        "owner_id": 1005, // Example: change owner
+		"name":    "Go Updated Process",
+		"summary": "Updated via Go client",
 	}
 
 	jsonData, err := json.Marshal(updateData)
 	if err != nil {
-        fmt.Printf("Error marshalling JSON: %v\n", err)
-        return
-    }
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
-    if err != nil {
-        fmt.Printf("Error creating update process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -281,17 +243,17 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing update process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading update process response body for run %s: %v\n", runId, err)
-        return
-    }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("Failed to update process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
@@ -299,14 +261,12 @@ func main() {
 	}
 
 	fmt.Printf("Successfully updated process %s:\n", runId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -363,12 +323,9 @@ int main() {
         value payload = value::object();
         payload[U("name")] = value::string(U("C++ Updated Process Name"));
         payload[U("summary")] = value::string(U("Updated via C++"));
-        // Example: Replace tags (get current first if adding/removing)
-        value tagsArray = value::array();
-        tagsArray[0] = value::string(U("tag_id_cpp"));
-        payload[U("tags")] = tagsArray;
+        payload[U("starred")] = value::boolean(true);
 
-        UpdateTallyfyProcess(U("PROCESS_RUN_ID_TO_UPDATE"), payload).wait(); // Replace with actual Run ID
+        UpdateTallyfyProcess(U("PROCESS_RUN_ID_TO_UPDATE"), payload).wait();
     } catch (const std::exception &e) {
         std::cerr << "Error in main: " << e.what() << std::endl;
     }
@@ -394,7 +351,6 @@ public class TallyfyProcessUpdater
 
     public class ProcessUpdatePayload
     {
-        // Include only fields to update. Use JsonIgnore to send only non-null fields.
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Name { get; set; }
 
@@ -402,20 +358,20 @@ public class TallyfyProcessUpdater
         public string Summary { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public int? OwnerId { get; set; }
-
-        // Remember: Sending Tags/Folders REPLACES the existing list.
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<string> Tags { get; set; }
+        public string OwnerId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<string> Folders { get; set; }
+        public bool? Starred { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? PreventGuestComment { get; set; }
+        public bool? IsPublic { get; set; }
 
-        // Add other updatable fields like Prerun if needed
-        // public List<Dictionary<string, object>> Prerun { get; set; }
+        // Sending Users or Groups replaces all existing assignees of that type.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> Users { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> Groups { get; set; }
     }
 
     public static async Task UpdateProcessAsync(string runId, ProcessUpdatePayload payload)
@@ -474,7 +430,7 @@ public class TallyfyProcessUpdater
     // {
     //     var processUpdate = new ProcessUpdatePayload {
     //         Summary = "Updated C# summary.",
-    //         Tags = new List<string> { "tag_cs_1", "tag_cs_2" } // Replaces existing
+    //         Starred = true
     //     };
     //     await UpdateProcessAsync("PROCESS_RUN_ID_TO_UPDATE", processUpdate);
     // }
@@ -485,23 +441,30 @@ public class TallyfyProcessUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the full details of the process run *after* the update.
+Returns `200 OK` with the full updated process wrapped in a `data` object.
 
 ```json
 {
   "data": {
     "id": "PROCESS_RUN_ID_TO_UPDATE",
-    "name": "Onboarding - Globex Corp (Updated)", // Updated name
-    "summary": "Updated summary notes for this run.", // Updated summary
-    "tags": ["tag_id_urgent", "tag_id_onboarding"], // Updated tags
-    // ... other process properties reflecting the current state ...
-    "last_updated": "YYYY-MM-DDTHH:MM:SSZ", // Timestamp reflects the update
-    "notes": "Updated process notes."
+    "checklist_id": "template_timeline_id",
+    "checklist_title": "Onboarding Template",
+    "name": "Onboarding - Globex Corp (Updated)",
+    "summary": "Updated summary notes for this run.",
+    "status": "active",
+    "progress": 25,
+    "owner_id": "user_id",
+    "starred": true,
+    "is_public": false,
+    "users": [],
+    "groups": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "last_updated": "2025-01-20T14:30:00Z"
   }
 }
 ```
 
-If the run ID is not found, you lack permission, or the request body is invalid, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+If the run ID isn't found, you don't have permission, or the request body is invalid, you'll get a `404`, `403`, or `422` error response.
 
 ---
 

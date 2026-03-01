@@ -1,10 +1,10 @@
 ---
-description: Google Gemini connects to Tallyfy workflows through official MCP support
-  announced in December 2025 enabling natural language process management via the
-  Gemini CLI or Google Cloud's managed infrastructure with features like BigQuery
-  analytics integration and multimodal document processing capabilities.
+description: Connect Google Gemini to Tallyfy's MCP server using the Gemini CLI
+  or Google Cloud's managed MCP infrastructure for natural language workflow
+  management.
 id: '00000000000000000000000000000000'
-lastUpdated: 2026-01-15
+about_tallyfy: true
+lastUpdated: 2026-02-25
 sidebar:
   order: 25
 title: Using Tallyfy MCP server with Google Gemini
@@ -12,51 +12,34 @@ title: Using Tallyfy MCP server with Google Gemini
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-:::note[MCP Client Compatibility]
-Google announced official MCP support in December 2025. Gemini now supports managed MCP servers for Google Cloud services and integrates with the broader MCP ecosystem through the Gemini CLI. MCP is governed by the Agentic AI Foundation under the Linux Foundation, with Google as a supporting member.
+:::note[MCP client compatibility]
+Google announced official MCP support in December 2025. Gemini supports managed MCP servers for Google Cloud services and connects to external MCP servers through the Gemini CLI. MCP is governed by the Agentic AI Foundation under the Linux Foundation.
 :::
 
-## Overview
+Google Gemini connects to Tallyfy's MCP server through OAuth 2.1, letting you manage workflows with natural language. You can use the Gemini CLI for local connections or Google Cloud's managed MCP infrastructure for enterprise setups.
 
-Google Gemini brings powerful AI capabilities to Tallyfy workflows through MCP integration. With official MCP support announced in December 2025, Gemini users can now connect to Tallyfy's MCP server using the Gemini CLI or through Google Cloud's managed MCP infrastructure.
+## Gemini MCP support status
 
-This guide shows you how to set up the integration, what works well, and how to get the most out of Gemini with Tallyfy.
-
-## Google Gemini MCP support status
-
-Here's the current state of MCP support in Gemini:
-
-- **Official support**: MCP announced December 2025 for Gemini models
-- **Managed MCP servers**: Google Cloud provides managed servers for Maps, BigQuery, Compute Engine, Kubernetes Engine
-- **Gemini CLI**: FastMCP integration for local MCP server connections
-- **Transport methods**: Streamable HTTP (aligned with industry standard)
-- **Apigee integration**: Translate standard APIs to MCP servers
-- **Planned rollout**: Cloud Run, Storage, AlloyDB, Cloud SQL, Spanner, Looker, Pub/Sub
-
-**Note:** Google is a supporting member of the Agentic AI Foundation, ensuring continued commitment to MCP standards.
+- **Official support** - MCP announced December 2025 for Gemini models
+- **Managed MCP servers** - Google Cloud provides managed servers for Maps, BigQuery, Compute Engine, Kubernetes Engine
+- **Gemini CLI** - FastMCP integration for local MCP server connections
+- **Transport** - Streamable HTTP
+- **Apigee integration** - Translate standard APIs to MCP servers
 
 ## Prerequisites
 
-You'll need these before getting started:
-
 - Google Cloud account with Gemini API access
-- Tallyfy API key (from your Tallyfy organization settings)
+- Tallyfy account with an active organization
 - Gemini CLI installed (for local MCP connections)
-- Basic familiarity with Google Cloud console
 
-## Setting up Tallyfy MCP Server with Google Gemini
+## Setting up the connection
 
 <Steps>
 
 1. **Install Gemini CLI**
 
-   The Gemini CLI provides the fastest way to connect to MCP servers:
-
    ```bash
-   # Install via npm
    npm install -g @google/gemini-cli
-
-   # Verify installation
    gemini --version
    ```
 
@@ -74,26 +57,24 @@ You'll need these before getting started:
            "type": "oauth2",
            "authorization_url": "https://go.tallyfy.com/mcp/oauth/authorize",
            "token_url": "https://go.tallyfy.com/mcp/oauth/token",
-           "scopes": ["mcp:tasks", "mcp:processes", "mcp:templates", "mcp:users", "mcp:read", "mcp:write"]
+           "scopes": ["mcp.tasks.read", "mcp.tasks.write", "mcp.processes.read", "mcp.processes.write", "mcp.templates.read", "mcp.templates.write", "mcp.users.read"]
          }
        }
      }
    }
    ```
 
-3. **Authenticate with Tallyfy**
+   Tallyfy uses dot-separated scopes with read/write suffixes (e.g., `mcp.tasks.read`). The full list of available scopes includes `mcp.users.read`, `mcp.users.write`, `mcp.tasks.read`, `mcp.tasks.write`, `mcp.processes.read`, `mcp.processes.write`, `mcp.templates.read`, `mcp.templates.write`, `mcp.forms.read`, `mcp.forms.write`, `mcp.automation.read`, and `mcp.automation.write`.
 
-   Run the OAuth flow to connect your Tallyfy account:
+3. **Authenticate with Tallyfy**
 
    ```bash
    gemini mcp auth tallyfy
    ```
 
-   This opens a browser window to authorize Gemini's access to your Tallyfy workspace.
+   This opens a browser window where you'll authorize Gemini's access to your Tallyfy workspace and select your organization.
 
 4. **Verify the connection**
-
-   Test the MCP connection with a simple query:
 
    ```bash
    gemini chat --mcp tallyfy
@@ -121,168 +102,95 @@ You'll need these before getting started:
 
 </Steps>
 
-## Practical demonstrations
+## Practical examples
 
-### Example 1: Task management via natural language
+### Task management via natural language
 
-**User prompt:**
+**Prompt:**
 ```
 Using Tallyfy, find all overdue tasks and create a summary grouped by assignee.
 ```
 
-**Gemini with MCP will:**
-1. Connect to Tallyfy's MCP server
-2. Execute the `search_tasks` tool with overdue filter
-3. Group results by assignee
-4. Generate a formatted summary
+Gemini will call the `search_for_tasks` tool with an overdue filter, group results by assignee, and generate a formatted summary.
 
-### Example 2: Process analytics
+### Process analytics
 
-**User prompt:**
+**Prompt:**
 ```
 Analyze our "Customer Onboarding" processes from the last month and identify bottlenecks.
 ```
 
-**Gemini with MCP will:**
-1. Query process history using MCP tools
-2. Calculate step completion times
-3. Identify steps with longest durations
-4. Provide optimization recommendations
+Gemini queries process history through MCP tools, calculates step completion times, and identifies which steps take longest.
 
-### Example 3: Template optimization
+### Template review
 
-**User prompt:**
+**Prompt:**
 ```
-Review our "Invoice Processing" template and suggest improvements based on best practices.
+Review our "Invoice Processing" template and suggest improvements.
 ```
 
-**Gemini with MCP will:**
-1. Retrieve template structure using `get_template`
-2. Analyze step dependencies and automation rules
-3. Compare against workflow best practices
-4. Suggest specific optimizations
+Gemini retrieves the template structure using `get_template`, analyzes step dependencies and automation rules, then suggests optimizations.
 
-## Unique Gemini features
+## Gemini-specific features
 
-### 1. Thinking capabilities
+### Google Cloud integration
 
-Gemini's extended thinking mode provides deeper analysis:
-- Multi-step reasoning for complex workflow decisions
-- Detailed explanations of recommendations
-- Consideration of edge cases and exceptions
+Since Gemini lives inside Google's ecosystem, you can combine Tallyfy data with other Google services:
 
-### 2. Google Cloud integration
+- **BigQuery** - Analyze Tallyfy process data alongside your data warehouse
+- **Cloud Run** - Deploy custom MCP logic at scale
+- **Pub/Sub** - Set up event-driven workflow triggers
 
-Deep integration with Google's ecosystem:
-- **BigQuery**: Analyze Tallyfy data alongside your data warehouse
-- **Cloud Run**: Deploy custom MCP logic at scale
-- **Pub/Sub**: Event-driven workflow triggers
+### Multimodal input
 
-### 3. Multimodal capabilities
+Gemini can process images and documents alongside text, which helps with visual inspection workflows or document review processes.
 
-Gemini can process multiple input types:
-- Analyze uploaded documents within workflow context
-- Process images for visual inspection workflows
-- Combine text and visual analysis for comprehensive reviews
+### Vertex AI agents
 
-### 4. Vertex AI Agent Development Kit
-
-Build sophisticated agents that combine Tallyfy with other services:
-- Multi-agent orchestration
-- Custom tool development
-- Enterprise governance and monitoring
+Build multi-agent systems that combine Tallyfy with other services through Google's Agent Development Kit - useful for orchestrating across multiple tools with governance controls.
 
 ## Limitations
 
-Some things to keep in mind:
+### Feature rollout
 
-### 1. Feature rollout
+MCP support is new (December 2025). Some managed MCP servers are still rolling out, regional availability varies, and enterprise features may need additional configuration.
 
-**Current state**: MCP support is new (December 2025)
+### Text-based constraints
 
-**Limitations:**
-- Some managed MCP servers still rolling out
-- Regional availability varies
-- Enterprise features may require additional configuration
+Like other AI chat interfaces, Gemini can't display Tallyfy's visual process tracker. Complex forms become text-based interactions, and you'll need to ask explicitly for status updates.
 
-### 2. Text-based interface constraints
+### Google Cloud dependencies
 
-Same as other AI platforms:
-- No visual process tracker display
-- Complex forms become text-based interactions
-- Real-time updates require explicit queries
+Managed MCP servers require a Google Cloud account. Some features need specific IAM permissions, and Cloud usage has its own billing.
 
-### 3. Google Cloud dependencies
+## Best use cases
 
-For managed MCP servers:
-- Requires Google Cloud account
-- Some features need specific IAM permissions
-- Billing applies for Cloud usage
+### Data-driven optimization
 
-## Ideal use cases
-
-### 1. Data-driven workflow optimization
-
-**Strength**: Combine BigQuery analytics with Tallyfy process data.
-
-**Example:**
+Combine BigQuery analytics with Tallyfy process data:
 ```
-Correlate customer support ticket data from BigQuery with our support process completion times in Tallyfy. Identify patterns and suggest process improvements.
+Correlate customer support ticket data from BigQuery with our support process completion times in Tallyfy.
 ```
 
-### 2. Multi-service automation
+### Multi-service automation
 
-**Strength**: Orchestrate across Google Cloud and Tallyfy.
-
-**Example:**
+Orchestrate across Google Cloud and Tallyfy:
 ```
 When a new document is uploaded to Cloud Storage, trigger the document review process in Tallyfy and notify the team via Gmail.
 ```
 
-### 3. Intelligent process monitoring
+### Process monitoring
 
-**Strength**: Gemini's analytical capabilities for workflow insights.
-
-**Example:**
+Use Gemini's analytical capabilities for workflow insights:
 ```
-Monitor all active processes and alert me to any that are at risk of missing their SLA, with root cause analysis.
+Monitor all active processes and alert me to any at risk of missing their SLA, with root cause analysis.
 ```
 
-## Security considerations
+## Security
 
-1. **Authentication**
-   - OAuth 2.1 with PKCE for secure token exchange
-   - Tokens stored securely in Google's infrastructure
-   - Refresh tokens for persistent connections
-
-2. **Data handling**
-   - Data processed according to Google's AI policies
-   - Enterprise controls via Vertex AI
-   - Audit logging available in Cloud Logging
-
-3. **Network security**
-   - All traffic over HTTPS
-   - VPC Service Controls for enterprise
-   - Private connectivity options available
-
-## Best practices
-
-1. **Start with Gemini CLI**: Fastest way to test and iterate
-2. **Use structured prompts**: Gemini performs best with clear, specific instructions
-3. **Leverage thinking mode**: Enable for complex analytical tasks
-4. **Monitor usage**: Track API calls and costs in Google Cloud Console
-5. **Implement error handling**: Build retry logic for production integrations
-
-## Future outlook
-
-Google's MCP roadmap includes:
-
-- **Expanded managed servers**: Cloud Run, Storage, AlloyDB, Cloud SQL, Spanner, Looker, Pub/Sub
-- **Apigee MCP translation**: Convert any API to MCP server automatically
-- **Enhanced Vertex AI integration**: Deeper agent development capabilities
-- **Enterprise governance**: Advanced security and compliance features
-
-As a founding member of the Agentic AI Foundation, Google is committed to the continued evolution of MCP as the industry standard.
+- **Authentication** - OAuth 2.1 with PKCE (S256 code challenge). Tokens are stored in Google's infrastructure with automatic refresh token rotation.
+- **Data handling** - Processed according to Google's AI policies, with enterprise controls via Vertex AI and audit logging in Cloud Logging.
+- **Network** - All traffic over HTTPS, with VPC Service Controls and private connectivity options for enterprise.
 
 ## Related articles
 <CardGrid>

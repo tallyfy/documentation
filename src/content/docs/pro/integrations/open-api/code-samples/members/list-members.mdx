@@ -1,9 +1,9 @@
 ---
-description: This endpoint enables retrieval of all registered members within a Tallyfy
-  organization by making a GET request with optional query parameters for including
-  related group data and pagination controls.
+about_tallyfy: true
+description: Retrieve all members in a Tallyfy organization using a GET request with
+  optional query parameters for search, sorting, includes, and pagination.
 id: 4eef8d9c12ddeb9f83feb6ed2aa38efd
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: List members
@@ -15,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/users`
 
-This endpoint retrieves a list of registered members (users) within your Tallyfy organization.
+This endpoint returns a paginated list of members (users) in your Tallyfy organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID.
+Replace `{org_id}` with your actual Organization ID.
 
 ### Headers
 
@@ -29,8 +29,11 @@ Replace `{org_id}` with your Organization ID.
 
 ### Query parameters (optional)
 
--   `with` (string): Include related data such as `groups`.
--   Pagination parameters (`page`, `per_page`) may also be available (check Swagger documentation).
+-   `with` (string): Comma-separated list of related data to include. Supported values include `groups`, `stats`, `organizations`, `preferences`, `assets`, `member_watchers`, `guest_watchers`, `auth_methods`, `country`.
+-   `q` (string): Search query to filter members by first name, last name, or email.
+-   `sort` (string): Field to sort by. Prefix with `-` for descending order (e.g., `-created_at`).
+-   `per_page` (integer): Number of results per page. Defaults to `9999` if not specified.
+-   `page` (integer): Page number for paginated results.
 
 ### Code samples
 
@@ -40,7 +43,7 @@ Replace `{org_id}` with your Organization ID.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = '?with=groups&page=1&per_page=50'; // Example: Include group info and paginate
+const queryParams = '?with=groups&per_page=50&page=1';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/users${queryParams}`;
 
 const headers = new Headers();
@@ -53,12 +56,12 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to list members:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -86,24 +89,23 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-    'with': 'groups', 
-    'page': 1,
-    'per_page': 25
+    'with': 'groups',
+    'per_page': 50,
+    'page': 1
 }
 
 response = None
 try:
     response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+    response.raise_for_status()
 
     members_data = response.json()
     print('Successfully listed members:')
     print(json.dumps(members_data, indent=4))
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing members: {http_err}") 
+    print(f"HTTP error occurred listing members: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
@@ -134,12 +136,11 @@ public class ListMembers {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/users";
 
-        // Optional: Add query parameters
-        Map<String, String> queryParamsMap = Map.of("with", "groups", "page", "1"); 
+        Map<String, String> queryParamsMap = Map.of("with", "groups", "per_page", "50", "page", "1");
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
-        
+
         String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
 
         HttpClient client = HttpClient.newHttpClient();
@@ -153,11 +154,10 @@ public class ListMembers {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
+
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed members:");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
                 System.err.println("Failed to list members. Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
@@ -181,33 +181,33 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users", orgId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/users", orgId)
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-    queryParams.Add("with", "groups")
-    queryParams.Add("page", "1")
-    
-    apiUrl := baseURL
-    if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	queryParams := url.Values{}
+	queryParams.Add("with", "groups")
+	queryParams.Add("per_page", "50")
+	queryParams.Add("page", "1")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	apiUrl := baseURL
+	if len(queryParams) > 0 {
+		apiUrl += "?" + queryParams.Encode()
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
+	if err != nil {
 		fmt.Printf("Error creating list members request: %v\n", err)
 		return
 	}
@@ -217,14 +217,14 @@ func main() {
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
+	if err != nil {
 		fmt.Printf("Error executing list members request: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		fmt.Printf("Error reading list members response body: %v\n", err)
 		return
 	}
@@ -235,14 +235,12 @@ func main() {
 	}
 
 	fmt.Println("Successfully listed members:")
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a slice of member structs if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -260,13 +258,14 @@ using namespace web::json;
 
 pplx::task<void> ListTallyfyMembers()
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("users"));
-    builder.append_query(U("with"), U("groups")); // Example query parameter
+    builder.append_query(U("with"), U("groups"));
+    builder.append_query(U("per_page"), 50);
     builder.append_query(U("page"), 1);
     utility::string_t apiUrl = builder.to_string();
 
@@ -285,7 +284,6 @@ pplx::task<void> ListTallyfyMembers()
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully listed members:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
                 } else {
                     std::wcerr << L"Failed to list members. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
@@ -300,7 +298,7 @@ pplx::task<void> ListTallyfyMembers()
 
 int main() {
     try {
-        ListTallyfyMembers().wait(); 
+        ListTallyfyMembers().wait();
     } catch (const std::exception &e) {
         std::cerr << "Error in main: " << e.what() << std::endl;
     }
@@ -316,7 +314,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyMemberLister
 {
@@ -326,12 +324,11 @@ public class TallyfyMemberLister
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "groups"; // Example
-        query["page"] = "1";
+        query["with"] = "groups";
         query["per_page"] = "50";
+        query["page"] = "1";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/users?{queryString}";
 
@@ -348,12 +345,11 @@ public class TallyfyMemberLister
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully listed members:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -384,7 +380,7 @@ public class TallyfyMemberLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element in the array represents a member user.
+A successful request returns a `200 OK` status code and a JSON object with a `data` array of member objects, plus a `meta` object containing pagination details.
 
 ```json
 {
@@ -397,27 +393,45 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "last_name": "Smith",
       "full_name": "Alice Smith",
       "profile_pic": "https://.../profile.jpg",
-      "active": true,
-      "is_suspended": false,
-      "created_at": "...",
-      "last_updated": "...",
-      "last_login_at": "...",
+      "country_id": 1,
+      "is_active": true,
+      "last_login_at": "2025-01-15T10:30:00+00:00",
+      "activated_at": "2024-06-01T08:00:00+00:00",
+      "type": "standard",
+      "created_at": "2024-06-01T08:00:00+00:00",
+      "updated_at": "2025-01-15T10:30:00+00:00",
+      "phone": "+1234567890",
+      "job_title": "Project Manager",
+      "timezone": "America/New_York",
+      "UTC_offset": "-05:00",
+      "role": "Admin",
       "status": "active",
-      "user_role": "Admin", // Role within the current organization
-       // Included if requested with 'with=groups':
-      "groups": [
-          { "id": "group_id_1", "name": "Sales Team" },
-          { "id": "group_id_2", "name": "Support" }
-      ]
-      // ... other user properties ...
+      "date_format": "MM/DD/YYYY",
+      "is_default_admin": false,
+      "groups": {
+        "data": [
+          { "id": "group_id_1", "name": "Sales Team", "logo": null, "members": [1001, 1002], "guests": [] }
+        ]
+      }
     },
     {
       "id": 1002,
       "email": "bob@example.com",
-       // ... details for another member ...
+      "first_name": "Bob",
+      "last_name": "Jones",
+      "status": "active",
+      "role": "Standard"
     }
-  ]
-  // Potential meta object for pagination if supported
+  ],
+  "meta": {
+    "pagination": {
+      "total": 2,
+      "count": 2,
+      "per_page": 50,
+      "current_page": 1,
+      "total_pages": 1
+    }
+  }
 }
 ```
 

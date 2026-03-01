@@ -7,52 +7,60 @@ id: ae597515caed7f18e550f16a402af4ba
 sidebar:
   order: 2
 title: NetSuite technical integration
+lastUpdated: 2026-02-25
+about_tallyfy: false
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Integration options
 
-NetSuite emphasizes REST APIs as the preferred integration method. Choose based on your technical requirements.
+NetSuite's REST APIs are the preferred integration method. Pick the approach that fits your team's technical setup.
 
 ### REST API integration (recommended)
 
-Use OAuth 2.0 authentication with NetSuite's REST API:
+Use OAuth 2.0 with NetSuite's REST API to fetch record data, then launch a Tallyfy process[^1] via the Tallyfy API. Note that Tallyfy's API uses org-scoped endpoints - templates are called "checklists" in API paths, and launching a process means creating a "run."
 
 ```javascript
-const handleEmployeeHire = async (employeeData) => {
+const handleEmployeeHire = async (employeeData, orgId, checklistId) => {
+  // 1. Fetch employee details from NetSuite
   const employee = await netsuiteAPI.get(`/employee/${employeeData.id}`, {
     expand: ['department', 'location', 'subsidiary', 'supervisor']
   });
 
-  const workflow = await fetch('https://api.tallyfy.com/v1/workflows', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_TALLYFY_KEY',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      template_id: 'netsuite_onboarding',
-      name: `Onboarding - ${employee.entityId}`,
-      data: {
-        employee_id: employee.id,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        email: employee.email,
-        subsidiary: employee.subsidiary.name,
-        department: employee.department.name,
-        location: employee.location.name,
-        supervisor: employee.supervisor.name
-      }
-    })
-  });
+  // 2. Launch a Tallyfy process (run) from a template (checklist)
+  const run = await fetch(
+    `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}/runs`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer YOUR_TALLYFY_TOKEN',
+        'X-Tallyfy-Client': 'APIClient',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: `Onboarding - ${employee.entityId}`,
+        prerun: {
+          employee_id: employee.id,
+          full_name: `${employee.firstName} ${employee.lastName}`,
+          email: employee.email,
+          subsidiary: employee.subsidiary.name,
+          department: employee.department.name,
+          location: employee.location.name,
+          supervisor: employee.supervisor.name
+        }
+      })
+    }
+  );
 
-  return workflow.json();
+  return run.json();
 };
 ```
 
 ### SuiteScript integration
 
-Build native NetSuite scripts that trigger on record events:
+You can also build native NetSuite scripts that fire on record events. This SuiteScript example launches a Tallyfy process whenever a new employee record is created:
 
 ```javascript
 /**
@@ -63,16 +71,20 @@ define(['N/https', 'N/record'], function(https, record) {
   function afterSubmit(context) {
     if (context.type === context.UserEventType.CREATE) {
       const employee = context.newRecord;
+      const orgId = 'YOUR_ORG_ID';
+      const checklistId = 'YOUR_CHECKLIST_ID';
 
       https.post({
-        url: 'https://api.tallyfy.com/v1/workflows',
+        url: `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}/runs`,
         headers: {
-          'Authorization': 'Bearer YOUR_KEY',
+          'Authorization': 'Bearer YOUR_TALLYFY_TOKEN',
+          'X-Tallyfy-Client': 'APIClient',
+          'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          template_id: 'employee_onboarding',
-          data: {
+          name: `Onboarding - ${employee.getValue('entityid')}`,
+          prerun: {
             employee_id: employee.id,
             name: employee.getValue('entityid')
           }
@@ -87,10 +99,10 @@ define(['N/https', 'N/record'], function(https, record) {
 
 ## Data mapping
 
-Common NetSuite fields to map to Tallyfy workflow variables:
+Common NetSuite fields you'll want to map to Tallyfy kick-off form fields:
 
-| NetSuite Field | Tallyfy Variable | Description |
-|----------------|------------------|-------------|
+| NetSuite field | Tallyfy form field | Description |
+|----------------|-------------------|-------------|
 | `id` | `employee_id` | Internal record ID |
 | `entityId` | `entity_id` | Employee number |
 | `firstName` + `lastName` | `full_name` | Employee name |
@@ -104,12 +116,14 @@ Common NetSuite fields to map to Tallyfy workflow variables:
 
 ## iPaaS alternatives
 
-If SuiteScript development is not available:
+If SuiteScript development isn't an option, consider these platforms:
 
-- **Celigo**: NetSuite-native integration platform
-- **Workato**: Enterprise automation with NetSuite recipes
-- **Boomi**: Dell Boomi AtomSphere with NetSuite connectors
-- **MuleSoft**: Anypoint Platform with NetSuite support
+- **Celigo** - NetSuite-native integration platform
+- **Workato** - Enterprise automation with NetSuite recipes
+- **Boomi** - Dell Boomi AtomSphere with NetSuite connectors
+- **MuleSoft** - Anypoint Platform with NetSuite support
+
+[^1]: In Tallyfy's API, templates are called "checklists" and running instances are called "runs"
 
 ## Related articles
 <CardGrid>

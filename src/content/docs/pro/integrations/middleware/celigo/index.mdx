@@ -1,243 +1,91 @@
 ---
-description: Tallyfy's native Celigo connector is under development to enable bidirectional
-  workflow automation between Tallyfy and enterprise systems like NetSuite and Salesforce
-  through process triggers task management and data synchronization capabilities.
+description: Connect Tallyfy with enterprise systems like NetSuite and Salesforce
+  through Celigo's integrator.io platform using HTTP connectors and Tallyfy's REST API.
 id: faf5f0f937fec66f78e1e3747d7f79c9
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Celigo
+about_tallyfy: false
 ---
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Planned Celigo integration for Tallyfy workflows
+## Connecting Tallyfy with Celigo
 
-:::note[Coming Soon - Developer Preview Available]
-Tallyfy's native Celigo connector is under active development. While not yet available in Celigo's marketplace, developers can build custom integrations today using Celigo's developer program and Tallyfy's REST API. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to join our beta program or get early access credentials.
+:::note[No native connector yet]
+There's no official Tallyfy connector in Celigo's marketplace. You can build custom integrations today using Celigo's universal HTTP connector and Tallyfy's REST API. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) if you need OAuth credentials for this purpose.
 :::
 
-Celigo's integrator.io platform specializes in connecting enterprise systems - particularly NetSuite, Salesforce, and other business applications. Celigo added initial Tallyfy connector support in their 2023.5.1 release, providing basic API operations. The upcoming native connector will expand these capabilities, enabling organizations to automate complex workflows that span multiple systems with full process management integration.
+Celigo's integrator.io platform connects enterprise systems - particularly NetSuite, Salesforce, and other business applications. You can use it to create data flows between Tallyfy and your other systems through Tallyfy's REST API.
 
-### How the Tallyfy-Celigo connector will work
+### What you can do with a Celigo-Tallyfy integration
 
-The planned integration will use Celigo's universal HTTP connector architecture and API management capabilities to create bidirectional data flows between Tallyfy and your other business systems.
+Typical integration patterns include:
 
-**Key integration patterns we're designing:**
+1. **Trigger processes from business events** - a sales order in NetSuite launches an approval workflow in Tallyfy
+2. **Sync task completions** - completed Tallyfy tasks update records in connected systems through Celigo flows
+3. **Keep data in sync** - process data stays current across Tallyfy, your ERP, CRM, and other platforms
+4. **Automate assignments** - use Celigo's data transformations to assign Tallyfy tasks based on business rules
 
-1. **Process triggers from business events** - Sales orders in NetSuite automatically launch approval workflows in Tallyfy
-2. **Task completion webhooks** - Completed Tallyfy tasks update records in connected systems through Celigo flows
-3. **Data synchronization** - Keep process data synchronized across Tallyfy, your ERP, CRM, and other platforms
-4. **Automated assignments** - Use Celigo's data transformations to dynamically assign Tallyfy tasks based on business rules
+### Building a custom integration
 
-### Planned connector capabilities
+Since there's no native connector, you'll use Celigo's universal HTTP connector to call Tallyfy's API directly.
 
-Our Celigo connector will support these core functions:
-
-**Process automation:**
-- Launch Tallyfy processes from any Celigo-connected application
-- Trigger processes based on business events (new customer, order threshold, contract renewal)
-- Pass data from source systems into Tallyfy kick-off forms
-- Handle complex conditional logic using Celigo's flow builder
-
-**Task management:**
-- Complete tasks programmatically when conditions are met in other systems
-- Reassign tasks based on workload or availability data
-- Update task form fields with data from integrated applications
-- Create comments and track issues across platforms
-
-**Data operations:**
-- Export process metrics to data warehouses through Celigo
-- Synchronize master data between Tallyfy and business systems
-- Transform data formats using Celigo's mapping capabilities
-- Maintain audit trails across all connected applications
-
-### Architecture overview
-
-The connector will utilize Celigo's SmartConnector framework:
-
-```
-Your Systems → Celigo Platform → Tallyfy API
-    ↓              ↓                  ↓
-NetSuite      Data Transform    Process Launch
-Salesforce    Field Mapping     Task Updates
-Shopify       Error Handling    Data Export
-Custom Apps   Retry Logic       Webhooks
-```
-
-**Authentication approach:**
-- OAuth 2.0 bearer tokens for secure API access
-- Encrypted credential storage in Celigo's platform
-- Support for multiple Tallyfy organizations
-- Rate limit management and automatic retries
-
-### Implementation scenarios
-
-**Order-to-fulfillment workflow:**
-When a high-value order enters NetSuite, Celigo triggers a Tallyfy approval process. The process routes through finance review, credit check, and management approval. Each approval in Tallyfy updates the order status in NetSuite through Celigo's bidirectional sync.
-
-**Employee onboarding automation:**
-New employee records in your HRIS system trigger complete onboarding processes in Tallyfy. Celigo orchestrates data flow between HR systems, IT provisioning tools, and Tallyfy's task management - ensuring nothing falls through the cracks.
-
-**Customer escalation handling:**
-Support tickets reaching priority thresholds in your CRM automatically launch Tallyfy escalation workflows. Celigo maintains synchronization between ticket status, Tallyfy task progress, and customer communication platforms.
-
-### Practical implementation examples
-
-**Creating a task via Celigo:**
-```javascript
-// Celigo flow configuration for task creation
-{
-  "operation": "create_task",
-  "connection": "tallyfy_oauth",
-  "mapping": {
-    "name": "{{source.task_title}}",
-    "description": "{{source.task_description}}",
-    "assignee": "{{source.assigned_user}}",
-    "due_date": "{{source.deadline}}"
-  }
-}
-```
-
-**Launching a process from external trigger:**
-```javascript
-// Trigger Tallyfy process when CRM opportunity closes
-{
-  "operation": "create_process",
-  "blueprint_id": "customer_onboarding_v2",
-  "kickoff_data": {
-    "customer_name": "{{crm.account_name}}",
-    "contract_value": "{{crm.deal_amount}}",
-    "start_date": "{{crm.close_date}}"
-  }
-}
-```
-
-### Developer program and marketplace listing
-
-Celigo enables third-party developers to create and publish connectors through their developer program. Once enrolled, you can:
-- Access integration app development tools
-- Build custom Tallyfy connectors using REST API
-- Package and publish solutions to Celigo's marketplace
-- Support OAuth 2.0 and token-based authentication
-- Handle webhook events for real-time triggers
-
-To get started, contact Celigo to enroll in their Third-Party Developer Program, which grants access to create and publish integration templates.
-
-### Authentication options for developers
-
-**Personal Access Token**:
-- Quick development approach using user API tokens
-- Navigate to Settings > Integrations > REST API in Tallyfy
-- Copy your access token for immediate use
-- Token acts on behalf of the user account
-
-**OAuth 2.0 (Recommended for production)**:
-- Best for public connectors with customer authorization
-- Contact Tallyfy support for Client ID and Client Secret
-- Supports granular permission scopes
-- Handles token refresh automatically
-- Encrypted credential storage in Celigo
-
-### Building custom integrations today
-
-While waiting for the native connector, you can integrate Tallyfy with Celigo using these approaches:
-
-**Universal HTTP connector:**
+**Steps to connect:**
 1. Create a new HTTP connection in Celigo
-2. Configure authentication using Tallyfy API tokens
-3. Map Tallyfy's REST endpoints for processes and tasks
+2. Configure authentication using a Tallyfy API token or OAuth 2.0 credentials
+3. Map Tallyfy's REST API endpoints for templates (called "checklists" in the API) and processes (called "runs" in the API)
 4. Build flows using Celigo's visual interface
 
-**Webhook intermediary pattern:**
-1. Set up Tallyfy webhooks to send events to a middleware endpoint
-2. Configure Celigo to poll or receive these events
-3. Process events through Celigo flows to update connected systems
-4. Use Celigo's API management to create reusable integration endpoints
+**Key Tallyfy API endpoints you'll use:**
 
-**Real-time triggers with webhooks:**
-- Configure webhook listeners in Celigo for Tallyfy events
-- React to task completions, process launches, status changes
-- Celigo generates unique URLs to receive webhook payloads
-- Combine with scheduled exports for reliable event processing
-- Enable bidirectional sync between Tallyfy and other systems
+All endpoints are scoped to an organization: `/organizations/{org_id}/...`
 
-**Core Tallyfy API endpoints:**
-- `POST /api/v1/processes` - Launch new processes from blueprints
-- `POST /api/v1/tasks` - Create standalone tasks
-- `GET /api/v1/tasks` - Retrieve task details and status
-- `PUT /api/v1/tasks/{id}` - Update task status or mark complete
-- `POST /api/v1/webhooks` - Configure real-time event notifications
-- `GET /api/v1/blueprints` - List available process templates
-- `POST /api/v1/runs` - Create process instances (alternative endpoint)
+- `GET .../checklists` - list available process templates
+- `POST .../runs` - launch a new process from a template
+- `GET .../runs/{run_id}/tasks` - get tasks in a running process
+- `POST .../tasks` - create standalone tasks
+- `PUT .../runs/{run_id}/tasks/{task_id}` - update or complete a task
 
 **API terminology mapping:**
-- "Blueprints" in UI = "Checklists" in API
-- "Processes" in UI = "Runs" in API
-- "Templates" in UI = "Blueprints" in API
+- "Templates" in the UI = "Checklists" in the API
+- "Processes" in the UI = "Runs" in the API
 
-### Technical requirements
+### Authentication options
 
-To prepare for the Celigo integration:
+**Personal access token** - the quickest way to start. Navigate to Settings > Integrations > REST API in Tallyfy and copy your token. It acts on behalf of your user account.
 
-**Tallyfy configuration:**
-- API access enabled in your Tallyfy organization
-- REST API token or OAuth credentials obtained
-- Webhook endpoints configured for relevant events
-- Process templates designed with integration fields
-- User permissions set for system accounts
-- Review API documentation at go.tallyfy.com/api
+**OAuth 2.0** - better for production integrations where multiple users authorize access. Contact Tallyfy support to get a Client ID and Client Secret. Tallyfy supports OAuth 2.0 bearer tokens with refresh capability.
 
-**Celigo platform setup:**
+### Example scenarios
+
+**Order-to-fulfillment:** A high-value order in NetSuite triggers a Tallyfy approval process through Celigo. Each approval step in Tallyfy updates the order status back in NetSuite.
+
+**Employee onboarding:** New employee records in your HRIS trigger onboarding processes in Tallyfy. Celigo moves data between HR systems, IT provisioning tools, and Tallyfy tasks.
+
+**Customer escalation:** Support tickets hitting priority thresholds in your CRM launch escalation workflows in Tallyfy through Celigo flows.
+
+### Celigo developer program
+
+Celigo lets third-party developers create and publish connectors through their developer program. If you want to build a reusable Tallyfy connector, you can:
+
+- Enroll in Celigo's Third-Party Developer Program
+- Build custom integration apps using Tallyfy's REST API
+- Package and publish solutions to Celigo's marketplace
+- Go through Celigo's certification process for marketplace listing
+
+### Requirements
+
+**On the Tallyfy side:**
+- API access enabled for your organization
+- REST API token or OAuth credentials
+- Process templates ready with the fields you want to populate
+
+**On the Celigo side:**
 - integrator.io account with appropriate licensing
 - Universal connector permissions enabled
-- API rate limits configured for Tallyfy endpoints
-- Error handling and alerting rules defined
-
-### Why Celigo for workflow automation
-
-Celigo brings unique strengths to process automation:
-
-- **Pre-built connectors** - 200+ applications already integrated
-- **Enterprise scale** - Handles millions of transactions daily
-- **Error recovery** - Automatic detection and resolution of data issues
-- **Visual flow builder** - No-code integration design for business users
-
-Combined with Tallyfy's process management, you get end-to-end automation across your entire technology stack.
-
-### Certification and marketplace publication
-
-For developers creating custom Tallyfy connectors:
-
-**Publishing process:**
-1. Build and test integration flows in Celigo
-2. Package as an Integration App with clear naming
-3. Include Tallyfy logo and detailed description
-4. Enable published status in Integration Apps settings
-5. Schedule certification demo with Celigo's product team
-6. Receive approval for marketplace listing
-
-**Testing recommendations:**
-- Verify all core actions (create task, complete task, launch process)
-- Test both OAuth and token authentication methods
-- Implement error handling and retry logic
-- Use separate sandbox account for development
-- Document all supported API operations
-
-### Getting early access
-
-The official Tallyfy-Celigo connector is under development. To participate:
-
-1. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to join the beta program
-2. Request OAuth credentials for connector development
-3. Share your specific use cases and integration requirements
-4. Provide feedback on the planned capabilities outlined above
-
-We're particularly interested in hearing about:
-- Your current Celigo integrations that could benefit from workflow automation
-- Specific data fields you need to synchronize
-- Volume and frequency of process launches you anticipate
-- Complex routing rules or conditional logic requirements
+- Error handling and retry rules configured
 
 import PageTree from '@/components/PageTree.astro';
 

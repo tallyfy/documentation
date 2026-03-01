@@ -1,13 +1,13 @@
 ---
-description: This endpoint allows you to modify an existing group's properties like
-  name and description as well as its membership by sending a PUT request with the
-  updated fields in JSON format where providing member or guest arrays will completely
-  replace the existing lists rather than incrementally updating them.
+description: Update an existing group's name, description, or membership by sending
+  a PUT request. Providing member or guest arrays replaces the entire existing list
+  rather than adding incrementally.
 id: 67453229a8fc348b1d2fa4581604d413
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 4
 title: Update group
+about_tallyfy: true
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -16,7 +16,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `PUT /organizations/{org_id}/groups/{group_id}`
 
-This endpoint updates the details (name, description) and/or the membership (members, guests) of an existing group in your Tallyfy organization.
+Updates a group's details or membership within your Tallyfy organization. The caller must have `manage_groups` permission.
 
 ## Request
 
@@ -24,33 +24,24 @@ Replace `{org_id}` with your Organization ID and `{group_id}` with the ID of the
 
 ### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
--   `Content-Type: application/json`
+| Header | Value | Required |
+|--------|-------|----------|
+| Authorization | Bearer {your_access_token} | Yes |
+| Accept | application/json | Yes |
+| X-Tallyfy-Client | APIClient | Yes |
+| Content-Type | application/json | Yes |
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the group properties you wish to modify. You only need to include the fields you want to change.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New name (max 200 characters, must be unique per org) |
+| `description` | string | Yes | Group description |
+| `members` | array of integers | No | **Replaces** the entire member list with these user IDs |
+| `guests` | array of strings | No | **Replaces** the entire guest list with these emails |
 
-Refer to the `#definitions/createGroupInput` schema (often similar to update) in Swagger. Key fields:
-
--   `name` (string): New name for the group.
--   `description` (string): New description.
--   `members` (array of integers): **Replaces** the current list of member IDs in the group.
--   `guests` (array of strings): **Replaces** the current list of guest emails in the group.
-
-**Example Body (Updating name and members):**
-
-```json
-{
-  "name": "Project Alpha Core Team",
-  "members": [1001, 1008, 1010] // User 1005 removed, 1008/1010 added
-}
-```
-
-:::caution[Membership Updates Replace]
-Providing the `members` or `guests` arrays *replaces* the entire existing list for that type within the group. To add or remove individuals incrementally, you typically need to first get the current group details, modify the list in your code, and then send the complete new list in the PUT request.
+:::caution[Membership updates replace]
+Providing the `members` or `guests` arrays replaces the entire existing list for that type. To add or remove individuals incrementally, first GET the current group details, modify the list in your code, then send the complete new list in the PUT request.
 :::
 
 ### Code samples
@@ -60,14 +51,13 @@ Providing the `members` or `guests` arrays *replaces* the entire existing list f
 ```javascript
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
-const groupId = 'GROUP_ID_TO_UPDATE'; 
+const groupId = 'GROUP_ID_TO_UPDATE';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/groups/${groupId}`;
 
 const updateData = {
   description: "Updated team description.",
-  // Example: Set specific members (replaces existing list)
-  members: [1001, 1003, 1005], // Use actual member IDs
-  guests: [] // Example: Remove all guests from this group
+  members: [1001, 1003, 1005],
+  guests: []
 };
 
 const headers = new Headers();
@@ -82,13 +72,8 @@ fetch(apiUrl, {
     body: JSON.stringify(updateData)
 })
 .then(response => {
-     return response.json().then(data => { // Attempt to parse JSON regardless of status
-        if (!response.ok) {
-            console.error(`Failed to update group ${groupId}:`, data);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return data; // Pass successful data along
-    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
 })
 .then(data => {
     console.log(`Successfully updated group ${groupId}:`);
@@ -117,35 +102,19 @@ headers = {
     'Content-Type': 'application/json'
 }
 
-# Note: Updating members/guests replaces the entire list in Tallyfy.
-# To add/remove incrementally, GET the group first, modify the lists, then PUT.
 update_payload = {
-    'name': 'Finance Approvers (Updated)', # Example: Change name
-    'members': [1004, 1006, 1007], # Example: Set this exact list of members
-    'guests': [] # Example: Ensure no guests are in the group
+    'name': 'Finance Approvers (Updated)',
+    'description': 'Core finance team for approvals.',
+    'members': [1004, 1006, 1007],
+    'guests': []
 }
 
-response = None
-try:
-    response = requests.put(api_url, headers=headers, json=update_payload)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+response = requests.put(api_url, headers=headers, json=update_payload)
+response.raise_for_status()
 
-    updated_group = response.json()
-    print(f'Successfully updated group {group_id}:')
-    print(json.dumps(updated_group, indent=4))
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred updating group {group_id}: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed updating group {group_id}: {req_err}")
-except json.JSONDecodeError:
-    print(f"Failed to decode JSON response for group update {group_id}")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+updated_group = response.json()
+print(f'Successfully updated group {group_id}:')
+print(json.dumps(updated_group, indent=4))
 ```
 </TabItem>
 <TabItem label="Java">
@@ -155,11 +124,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.io.IOException;
-// Requires a JSON library like Jackson or Gson
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import java.util.Map;
-// import java.util.HashMap;
-// import java.util.List;
 
 public class UpdateGroup {
     public static void main(String[] args) {
@@ -168,24 +132,7 @@ public class UpdateGroup {
         String groupId = "GROUP_ID_TO_UPDATE";
         String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/groups/%s", orgId, groupId);
 
-        // --- Payload Construction ---
-        // Using a library like Jackson is recommended for real applications
-        /*
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> updateData = new HashMap<>();
-        updateData.put("name", "Java Updated Group Name");
-        updateData.put("members", List.of(1001, 1002)); // Replaces existing members
-        String jsonPayload;
-        try {
-            jsonPayload = mapper.writeValueAsString(updateData);
-        } catch (Exception e) {
-            System.err.println("Failed to serialize JSON: " + e.getMessage());
-            return;
-        }
-        */
-        // Simple manual JSON string for example (only update name and description):
-        String jsonPayload = "{\"name\": \"Renamed Java Group\", \"description\": \"Updated description.\"}"; 
-        // --- End Payload Construction ---
+        String jsonPayload = "{\"name\": \"Renamed Java Group\", \"description\": \"Updated description.\"}";
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -199,11 +146,10 @@ public class UpdateGroup {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
-            if (response.statusCode() == 200) {
+
+            if (response.statusCode() == 201) {
                 System.out.println("Successfully updated group " + groupId + ":");
                 System.out.println(response.body());
-                // TODO: Parse JSON response
             } else {
                 System.err.println("Failed to update group " + groupId + ". Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
@@ -211,9 +157,6 @@ public class UpdateGroup {
         } catch (IOException | InterruptedException e) {
             System.err.println("Request failed: " + e.getMessage());
             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
         }
     }
 }
@@ -230,36 +173,36 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    groupId := "GROUP_ID_TO_UPDATE"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups/%s", orgId, groupId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	groupId := "GROUP_ID_TO_UPDATE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups/%s", orgId, groupId)
 
-    // Note: Updating members/guests replaces the entire list in Tallyfy.
 	updateData := map[string]interface{}{
-		"name": "Go Updated Group",
-        "members": []int{1010, 1012}, // Example: Set this exact member list
-        "guests": []string{}, // Example: Remove all guests
+		"name":        "Go Updated Group",
+		"description": "Updated via Go client.",
+		"members":     []int{1010, 1012},
+		"guests":      []string{},
 	}
 
 	jsonData, err := json.Marshal(updateData)
 	if err != nil {
-        fmt.Printf("Error marshalling JSON: %v\n", err)
-        return
-    }
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest(http.MethodPut, apiUrl, bytes.NewBuffer(jsonData))
-    if err != nil {
-        fmt.Printf("Error creating request for group update %s: %v\n", groupId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
@@ -267,32 +210,30 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing request for group update %s: %v\n", groupId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading response body for group update %s: %v\n", groupId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return
+	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		fmt.Printf("Failed to update group %s. Status: %d\nBody: %s\n", groupId, resp.StatusCode, string(body))
 		return
 	}
 
 	fmt.Printf("Successfully updated group %s:\n", groupId)
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON from body into a struct if needed
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		fmt.Println(prettyJSON.String())
+	} else {
+		fmt.Println(string(body))
+	}
 }
 ```
 </TabItem>
@@ -300,7 +241,6 @@ func main() {
 ```cpp
 #include <iostream>
 #include <string>
-#include <vector>
 #include <cpprest/http_client.h>
 #include <cpprest/json.h>
 
@@ -311,8 +251,8 @@ using namespace web::json;
 
 pplx::task<void> UpdateTallyfyGroup(const utility::string_t& groupId, const value& updatePayload)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
     utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/groups/") + groupId;
 
     http_client client(apiUrl);
@@ -326,20 +266,18 @@ pplx::task<void> UpdateTallyfyGroup(const utility::string_t& groupId, const valu
 
     return client.request(request).then([groupId](http_response response)
     {
-        utility::string_t groupIdW = groupId;
-        return response.extract_json().then([response, groupIdW](pplx::task<value> task)
+        utility::string_t gId = groupId;
+        return response.extract_json().then([response, gId](pplx::task<value> task)
         {
             try {
                 value const & body = task.get();
-                if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully updated group " << groupIdW << L":\n" << body.serialize() << std::endl;
+                if (response.status_code() == status_codes::Created) {
+                    std::wcout << L"Successfully updated group " << gId << L":\n" << body.serialize() << std::endl;
                 } else {
-                    std::wcerr << L"Failed to update group " << groupIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                    std::wcerr << L"Failed to update group " << gId << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during update group: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during update group response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception: " << e.what() << std::endl;
             }
         });
     });
@@ -349,14 +287,15 @@ int main() {
     try {
         value payload = value::object();
         payload[U("name")] = value::string(U("C++ Updated Group Name"));
+        payload[U("description")] = value::string(U("Updated via C++ client."));
         value members = value::array();
         members[0] = value::number(1001);
         members[1] = value::number(1015);
-        payload[U("members")] = members; // Replaces existing members
+        payload[U("members")] = members;
 
-        UpdateTallyfyGroup(U("GROUP_ID_TO_UPDATE"), payload).wait(); // Replace with actual ID
+        UpdateTallyfyGroup(U("GROUP_ID_TO_UPDATE"), payload).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -377,14 +316,12 @@ public class TallyfyGroupUpdater
 {
     private static readonly HttpClient client = new HttpClient();
 
-    // Use a similar payload class as Create, or use Dictionary<string, object>
     public class GroupUpdatePayload
     {
-        // Include only fields you want to update. Use [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] if needed.
         public string Name { get; set; }
         public string Description { get; set; }
-        public List<int> Members { get; set; } // Remember: This REPLACES the list
-        public List<string> Guests { get; set; } // Remember: This REPLACES the list
+        public List<int> Members { get; set; }
+        public List<string> Guests { get; set; }
     }
 
     public static async Task UpdateGroupAsync(string groupId, GroupUpdatePayload payload)
@@ -393,60 +330,41 @@ public class TallyfyGroupUpdater
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups/{groupId}";
 
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
+        using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
-            // Serialize the payload, ignoring nulls so only provided fields are sent
-            var options = new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
-            string jsonPayload = JsonSerializer.Serialize(payload, options);
-            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+        var options = new JsonSerializerOptions {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+        string jsonPayload = JsonSerializer.Serialize(payload, options);
+        request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
+        HttpResponseMessage response = await client.SendAsync(request);
+        string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Should be 200 OK
-            {
-                Console.WriteLine($"Successfully updated group {groupId}:");
-                // Pretty print the response
-                 try {
-                     using var doc = JsonDocument.Parse(responseBody);
-                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                 } catch (JsonException) {
-                     Console.WriteLine(responseBody);
-                 }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to update group {groupId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
-        }
-        catch (HttpRequestException e)
+        if (response.IsSuccessStatusCode)
         {
-            Console.WriteLine($"Request Exception updating group {groupId}: {e.Message}");
+            Console.WriteLine($"Successfully updated group {groupId}:");
+            using var doc = JsonDocument.Parse(responseBody);
+            Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch (JsonException jsonEx)
+        else
         {
-             Console.WriteLine($"JSON Serialization Error: {jsonEx.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Failed to update group {groupId}. Status: {response.StatusCode}");
+            Console.WriteLine($"Response: {responseBody}");
         }
     }
 
-    // Example Usage:
+    // Example usage:
     // static async Task Main(string[] args)
     // {
-    //     var groupUpdate = new GroupUpdatePayload {
+    //     var update = new GroupUpdatePayload {
     //         Description = "Core finance team for approvals.",
-    //         Members = new List<int> { 1004, 1007 } // Replace existing members
+    //         Members = new List<int> { 1004, 1007 }
     //     };
-    //     await UpdateGroupAsync("GROUP_ID_TO_UPDATE", groupUpdate);
+    //     await UpdateGroupAsync("GROUP_ID_TO_UPDATE", update);
     // }
 }
 ```
@@ -455,23 +373,24 @@ public class TallyfyGroupUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the full details of the group *after* the update.
+A successful request returns a `201 Created` status and a JSON object containing the full group details after the update, wrapped in a `data` object.
 
 ```json
 {
   "data": {
     "id": "GROUP_ID_TO_UPDATE",
-    "name": "Project Alpha Core Team", // Updated name
-    "description": "Updated team description.", // Updated description
-    "members": [1001, 1008, 1010], // Updated members list
-    "guests": [], // Updated guests list
-    // ... other group properties ...
-    "updated_at": "YYYY-MM-DDTHH:MM:SSZ" // Reflects update time
+    "name": "Project Alpha Core Team",
+    "description": "Updated team description.",
+    "logo": null,
+    "members": [1001, 1008, 1010],
+    "guests": [],
+    "created_at": "2025-01-15T10:30:00.000000Z",
+    "last_updated": "2025-06-20T14:22:00.000000Z"
   }
 }
 ```
 
-If the group ID is not found, you lack permission, or the request body is invalid, an appropriate error status code (`404`, `403`, `400`, `422`) will be returned.
+If the group ID isn't found, you lack permission, or the request body is invalid, expect a `404`, `403`, `400`, or `422` error.
 
 ---
 

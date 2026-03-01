@@ -1,9 +1,10 @@
 ---
-description: The system enables automatic custom email notifications through webhooks
-  by connecting Tallyfy with middleware tools to trigger emails based on specific
-  task completions or events within processes.
+about_tallyfy: true
+description: Tallyfy webhooks can trigger custom email notifications through middleware
+  tools like Zapier, Make, or Power Automate when tasks are completed or processes
+  are launched.
 id: c1c968f7a306d48237a27c02d8d5eca5
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: Send emails using webhooks
@@ -11,69 +12,74 @@ title: Send emails using webhooks
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Sending Custom Emails Using Webhooks
+## Trigger custom emails from Tallyfy webhooks
 
-You can use Tallyfy's [webhooks](/products/pro/integrations/webhooks/) feature, combined with a [middleware](/products/pro/integrations/middleware/) tool (like Zapier, Make, or Power Automate), to automatically send custom email notifications when specific events happen in your Tallyfy workflows - like when a task is completed or a process milestone is reached.
+Tallyfy's [webhooks](/products/pro/integrations/webhooks/) send JSON data to external URLs whenever key events happen - like a task getting completed or a process being launched. Pair this with a [middleware](/products/pro/integrations/middleware/) tool (Zapier, Make, or Power Automate) and you can automatically fire off custom emails based on those events.
+
+The webhook payload includes task details, form field values, assignee info, and process data - so your emails can pull in all the context they need.
 
 ### What you need
 
-- A Tallyfy account (webhooks are usually available on paid plans).
+- A Tallyfy account on a paid plan.
 - An account with a middleware service (Zapier, Make, Power Automate, etc.).
-- Basic understanding of how webhooks work and how to set up workflows in your middleware tool.
+- A basic grasp of how webhooks and middleware automations work.
 
-:::note[Choosing a Middleware Tool]
-Zapier works well for simple email notifications. Make.com or Power Automate offer more options if needed. Developers can also build custom webhook receivers for maximum flexibility.
+:::note[Picking a middleware tool]
+Zapier works well for simple email notifications. Make.com or Power Automate give you more control for complex scenarios. Developers can also build custom webhook receivers directly.
 :::
 
 ### General setup steps
 
-The exact steps depend on your middleware tool, but here's the general idea:
+The exact steps vary by middleware tool, but here's the overall flow:
 
-#### Step 1: Get a Webhook URL from your Middleware Tool
+#### Step 1: Get a webhook URL from your middleware tool
 
 <Steps>
 1. Go to your middleware tool (e.g., Zapier).
-2. Start creating a new automation/workflow (e.g., a "Zap").
-3. Choose "Webhook" as the trigger (the starting point).
-4. Select the option to "Catch Hook" or "Receive Webhook".
-5. The middleware tool will give you a unique Webhook URL. Copy this URL.
+2. Start creating a new automation (e.g., a "Zap").
+3. Choose "Webhook" as the trigger.
+4. Select "Catch Hook" or "Receive Webhook".
+5. Copy the unique webhook URL the tool gives you.
 </Steps>
 
-#### Step 2: Set up the Webhook in Tallyfy
+#### Step 2: Configure the webhook in Tallyfy
+
+You can set webhooks at two levels in Tallyfy - on a specific step, or on the entire template.
 
 <Steps>
-1. In Tallyfy, go to the template and find the specific step where you want the email to be triggered (e.g., the step whose completion should send the email).
-2. Open the step's settings (often in the "Advanced" tab or a dedicated "Webhooks" tab).
-3. Find the option to "Emit webhook when completed" (or similar) and turn it ON.
-4. Paste the Webhook URL you copied from your middleware tool into the URL field.
-5. Send a test webhook from Tallyfy to make sure the middleware receives it.
+1. Open the template and go to the step whose completion should trigger the email.
+2. In the step's settings, find the webhook option and turn it ON.
+3. Paste the webhook URL from your middleware tool.
+4. Send a test webhook to confirm your middleware receives it.
 </Steps>
 
-#### Step 3: Set up the Email Action in your Middleware Tool
+Tallyfy sends the webhook as a POST request with an `X-Tallyfy-orgID` header identifying your organization.
+
+#### Step 3: Set up the email action in your middleware tool
 
 <Steps>
 1. Go back to your middleware tool.
-2. Confirm it received the test data from Tallyfy.
+2. Confirm it received test data from Tallyfy.
 3. Add an "Action" step to your workflow.
-4. Choose an email action (e.g., "Send Email via Zapier", "Send Email with Gmail", "Send Email with Outlook 365").
+4. Choose an email action (e.g., "Send Email via Gmail" or "Send Email with Outlook 365").
 </Steps>
 
-#### Step 4: Customize Your Email
+#### Step 4: Customize your email
 
 <Steps>
-1. In the email action step, configure who the email should go TO. You can often use data from the Tallyfy webhook (like an email address entered in a form field).
-2. Write the SUBJECT line. You can include data from Tallyfy here too (e.g., "Task Completed: `{{Process Name}}`").
-3. Write the BODY of the email. Use data from the Tallyfy webhook to include relevant details (e.g., "Task `{{Task Name}}` was completed by `{{Completed By Name}}`").
-4. Add formatting or links back to Tallyfy if needed.
+1. Set the TO address - you can pull this from the Tallyfy webhook data (e.g., an email captured in a form field or from the task's assignee list).
+2. Write the SUBJECT line using webhook data (e.g., "Task Completed: `{{Process Name}}`").
+3. Write the BODY using details from the payload - task name, who completed it, form field values, and a link back to the process.
+4. Format as needed and add any extra links.
 </Steps>
 
-### Testing and Turning It On
+### Testing and going live
 
-- Test the whole setup by running a test process in Tallyfy and completing the trigger step.
-- Check if the email arrives and looks correct.
-- Once you're happy, turn ON your automation/workflow in the middleware tool.
+- Run a test process in Tallyfy and complete the trigger step.
+- Check that the email arrives and looks right.
+- Once it's working, turn ON the automation in your middleware tool.
 
-Now, every time that specific step is completed in your Tallyfy process, your custom email will be sent automatically.
+That's it. Every time that step gets completed, your custom email fires automatically.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

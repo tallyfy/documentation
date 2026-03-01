@@ -1,116 +1,121 @@
 ---
-description: Workato recipes can programmatically complete Tallyfy tasks by using
-  HTTP PUT requests to the task completion endpoint with proper authentication and
-  form field data allowing seamless cross-platform automation when events occur in
-  systems like DocuSign or CRM platforms.
+description: Workato recipes can programmatically complete Tallyfy tasks using HTTP
+  requests to the task completion endpoint with proper authentication and form field
+  data, triggered by events in systems like DocuSign or CRM platforms.
 id: 72410da23464b75fcf1fc40b66f38514
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 snippet: Learn how to automatically complete Tallyfy tasks from Workato based on external
   system events, including form field updates, task status management, and bi-directional
   data synchronization.
+about_tallyfy: true
 title: Complete Tallyfy tasks from Workato
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Automatically complete Tallyfy tasks using Workato
+## Complete Tallyfy tasks automatically from Workato recipes
 
-Want to complete [Tallyfy tasks](/products/pro/tracking-and-tasks/tasks/) programmatically from your Workato recipes? You can trigger task updates based on events in other systems - perfect for creating seamless cross-platform workflows.
+You can complete [Tallyfy tasks](/products/pro/tracking-and-tasks/tasks/) from Workato recipes whenever something happens in another system - like a document getting signed or a CRM record updating. Here's how to set it up.
 
 ### Common use cases
 
-- Mark Tallyfy tasks complete when a document is signed in DocuSign
-- Complete approval tasks based on responses in Microsoft Forms
-- Update Tallyfy task form fields when data changes in your CRM
-- Auto-complete tasks when specific conditions are met in your ERP
+- Mark tasks complete when a document is signed in DocuSign
+- Complete approval tasks based on Microsoft Forms responses
+- Update task [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) when CRM data changes
+- Auto-complete tasks when ERP conditions are met
 
 ### Prerequisites
 
 - Workato account with HTTP connector access
-- Tallyfy API token from **Settings > Integrations > REST API**
-- Task IDs or a method to retrieve them dynamically
-- Understanding of your task's [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)
+- Tallyfy API access token (from **Settings > Integrations > REST API**)
+- Your Tallyfy organization ID
+- Task IDs or a way to retrieve them dynamically
 
 ## Setting up task completion
 
-### Step 1: Identify the Tallyfy task to complete
+### Step 1: Identify the task to complete
 
-You'll need the task ID to complete it. Here's how to get it:
+You'll need the task ID and the process (run) ID. Here's how to get them:
 
 #### Option A: From a Tallyfy webhook
 
-If Tallyfy triggered your Workato recipe via webhook:
+If Tallyfy triggered your recipe via webhook:
 ```ruby
 task_id = trigger["task"]["id"]
+run_id = trigger["task"]["run_id"]
 ```
 
-#### Option B: Search for tasks by process
+#### Option B: List tasks for a process
 
-Use an HTTP GET request to find tasks:
+Use an HTTP GET to retrieve tasks within a specific process:
 ```
-GET https://go.tallyfy.com/api/tasks?run_id={process_id}
+GET https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks
 ```
 
-#### Option C: Store task IDs
+#### Option C: Store task IDs when launching
 
-When launching processes, store the returned task IDs in a lookup table or database. Works great for recurring workflows.
+When you launch a process, store the returned task IDs in a lookup table. This works well for recurring workflows.
 
 ### Step 2: Configure the completion request
+
+Task completion in Tallyfy uses a POST request (not PUT) to a `completed-tasks` endpoint[^1].
 
 <Steps>
 1. Add an HTTP action to your Workato recipe
 2. Configure the request:
-   - **Method**: PUT
-   - **URL**: `https://go.tallyfy.com/api/tasks/{task_id}/complete`
+   - **Method**: POST
+   - **URL**: `https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/completed-tasks`
    - **Headers**:
+     - `Authorization: Bearer {your_access_token}`
      - `Content-Type: application/json`
      - `X-Tallyfy-Client: APIClient`
-3. Add the request body with form field data
+3. Set the request body:
+   ```json
+   {
+     "task_id": "{task_id}"
+   }
+   ```
 </Steps>
 
-### Step 3: Handle form fields
-
-If the task has form fields that need values, include them in the request body:
-
+For approval tasks, you must also include `is_approved`:
 ```json
 {
-  "form_fields": {
-    "approval_status": "Approved",
-    "approver_name": "John Smith",
-    "approval_date": "2025-01-15",
-    "comments": "Looks good, approved for implementation"
-  }
+  "task_id": "{task_id}",
+  "is_approved": true
 }
 ```
 
-#### Dynamic field mapping
+### Step 3: Save form field data before completing
 
-Map fields from your trigger data:
+If the task has form fields that need values, save them *before* completing the task. Tallyfy stores form field values (called "captures" in the API) through a separate endpoint:
 
-```ruby
+```
+POST https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}/captures
+```
+
+Each field is saved individually with its ID and value:
+```json
 {
-  "form_fields": {
-    "invoice_number": trigger["invoice"]["number"],
-    "amount": trigger["invoice"]["total"],
-    "payment_status": trigger["payment"]["status"],
-    "processed_by": trigger["user"]["email"]
-  }
+  "id": 12345,
+  "value": "Approved by John Smith"
 }
 ```
+
+You'll need to call this endpoint once per field, then complete the task afterward. The field `id` comes from the task's capture definitions.
 
 ## Advanced completion scenarios
 
 ### Conditional task completion
 
-Need to complete tasks only when specific conditions are met? Easy.
+Only complete tasks when certain conditions are met:
 
 <Steps>
 1. Add a conditional action before the HTTP request
 2. Check your conditions:
    ```ruby
-   trigger["order"]["status"] == "shipped" AND 
+   trigger["order"]["status"] == "shipped" AND
    trigger["order"]["payment_status"] == "paid"
    ```
 3. Place the completion HTTP action inside the conditional block
@@ -118,144 +123,113 @@ Need to complete tasks only when specific conditions are met? Easy.
 
 ### Bulk task completion
 
-Got multiple tasks to complete in a process? Here's the pattern:
+Need to complete several tasks in a process? Here's the pattern:
 
 <Steps>
-1. First, get all tasks for a process:
+1. Get all tasks for the process:
    ```
-   GET https://go.tallyfy.com/api/tasks?run_id={process_id}&status=active
+   GET https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks
    ```
 2. Use a **For each** loop in Workato
-3. Inside the loop, complete each task that matches your criteria
-4. Add a 1-second delay between completions to avoid rate limits
+3. Inside the loop, POST to `completed-tasks` for each matching task
+4. Add a 1-second delay between calls to respect rate limits
 </Steps>
 
-### Updating without completing
+### Updating form fields without completing
 
-Sometimes you just want to update form fields without marking the task complete - maybe you're collecting data incrementally:
+Sometimes you want to save form field data without marking the task done - maybe you're collecting data in stages. Use the captures endpoint:
 
 ```
-PUT https://go.tallyfy.com/api/tasks/{task_id}
+POST https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}/captures
 ```
 
-Request body:
 ```json
 {
-  "captures": {
-    "field_name": "updated_value",
-    "status": "In Progress"
-  }
+  "id": 67890,
+  "value": "updated_value"
 }
 ```
 
-## Error handling strategies
+You can also update other task properties (like deadline or assignees) via PUT:
+```
+PUT https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}
+```
+
+## Error handling
 
 ### Common errors and solutions
 
-| Error Code | Meaning | Solution |
+| Error code | Meaning | Solution |
 |------------|---------|----------|
-| 401 | Unauthorized | Check API token and headers |
-| 404 | Task not found | Verify task ID and that it exists |
-| 400 | Invalid data | Check form field names and data types |
-| 422 | Validation failed | Ensure required fields are provided |
+| 401 | Unauthorized | Check your Bearer token and `X-Tallyfy-Client` header |
+| 403 | Forbidden | Verify the organization ID is correct |
+| 404 | Task not found | Confirm the task ID, run ID, and org ID are valid |
+| 422 | Validation failed | Required form fields probably aren't filled yet |
 
-### Implementing retry logic
+### Retry logic
 
 <Steps>
 1. Click the error handler icon on your HTTP action
-2. Add a **Retry** action for transient failures
-3. Configure retry settings:
+2. Add a **Retry** action for transient failures (5xx errors)
+3. Configure:
    - Max attempts: 3
    - Interval: 5 seconds
    - Backoff multiplier: 2
-4. Add logging for permanent failures
+4. Log permanent failures for review
 </Steps>
 
-## Recipe example: Complete task on document signature
+## Recipe example: DocuSign signature triggers task completion
 
-Let's walk through a real-world recipe pattern:
+A real-world pattern - completing a Tallyfy task when someone signs a document:
 
 <Steps>
 1. **Trigger**: DocuSign - Document completed
-2. **Action 1**: Search Tallyfy tasks by document ID
+2. **Action 1**: List tasks in the Tallyfy process to find the right task
    ```
-   GET https://go.tallyfy.com/api/tasks?search={document_id}
+   GET https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks
    ```
-3. **Action 2**: Parse response to get task ID
-4. **Action 3**: Complete the task with signature details
+3. **Action 2**: Save signature details to form fields
+   ```
+   POST https://go.tallyfy.com/api/organizations/{org_id}/tasks/{task_id}/captures
+   ```
+4. **Action 3**: Complete the task
    ```json
    {
-     "form_fields": {
-       "signed_by": "{{trigger.signer_email}}",
-       "signed_date": "{{trigger.completed_date}}",
-       "document_url": "{{trigger.document_url}}",
-       "signature_id": "{{trigger.envelope_id}}"
-     }
+     "task_id": "{task_id}"
    }
    ```
 5. **Action 4**: Send confirmation email
 </Steps>
 
-## Best practices
+## Troubleshooting
 
-### Performance optimization
+### Task won't complete?
 
-- Cache frequently used task IDs to reduce API calls
-- Use batch operations when possible
-- Implement connection pooling for high-volume scenarios
-- Monitor API usage against rate limits
+Run through this checklist:
 
-### Data integrity
-
-- Validate data before sending to Tallyfy
-- Log all completions for audit trails
-- Implement rollback mechanisms for critical workflows
-- Use idempotency keys to prevent duplicate completions
-
-### Security considerations
-
-- Never expose API tokens in logs
-- Use Workato's secure storage for credentials
-- Implement field-level encryption for sensitive data
-- Audit recipe access regularly
-
-## Troubleshooting guide
-
-### Tallyfy task not completing?
-
-Here's the troubleshooting checklist:
-
-1. Verify the task is in "active" status
-2. Check all required form fields are provided
-3. Ensure the assigned user has permission
-4. Confirm the task hasn't already been completed
+1. Is the task in "active" status? Completed tasks can't be completed again.
+2. Are all required form fields filled? The API returns a 422 if they aren't.
+3. Does the user have permission? Tasks with `can_complete_only_assignees` set need an assigned user.
+4. Are there unresolved issues? Tasks with open problem threads can't be completed.
 
 ### Form data not saving?
 
-The culprit is usually one of these:
+Usually one of these:
 
-1. Field names must match exactly (case-sensitive)
-2. Check data types (string vs number vs boolean)
-3. Verify field exists in the task template
-4. Ensure values meet field validation rules
+1. The field `id` must be the numeric capture ID - not the field name
+2. The `value` must match the expected data type
+3. Make sure the field actually exists on that task
+4. Check that values meet any validation rules on the field
 
 ### Getting 429 rate limit errors?
 
-You're hitting our API too fast. Fix it with:
+You're sending requests too fast. Fix it by:
 
-1. Add delays between requests
-2. Implement exponential backoff
-3. Batch operations where possible
-4. Contact Tallyfy support for higher limits if needed
+1. Adding delays between requests
+2. Using exponential backoff
+3. Reducing parallel operations
 
-## Next steps
-
-Ready to level up your integration? Consider these improvements:
-
-- Set up Tallyfy webhooks to trigger completions in real-time
-- Create reusable functions for common operations
-- Build error notification workflows
-- Implement detailed logging and monitoring
+[^1]: Tallyfy uses POST to a `completed-tasks` resource rather than a PUT/PATCH status change, which differs from many REST APIs
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

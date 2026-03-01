@@ -1,12 +1,11 @@
 ---
-description: This endpoint uses a PUT request to restore a previously archived Tallyfy
-  process instance back to its active state by removing the archived timestamp and
-  updating its status through authenticated API calls with organization and run identifiers.
+description: Restore an archived process (run) back to its previous state using a PUT request with organization and run IDs.
 id: 2faf29bbbe0ff923a7d5b24c8c12c650
-lastUpdated: 2025-08-15
 sidebar:
   order: 6
 title: Activate process
+about_tallyfy: true
+lastUpdated: 2026-02-25
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -15,11 +14,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `PUT /organizations/{org_id}/runs/{run_id}/activate`
 
-This endpoint restores (unarchives) a previously archived Tallyfy process instance (run), making it active again.
+This endpoint restores a previously archived process (called a "run" in the API). Once restored, the run's `archived_at` field becomes `null` and it reappears in default views.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the process run to activate.
+Replace `{org_id}` with your Organization ID and `{run_id}` with the run ID you want to restore.
 
 ### Headers
 
@@ -29,7 +28,7 @@ Replace `{org_id}` with your Organization ID and `{run_id}` with the ID of the p
 
 ### Body
 
-No request body is needed for this PUT request.
+No request body is needed.
 
 ### Code samples
 
@@ -47,18 +46,17 @@ headers.append('Accept', 'application/json');
 headers.append('X-Tallyfy-Client', 'APIClient');
 
 fetch(apiUrl, {
-    method: 'PUT', // Use PUT method
+    method: 'PUT',
     headers: headers
-    // No body required for this request
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
-        if (!response.ok) { // Expect 200 OK on success
+    return response.json().then(data => {
+        if (!response.ok) {
             console.error(`Failed to activate process ${runId}:`, data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        console.log(`Successfully activated process ${runId}. Status: ${response.status}`);
-        return data; // Activation returns the updated process
+        console.log(`Activated process ${runId}. Status: ${response.status}`);
+        return data;
     });
 })
 .then(data => {
@@ -87,37 +85,14 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-response = None
-try:
-    # PUT request with no body data needed
-    response = requests.put(api_url, headers=headers)
-    response.raise_for_status() # Expect 200 OK, raises HTTPError for 4xx/5xx
+response = requests.put(api_url, headers=headers)
 
-    print(f'Successfully activated process {run_id}. Status: {response.status_code}')
-    activated_process = response.json()
-    print('Activated process details:')
-    print(json.dumps(activated_process, indent=4))
-
-except requests.exceptions.HTTPError as http_err:
-    error_details = ""
-    try:
-        if response is not None:
-             error_details = response.json()
-    except json.JSONDecodeError:
-        if response is not None:
-             error_details = response.text
-    
-    print(f"HTTP error occurred activating process {run_id}: {http_err}") 
-    print(f"Response Body: {error_details}")
-
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed activating process {run_id}: {req_err}")
-except json.JSONDecodeError:
-    print(f"Failed to decode successful JSON response for process {run_id} activation")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+if response.status_code == 200:
+    print(f'Activated process {run_id}.')
+    print(json.dumps(response.json(), indent=4))
+else:
+    print(f'Error activating process {run_id}: {response.status_code}')
+    print(response.text)
 ```
 </TabItem>
 <TabItem label="Java">
@@ -133,7 +108,8 @@ public class ActivateProcess {
         String accessToken = System.getenv().getOrDefault("TALLYFY_ACCESS_TOKEN", "YOUR_PERSONAL_ACCESS_TOKEN");
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String runId = "PROCESS_RUN_ID_TO_ACTIVATE";
-        String apiUrl = String.format("https://go.tallyfy.com/api/organizations/%s/runs/%s/activate", orgId, runId);
+        String apiUrl = String.format(
+            "https://go.tallyfy.com/api/organizations/%s/runs/%s/activate", orgId, runId);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -141,27 +117,21 @@ public class ActivateProcess {
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
-                .PUT(HttpRequest.BodyPublishers.noBody()) // Use PUT method with no request body
+                .PUT(HttpRequest.BodyPublishers.noBody())
                 .build();
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) { 
-                System.out.println("Successfully activated process " + runId + ". Status: 200 OK");
-                 System.out.println("Response Body (Activated Process):");
-                 System.out.println(response.body());
-                 // TODO: Consider parsing JSON using Jackson/Gson
+            if (response.statusCode() == 200) {
+                System.out.println("Activated process " + runId);
+                System.out.println(response.body());
             } else {
-                 System.err.println("Failed to activate process " + runId + ". Status: " + response.statusCode());
-                 System.err.println("Response Body: " + response.body());
+                System.err.println("Error " + response.statusCode() + ": " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
     }
 }
@@ -175,58 +145,54 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    runId := "PROCESS_RUN_ID_TO_ACTIVATE"
-    apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/activate", orgId, runId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	runId := "PROCESS_RUN_ID_TO_ACTIVATE"
+	apiUrl := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/runs/%s/activate", orgId, runId)
 
 	client := &http.Client{Timeout: 15 * time.Second}
-    // Create PUT request with no body (nil reader)
-	req, err := http.NewRequest(http.MethodPut, apiUrl, nil) 
-    if err != nil {
-        fmt.Printf("Error creating activate process request for run %s: %v\n", runId, err)
-        return
-    }
+	req, err := http.NewRequest(http.MethodPut, apiUrl, nil)
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing activate process request for run %s: %v\n", runId, err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Error executing request: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading activate process response body for run %s: %v\n", runId, err)
-        return
-    }
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response: %v\n", err)
+		return
+	}
 
 	if resp.StatusCode == http.StatusOK {
-        fmt.Printf("Successfully activated process %s. Status: %d\n", runId, resp.StatusCode)
-        fmt.Println("Response Body (Activated Process):")
-        // Pretty print JSON response
-        var prettyJSON bytes.Buffer
-        if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-            fmt.Println(prettyJSON.String())
-        } else {
-            fmt.Println(string(body))
-        }
-        // TODO: Unmarshal JSON if needed
+		fmt.Printf("Activated process %s\n", runId)
+		var prettyJSON bytes.Buffer
+		if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+			fmt.Println(prettyJSON.String())
+		} else {
+			fmt.Println(string(body))
+		}
 	} else {
-		fmt.Printf("Failed to activate process %s. Status: %d\nBody: %s\n", runId, resp.StatusCode, string(body))
+		fmt.Printf("Error %d: %s\n", resp.StatusCode, string(body))
 	}
 }
 ```
@@ -241,13 +207,13 @@ func main() {
 using namespace web;
 using namespace web::http;
 using namespace web::http::client;
-using namespace web::json;
 
 pplx::task<void> ActivateTallyfyProcess(const utility::string_t& runId)
 {
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/") + orgId + U("/runs/") + runId + U("/activate");
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+    utility::string_t apiUrl = U("https://go.tallyfy.com/api/organizations/")
+        + orgId + U("/runs/") + runId + U("/activate");
 
     http_client client(apiUrl);
     http_request request(methods::PUT);
@@ -255,25 +221,23 @@ pplx::task<void> ActivateTallyfyProcess(const utility::string_t& runId)
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
-    // No request body is needed for activation
 
     return client.request(request).then([runId](http_response response)
     {
         utility::string_t runIdW = runId;
-        return response.extract_json().then([response, runIdW](pplx::task<value> task)
+        return response.extract_json().then([response, runIdW](pplx::task<json::value> task)
         {
             try {
-                value const & body = task.get();
+                json::value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully activated process " << runIdW << L". Status: " << response.status_code() << L"\nResponse:\n" << body.serialize() << std::endl;
+                    std::wcout << L"Activated process " << runIdW
+                               << L"\n" << body.serialize() << std::endl;
                 } else {
-                    std::wcerr << L"Failed to activate process " << runIdW << L". Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
+                    std::wcerr << L"Error " << response.status_code()
+                               << L": " << body.serialize() << std::endl;
                 }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during activate process: " << e.what() << std::endl;
-                 // Consider extracting string body for non-JSON errors
             } catch (const std::exception& e) {
-                std::wcerr << L"Exception during activate process response handling: " << e.what() << std::endl;
+                std::wcerr << L"Exception: " << e.what() << std::endl;
             }
         });
     });
@@ -281,9 +245,9 @@ pplx::task<void> ActivateTallyfyProcess(const utility::string_t& runId)
 
 int main() {
     try {
-        ActivateTallyfyProcess(U("PROCESS_RUN_ID_TO_ACTIVATE")).wait(); // Replace with actual Run ID
+        ActivateTallyfyProcess(U("PROCESS_RUN_ID_TO_ACTIVATE")).wait();
     } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
     }
     return 0;
 }
@@ -308,45 +272,27 @@ public class TallyfyProcessActivator
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/runs/{runId}/activate";
 
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
-            // No request body needed for PUT /activate
+        using var request = new HttpRequestMessage(HttpMethod.Put, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
 
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
+        HttpResponseMessage response = await client.SendAsync(request);
+        string responseBody = await response.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode) // Expect 200 OK
-            {
-                Console.WriteLine($"Successfully activated process {runId}. Status: {response.StatusCode}");
-                Console.WriteLine("Activated process details:");
-                try {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                } catch (JsonException) {
-                    Console.WriteLine(responseBody);
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to activate process {runId}. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
-        }
-        catch (HttpRequestException e)
+        if (response.IsSuccessStatusCode)
         {
-            Console.WriteLine($"Request Exception activating process {runId}: {e.Message}");
+            Console.WriteLine($"Activated process {runId}");
+            using var doc = JsonDocument.Parse(responseBody);
+            Console.WriteLine(JsonSerializer.Serialize(doc.RootElement,
+                new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Error {response.StatusCode}: {responseBody}");
         }
     }
 
-    // Example Usage:
     // static async Task Main(string[] args)
     // {
     //     await ActivateProcessAsync("PROCESS_RUN_ID_TO_ACTIVATE");
@@ -358,22 +304,23 @@ public class TallyfyProcessActivator
 
 ## Response
 
-A successful request returns a `200 OK` status code. The response body contains the details of the reactivated Tallyfy process run, with the `archived_at` timestamp removed and the `status` updated to its pre-archive state.
+A successful request returns `200 OK` with the restored run wrapped in a `data` object. The `archived_at` field will be `null`, and `status` retains whatever value it had before archiving (e.g., `active`, `complete`, or `problem`).
 
 ```json
 {
   "data": {
     "id": "PROCESS_RUN_ID_TO_ACTIVATE",
+    "checklist_id": "template_id_here",
     "name": "Restored Project Run",
-    "status": "active", // Or 'complete', etc.
-    "archived_at": null, // Timestamp is removed
-    // ... other process properties ...
-    "last_updated": "..." // Reflects activation time
+    "status": "active",
+    "archived_at": null,
+    "started_at": "2025-01-15T10:00:00.000Z",
+    "last_updated": "2025-06-20T14:30:00.000Z"
   }
 }
 ```
 
-If the process run ID is not found, was not archived, or you lack permission, an error status code (`404`, `400`, `403`) will be returned.
+If the run ID isn't found or you don't have access, you'll get a `404` or `403` error.
 
 ---
 
@@ -383,6 +330,6 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <CardGrid>
 <LinkTitleCard header="<b>Processes > Archive process</b>" href="/products/pro/integrations/open-api/code-samples/processes/archive-process/" > This DELETE endpoint archives a Tallyfy process instance by hiding it from default views while preserving all data for potential future restoration and returns the archived process details with an updated status and timestamp upon successful completion. </LinkTitleCard>
 <LinkTitleCard header="<b>Processes > Delete process</b>" href="/products/pro/integrations/open-api/code-samples/processes/delete-process/" > The DELETE endpoint permanently removes a process run instance and its associated data including tasks comments and form values with no option for recovery. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Reopen task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/reopen-task/" > The endpoint allows reopening completed tasks by using DELETE requests to restore them to an active state with proper authentication headers and supports both process-run tasks and standalone one-off tasks through distinct URL patterns. </LinkTitleCard>
 <LinkTitleCard header="<b>Code Samples > Managing processes (Runs)</b>" href="/products/pro/integrations/open-api/code-samples/processes/" > The API helps process management by enabling users to launch retrieve update and control the lifecycle of running instances while providing integration capabilities for tasks templates and organizational tags. </LinkTitleCard>
-<LinkTitleCard header="<b>Processes > Update process</b>" href="/products/pro/integrations/open-api/code-samples/processes/update-process/" > The PUT endpoint allows modification of existing Tallyfy process instance properties like name summary owner tags and folders where providing arrays for tags or folders completely replaces the existing values rather than appending to them. </LinkTitleCard>
 </CardGrid>

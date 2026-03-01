@@ -1,4 +1,5 @@
 ---
+about_tallyfy: true
 description: This guide explores alternative analytics solutions for teams seeking
   Sigma Computing's spreadsheet-style data exploration with Tallyfy Analytics and
   recommends Power BI as the closest match while also covering Tableau and AWS QuickSight
@@ -13,200 +14,85 @@ title: Alternatives for spreadsheet-style analytics
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Finding Sigma-Like Functionality for Tallyfy Analytics
+## Sigma alternatives that work with Tallyfy Analytics
 
-Sigma Computing can't connect directly to Tallyfy Analytics - but don't worry. Several alternatives offer that same spreadsheet-style data exploration you're after. Let's find the best fit for your team.
+Sigma Computing can't connect directly to Tallyfy Analytics because Sigma requires persistent database connections, while Tallyfy Analytics runs on Amazon Athena's serverless, query-by-query model. Several alternatives give you that same spreadsheet-style data exploration though - here's how they compare.
 
-### What Makes Sigma Unique
+### What makes Sigma different
 
-Here's what Sigma does differently (and what we need to replicate):
+Sigma's core appeal is a spreadsheet interface over live cloud data - Excel-like interaction with real-time queries, collaborative editing, and no-code data manipulation. That's the experience we need to replicate with a tool that actually supports Athena.
 
-- **Spreadsheet Interface** - Familiar Excel-like interaction model
-- **Self-Service Analytics** - Business users can explore data on their own  
-- **Live Data Connections** - Real-time queries without data downloads
-- **Collaborative Editing** - Team-based workbook creation and sharing
-- **No-Code Data Manipulation** - Point-and-click data transformation
-- **Cloud-Native Performance** - Built for modern data warehouses
+## Alternative tools
 
-## Top Alternative Solutions
+### Option 1: Power BI with Excel integration
 
-### Option 1: Power BI with Excel Integration
+Power BI gets you closest to Sigma's spreadsheet experience, and it connects directly to Tallyfy Analytics through Athena ODBC drivers.
 
-Power BI gets you closest to Sigma's spreadsheet experience. Better yet, it works perfectly with Tallyfy Analytics.
-
-#### Benefits for Sigma Users
-- **Familiar Interface** - Excel-like grid views and data manipulation
-- **Self-Service Capabilities** - Business user-friendly data exploration
-- **Direct Athena Connection** - Native connectivity to Tallyfy Analytics
-- **Microsoft Ecosystem** - Works with familiar Office tools
-- **Collaborative Features** - Workbook sharing and team editing
-
-#### Implementation Approach
+- **Excel-like grid views** for data exploration and manipulation
+- **Direct Athena connection** - native connectivity to your Tallyfy Analytics data
+- **Microsoft ecosystem** - pairs with Excel, Teams, and SharePoint
+- **Self-service capabilities** - business users can build their own reports
 
 <Steps>
-1. **Set Up Power BI Desktop** - Install Power BI Desktop with Athena ODBC drivers
-2. **Set up Athena Connection** - Use your Tallyfy Analytics credentials
-3. **Create Excel-Style Reports** - Build spreadsheet-like data views
-4. **Turn on Self-Service** - Train users on Power BI's Excel-like features
-5. **Set up Collaboration** - Enable workbook sharing and governance
+1. **Install Power BI Desktop** with Athena ODBC drivers
+2. **Connect to Athena** using your Tallyfy Analytics AWS credentials
+3. **Build spreadsheet-style reports** with grid views and pivot-like features
+4. **Enable sharing** so your team can collaborate on workbooks
 </Steps>
 
-**Best For:** Organizations already using Microsoft tools or wanting the closest Sigma alternative.
+**Best for:** Organizations already using Microsoft tools or wanting the closest Sigma alternative.
 
-### Option 2: Tableau with Data Source Filters
+### Option 2: Tableau
 
-Tableau brings powerful analytics to the table. You'll get some spreadsheet features - though it's more visualization-focused.
+Tableau connects to Tallyfy Analytics through Athena and offers data grid views, calculated fields, and drag-and-drop manipulation. It leans more toward visualization than spreadsheets - the learning curve is steeper for business users, but the advanced analytics capabilities are stronger.
 
-#### Spreadsheet-Style Features
-- **Data Grid Views** - Table-based data exploration
-- **Drag-and-Drop Interface** - Intuitive data manipulation
-- **Live Connections** - Real-time Athena querying
-- **Calculated Fields** - Formula-based data transformation
-- **Collaborative Dashboards** - Team-based content creation
+- **Live Athena connections** for real-time querying
+- **Calculated fields** for formula-based data transformation
+- **Enterprise governance** features for larger teams
 
-#### Key Differences from Sigma
-- More visualization-focused than spreadsheet-focused
-- Steeper learning curve for business users
-- Better advanced analytics capabilities
-- Enterprise-grade governance features
+**Best for:** Organizations that need advanced visualization alongside data exploration.
 
-**Best For:** Organizations that need advanced visualization capabilities alongside spreadsheet-style exploration.
+### Option 3: AWS QuickSight
 
-### Option 3: AWS QuickSight with Parameterized Dashboards
+If you're already in AWS, QuickSight connects to Athena natively - no drivers to install. It offers SPICE in-memory caching for fast performance, AI-powered insights, and serverless scaling that matches Athena's architecture.
 
-If you're already in AWS, QuickSight makes sense. Native integration and growing self-service features sweeten the deal.
+- **Native Athena integration** - zero driver configuration
+- **SPICE in-memory engine** for fast, spreadsheet-like performance
+- **Serverless scaling** that matches Athena's model
+- **AI-generated insights** for automatic data discovery
 
-#### Sigma-Like Features
-- **SPICE In-Memory** - Fast, spreadsheet-like performance
-- **Auto-Generated Insights** - AI-powered data discovery
-- **Self-Service Exploration** - Business user-friendly interface
-- **Native Athena Integration** - Direct Tallyfy Analytics connectivity
-- **Collaborative Dashboards** - Team-based analytics
+**Best for:** AWS-focused organizations that want the simplest setup path.
 
-#### Implementation Benefits
-- **Streamlined Setup** - No additional driver configuration needed
-- **No Driver Setup** - Native Athena connectivity
-- **AWS Ecosystem** - Built-in security and management
-- **Serverless Scaling** - Matches Athena's serverless setup
+## Implementation strategies
 
-**Best For:** AWS-focused organizations that want direct native integration.
+### Hybrid approach with Excel
 
-## Implementation Strategies
+For maximum adoption, use Power BI as a data gateway to Tallyfy Analytics, then push data into Excel for detailed manipulation. Schedule automated refreshes so Excel always has current data. This uses existing Excel skills while keeping the live connection to your analytics pipeline.
 
-### Strategy 1: Hybrid Approach with Excel
+### Data warehouse bridge to Sigma
 
-Want maximum user adoption? Combine Excel's familiar interface with Power BI's connectivity. It works.
+If you really want Sigma itself, bridge the gap with a warehouse Sigma supports.
 
-#### Setup Process
-1. **Power BI as Data Gateway** - Use Power BI to connect to Tallyfy Analytics
-2. **Excel Integration** - Send data to Excel for detailed manipulation  
-3. **Automated Refresh** - Schedule regular data updates
-4. **Dashboard Creation** - Build summary dashboards in Power BI
-5. **User Training** - Focus on Excel-familiar workflows
+**Snowflake** reads your Tallyfy Analytics Parquet files directly from S3 - no ETL needed. Sigma has a native Snowflake connector, so this gives you the full Sigma experience. Your existing Athena access stays intact. [See our Snowflake setup guide](/products/pro/integrations/analytics/snowflake/).
 
-#### Benefits
-- Uses existing Excel skills
-- Minimal learning curve for business users
-- Combines spreadsheet flexibility with BI power
-- Leverages existing Microsoft licensing
+**Amazon Redshift** can access your S3 data through Redshift Spectrum, keeping everything in AWS. Sigma supports Redshift connections natively.
 
-### Strategy 2: Data Warehouse Modernization
+Before migrating, compare warehouse costs against your current Athena usage and test query performance with your actual data volumes.
 
-Really want the full Sigma experience? You'll need to switch warehouses. Here are your options.
+### Custom self-service portal
 
-#### Recommended Warehouses
+With development resources, you can build a Sigma-like interface directly over Athena - a web frontend with grid components, a backend service querying Athena, caching with Redis or ElastiCache, and CSV/Excel export. This requires a full-stack team and several months of work, but gives you complete control over the experience.
 
-**Snowflake** - [See our dedicated Snowflake setup guide](/products/pro/integrations/analytics/snowflake/)
-- Excellent Sigma integration via native connector
-- Reads Tallyfy Analytics Parquet files directly from S3 - no ETL needed
-- Advanced analytics capabilities with automatic scaling
-- Handles large datasets with ease
-- Can run alongside your existing Athena access
+## Choosing the right alternative
 
-**Amazon Redshift**
-- Native AWS integration
-- Use Redshift Spectrum for S3 data access
-- Familiar SQL interface
-- Works with existing AWS infrastructure
+| Criteria | Power BI | Tableau | QuickSight | Custom |
+|----------|----------|---------|------------|--------|
+| **Spreadsheet feel** | High | Medium | Low | High |
+| **Setup complexity** | Low | Medium | Low | High |
+| **Advanced analytics** | Medium | High | Medium | Customizable |
+| **AWS integration** | Medium | Medium | High | High |
 
-#### Migration Considerations
-- **Data Pipeline Setup** - Sync from S3 to chosen warehouse
-- **Cost Analysis** - Compare warehouse costs vs current Athena usage
-- **Performance Testing** - Check query performance improvements
-- **User Training** - Get teams ready for new platform
-
-### Strategy 3: Custom Self-Service Portal
-
-Got development resources? Build your own Sigma-like interface over Athena.
-
-#### Technical Architecture
-1. **Web-Based Interface** - React/Angular frontend with grid components
-2. **Backend API** - Python/Node.js service querying Athena
-3. **Authentication** - Works with existing user management
-4. **Caching Layer** - Redis/ElastiCache for performance
-5. **Export Features** - CSV/Excel download capabilities
-
-#### Development Considerations
-- **Resource Requirements** - Significant development and maintenance effort
-- **Timeline** - Several months for basic functionality
-- **Skills Needed** - Full-stack development team
-- **Ongoing Costs** - Development, hosting, and maintenance
-
-## Choosing the Right Alternative
-
-### Decision Framework
-
-| Criteria | Power BI | Tableau | QuickSight | Custom Solution |
-|----------|----------|---------|------------|-----------------|
-| **Ease of Use** | High | Medium | Medium | Customizable |
-| **Spreadsheet Feel** | High | Medium | Low | High |
-| **Setup Complexity** | Low | Medium | Low | High |
-| **Advanced Analytics** | Medium | High | Medium | Customizable |
-| **AWS Integration** | Medium | Medium | High | High |
-
-### Assessment Questions
-
-**Budget and Timeline**
-- What's your budget for BI tooling and setup?
-- How quickly do you need this running?
-- Do you have development resources for custom solutions?
-
-**User Requirements**  
-- How important is the spreadsheet-like interface?
-- What's the technical skill level of your main users?
-- How many users need access to the analytics platform?
-
-**Technical Environment**
-- Are you committed to staying within the AWS ecosystem?
-- Do you have existing Microsoft or Tableau investments?
-- What's your appetite for managing extra infrastructure?
-
-**Analytics Maturity**
-- Do you need basic reporting or advanced analytics?
-- How important are real-time vs. scheduled data updates?
-- What level of data governance do you require?
-
-## Implementation Recommendations
-
-### For Immediate Needs
-1. **Start with Power BI** - Fastest path to Sigma-like functionality
-2. **Focus on Key Use Cases** - Set up core reporting requirements first  
-3. **Plan User Training** - Invest in change management and adoption
-4. **Iterate Based on Feedback** - Refine based on user experience
-
-### For Long-Term Strategy
-1. **Evaluate Warehouse Migration** - Consider whether Sigma's full capabilities justify the cost
-2. **Monitor Sigma Roadmap** - Watch for potential future Athena support
-3. **Build Analytics Skills** - Develop internal expertise regardless of tool choice
-4. **Plan for Scale** - Ensure your chosen solution supports future growth
-
-### Getting Support
-- **Vendor Resources** - Use training and support from your chosen vendor
-- **Community Forums** - Join user communities for tips and best practices
-- **Professional Services** - Consider implementation consulting for faster deployment
-- **Internal Champions** - Find power users to drive adoption
-
-Pick the right alternative, follow a structured setup approach, and you'll capture most of Sigma's benefits. Your Tallyfy Analytics infrastructure stays intact - and your team gets the spreadsheet-style analytics they need.
+**Quick decision guide:** If you use Microsoft tools, start with Power BI. If you're all-in on AWS, go with QuickSight. If you need Sigma specifically, bridge through Snowflake. If you need advanced visualizations, pick Tableau.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -5,6 +5,7 @@ description: You can connect Tableau to Tallyfy Analytics data in about 15 minut
   that visualize process durations and user performance metrics.
 id: cecbb6c0d3b0d0058cf082949314f6f0
 lastUpdated: 2025-12-29
+about_tallyfy: true
 sidebar:
   order: 1
 title: Connecting Tableau to analytics data
@@ -12,124 +13,116 @@ title: Connecting Tableau to analytics data
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Connect Tableau to Tallyfy data
+## Connect Tableau to your Tallyfy Analytics data
 
-You can connect Tableau to Tallyfy in about 15 minutes using Amazon Athena. Once connected, you'll transform your raw workflow data into visual dashboards that actually help you make decisions.
-
-Here's the thing - Tallyfy stores your process data in a way that's perfect for business intelligence tools. You just need the right setup.
+Connect Tableau to Tallyfy Analytics through Amazon Athena[^1] in about 15 minutes. Once connected, you can build visual dashboards from your workflow data - process durations, task completion rates, form field answers, and member activity.
 
 ### Requirements
 
-Before you start, make sure you have these four things:
-
 - Tallyfy Analytics subscription activated for your organization
 - Tableau Desktop installed
-- Administrative access to your computer for driver installation
-- Authentication credentials provided by Tallyfy Support
+- Admin access to your computer (for driver installation)
+- Access Key credentials from Tallyfy Support
 
-## Authentication Overview
+## Authentication overview
 
-Amazon Athena (which hosts Tallyfy Analytics data) offers two authentication methods:
+Tallyfy provisions two separate credential sets for Analytics:
 
-| Method | Description | Best For |
-|--------|-------------|----------|
-| IAM Username/Password | Web console access credentials | AWS Console access only |
-| Access Key/Secret | Token-based authentication | BI tool connections (recommended) |
+| Credential type | Use for |
+|--------|----------|
+| IAM Username/Password | AWS web console access only |
+| Access Key + Secret Access Key | Tableau and other BI tool connections (recommended) |
 
-:::caution[Important Note]
-When Tallyfy provisions your Analytics account, you'll receive two distinct credential sets:
-- **AWS IAM login** - Use only for accessing the AWS web console 
-- **Access Key + Secret Access Key** - Use for connecting Tableau and other BI tools
+:::caution[Use the right credentials]
+For Tableau, always use **Access Key + Secret Access Key** - not your IAM console login. Token-based authentication avoids "security token invalid" errors that happen with console credentials.
 :::
 
-Why does this matter? Token-based authentication (Access Key + Secret Access Key) gives you reliable connections without those frustrating "security token invalid" errors. Trust me - use the Access Keys for Tableau.
+## Setup process
 
-## Setup Process
-
-### Step 1: Install Required Drivers
-
-First things first - you need two drivers installed:
+### Step 1 - Install required drivers
 
 <Steps>
-1. Download and install **64-bit Java** from [Java's official site](https://java.com/en/download/manual.jsp/), following the on-screen prompts. This is required for the JDBC connection.
+1. Download and install **64-bit Java** from [Java's official site](https://java.com/en/download/manual.jsp/). The JDBC connection requires it.
 2. Download the **Amazon Athena JDBC Driver** from the [AWS Athena JDBC documentation page](http://docs.aws.amazon.com/athena/latest/ug/connect-with-jdbc.html/).
-3. Install the downloaded driver in the appropriate Tableau driver directory: `C:\\Program Files\\Tableau\\Drivers` for Windows or `~/Library/Tableau/Drivers` for macOS.
+3. Place the downloaded driver in Tableau's driver directory: `C:\\Program Files\\Tableau\\Drivers` on Windows or `~/Library/Tableau/Drivers` on macOS.
 </Steps>
 
-:::note[Driver Updates]
-AWS updates their drivers periodically. Check their documentation for the latest version - it'll save you headaches later.
+:::note[Driver updates]
+AWS updates their JDBC drivers periodically. Check their documentation for the latest version to avoid compatibility issues.
 :::
 
-### Step 2: Configure Tableau Connection
+### Step 2 - Configure Tableau connection
 
 <Steps>
 1. Launch Tableau Desktop.
 2. Click **Connect** > **To a Server** > **Amazon Athena**.
-3. In the connection dialog, enter the **Server** (`athena.us-east-1.amazonaws.com` or your specific region).
+3. Enter the **Server** - use the Athena endpoint for your region (e.g., `athena.us-east-1.amazonaws.com` or `athena.us-west-2.amazonaws.com`). Tallyfy Support will confirm your region.
 4. Enter the **Port** (`443`).
-5. Enter the **S3 Staging Directory** provided by Tallyfy (e.g., `s3://tallyfy-athena-results/`).
+5. Enter the **S3 Staging Directory** provided by Tallyfy (e.g., `s3://tallyfy-athena-results/`). This is where Athena stores temporary query results.
 6. Enter your Tallyfy-provided **Access Key ID**.
 7. Enter your Tallyfy-provided **Secret Access Key**.
-8. Enter the **Region** (`us-east-1` or your specific region).
+8. Enter the **Region** matching your server endpoint.
 9. Click **Sign In**.
 </Steps>
 
 ![](https://screenshots.tallyfy.com/tableau-athena-connection.png)
 
-### Step 3: Access Tallyfy Data
-
-You're connected! Here's what to do next:
+### Step 3 - Access Tallyfy data
 
 <Steps>
-1. Select **AwsDataCatalog** from the Catalog dropdown
-2. Select your assigned database (typically your organization name) from the Database dropdown
-3. You will see available tables containing your process data
-4. Drag tables into your workspace to begin analysis
+1. Select **AwsDataCatalog** from the Catalog dropdown.
+2. Select your assigned database (typically your organization name) from the Database dropdown.
+3. You'll see available tables containing your workflow data.
+4. Drag tables into your workspace to start building visualizations.
 </Steps>
 
 ![](https://screenshots.tallyfy.com/tableau-data-selection.png)
 
-## Working with Tallyfy Data in Tableau
+## Working with Tallyfy data in Tableau
 
-### Available Data Tables
+### Available data
 
-Tallyfy Analytics gives you access to four main tables:
+Tallyfy Analytics data includes detailed information across these areas:
 
-- **processes** - Completed and in-progress workflow instances
-- **steps** - Individual task data within processes
-- **form_fields** - Form field values collected during workflows
-- **users** - User activity and participation metrics
+- **Process data** - template names, process status, ownership, and completion progress
+- **Task data** - assignments, due dates, completion timestamps, and task status per step
+- **Form field data** - questions, answers, and field types collected during workflows
+- **Member data** - user profiles, activity timestamps, roles, and login history
 
-### Creating Effective Visualizations
+Each process run is exported as a denormalized dataset - meaning process, task, and form field details are combined into a single flat structure. This makes it straightforward to build dashboards without complex joins.
 
-Want to know what you can actually build? Here are the most popular dashboards our customers create:
+### Visualization ideas
 
-1. Process duration charts that show exactly where workflows get stuck (remember: durations show elapsed time, not effort)
-2. User performance scorecards with task completion rates and average handling times
-3. Form data analytics to spot trends in customer requests or quality issues
-4. Real-time process monitors showing what's happening right now
+Here are the most common dashboards Tallyfy customers build:
+
+1. **Process duration charts** - identify where workflows get stuck (durations show elapsed time, not effort)
+2. **User performance scorecards** - task completion rates and average handling times
+3. **Form data trends** - patterns in customer requests or quality submissions
+4. **Process status monitors** - current state of active workflows
 
 :::caution[Interpreting time metrics]
 Duration and handling time metrics show elapsed calendar time between task assignment and completion. This includes weekends, holidays, and waiting periods. For actual effort tracking, see [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/#analytics-timestamps-inherit-these-challenges).
 :::
 
-## Video Tutorial
+## Video tutorial
 
-Need a visual walkthrough? This 5-minute video shows the entire setup:
+This video walks through the complete setup:
 
 <lite-vimeo videoid="359349723"></lite-vimeo>
 
-## Troubleshooting Connection Issues
+## Troubleshooting connection issues
 
-Connection not working? Let's fix it. Check these things in order:
+If your connection fails, check these in order:
 
-- Double-check your Access Key and Secret Access Key - even one wrong character breaks everything
-- Make sure the JDBC driver landed in the right folder (yes, it's picky about location)
-- Test if your computer can reach athena.us-east-1.amazonaws.com - corporate firewalls sometimes block it
-- Verify your Tallyfy Analytics subscription is active in your account settings
-- Restart Tableau after installing drivers (annoying but necessary)
+- Verify your Access Key and Secret Access Key are correct - a single wrong character breaks the connection
+- Confirm the JDBC driver is in the correct folder (`C:\\Program Files\\Tableau\\Drivers` or `~/Library/Tableau/Drivers`)
+- Test network connectivity to the Athena endpoint - corporate firewalls sometimes block it
+- Confirm your Tallyfy Analytics subscription is active
+- Restart Tableau after installing drivers (required for Tableau to detect new drivers)
 
-Still stuck? Contact Tallyfy Support with the exact error message you're seeing.
+Still stuck? Contact Tallyfy Support with the exact error message.
+
+[^1]: Amazon Athena is a serverless query service that lets BI tools run SQL queries directly against data stored in S3
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

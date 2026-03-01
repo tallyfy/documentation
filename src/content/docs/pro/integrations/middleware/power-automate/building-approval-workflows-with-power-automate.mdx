@@ -1,45 +1,49 @@
 ---
-description: This guide explains how to use Power Automate's approval features to
-  handle formal sign-offs that extend beyond Tallyfy's built-in task assignments by
-  creating automated workflows that request approvals and update Tallyfy processes
-  based on the outcomes.
+description: Use Power Automate's approval features to handle formal sign-offs that
+  extend beyond Tallyfy's built-in task assignments - requesting approvals and updating
+  Tallyfy processes based on the outcomes.
 id: 085e717e19039cb01c91462d686e59ef
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 8
+about_tallyfy: false
 title: Building approval workflows with Power Automate
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
-Many business [processes](/products/pro/tracking-and-tasks/processes/) require formal sign-off. While Tallyfy handles [task](/products/pro/tracking-and-tasks/tasks/) assignments and completions beautifully, you'll sometimes need Power Automate's approvals feature for more formal sign-offs. Think audit trails. Complex routing. External stakeholders who aren't in Tallyfy every day.
+Many business [processes](/products/pro/tracking-and-tasks/processes/) require formal sign-off. Tallyfy handles [task](/products/pro/tracking-and-tasks/tasks/) assignments and completions well, but sometimes you need Power Automate's approvals feature for audit trails, complex routing, or external stakeholders who aren't in Tallyfy regularly.
 
-## Introduction to Power Automate approvals for Tallyfy
+## Why use Power Automate approvals with Tallyfy
 
-Power Automate approvals let you create automated workflows that request and track formal sign-off. Connect a flow to Tallyfy, trigger an approval action - boom, request goes to your designated approvers.
+Power Automate approvals request and track formal sign-off through automated workflows. Connect a flow to Tallyfy's API, trigger an approval action, and the request goes to your designated approvers.
 
-Here's where it gets interesting. You can use Power Automate approvals for those formal sign-off steps that wrap around your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/). Picture this: your internal Tallyfy process produces a document that needs client approval. Power Automate handles that external approval loop, then updates your Tallyfy process based on what the client decides.
+The real value: you can wrap formal sign-off steps around your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/). For example, your Tallyfy process produces a document needing client approval. Power Automate handles that external approval loop, then updates your Tallyfy process based on the client's decision.
 
-:::note[Dataverse Backend]
-Power Automate approvals use Microsoft Dataverse in the background to store approval history. You typically don't need to interact directly with Dataverse for standard Tallyfy-related approval scenarios.
+:::note[Dataverse backend]
+Power Automate approvals use Microsoft Dataverse to store approval history. You don't need to interact directly with Dataverse for standard Tallyfy-related approval scenarios.
 :::
 
-## Types of approval actions in Power Automate for Tallyfy scenarios
+:::caution[Tallyfy connector limitations]
+The Tallyfy Power Automate connector is action-only - it has no built-in triggers. To start flows based on Tallyfy events, use Power Automate's HTTP connector with Tallyfy's API, or use a recurrence trigger that polls for changes. The walkthrough below uses conceptual action names to illustrate the pattern.
+:::
 
-When you're building approval flows for Tallyfy items, you'll mostly work with actions from the "Approvals" [connector](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/):
+## Types of approval actions in Power Automate
 
-*   **Start and wait for an approval:** Your go-to choice. Kicks off an approval for a Tallyfy-related item and waits patiently for a response.
-    *   *Common Types within this action:*
-        *   **Approve/Reject - First to respond:** If sent to multiple people for a Tallyfy item, the first response determines the outcome.
-        *   **Approve/Reject - Everyone must approve:** Everyone has to weigh in. One rejection? That's a no-go for your Tallyfy item.
-        *   **Custom Responses - Wait for one response / Wait for all responses:** Define custom action buttons beyond Approve/Reject for Tallyfy item approvals.
+When building approval flows for Tallyfy items, you'll work with the "Approvals" [connector](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/):
+
+*   **Start and wait for an approval:** Kicks off an approval for a Tallyfy-related item and waits for a response.
+    *   *Common types:*
+        *   **Approve/Reject - First to respond:** With multiple approvers, the first response determines the outcome.
+        *   **Approve/Reject - Everyone must approve:** All approvers must respond. One rejection means the item is rejected.
+        *   **Custom Responses - Wait for one/all responses:** Define custom action buttons beyond Approve/Reject.
 *   **Create an approval** and **Wait for an approval (separate actions):** For advanced scenarios like parallel approvals related to a Tallyfy [process](/products/pro/tracking-and-tasks/processes/).
 
 ## Building a simple approval flow for a Tallyfy scenario
 
-Let's build something real. We'll create a flow where completing a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) triggers manager approval - but only when a financial threshold in a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) is crossed.
+Here is a practical example: completing a Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) triggers manager approval when a financial threshold in a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) is crossed.
 
-**The scenario:** Your team member wraps up a "Submit Budget Proposal" [task](/products/pro/tracking-and-tasks/tasks/) in Tallyfy. The task has a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) for "Proposed Amount." Anything over $5,000? That needs manager approval through Power Automate. Then we update the Tallyfy task with whatever happens.
+**The scenario:** A team member completes a "Submit Budget Proposal" [task](/products/pro/tracking-and-tasks/tasks/) in Tallyfy. The task has a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) for "Proposed Amount." Amounts over $5,000 need manager approval through Power Automate, and the result updates back in Tallyfy.
 
 ### Approval workflow visualization
 
@@ -146,86 +150,82 @@ EmailSubmitter -> Halted {
 }
 ```
 
-**Diagram description:** This flow diagram illustrates a budget approval workflow that integrates Tallyfy with Power Automate, showing how a completed task triggers conditional approval based on a $5,000 threshold. The workflow branches at decision points to either bypass approval for smaller amounts or route through manager approval for larger amounts, with different colored paths indicating success (green) and rejection (yellow/dashed) scenarios.
+**Diagram description:** Budget approval workflow integrating Tallyfy with Power Automate. A completed task triggers conditional approval based on a $5,000 threshold, branching to bypass approval for smaller amounts or route through manager approval for larger ones.
 
 **What to notice:**
-- The $5,000 threshold creates two distinct paths - amounts below bypass approval entirely while higher amounts trigger the full approval flow
-- Manager approval happens outside Tallyfy in Power Automate, but the result always updates back to the original Tallyfy task for complete visibility
-- The rejection path includes an optional email notification, showing how you can add custom actions based on approval outcomes
+- Amounts below $5,000 bypass approval entirely, while higher amounts trigger the full approval flow
+- Manager approval happens in Power Automate, but the result updates back to the Tallyfy task
+- The rejection path includes an optional email notification for custom follow-up
 
 <Steps>
 
-1.  **Trigger: Tallyfy - "When a task is completed".**
+1.  **Trigger: Detect a completed Tallyfy task.**
     *   Create a new automated [cloud flow](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/).
-    *   Select the Tallyfy trigger: **When a task is completed**.
-    *   **Blueprint ID (Highly Recommended):** Select the specific Tallyfy [procedure template](/products/pro/documenting/templates/) containing the "Submit Budget Proposal" task.
+    *   Since the Tallyfy connector has no built-in triggers, use an **HTTP** action to poll the Tallyfy API for completed tasks, or use a **Recurrence** trigger combined with a Tallyfy API call to check for newly completed tasks.
+    *   Filter for the specific [template](/products/pro/documenting/templates/) containing the "Submit Budget Proposal" task.
 
-2.  **Action: Tallyfy - "Get task details".**
-    *   Add this to retrieve all Tallyfy [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data.
-    *   **Task ID:** Use `Task ID` dynamic content from the trigger.
+2.  **Action: Retrieve task details via the Tallyfy API.**
+    *   Use an **HTTP** action or the Tallyfy connector's **Get a member's tasks** action to retrieve [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data.
+    *   **Task ID:** Use the Task ID from the previous step's output.
 
 3.  **Control: "Condition".**
     *   Add a Condition control (see [using conditional logic](/products/pro/integrations/middleware/power-automate/using-conditional-logic-in-power-automate/)).
-    *   **Value 1:** Pick the dynamic content for "Proposed Amount" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) from "Get task details". You'll probably need an [expression](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) like `float(outputs('Get_task_details')?['body/forms/ProposedAmount/value'])` - Tallyfy sends text, but we need numbers.
+    *   **Value 1:** Pick the dynamic content for "Proposed Amount" [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) from the task details. You may need an [expression](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) like `float(outputs('Get_task_details')?['body/forms/ProposedAmount/value'])` since Tallyfy returns text values.
     *   **Operator:** `is greater than`.
     *   **Value 2:** `5000`.
 
 
 
-4.  **IF YES Branch (Amount > $5,000):**
+4.  **IF YES branch (Amount > $5,000):**
     *   **Action: "Get manager (V2)" (Office 365 Users connector).**
-        *   **User (UPN):** Use `Completed By User Email` from Tallyfy's "Get task details" to find the submitter's manager.
+        *   **User (UPN):** Use the completer's email from the task details to find their manager.
     *   **Action: "Start and wait for an approval".**
         *   **Approval type:** `Approve/Reject - First to respond`.
-        *   **Title:** Use dynamic content from Tallyfy, e.g., `Budget Proposal Approval: [Task Name from Get task details] - Amount: $[Proposed Amount from Get task details]`.
+        *   **Title:** Use dynamic content, e.g., `Budget Proposal Approval: [Task Name] - Amount: $[Proposed Amount]`.
         *   **Assigned to:** Use `Mail` from "Get manager (V2)".
-        *   **Details (Optional):** Provide context from Tallyfy, e.g., `Please review proposal for [Task Name]. Submitted by [Completed By User Name from Tallyfy]. Link to Tallyfy Task: [Link to Tallyfy Task]`.
-        *   **Item Link (Optional):** Direct URL to the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
-
-
-
-    *   **Control: "Condition" (to check approval outcome).**
-        *   Add another Condition control.
-        *   **Value 1:** Dynamic content `Outcome` from "Start and wait for an approval".
+        *   **Details (optional):** Provide context, e.g., `Please review proposal for [Task Name]. Submitted by [User Name]. Link to Tallyfy Task: [URL]`.
+        *   **Item Link (optional):** Direct URL to the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/).
+    *   **Control: "Condition" (check approval outcome).**
+        *   **Value 1:** Dynamic content `Outcome` from the approval action.
         *   **Operator:** `is equal to`.
         *   **Value 2:** `Approve`.
-    *   **IF Approval Outcome is "Approve":**
-        *   **Action: Tallyfy - "Update task"** (or **Add comment to task**).
-            *   **Task ID:** `Task ID` from the initial Tallyfy trigger.
-            *   **Comment/Note:** `Budget proposal approved by manager [Manager Display Name] on [Completion Date from approval].`
-    *   **ELSE (Approval Outcome is "Reject"):**
-        *   **Action: Tallyfy - "Update task"** (or **Add comment to task**).
-            *   **Task ID:** `Task ID` from the initial Tallyfy trigger.
-            *   **Comment/Note:** `Budget proposal rejected. Reason: [Comments from approval].`
-        *   **(Optional) Action: "Send an email (V2)"** to the Tallyfy task submitter.
+    *   **IF approved:**
+        *   **Action: Tallyfy - "Add comment, report issue, resolve issue on a task".**
+            *   **Task ID:** The task ID from your earlier step.
+            *   **Content:** `Budget proposal approved by manager [Manager Display Name] on [Completion Date].`
+    *   **IF rejected:**
+        *   **Action: Tallyfy - "Add comment, report issue, resolve issue on a task".**
+            *   **Task ID:** The task ID from your earlier step.
+            *   **Content:** `Budget proposal rejected. Reason: [Comments from approval].`
+        *   **(Optional) Action: "Send an email (V2)"** to notify the submitter.
 
-5.  **Save and test your flow.** Run through a Tallyfy task that hits your criteria. (Check out [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tricks).
+5.  **Save and test your flow.** Complete a Tallyfy task that meets your criteria. (See [managing and monitoring flows](/products/pro/integrations/middleware/power-automate/managing-and-monitoring-power-automate-flows/) for testing tips).
 
 </Steps>
 
-## Responding to approvals for Tallyfy items
+## Responding to approvals
 
-Approvers have three ways to respond:
+Approvers can respond in three ways:
 
-*   **Email:** Click the buttons right in the email for the Tallyfy item.
-*   **Power Automate Portal:** Find it under **Action items** > **Approvals**.
-*   **Microsoft Teams:** Got the [Teams integration](/products/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams/)? Respond without leaving Teams.
+*   **Email:** Click the approval buttons directly in the notification email.
+*   **Power Automate portal:** Find pending approvals under **Action items** > **Approvals**.
+*   **Microsoft Teams:** With the [Teams integration](/products/pro/integrations/middleware/power-automate/integrating-power-automate-approvals-with-microsoft-teams/), respond without leaving Teams.
 
-## Sequential and parallel approvals for Tallyfy (introduction)
+## Sequential and parallel approvals
 
-Need something more complex for your Tallyfy [processes](/products/pro/tracking-and-tasks/processes/)? You've got options:
+For more complex Tallyfy [processes](/products/pro/tracking-and-tasks/processes/), you have two patterns:
 
-*   **Sequential approvals:** The request travels from one approver to the next - like a relay race for your Tallyfy item.
-*   **Parallel approvals:** Fire off requests to multiple people at once. Everyone reviews your Tallyfy item simultaneously.
+*   **Sequential approvals:** The request moves from one approver to the next in order.
+*   **Parallel approvals:** Requests go to multiple people at once for simultaneous review.
 
-Mix and match these patterns to build sophisticated approval routes that match how your organization actually works.
+Combine these patterns to build approval routes that match how your organization works.
 
-## Tips for Tallyfy approval workflows using Power Automate
+## Tips for Tallyfy approval workflows
 
-*   **Clear criteria:** Know exactly what Tallyfy event kicks off an approval. Know who's approving.
-*   **Context matters:** Pull data from Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) or [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) into your approval request. Approvers need the full picture.
-*   **Close the loop:** Whatever happens in Power Automate, push it back to the original Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/). Keep everything visible in Tallyfy.
-*   **Keep it simple:** Basic approvals? Stick with Tallyfy's built-in task assignments. Save Power Automate for the complex stuff - multi-level approvals, external stakeholders, conditional routing.
+*   **Define clear criteria:** Know which Tallyfy event starts an approval and who the approvers are.
+*   **Include context:** Pull data from Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) or [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) into your approval request so approvers have the full picture.
+*   **Close the loop:** Always push the approval outcome back to the original Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) or [process](/products/pro/tracking-and-tasks/processes/) using the Tallyfy connector's comment action.
+*   **Keep it simple:** For basic approvals, use Tallyfy's built-in task assignments. Reserve Power Automate for multi-level approvals, external stakeholders, or conditional routing.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

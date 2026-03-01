@@ -1,11 +1,11 @@
 ---
-description: This documentation explains how to update existing Tallyfy tasks using
-  PUT API endpoints with separate URLs for process tasks and one-off tasks and covers
-  modifying properties like title deadline assignees and form field values through
-  taskdata objects with specific formatting requirements for different field types
-  including text dropdowns radio buttons and multi-select checkboxes.
+description: Update existing Tallyfy tasks via PUT API endpoints for both process
+  tasks and one-off tasks - modify title deadline assignees and form field values
+  through taskdata objects with field-type-specific formatting for text dropdowns
+  radio buttons and checkboxes.
 id: e90e77bdf44a694c9177bb323989ff60
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 5
 title: Update task
@@ -15,12 +15,12 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Endpoint
 
-This endpoint updates an existing Tallyfy task. The exact endpoint depends on whether it's a task within a process run or a one-off task:
+Use a different URL depending on the task type:
 
--   **Process Task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
--   **One-off Task:** `PUT /organizations/{org_id}/tasks/{task_id}`
+-   **Process task:** `PUT /organizations/{org_id}/runs/{run_id}/tasks/{task_id}`
+-   **One-off task:** `PUT /organizations/{org_id}/tasks/{task_id}`
 
-Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with the appropriate IDs.
+Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with actual IDs.
 
 ## Request
 
@@ -33,35 +33,36 @@ Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with the appropr
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the Tallyfy task properties you wish to modify. You only need to include the fields you want to change.
+Send a JSON object with only the fields you want to change. Updatable fields include:
 
-Refer to the `#definitions/updateTaskInput` (for process tasks) or `#definitions/updateStandaloneTaskInput` (for one-off tasks) schemas in Swagger for available fields. Common updatable fields include:
-
--   `title` (string): New task title.
--   `summary` / `description` (string): New task description.
--   `deadline` (string): New deadline in ISO 8601 format (e.g., `YYYY-MM-DDTHH:mm:ssZ`).
+-   `title` (string): New task title. Max 600 characters.
+-   `summary` (string): New task description.
+-   `deadline` (string): New deadline in ISO 8601 format (e.g., `YYYY-MM-DDTHH:mm:ssZ`). Deadlines are automatically adjusted to the organization's working days.
 -   `started_at` (string): Set or change the start date/time.
 -   `owners` (object): Update assignees. Structure: `{ "users": [user_id1, ...], "guests": ["guest@email.com", ...], "groups": [group_id1, ...] }`. **This replaces existing assignees.**
 -   `taskdata` (object): Update form field values (see details below).
--   `status` (string): Change the task status (use with caution, prefer dedicated complete/reopen endpoints where possible).
--   `webhook` (string): Update the task-specific webhook URL (one-off tasks).
+-   `webhook` (string): Update the task-specific webhook URL.
 -   `prevent_guest_comment` (boolean): Enable/disable guest comments.
+-   `position` (integer): Change the task's position order.
+-   `max_assignable` (integer): Set the maximum number of assignees.
 
-### Updating form fields using `taskdata`
+:::caution[One-off tasks require more fields]
+For one-off tasks, `title`, `deadline`, and `owners` are **required** in every update request. For process tasks, all fields are optional - include only what you're changing.
+:::
 
-To update form field values, include a `taskdata` object in the request body. The keys within `taskdata` are the **Form Field IDs (Capture IDs)**, and the values depend on the field type:
+### Updating form fields with `taskdata`
+
+Include a `taskdata` object in the request body. Keys are **Form Field IDs (Capture IDs)**, and values depend on the field type:
 
 -   **Text/Textarea:** `{ "taskdata": { "field_id_abc": "New text value" } }`
 -   **Date:** `{ "taskdata": { "field_id_def": "2025-12-31T23:59:59Z" } }`
 -   **Radio Button:** `{ "taskdata": { "field_id_ghi": "Selected Value Text" } }`
 -   **Dropdown:** `{ "taskdata": { "field_id_jkl": { "id": 3, "text": "Chosen Option Text", "value": null } } }` (Provide the selected option object)
 -   **Multi-select Checkboxes:** `{ "taskdata": { "field_id_mno": [ { "id": 1, ..., "selected": true }, { "id": 2, ..., "selected": false }, { "id": 3, ..., "selected": true } ] } }` (Provide the full array of options with their selected status)
--   **File/Image:** See [Attach files using the API](https://tallyfy.com/products/pro/integrations/open-api/code-samples/files/upload-attach-file/) sample. Requires pre-uploading.
--   **Table:** Updating table fields via API might require specific formatting; consult Swagger or Tallyfy support if needed.
+-   **File/Image:** See [Attach files using the API](https://tallyfy.com/products/pro/integrations/open-api/code-samples/files/upload-attach-file/) sample. Files must be uploaded first.
+-   **Table:** Table fields may need specific formatting - check Swagger or contact Tallyfy support.
 
-#### Complete field update example
-
-Here's a complete example showing how to update different field types in a single API call:
+#### Multiple field types in one call
 
 ```json
 {
@@ -95,13 +96,13 @@ Here's a complete example showing how to update different field types in a singl
 }
 ```
 
-:::tip[Finding Field IDs]
-If you don't know the Form Field IDs (Capture IDs), you can:
-1.  Retrieve the task details using the [Get Task](/products/pro/integrations/open-api/code-samples/tasks/get-task/) endpoint with `with=form_fields`.
-2.  Inspect the network requests in your browser's developer tools when interacting with the task form in the Tallyfy UI.
+:::tip[Finding field IDs]
+Don't know the Form Field IDs? Two options:
+1.  Call the [Get Task](/products/pro/integrations/open-api/code-samples/tasks/get-task/) endpoint with `?with=form_fields`.
+2.  Open browser dev tools and watch network requests while interacting with the form in Tallyfy's UI.
 :::
 
-### Updating assignees using `owners`
+### Updating assignees with `owners`
 
 ```json
 {
@@ -113,8 +114,8 @@ If you don't know the Form Field IDs (Capture IDs), you can:
 }
 ```
 
-:::caution[Assignee Updates Replace]
-Providing the `owners` object *replaces* all existing assignees with the ones specified in the `users`, `groups`, and `guests` arrays within the object. To remove all assignees, provide empty arrays for all three.
+:::caution[Owners replace - they don't merge]
+The `owners` object *replaces* all existing assignees with the ones you specify. To remove all assignees, pass empty arrays for all three keys. If you need to add someone without removing others, first fetch the current task to get existing assignees, then send the full combined list.
 :::
 
 ### Code samples
@@ -612,33 +613,38 @@ public class TallyfyTaskUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the full details of the task *after* the update.
+Returns `200 OK` with the full task object after the update, wrapped in a `data` envelope.
 
 ```json
 {
   "data": {
     "id": "TASK_ID_TO_UPDATE",
-    "title": "Go Updated Task Title", // Updated title
-    "summary": "Task summary updated via Python.", // Updated summary
+    "title": "Go Updated Task Title",
     "status": "active",
-    "owners": { // Reflects updated assignees
+    "owners": {
         "users": [{ "id": 1005, ... }],
         "groups": [],
         "guests": []
      },
-    "deadline": "2025-07-01T09:00:00Z", // Updated deadline
-    "last_updated": "2025-05-20T16:00:00Z", // Reflects update time
-    // ... other task properties ...
-    "taskdata": { // Reflects updated form field values
+    "deadline": "2025-07-01T09:00:00Z",
+    "started_at": "2025-06-01T09:00:00Z",
+    "last_updated": "2025-05-20T16:00:00Z",
+    "taskdata": {
         "text_field_id_example": "Updated value from JS",
         "dropdown_field_id_example": { "id": 3, ... },
         "radio_button_field_id": "Option B"
-     }
+     },
+    "webhook": null,
+    "prevent_guest_comment": false,
+    "position": 1,
+    "is_oneoff_task": false
   }
 }
 ```
 
-If the task ID is not found, you lack permission, or the request body is invalid (e.g., incorrect field ID, wrong data type for a field), you will receive an appropriate error status code (`404`, `403`, `400`, `422`).
+Note that `summary` only appears in the response when you fetch a single task (not in list responses), or when you include `?with=summary`.
+
+Completed tasks can't be updated - you'll get a validation error. Other error codes: `404` (task not found), `403` (no permission), `422` (validation failure - wrong field type, missing required fields).
 
 ---
 

@@ -13,7 +13,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Endpoint
 
-Reopen a completed Tallyfy task by sending a `DELETE` request to the `completed-tasks` resource. This sets the task's status back to `in-progress` and clears completion data (`completed_at`, `completer_id`, and `is_approved` all become `null`).
+Send a `DELETE` request to the `completed-tasks` resource to reopen a finished task. This sets the task's status back to `in-progress` and nulls out `completed_at`, `completer_id`, `completer_guest_id`, and `is_approved`.
 
 -   **Process task:** `DELETE /organizations/{org_id}/runs/{run_id}/completed-tasks/{task_id}`
 -   **One-off task:** `DELETE /organizations/{org_id}/completed-tasks/{task_id}`
@@ -21,7 +21,7 @@ Reopen a completed Tallyfy task by sending a `DELETE` request to the `completed-
 Replace `{org_id}`, `{run_id}` (if applicable), and `{task_id}` with your actual IDs.
 
 :::note
-The `DELETE` method targets the `completed-tasks` endpoint - you're effectively deleting the "completion" record.
+You're sending `DELETE` to the `completed-tasks` endpoint - think of it as deleting the completion record, not the task itself.
 :::
 
 ## Request
@@ -429,7 +429,7 @@ public class TallyfyTaskReopener
 
 ## Response
 
-A `200 OK` response returns the task details, now back in `in-progress` status.
+A `200 OK` response returns the reopened task with its status set to `in-progress`.
 
 ```json
 {
@@ -439,13 +439,15 @@ A `200 OK` response returns the task details, now back in `in-progress` status.
     "status": "in-progress",
     "completed_at": null,
     "completer_id": null,
-    "is_approved": null,
-    // ... other task properties ...
+    "completer_guest_id": null,
+    "is_approved": null
   }
 }
 ```
 
-If the task isn't currently completed or the ID is invalid, you'll get an error status.
+For process tasks, the response also includes a `tasks_changed_by_rules` field showing any sibling tasks affected by automation rules triggered by the reopen.
+
+If the task isn't currently completed or the ID is invalid, expect an error status code.
 
 ---
 

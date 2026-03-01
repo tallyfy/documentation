@@ -8,88 +8,91 @@ lastUpdated: 2026-01-05
 sidebar:
   order: 3
 title: CSV file structure
+about_tallyfy: true
 ---
 
-## Understanding the CSV Export Structure
+## Tallyfy CSV export structure
 
-You can export any running process data into a CSV file - that's 49 columns[^1] of everything happening in your process. Tasks, form answers, comments. All of it lands in a spreadsheet you can analyze however you need.
+Exporting a running process gives you a CSV file with 49 columns[^1] covering tasks, form answers, and comments. Each row represents a single task, form field, kick-off field, or comment - the CSV flattens your process hierarchy into a flat table you can open in any spreadsheet tool.
 
-### How to Export a Process to CSV
+### How to export a process to CSV
 
 1. Open the running process you want to export.
-2. Click **Settings** (usually in the top right).
-3. Scroll down to the bottom of the settings panel.
+2. Click **Settings** (top right).
+3. Scroll to the bottom of the settings panel.
 4. Click **Export CSV**.
 
 ![](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-export-csv.png)
 
-### How the Data is Organized
+### How the data is organized
 
-Here's the thing - your process has multiple layers (process details, tasks, fields within those tasks). The CSV flattens everything into rows. Each row represents one thing: a task, a form field, or a comment.
+Your process has layers - template details, tasks, form fields within those tasks, comments on tasks. The CSV flattens all of this into rows. The `type` column tells you what each row represents: `process_task`, `process_task_data` (a form field), `process_task_comment`, or `kick_off_task`.
 
-*Note for Tallyfy Analytics users: The data you query using reporting tools (via Amazon Athena) is based on this same structure, just stored in a more efficient format (Parquet[^2]).* 
+*If you use Tallyfy Analytics, the data you query through reporting tools (via Amazon Athena) shares this same structure - just stored in Parquet[^2] format for faster querying.*
 
-### Understanding the Columns
+### Column reference
 
-The 49 columns break down into logical groups:
+The 49 columns fall into five groups:
 
-#### Process and template info (Columns 1-13)
+#### Process and template info (columns 1-13)
 
 :::note[Template vs. Blueprint]
-Some column names use the term "Blueprint". That's the technical/API name for what you see as a "Template" in the Tallyfy app.
+Column names use "Blueprint" - that's the API name for what you see as "Template" in the Tallyfy app.
 :::
 
 *   **blueprint_id**: Template's unique ID.
 *   **blueprint_name**: Template's name.
 *   **blueprint_version**: Template's version number.
 *   **process_id**: Unique ID for this specific run of the process.
-*   **process_name**: Name given to this run of the process.
-*   **process_tag**: Any tags added to this process run.
-*   **process_owner**: Name of the person who owns this process run.
+*   **process_name**: Name given to this run.
+*   **process_tag**: Tags added to this process run.
+*   **process_owner**: Full name of the process owner.
 *   **process_owner_id**: ID of the process owner.
-*   **total_tasks_in_process**: How many tasks are in the whole process.
-*   **tasks_completed**: How many tasks are finished.
-*   **process_status**: Current status (active, problem, or complete).
-*   **process_last_modified**: Date/time the process was last updated. ⚠️ *This updates on any change (edits, archiving, tags) - not just completion. For accurate completion timestamps, use `process_completed_at` instead.*
-*   **process_completed_at**: Exact date/time when the process was marked complete. This is the authoritative completion timestamp - use this for calculating process duration and completion metrics. Returns NULL for active/incomplete processes.
+*   **total_tasks_in_process**: Total task count in the process (including hidden tasks).
+*   **tasks_completed**: Number of finished tasks.
+*   **process_status**: Current status (e.g. active, problem, or complete).
+*   **process_last_modified**: Date/time the process was last updated. This changes on any modification (edits, archiving, tag changes) - not just completion. For completion timing, use `process_completed_at` instead.
+*   **process_completed_at**: Date/time when the process was marked complete. Empty for active or incomplete processes. Use this for calculating process duration and completion metrics.
 
-#### Task info (Columns 14-27)
+#### Task info (columns 14-28)
 
-*   **type**: What kind of data this row represents (e.g., `process_task`, `process_task_data` for a form field, `process_task_comment` for a comment).
-*   **has_form_fields**: Does the task in this row have form fields? (Yes/No).
-*   **kick_off_task_id / name**: ID/Name if this row relates to the initial kick-off form.
-*   **process_task_id**: Unique ID for this specific task instance.
-*   **process_task_status**: Task status (e.g., shown, hidden, completed - *check exact values*).
+*   **type**: What this row represents - `process_task`, `process_task_data` (form field), `process_task_comment`, or `kick_off_task` (kick-off form field).
+*   **has_form_fields**: Always `Yes` in the current export format.
+*   **kick_off_task_id**: ID of the kick-off form field (populated only for `kick_off_task` rows).
+*   **kick_off_task_name**: Label of the kick-off form field.
+*   **process_task_id**: Unique ID for this task instance.
+*   **process_task_status**: Either `shown` or `hidden`. Hidden tasks were auto-skipped by automation rules. Task completion is tracked via `completed_on` instead.
 *   **process_task_name**: Name of the task.
-*   **process_task_alias**: A stable ID for this step from the template (handy for comparing across runs).
-*   **process_task_data_id**: ID if this row is for a form field.
-*   **process_task_data_name**: Name of the task this form field belongs to.
-*   **process_task_comment_id**: ID if this row is for a comment.
-*   **milestone_id**: Unique ID of the milestone attached to this task (if any).
-*   **milestone_name**: Name of the milestone attached to this task (if any).
-*   **milestone_position**: Position/order of the milestone in the process sequence.
+*   **process_task_alias**: Stable step ID from the template - useful for comparing the same step across different process runs.
+*   **process_task_data_id**: ID of the form field (populated only for `process_task_data` rows).
+*   **process_task_data_name**: Name of the parent task this form field belongs to.
+*   **process_task_comment_id**: ID of the comment (populated only for `process_task_comment` rows).
+*   **process_task_comment_name**: Name of the task this comment belongs to.
+*   **milestone_id**: ID of the milestone attached to this task (if any).
+*   **milestone_name**: Name of the milestone (if any).
+*   **milestone_position**: Position of the milestone in the process sequence.
 
-#### Assignment and timing info (Columns 28-36)
+#### Assignment and timing info (columns 29-37)
 
-*   **user_assigned**: Names of assigned members/groups.
-*   **assigned_user_id**: IDs of assigned members.
-*   **guest_assigned**: Email of assigned guest.
+*   **user_assigned**: Comma-separated names of assigned members. Group assignments appear as `GROUP_{id}_{name}`.
+*   **assigned_user_id**: Comma-separated IDs of assigned members.
+*   **guest_assigned**: Comma-separated emails of assigned guests.
 *   **total_users_assigned**: Number of members assigned.
 *   **total_guests_assigned**: Number of guests assigned.
-*   **total_assignees**: Total people assigned.
-*   **completed_by**: ID of person who completed the task.
-*   **assigned_or_shown_on**: Date task appeared/was assigned.
+*   **total_assignees**: Total people assigned (members + guests).
+*   **completed_by**: ID of the person who completed the task. Shows `0` if not yet completed.
+*   **assigned_or_shown_on**: Date/time the task appeared or was assigned. Empty for hidden (auto-skipped) tasks.
 *   **due_by**: Task deadline date/time.
-*   **completed_on**: When the task was completed (also appears in Comments section).
+*   **completed_on**: Date/time the task was completed.
 
-:::caution[NaN Values in Date Fields]
+:::caution[NaN values in date fields]
 When using Tallyfy Analytics with Power BI, Tableau, or other tools, you may see the string **"NaN"** in date fields like `completed_on`, `assigned_or_shown_on`, `due_by`, and `process_completed_at`. This happens when the original database value was NULL.
 
 **Why this occurs**:
 1. NULL database values are exported to CSV
-2. Pandas (Python data processing) converts NULL → NaN (Not a Number)
+2. Pandas (Python data processing) converts NULL to NaN (Not a Number)
 3. During Parquet conversion, NaN values become the literal string "NaN"
-4. Your analytics tool sees "NaN" as text, not a valid date
+4. Your analytics tool reads "NaN" as text, not a valid date
 
 **How to handle in DAX (Power BI)**:
 ```dax
@@ -109,41 +112,41 @@ CASE
 END
 ```
 
-Always filter out both ISBLANK/NULL values AND the string "nan" to ensure accurate date calculations.
+Always filter out both ISBLANK/NULL values AND the string "nan" for accurate date calculations.
 :::
 
-#### Form field info (Columns 37-40)
-*(These columns only have data if the row `type` is `process_task_data`)*
-*   **no_of_form_fields**: How many fields are in the parent task.
-*   **form_field_type**: Type of this specific field (text, date, dropdown, etc.).
-*   **question_in_form_field**: The question/label for this field.
-*   **answer_in_form_field**: The answer entered into this field.
+#### Form field info (columns 38-41)
+*(These columns only have data when the row `type` is `process_task_data` or `kick_off_task`)*
+*   **no_of_form_fields**: Number of form fields in the parent task (or kick-off form).
+*   **form_field_type**: Field type (text, date, dropdown, radio, file, etc.).
+*   **question_in_form_field**: The label/question for this field.
+*   **answer_in_form_field**: The answer entered into this field. Only populated if the task has been completed.
 
-#### Comments and issues info (Columns 41-49)
-*(These columns often relate to rows where `type` is `process_task_comment` or provide summary counts on `process_task` rows)*
+#### Comments and issues info (columns 42-49)
+*(These columns are populated on `process_task_comment` rows)*
 *   **issue_reported**: Was this comment reporting an issue? (Yes/No).
-*   **no_of_issue_reported**: Total issues reported on the task.
+*   **no_of_issue_reported**: Total issues reported on the parent task.
 *   **issue_resolved**: Was the reported issue resolved? (Yes/No).
-*   **no_of_issue_resolved**: Total resolved issues on the task.
-*   **total_comments**: Number of regular comments on the task.
-*   **comment**: The text of the comment (if `type` is `process_task_comment`).
+*   **no_of_issue_resolved**: Total resolved issues on the parent task.
+*   **total_comments**: Number of comments on the parent task.
+*   **comment**: The text content of the comment.
 *   **last_modified**: When this row's data was last updated.
 
-### Note on Dates for Reporting Tools
+### Dates and reporting tools
 
-Using Tallyfy Analytics with Power BI or Tableau? You'll need to format date columns in your SQL queries using Amazon Athena / Presto SQL functions.
+If you're querying Tallyfy Analytics with Power BI or Tableau, you'll format date columns using Amazon Athena / Presto SQL functions.
 
 :::note[Timestamp handling]
-All timestamps in CSV exports and audit trails are stored on our server in ISO 8601 format[^3] without timezone information. In user-facing areas of Tallyfy, these universal timestamps are automatically converted to display in your personal timezone setting. Works great - consistent storage, accurate local display.
+All timestamps in CSV exports are stored in ISO 8601 format[^3] without timezone information. In Tallyfy's UI, these timestamps are automatically converted to your personal timezone setting.
 :::
 
 :::tip[Tracking actual work time]
-Want to track how long tasks actually take to complete (not just elapsed time)? Check out [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/). Form fields for hours and minutes will appear in your CSV exports, giving you clean data about actual effort versus calendar time.
+Want to measure how long tasks actually take to complete? Check out [how to track time spent on tasks](/products/pro/tutorials/how-to/track-time-in-tasks/). Time-tracking form fields appear in your CSV exports, giving you data about actual effort versus elapsed calendar time.
 :::
 
-### Example CSV View
+### Example CSV view
 
-Want to see what you're getting? Here's the exported data in a spreadsheet:
+Here's what the exported data looks like in a spreadsheet:
 
 ![CSV export spreadsheet with process data](https://screenshots.tallyfy.com/tallyfy/pro/analytics-csv-export-spreadsheet.png)
 

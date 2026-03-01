@@ -1,10 +1,10 @@
 ---
-description: This endpoint retrieves all tags within an organization by making a GET
-  request with optional query parameters for searching filtering and pagination while
-  returning tag details like ID title color usage counts and creation timestamps in
-  a JSON response.
+about_tallyfy: true
+description: Retrieve all tags for an organization with optional search, filtering,
+  sorting, and pagination. Returns tag details including title, color, and usage
+  statistics.
 id: af66ff69c80782ed051a5418da31d4ad
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: List tags
@@ -16,7 +16,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/tags`
 
-This endpoint retrieves a list of tags available within the specified organization.
+Retrieves all tags in the specified organization.
 
 ## Request
 
@@ -30,12 +30,12 @@ Replace `{org_id}` with your Organization ID.
 
 ### Query parameters (optional)
 
-Refer to Swagger for filtering options, which might include:
-
--   `q` (string): Search by tag title.
--   `with` (string): Include related data (e.g., `statistics`).
--   Pagination parameters (`page`, `per_page`).
--   Sorting parameters (`sort`).
+-   `q` (string) - Search by tag name.
+-   `with` (string) - Include related data. Supported value: `statistics`.
+-   `all` (string) - Set to `true` to include auto-generated process tags. Defaults to `false`.
+-   `per_page` (integer) - Tags per page. Defaults to `10`.
+-   `page` (integer) - Page number for pagination.
+-   `sort` (string) - Sort by a property. Prefix with `-` for descending order.
 
 ### Code samples
 
@@ -45,35 +45,27 @@ Refer to Swagger for filtering options, which might include:
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = '?with=statistics&page=1'; // Example: Include stats, get first page
+const queryParams = '?with=statistics&page=1&per_page=10';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/tags${queryParams}`;
 
-const headers = new Headers();
-headers.append('Authorization', `Bearer ${accessToken}`);
-headers.append('Accept', 'application/json');
-headers.append('X-Tallyfy-Client', 'APIClient');
+const headers = {
+  'Authorization': `Bearer ${accessToken}`,
+  'Accept': 'application/json',
+  'X-Tallyfy-Client': 'APIClient'
+};
 
-fetch(apiUrl, {
-    method: 'GET',
-    headers: headers
-})
-.then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
-        if (!response.ok) {
-            console.error("Failed to list tags:", data);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return data; // Pass successful data along
+fetch(apiUrl, { method: 'GET', headers })
+  .then(response => {
+    return response.json().then(data => {
+      if (!response.ok) throw new Error(`Error ${response.status}: ${JSON.stringify(data)}`);
+      return data;
     });
-})
-.then(data => {
-    console.log('Successfully listed tags:');
-    console.log(JSON.stringify(data, null, 2));
-    // Access pagination: data.meta.pagination
-})
-.catch(error => {
-    console.error('Error listing tags:', error.message);
-});
+  })
+  .then(data => {
+    console.log('Tags:', JSON.stringify(data, null, 2));
+    // Pagination info at data.meta.pagination
+  })
+  .catch(error => console.error('Failed to list tags:', error.message));
 ```
 </TabItem>
 <TabItem label="Python">
@@ -92,34 +84,18 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-     'q': 'Project', # Example: Search for tags containing "Project"
-    'with': 'statistics' 
+    'q': 'Project',       # Search tags containing "Project"
+    'with': 'statistics',
+    'per_page': 10
 }
 
-response = None
-try:
-    response = requests.get(api_url, headers=headers, params=params)
-    response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+response = requests.get(api_url, headers=headers, params=params)
+response.raise_for_status()
 
-    tags_data = response.json()
-    print('Successfully listed tags:')
-    print(json.dumps(tags_data, indent=4))
-    # Access pagination: tags_data.get('meta', {}).get('pagination')
-
-except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing tags: {http_err}") 
-    if response is not None:
-        print(f"Response Body: {response.text}")
-except requests.exceptions.RequestException as req_err:
-    print(f"Request failed listing tags: {req_err}")
-except json.JSONDecodeError:
-    print("Failed to decode JSON response when listing tags")
-    if response is not None:
-        print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
+tags_data = response.json()
+print(json.dumps(tags_data, indent=4))
+# Pagination: tags_data['meta']['pagination']
 ```
 </TabItem>
 <TabItem label="Java">
@@ -132,8 +108,6 @@ import java.net.http.HttpResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.HashMap; // Use HashMap for mutable map
-import java.util.stream.Collectors;
 
 public class ListTags {
     public static void main(String[] args) {
@@ -141,20 +115,15 @@ public class ListTags {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/tags";
 
-        // Optional: Add query parameters
-        Map<String, String> queryParamsMap = new HashMap<>();
-        queryParamsMap.put("with", "statistics");
-        // queryParamsMap.put("q", "Search");
-        
-        String queryParamsString = queryParamsMap.entrySet().stream()
-            .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
-            .collect(Collectors.joining("&", "?", ""));
-        
-        String apiUrl = baseUrl + (queryParamsMap.isEmpty() ? "" : queryParamsString);
+        Map<String, String> params = Map.of("with", "statistics", "per_page", "10");
+        String query = params.entrySet().stream()
+            .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "=" +
+                      URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
+            .reduce((a, b) -> a + "&" + b).map(s -> "?" + s).orElse("");
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl))
+                .uri(URI.create(baseUrl + query))
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Accept", "application/json")
                 .header("X-Tallyfy-Client", "APIClient")
@@ -163,21 +132,14 @@ public class ListTags {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            
             if (response.statusCode() == 200) {
-                System.out.println("Successfully listed tags:");
-                System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
+                System.out.println("Tags: " + response.body());
             } else {
-                System.err.println("Failed to list tags. Status: " + response.statusCode());
-                System.err.println("Response Body: " + response.body());
+                System.err.println("Error " + response.statusCode() + ": " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-             System.err.println("Request failed: " + e.getMessage());
-             Thread.currentThread().interrupt();
-        } catch (Exception e) {
-             System.err.println("An unexpected error occurred: " + e.getMessage());
-             e.printStackTrace();
+            System.err.println("Request failed: " + e.getMessage());
+            Thread.currentThread().interrupt();
         }
     }
 }
@@ -191,68 +153,47 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
 	accessToken := os.Getenv("TALLYFY_ACCESS_TOKEN")
-    if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
+	if accessToken == "" { accessToken = "YOUR_PERSONAL_ACCESS_TOKEN" }
 	orgId := os.Getenv("TALLYFY_ORG_ID")
-    if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
-    baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags", orgId)
+	if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
+	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/tags", orgId)
 
-    // Optional: Add query parameters
-    queryParams := url.Values{}
-    queryParams.Add("with", "statistics")
-    // queryParams.Add("q", "Search")
-    
-    apiUrl := baseURL
-    if len(queryParams) > 0 {
-        apiUrl += "?" + queryParams.Encode()
-    }
+	params := url.Values{}
+	params.Add("with", "statistics")
+	params.Add("per_page", "10")
+	apiUrl := baseURL + "?" + params.Encode()
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiUrl, nil)
-    if err != nil {
-        fmt.Printf("Error creating list tags request: %v\n", err)
-        return
-    }
-
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, _ := http.NewRequest("GET", apiUrl, nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
 	resp, err := client.Do(req)
-    if err != nil {
-        fmt.Printf("Error executing list tags request: %v\n", err)
-        return
-    }
+	if err != nil {
+		fmt.Printf("Request error: %v\n", err)
+		return
+	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        fmt.Printf("Error reading list tags response body: %v\n", err)
-        return
-    }
-
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to list tags. Status: %d\nBody: %s\n", resp.StatusCode, string(body))
+		fmt.Printf("Error %d: %s\n", resp.StatusCode, body)
 		return
 	}
 
-	fmt.Println("Successfully listed tags:")
-    // Pretty print JSON response
-    var prettyJSON bytes.Buffer
-    if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-        fmt.Println(prettyJSON.String())
-    } else {
-	    fmt.Println(string(body))
-    }
-	// TODO: Unmarshal JSON into a slice of tag structs if needed
+	var out bytes.Buffer
+	json.Indent(&out, body, "", "  ")
+	fmt.Println(out.String())
 }
 ```
 </TabItem>
@@ -263,58 +204,41 @@ func main() {
 #include <cpprest/http_client.h>
 #include <cpprest/json.h>
 
-using namespace web;
-using namespace web::http;
-using namespace web::http::client;
-using namespace web::json;
+using namespace web; using namespace web::http;
+using namespace web::http::client; using namespace web::json;
 
-pplx::task<void> ListTallyfyTags()
-{
-    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN"); 
-    utility::string_t orgId = U("YOUR_ORGANIZATION_ID"); 
-    
+pplx::task<void> ListTags() {
+    utility::string_t accessToken = U("YOUR_PERSONAL_ACCESS_TOKEN");
+    utility::string_t orgId = U("YOUR_ORGANIZATION_ID");
+
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("tags"));
-    builder.append_query(U("with"), U("statistics")); // Example query parameter
-    // builder.append_query(U("q"), U("Search")); 
-    utility::string_t apiUrl = builder.to_string();
+    builder.append_query(U("with"), U("statistics"));
+    builder.append_query(U("per_page"), U("10"));
 
-    http_client client(apiUrl);
+    http_client client(builder.to_string());
     http_request request(methods::GET);
-
     request.headers().add(U("Authorization"), U("Bearer ") + accessToken);
     request.headers().add(U("Accept"), U("application/json"));
     request.headers().add(U("X-Tallyfy-Client"), U("APIClient"));
 
-    return client.request(request).then([](http_response response)
-    {
-        return response.extract_json().then([response](pplx::task<value> task)
-        {
-            try {
-                value const & body = task.get();
-                if (response.status_code() == status_codes::OK) {
-                    std::wcout << L"Successfully listed tags:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
-                    // Access pagination: body[U("meta")][U("pagination")]
-                } else {
-                    std::wcerr << L"Failed to list tags. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
-                }
-            } catch (const http_exception& e) {
-                 std::wcerr << L"HTTP exception during list tags: " << e.what() << std::endl;
-            } catch (const std::exception& e) {
-                std::wcerr << L"Exception during list tags response handling: " << e.what() << std::endl;
+    return client.request(request).then([](http_response response) {
+        return response.extract_json().then([response](pplx::task<value> task) {
+            auto body = task.get();
+            if (response.status_code() == status_codes::OK) {
+                std::wcout << body.serialize() << std::endl;
+            } else {
+                std::wcerr << L"Error " << response.status_code()
+                           << L": " << body.serialize() << std::endl;
             }
         });
     });
 }
 
 int main() {
-    try {
-        ListTallyfyTags().wait(); 
-    } catch (const std::exception &e) {
-        std::cerr << "Error in main: " << e.what() << std::endl;
-    }
+    try { ListTags().wait(); }
+    catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
     return 0;
 }
 // Requires C++ REST SDK (Casablanca)
@@ -327,7 +251,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Web; // For HttpUtility
+using System.Web;
 
 public class TallyfyTagLister
 {
@@ -337,57 +261,31 @@ public class TallyfyTagLister
     {
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
-        
-        // Build URL with query parameters
+
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "statistics"; // Example
-        // query["q"] = "Search Term";
-        string queryString = query.ToString();
-        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tags?{queryString}";
+        query["with"] = "statistics";
+        query["per_page"] = "10";
+        var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/tags?{query}";
 
-        try
+        using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Tallyfy-Client", "APIClient");
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        if (response.IsSuccessStatusCode)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.Add("X-Tallyfy-Client", "APIClient");
-
-            HttpResponseMessage response = await client.SendAsync(request);
-            string responseBody = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                Console.WriteLine("Successfully listed tags:");
-                // Pretty print JSON
-                try {
-                    using var doc = JsonDocument.Parse(responseBody);
-                    Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access pagination: doc.RootElement.GetProperty("meta").GetProperty("pagination")...
-                } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Failed to list tags. Status: {response.StatusCode}");
-                Console.WriteLine($"Response: {responseBody}");
-            }
+            using var doc = JsonDocument.Parse(body);
+            Console.WriteLine(JsonSerializer.Serialize(doc.RootElement,
+                new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch (HttpRequestException e)
+        else
         {
-            Console.WriteLine($"Request Exception listing tags: {e.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Error {response.StatusCode}: {body}");
         }
     }
-
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await ListTagsAsync();
-    // }
 }
 ```
 </TabItem>
@@ -395,34 +293,40 @@ public class TallyfyTagLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element represents a tag.
+A `200 OK` response returns a JSON object with a `data` array of tags and `meta` pagination info.
+
+Each tag object contains these fields from the TagTransformer: `id`, `title` (max 30 chars), `color`, `auto_generated`, `created_at`, and `deleted_at`.
+
+When you request `with=statistics`, each tag also includes a nested `statistics` object with: `active_template`, `archived_template`, `active_process`, and `archived_process` counts.
 
 ```json
 {
   "data": [
     {
-      "id": "tag_id_abc", // Unique tag ID
+      "id": "tag_id_abc",
       "title": "Urgent",
-      "color": "#e74c3c", // Hex color code
-      "template": 5, // Count of templates using this tag
-      "active_process": 12, // Count of active processes using this tag
+      "color": "#e74c3c",
       "auto_generated": false,
       "created_at": "2025-01-15T10:00:00Z",
       "deleted_at": null,
-      // Included if requested with 'with=statistics'
       "statistics": {
-          // ... detailed usage counts ...
+        "data": {
+          "active_template": 5,
+          "archived_template": 2,
+          "active_process": 12,
+          "archived_process": 3
+        }
       }
-    },
-    {
-       "id": "tag_id_def",
-       "title": "Finance",
-       "color": "#2ecc71",
-       // ... other tag details ...
     }
   ],
   "meta": {
-      // Pagination details if applicable
+    "pagination": {
+      "total": 25,
+      "count": 10,
+      "per_page": 10,
+      "current_page": 1,
+      "total_pages": 3
+    }
   }
 }
 ```

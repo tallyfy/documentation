@@ -1,7 +1,8 @@
 ---
-description: This guide addresses common Tableau data connection problems with Tallyfy
-  Analytics by explaining authentication methods troubleshooting steps for missing
-  data sources and preventative measures to maintain reliable dashboard connections.
+about_tallyfy: true
+description: Fix common Tableau connection problems with Tallyfy Analytics including
+  authentication errors missing data sources and broken connections to the Amazon Athena
+  data pipeline.
 id: ebdff7021b463cbc26a2a278402a9574
 lastUpdated: 2025-08-15
 sidebar:
@@ -11,103 +12,95 @@ title: Troubleshoot issues
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Troubleshooting Tableau Data Connection Issues
+## Fixing Tableau connection problems with Tallyfy Analytics
 
-Nothing's more frustrating than a broken data connection right when you need your dashboard. Here's how to fix common Tableau connection problems with Tallyfy Analytics - and prevent them from happening again.
+Tableau connects to Tallyfy Analytics data through Amazon Athena using JDBC. When that connection breaks, here's how to diagnose and fix it.
 
-### Authentication Best Practices
+### Use the right credentials
 
-Amazon Athena (which hosts Tallyfy Analytics data) gives you two ways to authenticate:
+Tallyfy provides two credential sets when Analytics is activated. Using the wrong one is the most common connection failure.
 
-| Authentication Method | Recommended For | Common Issues |
-|----------------------|-----------------|---------------|
-| IAM Username/Password | AWS Console access only | Frequent "security token invalid" errors with BI tools |
-| Access Key/Secret Key | All BI tool connections | More reliable, fewer token expiration issues |
+| Credential type | Use for | Common problem |
+|----------------|---------|----------------|
+| IAM Username/Password | AWS web console access only | Causes "security token invalid" errors in Tableau |
+| Access Key/Secret Key | Tableau and all BI tool connections | More reliable - use this one |
 
 :::caution[Important]
-Always use the Access Key and Secret Access Key provided by Tallyfy for Tableau connections. IAM credentials (username/password) should only be used for accessing the AWS web console.
+Always use the **Access Key and Secret Access Key** for Tableau connections. IAM console credentials don't work with JDBC-based BI tool connections.
 :::
 
-You'll get two credential sets from Tallyfy when they set up your Analytics account:
-- **AWS IAM Login** - Use only for AWS console access at https://aws.amazon.com/
-- **Access Key and Secret Access Key** - Use for connecting Tableau to Athena
+### Authentication errors
 
-### Common Connection Issues and Solutions
-
-#### Issue 1: Authentication Errors
-
-That dreaded "The security token included in the request is invalid" error? Here's what to check:
+If you see "The security token included in the request is invalid":
 
 <Steps>
-1. Verify you're using the Access Key/Secret Key (not IAM credentials)
-2. Check that your credentials haven't expired
-3. Ensure you're using the correct region setting
+1. Confirm you're using the Access Key/Secret Key pair - not your IAM console login
+2. Check that your credentials haven't been rotated or expired
+3. Verify the region setting matches your Athena endpoint (e.g., `us-east-1`)
 </Steps>
 
-#### Issue 2: Missing or Broken Data Source
+### Missing or broken data source
 
-Your workbook's data connection went missing? Don't panic. Follow these steps:
+When Tableau can't find a previously working data source:
 
 <Steps>
-1. Open your Tableau workbook with the disconnected data source
+1. Open the Tableau workbook showing the disconnected data source
 
     ![](https://screenshots.tallyfy.com/tableau-troubleshooting-1.png)
-2. When prompted about the missing data source, select **Show Details** to view the specific error
+2. Select **Show Details** when prompted about the missing data source to see the specific error
 
     ![](https://screenshots.tallyfy.com/tableau-troubleshooting-5.jpg)
-3. Click **Yes** when asked if you want to connect to your data
+3. Click **Yes** when asked if you want to reconnect
 
     ![](https://screenshots.tallyfy.com/tableau-troubleshooting-6.jpg)
-4. Select **Edit Connection** to update your connection settings
+4. Select **Edit Connection** to update your settings
 
     ![](https://screenshots.tallyfy.com/tableau-troubleshooting-7.jpg)
-5. Enter your Access Key, Secret Access Key, and other connection details
-6. If the connection is successful, your dashboard will refresh with the current data
+5. Re-enter your Access Key, Secret Access Key, S3 staging directory, and region
+6. A successful connection will refresh your dashboard with current data
 </Steps>
 
-#### Issue 3: Connection Cannot Be Edited
+### Connection that can't be edited
 
-Sometimes the **Edit Connection** option just won't work. When that happens:
+If **Edit Connection** is grayed out or unresponsive, remove and recreate the connection:
 
 <Steps>
-1. Remove the existing connection completely
-2. Create a new connection to Amazon Athena
-3. Re-enter all connection parameters using your Access Key and Secret Access Key
-4. Reconnect to your data tables
+1. Delete the existing data connection from your workbook
+2. Add a new connection to Amazon Athena
+3. Enter all connection parameters - Access Key, Secret Access Key, Athena endpoint, port `443`, S3 staging directory, and region
+4. Select your database and reconnect to your data tables
 </Steps>
 
-### Data Type Issues
+### Date fields showing wrong types
 
-After reconnecting, your date fields might look weird. Fix them like this:
+Tallyfy stores timestamps in `Y-m-d H:i:s` format. After reconnecting, date fields like `due_by` and `completed_on` sometimes lose their type mapping.
 
 <Steps>
-1. In the **Data Source** tab, locate fields like "due_by" and "completed_on"
-2. Right-click each field and select **Change Data Type** > **Date & Time**
-3. Verify that date comparisons and calculations now work correctly
+1. Go to the **Data Source** tab and find your date fields
+2. Right-click each date field and select **Change Data Type** > **Date & Time**
+3. Verify that date-based filters and calculations work correctly
 </Steps>
 
-### Sharing Workbooks Safely
+### Sharing workbooks securely
 
-Need to share your masterpiece with colleagues? Keep these security tips in mind:
+When sharing Tableau workbooks that connect to Tallyfy Analytics:
 
 <Steps>
-1. Use Tableau's **Extract** feature to create a local copy of the data
-2. Alternatively, use **Published Data Sources** in Tableau Server/Online
-3. For direct connections, ensure recipients have their own Tallyfy Analytics credentials
-4. Never embed your credentials in shared workbooks
+1. Use Tableau's **Extract** feature to create a local snapshot of the data - this avoids sharing credentials
+2. For ongoing access, use **Published Data Sources** in Tableau Server/Online
+3. If sharing live connections, make sure recipients have their own Tallyfy Analytics credentials
+4. Never embed your Access Key or Secret Access Key in shared workbooks
 </Steps>
 
-### Preventative Measures
+### Preventing connection issues
 
-Want to avoid these headaches in the future? Here's what works:
-
-- Keep Tableau Desktop and drivers up to date
-- Use Tableau's **Test Connection** feature regularly
-- Document your connection settings in a secure location
+- Keep Tableau Desktop and JDBC drivers up to date
+- Run **Test Connection** after driver updates or credential changes
+- Store your connection settings (endpoint, region, S3 staging directory) in a secure location
 - Create data extracts as backups for critical dashboards
-- Schedule regular extract refreshes if using Tableau Server/Online
+- Schedule regular extract refreshes in Tableau Server/Online
 
-Still stuck after trying everything? Contact Tallyfy Support with specific error messages and screenshots - they'll sort you out.
+Still stuck? Contact Tallyfy Support with the exact error message and a screenshot - that speeds up troubleshooting.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

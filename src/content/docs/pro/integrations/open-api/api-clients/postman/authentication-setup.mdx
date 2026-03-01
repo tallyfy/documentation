@@ -1,10 +1,10 @@
 ---
-description: Tallyfy's API authentication in Postman requires using the password grant
-  type with proper environment variables for credentials and the mandatory X-Tallyfy-Client
-  header on every request while implementing automatic token refresh before the one-hour
-  expiry to maintain uninterrupted API testing access.
+description: Set up Tallyfy API authentication in Postman using the password grant
+  type with environment variables, the required X-Tallyfy-Client header, and automatic
+  token refresh for uninterrupted API testing.
 id: db184f3f72207253ae7872dd857b1dc5
-lastUpdated: 2025-12-16
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 2
 title: Authentication setup for Postman
@@ -12,30 +12,30 @@ title: Authentication setup for Postman
 
 import { Steps } from '@astrojs/starlight/components';
 
-To use Tallyfy's API with Postman, configure OAuth authentication with your client credentials and implement the password grant type for user-context endpoints. Most Tallyfy endpoints require user context, making proper authentication setup essential for successful API testing.
+Tallyfy's API uses OAuth 2.0 with the password grant type. Most endpoints need user context, so you'll configure Postman with your credentials, set up the required headers, and store tokens automatically.
 
-## Why Tallyfy authentication has specific requirements
+## What you need to know first
 
-Tallyfy's authentication has specific requirements that can trip you up if you're not aware. Here's what actually matters:
+Here's what trips people up:
 
-- **Client credentials won't work for most endpoints** - They only provide application-level access
-- **Password grant is required** - User context is needed for most API operations
-- **The X-Tallyfy-Client header is mandatory** - Forget this and nothing works
-- **Tokens expire after 1 hour** - Plan for automatic refresh
+- **Password grant is required** -- most endpoints need user context, not just application-level access
+- **The `X-Tallyfy-Client` header is required** -- include it on every request
+- **Access tokens last 6 months** -- refresh tokens last 12 months
+- **Client credentials grant is limited** -- those tokens only last 7 days and can't access user-scoped endpoints
 
 ## Setting up authentication step by step
 
 <Steps>
 1. **Get your credentials from Tallyfy**
-   
-   Navigate to **Settings > Integrations > REST API**. You'll need:
-   - Client ID (looks like: `3MVG9...`)
-   - Client Secret (keep this secret, seriously)
-   - Organization ID (format: `org_abc123`)
+
+   Go to **Settings > Integrations > REST API**. You'll need:
+   - Client ID (a numeric value)
+   - Client Secret
+   - Organization ID
    - Your Tallyfy username and password
 
 2. **Create your Postman environment**
-   
+
    Click **Environments** > **Create Environment** and add these variables:
    ```
    TALLYFY_CLIENT_ID = [your client id]
@@ -47,11 +47,11 @@ Tallyfy's authentication has specific requirements that can trip you up if you'r
    ```
 
 3. **Create the token request**
-   
-   Create a new POST request to get your access token:
+
+   Create a new POST request:
    ```
    POST {{TALLYFY_BASE_URL}}/oauth/token
-   
+
    Body (x-www-form-urlencoded):
    grant_type = password
    username = {{TALLYFY_USERNAME}}
@@ -61,48 +61,34 @@ Tallyfy's authentication has specific requirements that can trip you up if you'r
    ```
 
 4. **Store tokens automatically**
-   
-   Add this enhanced token management to your token request's Tests tab:
+
+   Add this to your token request's **Tests** tab:
    ```javascript
-   // Enhanced token storage with validation
    pm.test("Token response is valid", () => {
        pm.expect(pm.response.code).to.equal(200);
        const response = pm.response.json();
        pm.expect(response).to.have.property('access_token');
        pm.expect(response).to.have.property('expires_in');
-       pm.expect(response.expires_in).to.be.a('number');
    });
-   
+
    if (pm.response.code === 200) {
        const response = pm.response.json();
-       
-       // Store tokens with metadata
+
        pm.environment.set("TALLYFY_ACCESS_TOKEN", response.access_token);
        pm.environment.set("TALLYFY_REFRESH_TOKEN", response.refresh_token);
-       
-       // Enhanced expiry calculation with buffer
+
        const expiryTime = new Date().getTime() + (response.expires_in * 1000);
-       const bufferTime = expiryTime - (5 * 60 * 1000); // 5 min buffer
        pm.environment.set("TALLYFY_TOKEN_EXPIRY", expiryTime);
-       pm.environment.set("TALLYFY_TOKEN_REFRESH_TIME", bufferTime);
-       
-       // Store token metadata for debugging
-       pm.environment.set("TALLYFY_TOKEN_ISSUED", Date.now());
        pm.environment.set("TALLYFY_TOKEN_TYPE", response.token_type || "Bearer");
-       
-       console.log(`Token acquired. Expires in ${Math.round(response.expires_in/60)} minutes`);
-       
-       // Optional: Store token scope if provided
-       if (response.scope) {
-           pm.environment.set("TALLYFY_TOKEN_SCOPE", response.scope);
-       }
+
+       console.log(`Token acquired. Expires in ${Math.round(response.expires_in/3600)} hours`);
    }
    ```
 </Steps>
 
 ## Authentication flow visualization
 
-This diagram shows the complete OAuth authentication lifecycle including initial setup, API usage, and automatic token refresh.
+This diagram shows the OAuth lifecycle -- initial token grant, API usage, and token refresh.
 
 ```d2
 direction: right
@@ -180,18 +166,13 @@ API -> Postman: "13. Success" {
 ```
 
 **What to notice:**
-- **Step 1-3**: Initial password grant requires all four parameters (username, password, client_id, client_secret) to get your first tokens
-- **Step 6**: Every API call must include both the Bearer token AND the X-Tallyfy-Client header - missing either causes authentication failures
-- **Step 10-12**: Token refresh happens automatically before expiry using the refresh_token, preventing interruptions in your API testing
+- **Steps 1-3** -- the password grant requires all four parameters (username, password, client_id, client_secret)
+- **Step 5** -- every API call needs both the Bearer token and the `X-Tallyfy-Client` header
+- **Steps 9-12** -- refresh happens before expiry using the stored refresh token
 
-## The critical header everyone forgets
+## The required headers
 
-Every single API request needs this header:
-```
-X-Tallyfy-Client: APIClient
-```
-
-Without it, you'll get mysterious 401 errors that make no sense. Add it to your collection's pre-request script:
+Every API request needs two headers. Add them to your collection's pre-request script so you don't have to set them manually each time:
 
 ```javascript
 pm.request.headers.add({
@@ -199,7 +180,6 @@ pm.request.headers.add({
     value: 'APIClient'
 });
 
-// Also add the Authorization header
 const token = pm.environment.get("TALLYFY_ACCESS_TOKEN");
 if (token) {
     pm.request.headers.add({
@@ -209,18 +189,17 @@ if (token) {
 }
 ```
 
-## Automatic token refresh
+## Token refresh
 
-Tokens expire after 1 hour. Here's a pre-request script that auto-refreshes:
+Access tokens last 6 months and refresh tokens last 12 months. You probably won't hit expiry during a testing session, but here's a pre-request script that handles refresh automatically:
 
 ```javascript
 const tokenExpiry = pm.environment.get("TALLYFY_TOKEN_EXPIRY");
 const now = new Date().getTime();
 
-// Check if token is expired or about to expire (5 min buffer)
 if (!tokenExpiry || now >= tokenExpiry - 300000) {
     const refreshToken = pm.environment.get("TALLYFY_REFRESH_TOKEN");
-    
+
     if (refreshToken) {
         pm.sendRequest({
             url: pm.environment.get("TALLYFY_BASE_URL") + "/oauth/token",
@@ -242,10 +221,8 @@ if (!tokenExpiry || now >= tokenExpiry - 300000) {
                 const response = res.json();
                 pm.environment.set("TALLYFY_ACCESS_TOKEN", response.access_token);
                 pm.environment.set("TALLYFY_REFRESH_TOKEN", response.refresh_token);
-                
-                const newExpiry = now + (response.expires_in * 1000);
-                pm.environment.set("TALLYFY_TOKEN_EXPIRY", newExpiry);
-                
+                pm.environment.set("TALLYFY_TOKEN_EXPIRY",
+                    now + (response.expires_in * 1000));
                 console.log("Token refreshed successfully");
             } else {
                 console.error("Token refresh failed - request a new token manually");
@@ -255,101 +232,58 @@ if (!tokenExpiry || now >= tokenExpiry - 300000) {
 }
 ```
 
-## Understanding grant types
+## Grant types compared
 
-Here's the truth about Tallyfy's OAuth grant types:
+| Grant type | What it does | When to use |
+|------------|--------------|-------------|
+| password | Full user context -- access all endpoints | API testing in Postman |
+| client_credentials | Application-only access (7-day tokens) | Automated system integrations |
+| refresh_token | Gets a new access token | When your current token expires |
 
-| Grant Type | What It Does | When to Use | Common Mistake |
-|------------|--------------|-------------|----------------|
-| password | Provides full user context | Always for API testing | Not using this when you should |
-| client_credentials | Application-only access | System integrations only | Using this for user operations |
-| refresh_token | Get new access token | When token expires | Forgetting to store refresh token |
+Use password grant for Postman testing. Client credentials won't give you access to user-scoped endpoints like templates, processes, or tasks.
 
-**The bottom line**: Use password grant for Postman testing. Period.
+## Security tips
 
-## Security best practices
+- Mark sensitive variables as **secret** in Postman so they're masked
+- Use the initial/current value distinction -- initial values sync with your team, current values stay local
+- Don't commit exported environments to version control
+- When sharing collections, export them without the environment and document which variables teammates need to create
 
-### Environment variables for sensitive data
+## Common errors and fixes
 
-Never hardcode credentials. Always use environment variables:
-- Mark sensitive variables as "secret" in Postman
-- Use initial/current value distinction
-- Never commit environment files to version control
+**401 Unauthenticated:**
+1. Missing `X-Tallyfy-Client: APIClient` header
+2. Token has expired -- request a new one or check your refresh script
+3. Using `client_credentials` grant for a user-scoped endpoint -- switch to `password`
+4. Malformed Authorization header -- it should be `Bearer [token]` with exactly one space
 
-### Postman Vault for extra security
+**400 Bad Request on the token endpoint:**
+- Body must be `x-www-form-urlencoded`, not JSON
+- All parameters (grant_type, username, password, client_id, client_secret) must be present
 
-For production credentials, use Postman's vault:
-```javascript
-// Store in vault
-pm.vault.set("TALLYFY_CLIENT_SECRET", "your-secret");
+**Invalid client:**
+- Double-check your Client ID and Client Secret
+- Make sure you're using the right Postman environment
 
-// Retrieve from vault
-const secret = await pm.vault.get("TALLYFY_CLIENT_SECRET");
+## Testing your setup
+
+Send this request to confirm everything works:
 ```
-
-### Team sharing considerations
-
-When sharing collections:
-1. Export collection without environment
-2. Document required environment variables
-3. Use placeholder values in examples
-4. Add setup instructions to collection description
-
-## Common authentication errors and fixes
-
-### "401 Unauthenticated" - the usual suspects
-
-1. **Missing X-Tallyfy-Client header** (most common cause)
-   ```
-   X-Tallyfy-Client: APIClient
-   ```
-
-2. **Expired token**
-   - Tokens last exactly 1 hour
-   - Implement auto-refresh or request new token
-
-3. **Wrong grant type**
-   - Use `password` not `client_credentials`
-   - Client credentials only work for limited endpoints
-
-4. **Typo in Bearer token**
-   ```
-   Authorization: Bearer [token]  // Exactly one space after Bearer
-   ```
-
-### "400 Bad Request" on token endpoint
-
-Check your request body format:
-- Must be `x-www-form-urlencoded` not JSON
-- All parameters must be present
-- No extra spaces in values
-
-### "Invalid client" error
-
-- Verify Client ID and Secret are correct
-- Check you're using the right environment
-- Ensure credentials match your organization
-
-## Testing your authentication
-
-Create a simple test request:
-```
-GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/me
+GET {{TALLYFY_BASE_URL}}/me
 
 Headers:
 Authorization: Bearer {{TALLYFY_ACCESS_TOKEN}}
 X-Tallyfy-Client: APIClient
+Accept: application/json
 ```
 
-If this returns your user details, authentication is working correctly.
+If you get your user details back, you're all set.
 
 ## Next steps
 
-With authentication sorted, you're ready to:
+With authentication working, you can:
 - [Work with templates and processes](/products/pro/integrations/open-api/api-clients/postman/templates-processes/)
 - [Automate task operations](/products/pro/integrations/open-api/api-clients/postman/task-operations/)
-
-Remember: Good authentication setup saves hours of debugging later. Get it right once, and everything else just works.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -1,10 +1,10 @@
 ---
-description: The activity feed API provides a complete audit trail for retrieving
-  all process actions including task completions comments status changes and assignments
-  through GET requests to the activity-feeds endpoint with filtering options for entity
-  type verb actor and pagination support across JavaScript Python Java and Go implementations.
+about_tallyfy: true
+description: Retrieve the activity feed for a process via the API to get a full audit
+  trail of task completions, comments, status changes, and more, with filtering and
+  pagination support.
 id: dcc3071f0683d5161819eeabcad7b53b
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 5
 title: Get activity feed for a process
@@ -13,374 +13,191 @@ title: Get activity feed for a process
 import { CardGrid, LinkTitleCard } from "~/components";
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Retrieving process activity feed via API
+## Retrieving process activity feed
 
-The activity feed API provides a complete audit trail of all actions taken on a process, including task completions, comments, status changes, assignments, and system events. This endpoint is essential for compliance, auditing, and building custom activity dashboards.
-
-:::note[No direct CSV export]
-While the UI doesn't offer CSV export for activity feeds, this API endpoint provides complete access to all activity data that can be exported programmatically in any format you need.
-:::
+The activity feed gives you a full audit trail of everything that's happened on a process -- task completions, comments, status changes, assignments, and system events. It's useful for compliance, auditing, and building custom dashboards.
 
 ## Endpoint
 
 `GET /organizations/{org}/activity-feeds`
 
+This endpoint returns activities across the entire organization. To scope it to a single process, pass `entity_type=run` and `entity_id={process_id}` as query parameters.
+
 ## Request
 
 ### Headers
-- `Authorization: Bearer {your_access_token}` - Required
-- `Accept: application/json`
-- `X-Tallyfy-Client: APIClient`
 
-### Query Parameters
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Authorization` | Yes | `Bearer {access_token}` |
+| `Accept` | Yes | `application/json` |
+| `X-Tallyfy-Client` | Yes | `APIClient` |
 
-| Parameter | Type | Required | Description | Example |
-|-----------|------|----------|-------------|---------|
-| `entity_type` | string | Yes* | Type of entity to filter | `run` for processes |
-| `entity_id` | string | Yes* | ID of the specific process | `abc123` |
-| `type` | string | No | Filter by activity type | `Task`, `Comment`, `Process` |
-| `verb` | string | No | Filter by action performed | `completed`, `commented`, `updated` |
-| `actor_type` | string | No | Filter by who performed action | `user`, `guest` |
-| `actor_id` | integer | No | ID of specific user/guest | `12345` |
-| `source` | string | No | Source of activity | `Member`, `Guest`, `Webhook` |
-| `page` | integer | No | Page number for pagination | Default: `1` |
-| `per_page` | integer | No | Items per page (max 100) | Default: `20` |
-| `sort` | string | No | Sort order | `-created_at` (newest first) |
+### Query parameters
 
-*Required when fetching activities for a specific process
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `entity_type` | string | No* | Entity type to filter: `checklist`, `run`, `step`, `task`, `thread` |
+| `entity_id` | string | No* | ID of the specific entity |
+| `type` | string | No | Activity category: `Comment`, `Task`, `Step`, `Process`, `Blueprint`, `User`, `Organization`, `Tag`, `Group` |
+| `verb` | string | No | Action filter (see verb values below) |
+| `actor_type` | string | No | `user` or `guest` |
+| `actor_id` | integer | No | Specific user or guest ID |
+| `actor_email` | string | No | Actor's email -- resolves to `actor_id` and `actor_type` automatically |
+| `source` | string | No | `Member`, `Guest`, or `Webhook` |
+| `created_after` | string | No | Start date filter (YYYY-MM-DD format, inclusive) |
+| `created_before` | string | No | End date filter (YYYY-MM-DD format, inclusive) |
+| `search` | string | No | Search activity descriptions (2-100 characters) |
+| `field` | string | No | Filter by changed field name (e.g. `title`, `status`) |
+| `origin_type` | string | No | Filter auto-launched activities by origin: `checklist`, `run`, `step`, `task` |
+| `origin_id` | string | No | Specific origin entity ID (requires `origin_type`) |
+| `page` | integer | No | Page number (default: 1) |
+| `per_page` | integer | No | Results per page (default: 20) |
+| `sort` | string | No | Sort order, e.g. `-created_at` for newest first |
 
-### Common Verb Values
-- `created` - Entity was created
-- `updated` - Entity was modified
-- `completed` - Task or step was completed
-- `commented` - Comment was added
-- `assigned` - Task was assigned
-- `unassigned` - Assignment was removed
-- `archived` - Entity was archived
-- `activated` - Entity was activated
-- `deleted` - Entity was deleted
-- `reopened` - Task was reopened
-- `started` - Process or task was started
+*Use `entity_type=run` with `entity_id` to scope results to a single process.
 
-## Code Samples
+### Verb values
+
+The full set of supported verbs:
+
+`created` · `updated` · `owners-updated` · `uploaded` · `completed` · `uncompleted` · `deleted` · `re-ordered` · `commented` · `issue-reported` · `issue-resolved` · `archived` · `unarchived` · `re-opened` · `emitted` · `enabled` · `disabled` · `comment-deleted` · `invited` · `invite-accepted` · `linked` · `unlinked`
+
+## Code samples
 
 <Tabs>
 <TabItem label="JavaScript">
 ```javascript
-// Get all activities for a specific process
-const organizationId = 'your_org_id';
+const orgId = 'your_org_id';
 const processId = 'your_process_id';
-const accessToken = 'your_access_token';
+const token = 'your_access_token';
 
-async function getProcessActivityFeed() {
-  const params = new URLSearchParams({
-    entity_type: 'run',
-    entity_id: processId,
-    per_page: '50',
-    sort: '-created_at'
-  });
+const params = new URLSearchParams({
+  entity_type: 'run',
+  entity_id: processId,
+  per_page: '50',
+  sort: '-created_at'
+});
 
-  const response = await fetch(
-    `https://api.tallyfy.com/organizations/${organizationId}/activity-feeds?${params}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json',
-        'X-Tallyfy-Client': 'APIClient'
-      }
+const response = await fetch(
+  `https://go.tallyfy.com/api/organizations/${orgId}/activity-feeds?${params}`,
+  {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+      'X-Tallyfy-Client': 'APIClient'
     }
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
   }
+);
 
-  const data = await response.json();
-  return data;
-}
-
-// Filter for specific activity types
-async function getTaskCompletions(processId) {
-  const params = new URLSearchParams({
-    entity_type: 'run',
-    entity_id: processId,
-    type: 'Task',
-    verb: 'completed',
-    per_page: '100'
-  });
-
-  const response = await fetch(
-    `https://api.tallyfy.com/organizations/${organizationId}/activity-feeds?${params}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    }
-  );
-
-  return response.json();
-}
+const data = await response.json();
+console.log(`Total activities: ${data.meta.pagination.total}`);
+data.data.forEach(a => {
+  console.log(`${a.created_at} - ${a.verb} - ${a.description}`);
+});
 ```
 </TabItem>
 <TabItem label="Python">
 ```python
 import requests
-from typing import Optional, Dict, Any
 
-class TallyfyActivityFeed:
-    def __init__(self, org_id: str, access_token: str):
-        self.org_id = org_id
-        self.access_token = access_token
-        self.base_url = "https://api.tallyfy.com"
-        self.headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-            "X-Tallyfy-Client": "APIClient"
-        }
-    
-    def get_process_activities(
-        self, 
-        process_id: str,
-        verb: Optional[str] = None,
-        activity_type: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 50
-    ) -> Dict[str, Any]:
-        """Get activity feed for a specific process"""
-        
-        params = {
-            "entity_type": "run",
-            "entity_id": process_id,
-            "page": page,
-            "per_page": per_page,
-            "sort": "-created_at"
-        }
-        
-        # Add optional filters
-        if verb:
-            params["verb"] = verb
-        if activity_type:
-            params["type"] = activity_type
-        
-        response = requests.get(
-            f"{self.base_url}/organizations/{self.org_id}/activity-feeds",
-            headers=self.headers,
-            params=params
-        )
-        
-        response.raise_for_status()
-        return response.json()
-    
-    def get_all_activities(self, process_id: str) -> list:
-        """Get all activities with pagination handling"""
-        all_activities = []
-        page = 1
-        
-        while True:
-            data = self.get_process_activities(
-                process_id=process_id,
-                page=page,
-                per_page=100
-            )
-            
-            activities = data.get("data", [])
-            all_activities.extend(activities)
-            
-            # Check if there are more pages
-            if not activities or len(activities) < 100:
-                break
-            
-            page += 1
-        
-        return all_activities
-    
-    def export_to_csv(self, process_id: str, filename: str):
-        """Export activity feed to CSV"""
-        import csv
-        from datetime import datetime
-        
-        activities = self.get_all_activities(process_id)
-        
-        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = [
-                'timestamp', 'actor', 'action', 'type', 
-                'description', 'old_value', 'new_value'
-            ]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            
-            for activity in activities:
-                writer.writerow({
-                    'timestamp': activity.get('created_at'),
-                    'actor': activity.get('actor', {}).get('name', 'System'),
-                    'action': activity.get('verb'),
-                    'type': activity.get('type'),
-                    'description': activity.get('description', ''),
-                    'old_value': activity.get('old_value', ''),
-                    'new_value': activity.get('audit', {}).get(
-                        activity.get('field', ''), ''
-                    )
-                })
-        
-        print(f"Exported {len(activities)} activities to {filename}")
+BASE_URL = "https://go.tallyfy.com/api"
+org_id = "your_org_id"
+token = "your_access_token"
 
-# Usage example
-client = TallyfyActivityFeed('your_org_id', 'your_access_token')
+headers = {
+    "Authorization": f"Bearer {token}",
+    "Accept": "application/json",
+    "X-Tallyfy-Client": "APIClient"
+}
 
-# Get all activities
-activities = client.get_process_activities('process_id_123')
+def get_process_activities(process_id, verb=None, activity_type=None,
+                           page=1, per_page=50):
+    """Fetch activity feed for a specific process."""
+    params = {
+        "entity_type": "run",
+        "entity_id": process_id,
+        "page": page,
+        "per_page": per_page,
+        "sort": "-created_at"
+    }
+    if verb:
+        params["verb"] = verb
+    if activity_type:
+        params["type"] = activity_type
+
+    resp = requests.get(
+        f"{BASE_URL}/organizations/{org_id}/activity-feeds",
+        headers=headers,
+        params=params
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+# Get all activities for a process
+result = get_process_activities("process_id_123")
+for activity in result["data"]:
+    print(f"{activity['created_at']} - {activity['verb']} - {activity['description']}")
 
 # Get only task completions
-completions = client.get_process_activities(
-    'process_id_123',
-    verb='completed',
-    activity_type='Task'
+completions = get_process_activities(
+    "process_id_123", verb="completed", activity_type="Task"
 )
-
-# Export to CSV
-client.export_to_csv('process_id_123', 'process_audit_log.csv')
 ```
 </TabItem>
 <TabItem label="Java">
 ```java
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.HashMap;
-import java.util.Map;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class TallyfyActivityFeed {
-    private final String organizationId;
-    private final String accessToken;
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
-    private static final String BASE_URL = "https://api.tallyfy.com";
-    
-    public TallyfyActivityFeed(String organizationId, String accessToken) {
-        this.organizationId = organizationId;
-        this.accessToken = accessToken;
-        this.httpClient = HttpClient.newHttpClient();
-        this.objectMapper = new ObjectMapper();
+    private static final String BASE_URL = "https://go.tallyfy.com/api";
+    private final String orgId;
+    private final String token;
+    private final HttpClient client = HttpClient.newHttpClient();
+
+    public TallyfyActivityFeed(String orgId, String token) {
+        this.orgId = orgId;
+        this.token = token;
     }
-    
-    public Map<String, Object> getProcessActivities(
-        String processId,
-        String verb,
-        String type,
-        int page,
-        int perPage
-    ) throws IOException, InterruptedException {
-        
-        // Build query parameters
-        StringBuilder queryParams = new StringBuilder();
-        queryParams.append("?entity_type=run");
-        queryParams.append("&entity_id=").append(processId);
-        queryParams.append("&page=").append(page);
-        queryParams.append("&per_page=").append(perPage);
-        queryParams.append("&sort=-created_at");
-        
-        if (verb != null && !verb.isEmpty()) {
-            queryParams.append("&verb=").append(verb);
-        }
-        if (type != null && !type.isEmpty()) {
-            queryParams.append("&type=").append(type);
-        }
-        
-        // Build request
+
+    public String getProcessActivities(String processId, String verb,
+                                        String type, int page, int perPage)
+            throws Exception {
+        StringBuilder qs = new StringBuilder("?entity_type=run");
+        qs.append("&entity_id=").append(processId);
+        qs.append("&page=").append(page);
+        qs.append("&per_page=").append(perPage);
+        qs.append("&sort=-created_at");
+        if (verb != null) qs.append("&verb=").append(verb);
+        if (type != null) qs.append("&type=").append(type);
+
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(BASE_URL + "/organizations/" + organizationId + 
-                           "/activity-feeds" + queryParams))
-            .header("Authorization", "Bearer " + accessToken)
+            .uri(URI.create(BASE_URL + "/organizations/" + orgId +
+                            "/activity-feeds" + qs))
+            .header("Authorization", "Bearer " + token)
             .header("Accept", "application/json")
             .header("X-Tallyfy-Client", "APIClient")
             .GET()
             .build();
-        
-        // Send request
-        HttpResponse<String> response = httpClient.send(
-            request, 
-            HttpResponse.BodyHandlers.ofString()
-        );
-        
-        if (response.statusCode() != 200) {
-            throw new RuntimeException(
-                "Failed to get activities: " + response.statusCode()
-            );
+
+        HttpResponse<String> resp = client.send(
+            request, HttpResponse.BodyHandlers.ofString());
+
+        if (resp.statusCode() != 200) {
+            throw new RuntimeException("HTTP " + resp.statusCode());
         }
-        
-        // Parse response
-        return objectMapper.readValue(
-            response.body(), 
-            Map.class
-        );
+        return resp.body();
     }
-    
-    // Get all activities for a process
-    public void getAllProcessActivities(String processId) {
-        try {
-            Map<String, Object> result = getProcessActivities(
-                processId,
-                null,  // No verb filter
-                null,  // No type filter
-                1,     // Page 1
-                50     // 50 items per page
-            );
-            
-            System.out.println("Total activities: " + 
-                              result.get("total"));
-            
-            // Process activities
-            var activities = (java.util.List<?>) result.get("data");
-            for (Object activity : activities) {
-                var activityMap = (Map<String, Object>) activity;
-                System.out.println(
-                    activityMap.get("created_at") + " - " +
-                    activityMap.get("verb") + " - " +
-                    activityMap.get("description")
-                );
-            }
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    
-    // Get only comments for a process
-    public void getProcessComments(String processId) {
-        try {
-            Map<String, Object> result = getProcessActivities(
-                processId,
-                "commented",  // Only comments
-                null,
-                1,
-                100
-            );
-            
-            var comments = (java.util.List<?>) result.get("data");
-            System.out.println("Found " + comments.size() + " comments");
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    
-    public static void main(String[] args) {
-        TallyfyActivityFeed client = new TallyfyActivityFeed(
-            "your_org_id",
-            "your_access_token"
-        );
-        
-        // Get all activities
-        client.getAllProcessActivities("process_id_123");
-        
-        // Get only comments
-        client.getProcessComments("process_id_123");
+
+    public static void main(String[] args) throws Exception {
+        var api = new TallyfyActivityFeed("your_org_id", "your_access_token");
+        String json = api.getProcessActivities(
+            "process_id_123", null, null, 1, 50);
+        System.out.println(json);
     }
 }
 ```
@@ -390,179 +207,62 @@ public class TallyfyActivityFeed {
 package main
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "net/url"
-    "strconv"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 )
 
-type TallyfyClient struct {
-    OrgID       string
-    AccessToken string
-    BaseURL     string
-}
+const baseURL = "https://go.tallyfy.com/api"
 
-type ActivityFeedResponse struct {
-    Data  []Activity `json:"data"`
-    Total int        `json:"total"`
-    Page  int        `json:"page"`
-}
+func getProcessActivities(orgID, token, processID string,
+	filters map[string]string) (map[string]interface{}, error) {
 
-type Activity struct {
-    ID           string                 `json:"id"`
-    OrgID        string                 `json:"organization_id"`
-    Verb         string                 `json:"verb"`
-    Type         string                 `json:"type"`
-    Description  string                 `json:"description"`
-    CreatedAt    string                 `json:"created_at"`
-    Actor        map[string]interface{} `json:"actor"`
-    Audit        map[string]interface{} `json:"audit"`
-    Field        string                 `json:"field"`
-    OldValue     interface{}            `json:"old_value"`
-    Text         string                 `json:"text"`
-}
+	u, _ := url.Parse(fmt.Sprintf(
+		"%s/organizations/%s/activity-feeds", baseURL, orgID))
 
-func NewTallyfyClient(orgID, accessToken string) *TallyfyClient {
-    return &TallyfyClient{
-        OrgID:       orgID,
-        AccessToken: accessToken,
-        BaseURL:     "https://api.tallyfy.com",
-    }
-}
+	q := u.Query()
+	q.Set("entity_type", "run")
+	q.Set("entity_id", processID)
+	q.Set("sort", "-created_at")
+	for k, v := range filters {
+		if v != "" {
+			q.Set(k, v)
+		}
+	}
+	u.RawQuery = q.Encode()
 
-func (c *TallyfyClient) GetProcessActivities(
-    processID string,
-    filters map[string]string,
-) (*ActivityFeedResponse, error) {
-    
-    // Build URL with query parameters
-    u, _ := url.Parse(fmt.Sprintf(
-        "%s/organizations/%s/activity-feeds",
-        c.BaseURL, c.OrgID,
-    ))
-    
-    q := u.Query()
-    q.Set("entity_type", "run")
-    q.Set("entity_id", processID)
-    q.Set("sort", "-created_at")
-    
-    // Add optional filters
-    for key, value := range filters {
-        if value != "" {
-            q.Set(key, value)
-        }
-    }
-    
-    u.RawQuery = q.Encode()
-    
-    // Create request
-    req, err := http.NewRequest("GET", u.String(), nil)
-    if err != nil {
-        return nil, err
-    }
-    
-    req.Header.Set("Authorization", "Bearer "+c.AccessToken)
-    req.Header.Set("Accept", "application/json")
-    req.Header.Set("X-Tallyfy-Client", "APIClient")
-    
-    // Send request
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    if resp.StatusCode != http.StatusOK {
-        body, _ := io.ReadAll(resp.Body)
-        return nil, fmt.Errorf(
-            "API error %d: %s", 
-            resp.StatusCode, 
-            string(body),
-        )
-    }
-    
-    // Parse response
-    var result ActivityFeedResponse
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return nil, err
-    }
-    
-    return &result, nil
-}
+	req, _ := http.NewRequest("GET", u.String(), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Tallyfy-Client", "APIClient")
 
-func (c *TallyfyClient) GetAllActivities(processID string) ([]Activity, error) {
-    var allActivities []Activity
-    page := 1
-    
-    for {
-        filters := map[string]string{
-            "page":     strconv.Itoa(page),
-            "per_page": "100",
-        }
-        
-        response, err := c.GetProcessActivities(processID, filters)
-        if err != nil {
-            return nil, err
-        }
-        
-        allActivities = append(allActivities, response.Data...)
-        
-        // Check if more pages exist
-        if len(response.Data) < 100 {
-            break
-        }
-        
-        page++
-    }
-    
-    return allActivities, nil
-}
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-func (c *TallyfyClient) GetTaskCompletions(processID string) ([]Activity, error) {
-    filters := map[string]string{
-        "verb":     "completed",
-        "type":     "Task",
-        "per_page": "100",
-    }
-    
-    response, err := c.GetProcessActivities(processID, filters)
-    if err != nil {
-        return nil, err
-    }
-    
-    return response.Data, nil
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, body)
+	}
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result, nil
 }
 
 func main() {
-    client := NewTallyfyClient("your_org_id", "your_access_token")
-    
-    // Get all activities
-    activities, err := client.GetAllActivities("process_id_123")
-    if err != nil {
-        panic(err)
-    }
-    
-    fmt.Printf("Found %d total activities\n", len(activities))
-    
-    // Get only task completions
-    completions, err := client.GetTaskCompletions("process_id_123")
-    if err != nil {
-        panic(err)
-    }
-    
-    fmt.Printf("Found %d task completions\n", len(completions))
-    
-    // Print recent activities
-    for _, activity := range activities[:10] {
-        fmt.Printf("%s: %s - %s\n", 
-            activity.CreatedAt,
-            activity.Verb,
-            activity.Description,
-        )
-    }
+	result, err := getProcessActivities(
+		"your_org_id", "your_access_token", "process_id_123",
+		map[string]string{"per_page": "50"},
+	)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(result)
 }
 ```
 </TabItem>
@@ -570,317 +270,109 @@ func main() {
 
 ## Response
 
-### Success Response (200 OK)
+The response uses Fractal pagination wrapping. Activities sit in `data` and pagination metadata lives under `meta.pagination`.
 
 ```json
 {
   "data": [
     {
-      "id": "feed_abc123",
+      "id": 12345,
       "organization_id": "org_xyz",
-      "verb": "completed",
-      "source": "Member",
-      "actor": {
-        "id": 12345,
-        "name": "John Smith",
-        "email": "john@example.com",
-        "type": "user"
-      },
-      "auditable_type": "task",
+      "verb": ["completed"],
+      "source": ["Member"],
+      "actor_type": ["App\\Models\\User"],
+      "actor_id": [67890],
+      "auditable_type": "App\\Models\\Task",
       "auditable_id": "task_456",
-      "parentable_type": "run",
+      "parentable_type": "App\\Models\\Run",
       "parentable_id": "run_789",
-      "type": "Task",
-      "description": "Completed task: Review document",
+      "type": ["Task"],
+      "description": ["Completed task: Review document"],
       "field": null,
       "old_value": null,
       "created_at": "2025-03-15T10:30:00Z",
       "text": null,
-      "references": [],
+      "references": null,
+      "actor": [
+        {
+          "email": "john@example.com",
+          "username": "johnsmith",
+          "first_name": "John",
+          "last_name": "Smith",
+          "full_name": "John Smith",
+          "profile_pic": null,
+          "resize_profile_pic": null
+        }
+      ],
+      "undoable": false,
       "audit": {
-        "id": "task_456",
-        "name": "Review document",
-        "status": "completed",
-        "completed_at": "2025-03-15T10:30:00Z",
-        "completed_by": 12345
+        "data": { }
       },
       "parent": {
-        "id": "run_789",
-        "name": "Employee Onboarding - Jane Doe",
-        "status": "active"
-      }
-    },
-    {
-      "id": "feed_def456",
-      "organization_id": "org_xyz",
-      "verb": "commented",
-      "source": "Guest",
-      "actor": {
-        "id": 67890,
-        "name": "External Reviewer",
-        "email": "reviewer@external.com",
-        "type": "guest"
+        "data": { }
       },
-      "auditable_type": "task",
-      "auditable_id": "task_456",
-      "parentable_type": "run",
-      "parentable_id": "run_789",
-      "type": "Comment",
-      "description": "Added comment on task",
-      "field": null,
-      "old_value": null,
-      "created_at": "2025-03-15T09:15:00Z",
-      "text": "Document looks good, approved for next step",
-      "references": [],
-      "audit": null,
-      "parent": {
-        "id": "run_789",
-        "name": "Employee Onboarding - Jane Doe",
-        "status": "active"
-      }
-    },
-    {
-      "id": "feed_ghi789",
-      "organization_id": "org_xyz",
-      "verb": "updated",
-      "source": "Member",
-      "actor": {
-        "id": 12345,
-        "name": "John Smith",
-        "email": "john@example.com",
-        "type": "user"
-      },
-      "auditable_type": "task",
-      "auditable_id": "task_123",
-      "parentable_type": "run",
-      "parentable_id": "run_789",
-      "type": "Task",
-      "description": "Updated deadline",
-      "field": "deadline",
-      "old_value": "2025-03-20T00:00:00Z",
-      "created_at": "2025-03-15T08:00:00Z",
-      "text": null,
-      "references": [],
-      "audit": {
-        "id": "task_123",
-        "name": "Prepare workspace",
-        "deadline": "2025-03-25T00:00:00Z"
-      },
-      "parent": {
-        "id": "run_789",
-        "name": "Employee Onboarding - Jane Doe",
-        "status": "active"
-      }
+      "origin": null
     }
   ],
-  "total": 145,
-  "per_page": 20,
-  "current_page": 1,
-  "last_page": 8,
-  "from": 1,
-  "to": 20
-}
-```
-
-### Response Fields
-
-- **data**: Array of activity objects
-- **total**: Total number of activities matching the filters
-- **per_page**: Number of items per page
-- **current_page**: Current page number
-- **last_page**: Total number of pages
-- **from**: Starting item number
-- **to**: Ending item number
-
-### Activity Object Fields
-
-- **id**: Unique activity feed ID
-- **organization_id**: Organization ID
-- **verb**: Action performed (completed, updated, commented, etc.)
-- **source**: Who triggered the activity (Member, Guest, Webhook, System)
-- **actor**: Object containing details about who performed the action
-- **auditable_type**: Type of entity that was acted upon (task, step, run, etc.)
-- **auditable_id**: ID of the entity that was acted upon
-- **parentable_type**: Type of parent entity
-- **parentable_id**: ID of parent entity
-- **type**: Category of activity (Task, Comment, Process, etc.)
-- **description**: Human-readable description of the activity
-- **field**: For updates, which field was changed
-- **old_value**: For updates, the previous value
-- **created_at**: Timestamp when the activity occurred
-- **text**: Additional text/content (e.g., comment text)
-- **references**: Array of related references
-- **audit**: Current state of the audited object
-- **parent**: Information about the parent object
-
-## Common Use Cases
-
-### 1. Export Complete Audit Log
-Fetch all activities for a process and export to your preferred format:
-
-```javascript
-// Fetch all pages of activities
-async function exportAuditLog(processId) {
-  let allActivities = [];
-  let page = 1;
-  let hasMore = true;
-  
-  while (hasMore) {
-    const params = new URLSearchParams({
-      entity_type: 'run',
-      entity_id: processId,
-      page: page.toString(),
-      per_page: '100',
-      sort: '-created_at'
-    });
-    
-    const response = await fetch(
-      `https://api.tallyfy.com/organizations/${orgId}/activity-feeds?${params}`,
-      { headers: { 'Authorization': `Bearer ${token}` } }
-    );
-    
-    const data = await response.json();
-    allActivities = allActivities.concat(data.data);
-    
-    hasMore = data.current_page < data.last_page;
-    page++;
+  "meta": {
+    "pagination": {
+      "total": 145,
+      "count": 20,
+      "per_page": 20,
+      "current_page": 1,
+      "total_pages": 8,
+      "links": {
+        "next": "https://go.tallyfy.com/api/organizations/org_xyz/activity-feeds?page=2"
+      }
+    }
   }
-  
-  return allActivities;
 }
 ```
 
-### 2. Monitor Real-Time Process Changes
-Poll for new activities since last check:
+### Activity object fields
 
-```javascript
-let lastCheckTime = new Date().toISOString();
-
-async function getRecentActivities(processId) {
-  const params = new URLSearchParams({
-    entity_type: 'run',
-    entity_id: processId,
-    per_page: '20',
-    sort: '-created_at'
-  });
-  
-  const response = await fetch(
-    `https://api.tallyfy.com/organizations/${orgId}/activity-feeds?${params}`,
-    { headers: { 'Authorization': `Bearer ${token}` } }
-  );
-  
-  const data = await response.json();
-  
-  // Filter activities newer than last check
-  const newActivities = data.data.filter(
-    activity => new Date(activity.created_at) > new Date(lastCheckTime)
-  );
-  
-  if (newActivities.length > 0) {
-    lastCheckTime = newActivities[0].created_at;
-  }
-  
-  return newActivities;
-}
-```
-
-### 3. Track User Productivity
-Get all activities by a specific user:
-
-```javascript
-async function getUserActivities(userId, startDate, endDate) {
-  const params = new URLSearchParams({
-    actor_type: 'user',
-    actor_id: userId.toString(),
-    per_page: '100',
-    sort: '-created_at'
-  });
-  
-  const response = await fetch(
-    `https://api.tallyfy.com/organizations/${orgId}/activity-feeds?${params}`,
-    { headers: { 'Authorization': `Bearer ${token}` } }
-  );
-  
-  return response.json();
-}
-```
-
-### 4. Compliance Reporting
-Generate compliance reports showing all changes to sensitive processes:
-
-```javascript
-async function getComplianceData(processId) {
-  // Get all updates and completions
-  const params = new URLSearchParams({
-    entity_type: 'run',
-    entity_id: processId,
-    per_page: '100'
-  });
-  
-  const response = await fetch(
-    `https://api.tallyfy.com/organizations/${orgId}/activity-feeds?${params}`,
-    { headers: { 'Authorization': `Bearer ${token}` } }
-  );
-  
-  const data = await response.json();
-  
-  // Filter for compliance-relevant activities
-  return data.data.filter(activity => 
-    ['completed', 'updated', 'assigned', 'unassigned'].includes(activity.verb) ||
-    activity.type === 'Comment'
-  );
-}
-```
-
-## Error Responses
-
-### 401 Unauthorized
-```json
-{
-  "error": "Unauthorized",
-  "message": "Invalid or expired access token"
-}
-```
-
-### 403 Forbidden
-```json
-{
-  "error": "Forbidden",
-  "message": "You don't have permission to view this process's activities"
-}
-```
-
-### 404 Not Found
-```json
-{
-  "error": "Not Found",
-  "message": "Process not found or has been deleted"
-}
-```
-
-### 429 Rate Limited
-```json
-{
-  "error": "Too Many Requests",
-  "message": "Rate limit exceeded. Please wait before making more requests"
-}
-```
+| Field | Description |
+|-------|-------------|
+| `id` | Activity feed ID |
+| `organization_id` | Organization the activity belongs to |
+| `verb` | Array of actions performed (e.g. `["completed"]`) |
+| `source` | Array indicating who triggered it: `Member`, `Guest`, or `Webhook` |
+| `actor_type` | Array of actor model types |
+| `actor_id` | Array of actor IDs |
+| `actor` | Array of actor detail objects with `email`, `first_name`, `last_name`, `full_name`, `profile_pic` |
+| `auditable_type` | Model class of the entity acted upon |
+| `auditable_id` | ID of the entity acted upon |
+| `parentable_type` | Model class of the parent entity |
+| `parentable_id` | ID of the parent entity |
+| `type` | Array of activity categories (e.g. `["Task"]`) |
+| `description` | Array of human-readable descriptions |
+| `field` | For updates, which field changed (array or null) |
+| `old_value` | For updates, the previous value (array or null) |
+| `created_at` | When the activity occurred |
+| `text` | Extra content such as comment text (array or null) |
+| `references` | Related references (array or null) |
+| `undoable` | Whether this activity can be undone |
+| `audit` | Fractal include -- current state of the audited object |
+| `parent` | Fractal include -- parent object details |
+| `origin` | Fractal include -- origin entity for auto-launched activities |
+| `audit_state` | Snapshot of the audited object's state (when available) |
+| `parent_state` | Snapshot of the parent object's state (when available) |
 
 ## Permissions
 
-To access activity feeds, the authenticated user must have one of the following:
+The `activity_feed_access` middleware controls access. You can view the activity feed if you're:
 
-- Be an administrator in the organization
-- Have `PROCESS_READ` permission for the specific process
-- Be the creator of the process
-- Be assigned to at least one task in the process
-- Be a support user with appropriate access
+- An **organization admin**
+- A **support user** with appropriate access
+- The **creator** of the process (when filtering by `entity_type=run`)
+- A user with **PROCESS_READ** permission on that process
+- **Assigned** to at least one task in that process
 
-## Rate Limits
+Without a specific `entity_type=run` filter, admins and support users see all org-level activities. Non-admin users see activities scoped to entities they have permission to access.
 
-- Default rate limit: 1000 requests per hour per organization
-- Burst limit: 100 requests per minute
-- Use pagination and caching to minimize API calls
+## Rate limits
+
+The API allows **600 requests per minute**. Use pagination and caching to stay within limits when polling for updates.
 
 ## Related articles
 <CardGrid>

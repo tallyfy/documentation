@@ -1,10 +1,11 @@
 ---
+about_tallyfy: true
 description: Tallyfy webhooks deliver JSON payloads with different structures for
-  process-level events (launches/completions) and task-level events (task completions)
-  containing complete workflow data form fields guest access links and task assignment
-  information to enable real-time integration with external systems.
+  process-level events (launches and completions) and task-level events (task completions)
+  containing workflow data, form fields, guest access links, and task assignment info
+  for real-time integration with external systems.
 id: cc0413cd0b5c6311cce80303a5e640cd
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 3
 title: Webhook payload structure
@@ -12,21 +13,21 @@ title: Webhook payload structure
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Understanding webhook payload structure
+## How webhook payloads work
 
-When Tallyfy sends a webhook to your endpoint, it delivers a JSON payload containing complete data about the event. The exact structure varies based on webhook type - **process-level webhooks** (fired when a process launches or completes) versus **task-level webhooks** (fired when a specific task completes).
+When Tallyfy sends a webhook to your endpoint, it delivers a JSON payload with data about the event. The structure depends on the webhook type - **process-level webhooks** (fired when a process launches or completes) versus **task-level webhooks** (fired when a specific task completes).
 
-This reference shows the complete, verified structure produced by Tallyfy's actual API code, not theoretical examples.
+This reference shows the actual structure produced by Tallyfy's API code, not theoretical examples.
 
 ## Process-level webhook payload
 
-Process-level webhooks fire when someone launches a new process or when a process completes. These webhooks include the full process state and all kick-off form data.
+Process-level webhooks fire when someone launches a new process or when a process completes. They include the full process state and all kick-off form data.
 
 ### Top-level structure
 
 ```
 Process Webhook Payload
-├── Process Information (from RunTransformer)
+├── Process information (from RunTransformer)
 │   ├── id, increment_id, name, summary
 │   ├── status, progress, whole_progress
 │   ├── checklist_id, checklist_title
@@ -44,7 +45,7 @@ Process Webhook Payload
 ├── ko-form-fields
 │   └── Map of field alias => field value
 │
-├── guest-links ⭐ NEW
+├── guest-links
 │   └── Map of guest email => {link_for_guest: URL}
 │
 └── launcher
@@ -129,9 +130,9 @@ Process Webhook Payload
 
 ## Task-level webhook payload
 
-Task-level webhooks fire when a specific task completes. These contain detailed information about the completed task, all process data collected so far, and the next task that needs attention.
+Task-level webhooks fire when a specific task completes. They contain detailed info about the completed task, all process data collected so far, and the next task that needs attention.
 
-**What is `next_task`?** The first visible incomplete task ordered by position number. Visible means not auto-skipped by automation rules. Incomplete means not yet completed (includes tasks that are in-progress). Returns `null` if all tasks in the process are completed.
+**What's `next_task`?** It's the first visible incomplete task ordered by position number. "Visible" means not auto-skipped by automation rules. "Incomplete" means not yet completed (includes tasks that are in-progress). Returns an empty array `[]` if all tasks in the process are done.
 
 ### Top-level structure
 
@@ -160,7 +161,7 @@ Task Webhook Payload
 │       └── {field_alias: value}
 │
 ├── template
-│   └── id, title, alias, summary
+│   └── id, title, alias, summary (NO version field)
 │
 ├── process
 │   ├── id, organization_id, name, summary
@@ -171,7 +172,7 @@ Task Webhook Payload
 │   │   └── {step_id: {timeline_id: {alias, label, value}}}
 │   └── tags
 │
-├── guest-links ⭐ NEW
+├── guest-links
 │   └── Map of guest email => {link_for_guest: URL}
 │
 └── next_task
@@ -339,9 +340,9 @@ Task Webhook Payload
 }
 ```
 
-## Guest links feature
+## Guest links
 
-The `guest-links` object provides direct access URLs for all guest assignees in a process. This feature enables external systems to send personalized emails or SMS notifications to guests with direct links to their assigned tasks.
+The `guest-links` object provides direct access URLs for all guest assignees in a process. You can use it to send personalized emails or SMS notifications to guests with direct links to their assigned tasks.
 
 ### Structure
 
@@ -353,19 +354,19 @@ The `guest-links` object provides direct access URLs for all guest assignees in 
 }
 ```
 
-### Key characteristics
+### Key details
 
-- **Included in both webhook types**: Process-level and task-level webhooks
-- **All unique guests**: Includes every unique guest assigned anywhere in the process
-- **Direct access**: Links bypass login - guests click and see their assigned tasks
-- **Persistent codes**: Guest codes remain stable across the process lifecycle
+- **Included in both webhook types** - process-level and task-level
+- **All unique guests** - every unique guest assigned anywhere in the process
+- **Direct access** - links bypass login, so guests click and see their tasks
+- **Persistent codes** - guest codes stay stable across the process lifecycle
 
 ### Common use cases
 
-- **Custom email notifications**: Build your own notification system using Zapier/Make
-- **SMS integration**: Send task reminders via Twilio with direct access links
-- **CRM integration**: Update external CRM records with guest task links
-- **Client portals**: Embed guest task links in customer-facing dashboards
+- **Custom email notifications** - build your own notification system using Zapier or Make
+- **SMS integration** - send task reminders via Twilio with direct access links
+- **CRM integration** - update external CRM records with guest task links
+- **Client portals** - embed guest task links in customer-facing dashboards
 
 ## Form field structures
 
@@ -448,9 +449,9 @@ Date fields in captures respect your organization's webhook date format setting.
 }
 ```
 
-The format applies to all date fields across the webhook payload.
+This format applies to all date fields across the webhook payload.
 
-## Task assignment information
+## Task assignment info
 
 Task owners appear in the `owners` object containing both organization members and external guests.
 
@@ -520,6 +521,7 @@ Use the `next_task` object to prepare for upcoming steps:
 ```javascript
 const nextTask = webhookPayload.next_task;
 
+// next_task is an empty array [] when all tasks are done
 if (nextTask && nextTask.title === "Execute Contract") {
   // Prepare contract execution system
   // Notify legal team

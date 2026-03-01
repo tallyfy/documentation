@@ -1,10 +1,10 @@
 ---
-description: This guide explains how to configure custom SMTP servers with Tallyfy
-  including required credentials setup procedures testing methods and troubleshooting
-  solutions to ensure reliable branded email delivery while maintaining security compliance
-  and organizational control over workflow communications.
+about_tallyfy: true
+description: Configure custom SMTP in Tallyfy to send all workflow emails from your
+  own domain - improving deliverability and branding while keeping email traffic within
+  your security framework.
 id: a57bef19df234de97d670bda484338e6
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 2
 title: Set up custom SMTP sending
@@ -12,177 +12,107 @@ title: Set up custom SMTP sending
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Custom SMTP Server Configuration
+## Why use custom SMTP?
 
-Want to use your own email server with Tallyfy? You're in the right place. This guide walks you through setting up custom SMTP - from initial configuration to testing everything works properly.
+Custom SMTP lets every workflow email come from your domain instead of Tallyfy's. Your SPF, DKIM, and DMARC records stay intact, deliverability improves, and recipients see your brand - not ours.
 
-### Requirements
+Other benefits:
 
-Before configuring custom SMTP in Tallyfy, ensure you have:
+- **Server-level tracking** - access your own logs for all outbound Tallyfy emails
+- **Security compliance** - email traffic stays within your existing infrastructure
+- **Consistent reputation** - your domain's sender score applies to workflow notifications
 
-- Administrator access to your Tallyfy organization
-- SMTP server details from your IT department or email service provider
-- Authentication credentials for your SMTP server
-- Verified that your email server allows third-party application connections
-- Confirmed your organization's email security policies permit this integration
-
-### Benefits of custom SMTP
-
-Here's why organizations love using their own SMTP server with Tallyfy:
-
-- **Improved deliverability** - Emails from your domain get through. No more spam folder surprises.
-- **Tracking** - Access server logs for all outbound emails sent through Tallyfy
-- **Consistent branding** - Keep your company's email reputation and formatting intact
-- **Security compliance** - Sensitive email traffic stays within your existing security framework
-- **Existing configurations** - Your SPF, DKIM, and DMARC records? They work perfectly here.
-- **White-labeled communications** - Every workflow email appears from your domain (not ours)
-
-:::caution[Email Reply Limitation]
-There's one trade-off with custom SMTP - emails won't be "replyable" for comments. When users hit reply on a task notification, that response won't automatically appear as a comment in Tallyfy. The email goes to your inbox instead.
+:::caution[Email reply limitation]
+Custom SMTP disables reply-to-comment. When someone replies to a task notification, the response goes to your inbox - it won't appear as a comment in Tallyfy.
 :::
 
-:::note[Single Account Limitation]
-Tallyfy needs a single central email account for all outgoing emails - something like "tallyfy@company.com". Individual user email accounts aren't supported yet. Plan accordingly.
+:::note[Single account only]
+Tallyfy uses one central email account (e.g. `tallyfy@company.com`) for all outgoing mail. Individual user accounts aren't supported for SMTP sending.
 :::
 
-### Required SMTP information
+### What you'll need
 
-Gather these details before proceeding with configuration:
+| Parameter | Example |
+|-----------|---------|
+| SMTP Server Host | smtp.company.com |
+| Port | 587 |
+| Username (email format) | tallyfy@company.com |
+| Password | Your SMTP password |
+| From Email (optional) | workflows@company.com |
+| From Name (optional) | Company Workflows |
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| SMTP Server Host | Your mail server address | smtp.company.com |
-| SMTP Port | Port for mail submission | 587 (TLS) or 465 (SSL) |
-| Username | Account for authentication | tallyfy@company.com |
-| Password | Authentication credential | Your secure password |
-| From Email | Sender's email address | workflows@company.com |
-| From Name | Display name for sender | Company Workflows |
-| Encryption Method | Security protocol | TLS or SSL |
+Tallyfy uses TLS encryption automatically - there's no encryption dropdown to configure.
 
 ### Configuration steps
 
-Ready to connect your SMTP server? Let's do it:
-
 <Steps>
-1. Sign in to Tallyfy with administrator credentials.
-2. Navigate to **Settings** > **Organization Settings**.
-3. Select the **Email Configuration** tab.
-4. Click the **Custom SMTP** option.
-5. Input your mail server address into the **SMTP Server Host** field.
-6. Enter the appropriate port number into the **SMTP Port** field.
-7. Provide the authentication username in the **Username** field.
-8. Enter the account password in the **Password** field.
-9. Specify the sender email address in the **From Email** field.
-10. Set the display name for outgoing emails in the **From Name** field.
-11. Select the appropriate **Encryption Method** from the dropdown (TLS or SSL).
+1. Sign in with an administrator account.
+2. Go to **Settings** > **Email Settings** in the organization settings sidebar.
+3. Toggle on **Send all emails via your SMTP server**.
+4. Enter your **Host** and **Port**.
+5. Enter your **Username** (must be a valid email address) and **Password**.
+6. Optionally fill in **From Name** and **From Email Address**.
 
     ![](https://screenshots.tallyfy.com/smtp-config-screen.png)
-12. Click the **Test Connection** button to verify settings.
-13. After successful testing, click **Save Changes** to implement.
+7. Click **TEST & CONNECT**. Tallyfy verifies your connection and saves the configuration in one step.
 </Steps>
 
-### Testing SMTP configuration
+If the connection test fails, you'll see an error message with details. Fix the issue and try again - nothing gets saved until the test passes.
 
-Smart move - test your settings before going live. These external tools help verify everything's configured correctly:
+### Testing with external tools
 
-#### Microsoft Remote Connectivity Analyzer
+Before going live, you can verify your SMTP server independently using these third-party tools:
 
-Microsoft's official tool gives you the most thorough SMTP check:
-
-1. Visit the [Outbound SMTP Email test](https://testconnectivity.microsoft.com/tests/OutboundSMTP/input/)
-2. Enter your SMTP server details and credentials
-3. Run the test to verify connectivity and authentication
-4. Review detailed results for any connectivity issues
+- [Microsoft Remote Connectivity Analyzer](https://testconnectivity.microsoft.com/tests/OutboundSMTP/input/) - thorough SMTP connectivity check
 
 ![Microsoft Remote Connectivity Analyzer for SMTP testing](https://screenshots.tallyfy.com/tallyfy/pro/smtp-microsoft-connectivity-analyzer.png)
 
-#### Wormly SMTP Tester
-
-Need something quick? Wormly's tool takes 30 seconds:
-
-1. Navigate to [Wormly's SMTP server test](https://www.wormly.com/test-smtp-server/)
-2. Enter your server hostname and port
-3. Complete the test to verify basic connectivity
-4. Check for open ports and server responsiveness
+- [Wormly SMTP Tester](https://www.wormly.com/test-smtp-server/) - quick server responsiveness check
 
 ![Wormly SMTP server test tool](https://screenshots.tallyfy.com/tallyfy/pro/smtp-wormly-test-tool.png)
 
-#### MXToolbox Diagnostic Tools
-
-MXToolbox goes deeper - it checks your entire email infrastructure:
-
-1. Visit [MXToolbox SuperTool](https://mxtoolbox.com/SuperTool.aspx/) or [MXToolbox Diagnostics](https://mxtoolbox.com/diagnostic.aspx/)
-2. Enter your domain or server information
-3. Run various tests to check SMTP configuration, DNS records, and blacklist status
-4. Review detailed reports on email infrastructure health
+- [MXToolbox SuperTool](https://mxtoolbox.com/SuperTool.aspx/) - DNS records, blacklist status, and infrastructure health
 
 ![MXToolbox SMTP diagnostic test results](https://screenshots.tallyfy.com/tallyfy/pro/smtp-mxtoolbox-test-results.png)
 
-#### GMass SMTP Tester
-
-Worried about authentication? GMass specifically tests your credentials:
-
-1. Access the [GMass SMTP test tool](https://www.gmass.co/smtp-test/)
-2. Enter your complete SMTP configuration including credentials
-3. Test the connection to verify authentication works correctly
-4. Confirm that message sending completes successfully
+- [GMass SMTP Tester](https://www.gmass.co/smtp-test/) - credential and authentication testing
 
 ![GMass SMTP Test Tool interface](https://screenshots.tallyfy.com/tallyfy/pro/smtp-gmass-test-tool.png)
 
-:::caution[External Tools]
-These testing tools are third-party services not affiliated with Tallyfy. Be careful with your credentials - maybe create temporary test accounts if you're concerned about security.
+:::caution[External tools]
+These are third-party services. Consider using temporary test credentials if you're concerned about sharing SMTP passwords with external sites.
 :::
 
-### Verifying successful configuration
-
-Configuration looks good? Time for the real test:
+### Verifying it works end-to-end
 
 <Steps>
-1. Navigate to a process template in Tallyfy
-2. Launch a test process with yourself as an assignee
-3. Check that you receive the task notification email
-4. Verify the email appears from your configured address
-5. Examine email headers to confirm it was sent via your SMTP server
+1. Open any template and launch a test process with yourself assigned.
+2. Check your inbox for the task notification email.
+3. Confirm the "From" address matches your configured sender.
+4. Inspect email headers to verify the message routed through your SMTP server.
 </Steps>
 
-### Troubleshooting SMTP issues
+### Troubleshooting
 
-#### Common problems and solutions
+| Issue | Likely cause | Fix |
+|-------|-------------|-----|
+| Connection timeout | Firewall blocking port 587 | Open outbound SMTP port |
+| Authentication failure | Wrong credentials | Double-check username (must be email format) and password |
+| TLS errors | Server doesn't support TLS | Confirm your server supports TLS on the specified port |
+| Rate limiting | Too many connections | Raise server limits or reduce email volume |
+| DNS resolution failure | Bad hostname | Verify the SMTP host address resolves correctly |
+| Rejected messages | Sender mismatch | Ensure "From" address matches an authorized domain |
 
-| Issue | Possible Causes | Solutions |
-|-------|----------------|-----------|
-| Connection timeout | Firewall blocking traffic | Open outbound ports for SMTP traffic |
-| Authentication failure | Incorrect credentials | Verify username and password format |
-| SSL/TLS errors | Wrong encryption setting | Try alternative encryption method |
-| Rate limiting | Too many connections | Increase server limits or optimize email volume |
-| DNS resolution failure | Incorrect server hostname | Verify the SMTP host address |
-| Rejected messages | Malformed headers | Check "From" address matches authorized sender |
+#### If you're still stuck
 
-#### Additional troubleshooting steps
+**Network**: Your firewall must allow outbound connections from Tallyfy's servers to your SMTP host on port 587. Test with telnet or openssl.
 
-Still having issues? Work through these checks:
+**Authentication**: Some mail servers require app-specific passwords when MFA is enabled. Check whether your server accepts the authentication method Tallyfy uses.
 
-##### 1. Network connectivity
-   - Your firewall must allow outbound connections from Tallyfy to your SMTP server
-   - The SMTP port (587 or 465) needs to be open for outbound traffic
-   - Test basic connectivity using telnet or similar tools
+**DNS and email security**: Your SPF record must include your SMTP server's IP. If you use DKIM and DMARC, make sure they're configured correctly for the sending domain.
 
-##### 2. Authentication issues
-   - Make sure the SMTP account has permission to send email
-   - Check if your mail server accepts the authentication method you're using
-   - Multi-factor authentication can interfere - you might need an app password
-
-##### 3. Rate limits and volume
-   - Your SMTP server's rate limits need to handle Tallyfy's email volume
-   - High-volume senders should consider implementing sending queues
-
-##### 4. DNS and email security
-   - Your SPF record must include your SMTP server's IP address. Period.
-   - DKIM and DMARC configurations need to be correct (if you use them)
-   - The "From" address domain has to match the authenticated domain
-
-:::tip[Best Practice]
-Once everything's set up, send test emails to Gmail, Outlook, and other providers. You'll catch any deliverability issues before your team notices.
+:::tip[Best practice]
+After setup, send test emails to Gmail, Outlook, and Yahoo. You'll catch deliverability issues before your team does.
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";

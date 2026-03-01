@@ -1,11 +1,11 @@
 ---
-description: Claude's Computer Use capability enables AI agents to visually perceive
-  and control computer interfaces through screenshots and mouse/keyboard actions within
-  sandboxed Docker environments to automate repetitive desktop tasks like form filling
-  and data extraction from legacy systems while requiring careful security isolation
-  and human oversight due to current limitations around latency and error-prone execution.
+description: Claude's Computer Use lets AI agents see and control computer screens
+  through screenshots and mouse/keyboard actions in sandboxed Docker environments,
+  automating desktop tasks like form filling and data extraction from legacy systems
+  while needing security isolation and human oversight.
 id: 77698ab94281d0bdaad78200bfeab52f
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
+about_tallyfy: false
 sidebar:
   order: 14
 title: Claude computer use
@@ -13,31 +13,31 @@ title: Claude computer use
 
 import { CardGrid, LinkTitleCard, Steps } from "~/components";
 
-:::note[Information Currency Notice]
-This article describes Claude Computer Use capabilities. This feature is in public beta and evolving rapidly. Capabilities, pricing, and availability may change. Always verify current information at [Anthropic's official documentation](https://docs.anthropic.com).
+:::note[This changes fast]
+Claude Computer Use is evolving rapidly. Capabilities, pricing, and availability may change. Always check [Anthropic's official docs](https://docs.anthropic.com) for the latest.
 :::
 
-## Using Anthropic's Claude to complete tasks within Tallyfy
+## Using Claude to complete tasks within Tallyfy
 
-Claude can now control computers by looking at screens, moving cursors, clicking buttons, and typing text. This "Computer Use" capability launched in October 2024 as a public beta feature available through Anthropic's API, Amazon Bedrock, and Google Cloud Vertex AI.
+Claude can control computers by looking at screens, moving cursors, clicking buttons, and typing text. This "Computer Use" capability launched in October 2024 as a public beta, available through Anthropic's API, Amazon Bedrock, and Google Cloud Vertex AI.
 
-:::warning[Important guidance for AI agent tasks]
-Your step-by-step instructions for the AI agent to perform work go into the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) description. **Start with short, bite-size and easy tasks that are just mundane and tedious.** Do not try and ask an AI agent to do huge, complex decision-driven jobs that are goal-driven - they are prone to indeterministic behavior, hallucination, and it can get very expensive quickly.
+:::warning[Start small with AI agent tasks]
+Put your step-by-step instructions in the Tallyfy [task](/products/pro/tracking-and-tasks/tasks/) description. **Start with short, mundane tasks.** Don't ask an AI agent to handle huge, decision-driven jobs - they're prone to unpredictable behavior and hallucination, and costs add up fast.
 :::
 
-:::info[Claude Computer Use vs Claude MCP Integration]
-This article covers **Claude Computer Use** - where Claude visually perceives and controls computer interfaces through screenshots, mouse movements, and keyboard actions. This is different from [Claude's MCP integration](/products/pro/integrations/mcp-server/claude-anthropic/), which provides text-based chat access to data sources and APIs.
+:::info[Computer Use vs MCP integration]
+This article covers **Claude Computer Use** - where Claude sees and controls screens through screenshots, mouse movements, and keyboard actions. That's different from [Claude's MCP integration](/products/pro/integrations/mcp-server/claude-anthropic/), which gives text-based chat access to data sources and APIs.
 
 **When to use each:**
-- **Claude Computer Use** (this article): For automating visual UI tasks that require seeing and interacting with interface elements (clicking buttons, filling forms, navigating menus)
-- **Claude MCP Integration**: For data queries, API-based workflow management, and text-based automation
+- **Computer Use** (this article): Automating visual UI tasks - clicking buttons, filling forms, working through menus
+- **MCP Integration**: Data queries, API-based workflow management, text-based automation
 
-Both capabilities can complement each other in complete automation workflows.
+Both can complement each other in automation workflows.
 :::
 
-### Understanding Claude's computer use feature
+### How computer use works
 
-Instead of building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
+Rather than building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
 
 ```d2
 direction: right
@@ -99,24 +99,24 @@ Claude -> Loop: "Repeat until done" {
 
 **What to notice:**
 - Tallyfy provides the task description and expected outputs that guide Claude's actions
-- Claude loops through screenshot-analyze-act cycles until the task is complete
-- All results, logs, and screenshots are captured back into Tallyfy fields
+- Claude loops through screenshot-analyze-act cycles until the task is done
+- Results, logs, and screenshots get captured back into Tallyfy fields
 
-### Current model support and performance
+### Model support and performance
 
-**Available models with Computer Use:**
-- **Claude Opus 4.5** - The flagship model, best for complex computer use tasks
-- **Claude Sonnet 4** - Primary model for most computer use automation
-- **Claude Haiku 4.5** - Available for simpler, faster automation tasks
+**Models with computer use support:**
+- **Claude Sonnet 4.6** - Best balance of performance and cost for most automation
+- **Claude Opus 4.6** - Flagship model for the most demanding tasks
+- **Claude Haiku 4.5** - Lighter option for simpler, faster automation
 
-**Performance benchmarks:**
-- Claude Sonnet 4.5 achieved 61.4% on OSWorld (up from 42.2% with Sonnet 4)
-- Human performance on OSWorld remains at 72.4%
-- The feature is still experimental and error-prone at this stage
+**Performance benchmarks (OSWorld):**
+- Sonnet 4.6 scores 72.5% - now matching human-level performance (72.4%)
+- Rapid improvement from earlier models (Sonnet 4.5 scored 61.4%)
+- Still experimental, so expect some errors on tricky UI interactions
 
-### How the Claude computer use agent loop works
+### The agent loop
 
-This diagram shows how Tallyfy orchestrates Claude's computer use capabilities through an iterative agent loop where Claude perceives, acts, and receives feedback until your task is complete.
+Here's how Tallyfy orchestrates Claude's computer use through an iterative loop - Claude perceives, acts, and gets feedback until your task is done.
 
 ```d2
 direction: down
@@ -188,113 +188,105 @@ App -> Tallyfy: "9. Update task\nwith results" {
 
 **What to notice:**
 - Tallyfy triggers your intermediary app via webhook with task data
-- The loop between Claude and the sandbox continues until the task is complete
+- The loop between Claude and the sandbox continues until the task is done
 - All tool execution happens in an isolated sandbox for security
 
 ### Core components
 
-**Sandboxed Computing Environment:** The environment (typically a Docker container) includes:
+**Sandboxed environment:** The Docker container typically includes:
 - A virtual X11 display server (like Xvfb) for rendering the desktop
 - A lightweight Linux desktop environment
-- Pre-installed applications (Firefox, LibreOffice, text editors)
-- Your implementations of the Anthropic-defined tools
+- Pre-installed apps (Firefox, LibreOffice, text editors)
+- Your implementations of Anthropic's defined tools
 
-**Three Core Tools** (Anthropic-defined, user-executed):
-- **computer**: Mouse/keyboard actions (key presses, typing, cursor movement, clicks, scrolling) and taking screenshots
-- **text_editor**: View, create, and edit files within the environment
-- **bash**: Run shell commands in the sandboxed environment
-
-**Tool Versions:**
-- `computer_20250124` for newer models with enhanced actions
-- `computer_20241022` for legacy Claude 3.5 Sonnet models
+**Three core tools** (Anthropic-defined, you execute them):
+- **computer**: Mouse/keyboard actions (clicks, typing, scrolling, cursor movement) and taking screenshots
+- **text_editor**: View, create, and edit files
+- **bash**: Run shell commands in the sandbox
 
 ### Pricing
 
-**API Pricing (verify current rates at Anthropic):**
-- **Claude Sonnet 4**: $3 per million input tokens, $15 per million output tokens
-- **Claude Haiku 4.5**: $0.80 per million input tokens, $4 per million output tokens
-- **Additional overhead**: Computer use adds 466-499 tokens to the system prompt
+**API pricing (verify current rates at [Anthropic's pricing page](https://docs.anthropic.com)):**
+- **Claude Sonnet 4.6**: $3 per million input tokens, $15 per million output tokens
+- **Claude Haiku 4.5**: $1 per million input tokens, $5 per million output tokens
+- Computer use adds extra tokens to each system prompt
 
-**Access Requirements:**
+**Access requirements:**
 - Anthropic API key with sufficient credits
 - Available through Anthropic API, Amazon Bedrock, or Google Cloud Vertex AI
-- Docker required for the reference implementation
+- Docker needed for the reference implementation
 
 ### Real-world use cases
 
 Computer Use works well for specific automation scenarios. Early adopters include Asana, Canva, Replit, and DoorDash.
 
-**Suitable applications:**
-- Automating form filling across desktop applications
+**Good applications:**
+- Form filling across desktop apps
 - Extracting data from legacy systems without APIs
-- QA and testing tasks with synthetic test case generation
-- Navigating multiple applications to complete multi-step workflows
-- Desktop navigation and file management tasks
-
-**Example from Replit:** Using Claude's computer use capabilities to evaluate apps as they're built - a key feature requiring visual verification.
+- QA testing with synthetic test case generation
+- Multi-step workflows spanning multiple applications
+- Desktop file management tasks
 
 ### Current limitations
 
-Claude's computer use capability is still developing. Anthropic acknowledges these constraints:
+Claude's computer use is still developing. Anthropic acknowledges these constraints:
 
-**Technical Limitations:**
-- **Latency**: Tasks requiring dozens or hundreds of steps can be slow
+**Technical:**
+- **Latency**: Tasks with dozens or hundreds of steps can be slow
 - **Error-prone**: Scrolling, dragging, and zooming remain challenging
-- **Resolution constraints**: May struggle with screens higher than 1024×768 or 1280×800 due to image scaling
-- **Action reliability**: Some actions that people perform effortlessly present challenges for Claude
+- **Resolution**: May struggle above 1024x768 or 1280x800 due to image scaling
+- **Reliability**: Some actions people do effortlessly are still hard for Claude
 
-**Safety Concerns:**
-- Claude may follow instructions found in screen content, even if they conflict with user instructions
+**Safety:**
+- Claude may follow instructions found on-screen, even if they conflict with yours
 - Risk of prompt injection from webpages or images
-- Potential for scaled abuse if not properly isolated
+- Potential for misuse if not properly isolated
 
-**Rate Limits:**
+**Rate limits:**
 - API rate limits apply based on your tier
-- Processing time varies significantly based on task complexity
+- Processing time varies with task complexity
 
-### Getting started with Claude computer use
+### Getting started
 
-You'll need to build an intermediary application that connects Tallyfy to the Anthropic API. Anthropic provides a reference implementation with Docker.
+You'll need to build an intermediary app that connects Tallyfy to the Anthropic API. Anthropic provides a reference implementation with Docker.
 
 <Steps>
 
-1. **Set Up Anthropic API Access:**
-   - Obtain an Anthropic API key from the Anthropic Console
-   - Familiarize yourself with the API documentation on "Tool Use" and "Computer Use (beta)"
+1. **Get Anthropic API access:**
+   - Get an API key from the Anthropic Console
+   - Review the API docs on "Tool Use" and "Computer Use"
 
 2. **Install Docker:**
-   - Install the latest version of Docker on your system
-   - This is required for the sandboxed environment
+   - Install the latest version of Docker
+   - Required for the sandboxed environment
 
-3. **Use the Reference Implementation:**
-   - Anthropic provides a Docker-based reference implementation
-   - Includes containerized environment, tool implementations, and agent loop
-   - Pull the image: `docker pull ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest`
+3. **Pull the reference implementation:**
+   - Anthropic provides a Docker-based reference implementation with containerized environment, tool implementations, and agent loop
+   - Pull: `docker pull ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest`
 
-4. **Configure the Computing Environment:**
+4. **Configure the environment:**
    - Run the Docker container with proper security settings
    - Container runs with minimal privileges (1 CPU, 2GB RAM default)
    - Access the interface at `http://localhost:8080`
-   - Never run Claude Computer Use unattended - monitor its actions
+   - Never run Computer Use unattended - always monitor
 
-5. **Develop the Intermediary Application:**
-   - Receive requests via webhook from Tallyfy
-   - Construct appropriate prompts and tool lists for the Claude API
+5. **Build the intermediary app:**
+   - Receive webhook requests from Tallyfy
+   - Build prompts and tool lists for the Claude API
    - Manage the agent loop between Claude and your sandbox
-   - Relay final outputs back to Tallyfy
+   - Send results back to Tallyfy
 
-6. **Prompt Engineering Best Practices:**
-   - Specify simple, well-defined tasks
+6. **Prompt tips:**
+   - Keep tasks simple and well-defined
    - Tell Claude to verify outcomes with screenshots after each step
-   - Suggest keyboard shortcuts for complex UI elements
-   - Provide examples of successful interactions when available
-   - Use XML tags for structured data inputs
+   - Suggest keyboard shortcuts for tricky UI elements
+   - Provide examples of successful interactions when you have them
 
 </Steps>
 
 ### Basic integration example
 
-Here's a simplified example of the integration flow:
+A simplified example of the integration flow:
 
 ```python
 from anthropic import Anthropic
@@ -304,21 +296,21 @@ client = Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
 
 # Basic computer use request
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-6-20260220",
     max_tokens=1024,
     tools=[
         {
-            "type": "computer_20241022",
+            "type": "computer_20250124",
             "name": "computer",
             "display_width_px": 1024,
             "display_height_px": 768,
         },
         {
-            "type": "text_editor_20241022",
+            "type": "text_editor_20250124",
             "name": "text_editor",
         },
         {
-            "type": "bash_20241022",
+            "type": "bash_20250124",
             "name": "bash",
         }
     ],
@@ -336,83 +328,73 @@ response = client.messages.create(
 # Continue loop until task complete
 ```
 
-**Note**: This is a simplified example. Real implementations require full agent loop handling, tool execution in Docker sandbox, and result processing.
+**Note**: This is simplified. Real implementations need full agent loop handling, tool execution in a Docker sandbox, and result processing.
 
 ### Security best practices
 
-**Critical security measures:**
-- Run Claude Computer Use in a dedicated virtual machine or container with minimal privileges
+**Key measures:**
+- Run Computer Use in a dedicated container or VM with minimal privileges
 - Limit internet access to approved domains only
-- Never provide access to sensitive data or account credentials
-- Isolate Claude from production systems
+- Never give access to sensitive data or credentials
+- Keep Claude isolated from production systems
 - Require human confirmation for critical actions
-- Enable thorough audit logging
+- Enable audit logging
 
-**Known Risks:**
-- Prompt injection vulnerabilities (Claude may follow on-screen instructions)
-- Potential for malicious code execution if not properly sandboxed
-- Risk of information theft if given access to sensitive data
+**Known risks:**
+- Prompt injection - Claude may follow on-screen instructions
+- Code execution risks if not properly sandboxed
+- Information theft if given access to sensitive data
 
-### When to use Claude computer use
+### When to use it
 
-**Good fit for:**
-- Desktop application automation (Excel, legacy software)
+**Good fit:**
+- Desktop app automation (Excel, legacy software)
 - Data extraction from systems without APIs
-- Automated testing of desktop applications
-- Form filling across multiple applications
+- Automated testing of desktop apps
+- Form filling across multiple apps
 - Low-risk, repetitive UI tasks
 
-**Not suitable for:**
-- Real-time operations (latency issues)
-- Time-critical tasks (can take dozens or hundreds of steps)
-- Tasks requiring creative judgment
+**Poor fit:**
+- Real-time or time-critical operations
+- Tasks needing creative judgment
 - Social media content creation (restricted by Anthropic)
 - High-security environments without proper isolation
 
-**Success factors:**
-- Start with simple, well-defined tasks
-- Implement strong security boundaries
-- Monitor performance closely
-- Maintain human oversight
+**Tips for success:**
+- Start simple and well-defined
+- Set strong security boundaries
+- Monitor closely and keep humans in the loop
 - Test with low-risk data first
 
-### Comparison with alternatives
-
-Claude Computer Use offers unique desktop control capabilities but has trade-offs:
+### Compared to alternatives
 
 **Advantages:**
-- Works with any desktop or web application
-- No need for app-specific APIs or integrations
-- General-purpose approach adapts to UI changes
+- Works with any desktop or web app
+- No app-specific APIs or integrations needed
+- Adapts when UIs change
 
 **Disadvantages:**
-- Currently slower than traditional RPA for simple tasks
-- Still experimental with error-prone execution
+- Slower than traditional RPA for simple tasks
+- Still experimental with some error-prone execution
 - Requires Docker and sandbox infrastructure
-- Higher latency than direct API integrations
+- Higher latency than direct API calls
 
-**Alternative approaches:**
-- Traditional RPA tools for stable, high-volume workflows
+**Alternatives to consider:**
+- Traditional RPA for stable, high-volume workflows
 - Direct API integrations when available
-- Web-only automation tools for browser-based tasks
+- Browser-only automation tools for web tasks
 
 ### Getting started checklist
 
-- [ ] Identify repetitive desktop tasks suitable for automation
+- [ ] Identify repetitive desktop tasks worth automating
 - [ ] Document exact steps with screenshots
 - [ ] Set up Anthropic API access with credits
-- [ ] Install Docker and pull reference implementation
-- [ ] Create Tallyfy process with clear task instructions
+- [ ] Install Docker and pull the reference implementation
+- [ ] Create a Tallyfy process with clear task instructions
 - [ ] Test with low-risk, non-sensitive data first
-- [ ] Implement security isolation and monitoring
-- [ ] Monitor success rates and refine prompts
+- [ ] Set up security isolation and monitoring
+- [ ] Refine prompts based on success rates
 - [ ] Scale gradually with proven workflows
-
-### Current status and future development
-
-Computer Use remains in public beta. Anthropic describes it as "still experimental - at times cumbersome and error-prone" but expects rapid improvement over time.
-
-The technology shows promise for automating repetitive tasks, but significant limitations around speed, reliability, and safety need addressing before widespread production adoption.
 
 ## Related articles
 <CardGrid>

@@ -1,115 +1,54 @@
 ---
+about_tallyfy: true
 description: Fixing Postman errors with Tallyfy's API requires checking the X-Tallyfy-Client
   header first then verifying the authentication grant type is password (not client_credentials)
   and ensuring tokens haven't expired since these three issues cause most API failures.
 id: 3713c7a8d22228e1f903c2c5cc8d5588
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 6
 title: Troubleshooting common issues
 ---
 
-To fix Postman errors with Tallyfy's API, check the X-Tallyfy-Client header first, verify your authentication grant type is password not client_credentials, and ensure tokens haven't expired. These three issues cause the majority of Tallyfy API failures.
+To fix Postman errors with Tallyfy's API, check the `X-Tallyfy-Client` header first, verify your authentication grant type is `password` (not `client_credentials`), and make sure tokens haven't expired. These three issues cause most Tallyfy API failures.
 
 ## Authentication errors
 
-### 401 Unauthorized - the complete diagnostic approach
+### 401 Unauthorized
 
-Postman community experts have identified these patterns from thousands of support cases:
+Here are the most common causes, in order of likelihood:
 
-1. **Missing X-Tallyfy-Client header** (most common)
+1. **Missing X-Tallyfy-Client header**
    ```
    X-Tallyfy-Client: APIClient
    ```
-   Every single request needs this. No exceptions.
-   
-   **Expert insight**: This custom header prevents unauthorized API usage and helps Tallyfy track client types. Unlike standard OAuth implementations, many SaaS APIs like Tallyfy use custom headers for additional security layers.
+   Every request needs this header. It's how Tallyfy identifies the client type making API calls.
 
-2. **Wrong grant type** (very common)
+2. **Wrong grant type**
    - You used: `grant_type=client_credentials`
    - You need: `grant_type=password`
-   - Client credentials only work for system-level operations
-   
-   **Why this happens**: Developers assume `client_credentials` should work everywhere because it's "cleaner" - but OAuth 2.0 spec correctly separates machine-to-machine vs user-context operations.
+   - Client credentials grant is only for system-level app operations (tokens last 7 days). For user-context work, always use the password grant.
 
-3. **Expired token** (common)
-   - Tokens last exactly 3600 seconds (1 hour)
-   - Check token age: `pm.environment.get("TALLYFY_TOKEN_EXPIRY")`
-   - Implement auto-refresh (see Authentication Setup guide)
-   
-   **Debugging script**:
-   ```javascript
-   // Advanced token expiry checker
-   const tokenExpiry = pm.environment.get("TALLYFY_TOKEN_EXPIRY");
-   const tokenIssued = pm.environment.get("TALLYFY_TOKEN_ISSUED");
-   const now = Date.now();
-   
-   if (tokenExpiry) {
-       const timeLeft = tokenExpiry - now;
-       const totalLife = tokenExpiry - tokenIssued;
-       const percentUsed = ((totalLife - timeLeft) / totalLife * 100).toFixed(1);
-       
-       console.log(`Token status: ${percentUsed}% used, ${Math.round(timeLeft/1000/60)} minutes remaining`);
-       
-       if (timeLeft < 0) {
-           console.error("Token expired!");
-       } else if (timeLeft < 300000) { // 5 minutes
-           console.warn("Token expires soon, consider refreshing");
-       }
-   }
-   ```
+3. **Expired token**
+   - Access tokens from the password grant last **6 months** (not 1 hour)
+   - Refresh tokens last **12 months**
+   - Client credentials tokens last **7 days**
+   - If you're unsure, just re-authenticate and get a fresh token
 
-4. **Bearer token format** (less common)
+4. **Bearer token format**
    ```
    // Wrong formats:
-   Authorization: Bearer[token]       // No space
-   Authorization: Bearer  [token]     // Double space
-   Authorization: [token]             // Missing Bearer
-   Authorization: bearer [token]      // Lowercase
-   
+   Authorization: Bearer[token]       // no space
+   Authorization: Bearer  [token]     // double space
+   Authorization: [token]             // missing Bearer
+
    // Correct (exactly one space):
    Authorization: Bearer [token]
    ```
-   
-   **Advanced debugging**: The Authorization header is case-sensitive and space-sensitive. Many developers copy-paste tokens and accidentally include extra whitespace.
 
-### Multiple user credentials debugging
+### 400 Bad request on /oauth/token
 
-**Expert pattern**: Support teams often switch between different user accounts and API keys. Here's how to handle this cleanly:
-
-```javascript
-// Multi-user credential manager
-const userProfiles = {
-    "admin": {
-        clientId: pm.vault.get("ADMIN_CLIENT_ID"),
-        clientSecret: pm.vault.get("ADMIN_CLIENT_SECRET"),
-        username: "admin@company.com",
-        context: "full_access"
-    },
-    "readonly": {
-        clientId: pm.vault.get("READONLY_CLIENT_ID"),
-        clientSecret: pm.vault.get("READONLY_CLIENT_SECRET"),
-        username: "readonly@company.com",
-        context: "read_only"
-    }
-};
-
-const currentUser = pm.environment.get("TEST_USER_PROFILE") || "admin";
-const profile = userProfiles[currentUser];
-
-if (profile) {
-    pm.environment.set("TALLYFY_CLIENT_ID", profile.clientId);
-    pm.environment.set("TALLYFY_CLIENT_SECRET", profile.clientSecret);
-    pm.environment.set("TALLYFY_USERNAME", profile.username);
-    console.log(`Switched to ${currentUser} profile (${profile.context})`);
-} else {
-    console.error(`Unknown user profile: ${currentUser}`);
-}
-```
-
-### 400 Bad Request on /oauth/token
-
-Token endpoint is picky about format:
+The token endpoint requires URL-encoded form data, not JSON:
 
 **Wrong content type**:
 ```
@@ -128,177 +67,102 @@ Content-Type: application/x-www-form-urlencoded
     "username": "user@example.com"
 }
 
-// Right - URL encoded:
-grant_type=password&username=user@example.com&password=...
-```
-
-**Debug helper script**:
-```javascript
-// Add to Pre-request Script to log what you're sending
-console.log("Token Request Details:");
-console.log("URL:", pm.request.url.toString());
-console.log("Method:", pm.request.method);
-console.log("Headers:", pm.request.headers.toObject());
-console.log("Body mode:", pm.request.body.mode);
-if (pm.request.body.urlencoded) {
-    console.log("Body params:");
-    pm.request.body.urlencoded.toObject().forEach(param => {
-        console.log(`  ${param.key}: ${param.value}`);
-    });
-}
+// Right - URL-encoded:
+grant_type=password&username=user@example.com&password=...&client_id=...&client_secret=...
 ```
 
 ### Invalid client errors
 
-**"Invalid client" or "Client authentication failed"**:
+**"Invalid client" or "Client authentication failed"** means:
 
-1. **Wrong environment selected**
-   - Check: `pm.environment.name`
-   - Verify you're not using dev credentials against production
-
-2. **Credentials don't match**
-   - Client ID and Secret must be from same app
-   - Organization ID must match the credentials
-
-3. **Special characters in secrets**
-   - If secret contains `+`, `/`, `=` ensure proper encoding
-   - Use environment variables, not hard-coded values
+1. **Non-numeric client_id** - The API validates that `client_id` is numeric. If it's not, you'll get a 401 with `{"error": "invalid_client"}`.
+2. **Credentials don't match** - Client ID and Secret must be from the same app registration, and the Organization ID must match.
+3. **Special characters in secrets** - If a secret contains `+`, `/`, or `=`, make sure they're properly URL-encoded when sent as form data.
 
 ## Data and request errors
 
-### 404 Not Found
+### 404 Not found
 
-**Wrong organization ID**:
+The API returns two different 404 messages depending on the cause:
+
+- **Wrong URL path** returns: `{"error": true, "message": "API endpoint not found", "code": "ENDPOINT_NOT_FOUND"}`
+- **Missing resource** returns: `{"error": true, "message": "Resource not found", "code": "RESOURCE_NOT_FOUND"}`
+
+**Common path mistakes**:
 ```javascript
-// Debug: Log what you're using
-console.log("Org ID:", pm.environment.get("TALLYFY_ORG_ID"));
-console.log("Full URL:", pm.request.url.toString());
-
-// Common issue: Using user ID instead of org ID
-// Wrong: user_123abc
-// Right: org_456def
-```
-
-**Resource was deleted**:
-```javascript
-// Add error handling
-pm.test("Resource exists", function() {
-    if (pm.response.code === 404) {
-        console.error("Resource not found. It may have been deleted.");
-        console.error("URL attempted:", pm.request.url.toString());
-    }
-});
-```
-
-**API path typo**:
-```javascript
-// Common typos:
 // Wrong: /organization/  (singular)
 // Right: /organizations/ (plural)
 
-// Wrong: /checklist/   (singular) 
-// Right: /checklists/  (plural)
+// Wrong: /templates/     (doesn't exist)
+// Right: /checklists/    (the actual endpoint)
 
-// Wrong: /run/         (singular)
-// Right: /runs/        (plural)
+// Wrong: /processes/     (doesn't exist)
+// Right: /runs/          (the actual endpoint)
+
+// Wrong: /members/       (doesn't exist)
+// Right: /users/         (the actual endpoint)
 ```
 
-### 422 Unprocessable Entity
-
-This means your data format is wrong:
-
-**Missing required fields**:
+**Wrong Organization ID** - Make sure you're using the org ID, not a user ID. Log what you're sending:
 ```javascript
-// Log what you're sending
-console.log("Request body:", pm.request.body.raw);
-
-// Common missing fields:
-// - name (for process launch)
-// - captures (for task completion)
-// - field_id (for file uploads)
+console.log("Org ID:", pm.environment.get("TALLYFY_ORG_ID"));
+console.log("Full URL:", pm.request.url.toString());
 ```
 
-**Wrong data types**:
-```javascript
-// Common type mismatches:
+### 422 Unprocessable entity
 
-// Number field expecting number, not string
-// Wrong: { "field_amount": "100.50" }
-// Right: { "field_amount": 100.50 }
-
-// Date field expecting specific format
-// Wrong: { "field_date": "Jan 1" }
-// Right: { "field_date": "YYYY-MM-DD" }
-
-// Boolean field
-// Wrong: { "field_approved": "true" }
-// Right: { "field_approved": true }
-```
-
-**Invalid enum values**:
-```javascript
-// For select/radio fields, value must match exactly
-// Get valid options first:
-const template = pm.response.json();
-const field = template.prerun_fields.find(f => f.id === "field_abc123");
-console.log("Valid options:", field.options);
-```
-
-## Rate limiting
-
-### 429 Too Many Requests
-
-Tallyfy's limits:
-- 1000 requests per hour per organization
-- Resets on the hour (not rolling window)
-
-**Check your current usage**:
-```javascript
-// Response headers tell you:
-const remaining = pm.response.headers.get("X-RateLimit-Remaining");
-const reset = pm.response.headers.get("X-RateLimit-Reset");
-
-console.log(`Requests remaining: ${remaining}`);
-console.log(`Resets at: ${new Date(reset * 1000).toLocaleTimeString()}`);
-```
-
-**Implement backoff strategy**:
-```javascript
-// Exponential backoff for retries
-async function retryWithBackoff(requestFunction, maxRetries = 3) {
-    let lastError;
-    
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const response = await requestFunction();
-            if (response.code !== 429) {
-                return response;
-            }
-            lastError = response;
-        } catch (error) {
-            lastError = error;
-        }
-        
-        // Wait exponentially longer each retry
-        const waitTime = Math.pow(2, i) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Waiting ${waitTime}ms before retry ${i + 1}`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+This means validation failed. The API returns errors in this format:
+```json
+{
+    "error": true,
+    "errors": {
+        "field_name": ["The field_name is required."]
     }
-    
-    throw lastError;
 }
 ```
 
-**Batch operations efficiently**:
-```javascript
-// Bad: Rapid fire requests
-tasks.forEach(task => {
-    pm.sendRequest({...}); // All at once = rate limit
-});
+**Common causes**:
+- Missing required fields (e.g., `name` when launching a process)
+- Wrong data types (sending `"100"` as a string instead of `100` as a number)
+- Invalid date format (use `YYYY-MM-DD`)
+- Invalid enum values for select/radio fields
 
-// Good: Controlled spacing
-async function processTasksWithDelay(tasks, delayMs = 100) {
-    for (const task of tasks) {
+### 403 Forbidden
+
+This typically means the authenticated user or client app doesn't have permission for the requested resource. For client credentials specifically, the API checks that the token's client app belongs to the same organization as the one in the URL - if not, you'll get `"You don't have application's permissions for this organization!"`.
+
+## Rate limiting
+
+### 429 Too many requests
+
+Tallyfy's API rate limit is **600 requests per minute** per authenticated user (or per IP for unauthenticated requests). This resets on a rolling 1-minute window, not on the hour.
+
+Trial accounts have additional rate limits on specific operations (like password updates: 3 per day).
+
+When rate limited, the API returns:
+```json
+{
+    "message": "You've reached the limit for [operation]. Please try again later.",
+    "code": "RATE_LIMIT_EXCEEDED"
+}
+```
+
+The response includes `Retry-After` and `X-RateLimit-Remaining` headers.
+
+**Simple backoff approach**:
+```javascript
+// If you get a 429, wait for the Retry-After header value
+if (pm.response.code === 429) {
+    const retryAfter = pm.response.headers.get("Retry-After");
+    console.log(`Rate limited. Wait ${retryAfter} seconds before retrying.`);
+}
+```
+
+**Spacing out batch requests**:
+```javascript
+// Add a delay between requests to stay under limits
+async function processItemsWithDelay(items, delayMs = 150) {
+    for (const item of items) {
         await pm.sendRequest({...});
         await new Promise(resolve => setTimeout(resolve, delayMs));
     }
@@ -309,417 +173,95 @@ async function processTasksWithDelay(tasks, delayMs = 100) {
 
 ### Files not uploading
 
-**Wrong body type**:
+**Wrong body type** - file uploads must use `form-data`, not raw JSON:
 ```
-// Must use form-data, not raw JSON
 Body: form-data
-  - file: [File type, select your file]
-  - field_id: [Text type, "field_abc123"]
+  - name: [File type, select your file]
+  - uploaded_from: [Text, e.g., "ko_field" or a form field ID]
+  - subject_type: [Text, "Template" or "Process"]
+  - subject_id: [Text, the template or process ID]
 ```
 
-**File too large**:
-```javascript
-// Check file size before upload
-// Tallyfy typically limits to 25MB
-const maxSize = 25 * 1024 * 1024; // 25MB in bytes
-```
+**File too large** - Tallyfy's upload limit is **100MB**.
 
-**Missing field_id**:
-```javascript
-// File uploads need to know which field
-// Find field ID from task data:
-const task = pm.response.json();
-const fileField = task.fields.find(f => f.type === 'file');
-console.log("Use field_id:", fileField.id);
-```
+**Don't set Content-Type manually** - When using form-data in Postman, let Postman set the `Content-Type` header automatically (it needs to include the boundary string). Manually setting `Content-Type: multipart/form-data` breaks the upload.
 
 ## Debugging helpers
 
-### Universal debug script
+### Pre-request debug script
 
-Add this enterprise-grade debugging script to your collection's Pre-request Script:
+Add this to your collection's Pre-request Script to catch issues before they happen:
 
 ```javascript
-// Enterprise-grade debugging for all requests
-// Inspired by Postman community best practices
-
-const debugLevel = pm.environment.get("DEBUG_LEVEL") || "INFO"; // DEBUG, INFO, WARN, ERROR
-const debugLevels = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
-const currentLevel = debugLevels[debugLevel] || 1;
-
-function debugLog(level, message, data = null) {
-    if (debugLevels[level] >= currentLevel) {
-        const timestamp = new Date().toISOString();
-        const prefix = `[${timestamp}] [${level}]`;
-        
-        if (data) {
-            console.log(prefix, message, JSON.stringify(data, null, 2));
-        } else {
-            console.log(prefix, message);
-        }
-    }
-}
-
-debugLog("INFO", "=== REQUEST DEBUG INFO ===");
-debugLog("DEBUG", "Environment:", pm.environment.name);
-debugLog("INFO", "Request:", `${pm.request.method} ${pm.request.url.toString()}`);
-
-// Enhanced header validation
+// Check required headers
 const headers = pm.request.headers.toObject();
-const requiredHeaders = ['Authorization', 'X-Tallyfy-Client'];
-const optionalHeaders = ['Content-Type', 'Accept', 'User-Agent'];
 
-debugLog("DEBUG", "Header Analysis:");
-requiredHeaders.forEach(key => {
-    const value = headers[key];
-    if (value) {
-        const safeValue = key === 'Authorization' ? value.substring(0, 20) + '...' : value;
-        debugLog("DEBUG", `  ✓ ${key}: ${safeValue}`);
-    } else {
-        debugLog("ERROR", `  ✗ ${key}: MISSING! This will cause 401 errors`);
-    }
-});
-
-optionalHeaders.forEach(key => {
-    const value = headers[key];
-    if (value) {
-        debugLog("DEBUG", `  ○ ${key}: ${value}`);
-    }
-});
-
-// Body validation with size checking
-if (pm.request.body && pm.request.body.mode) {
-    debugLog("DEBUG", "Body mode:", pm.request.body.mode);
-    
-    if (pm.request.body.raw) {
-        const bodySize = new Blob([pm.request.body.raw]).size;
-        debugLog("DEBUG", `Body size: ${bodySize} bytes`);
-        
-        if (bodySize > 1024 * 1024) { // 1MB
-            debugLog("WARN", "Large request body detected, may cause timeouts");
-        }
-        
-        try {
-            const parsed = JSON.parse(pm.request.body.raw);
-            debugLog("DEBUG", "Body (parsed):", parsed);
-            
-            // Validate JSON structure
-            if (pm.request.method === "POST" && pm.request.url.toString().includes("/launch")) {
-                if (!parsed.name) {
-                    debugLog("WARN", "Missing 'name' field in launch request");
-                }
-            }
-        } catch (e) {
-            debugLog("WARN", "Body is not valid JSON:", pm.request.body.raw.substring(0, 200));
-        }
-    }
-    
-    if (pm.request.body.formdata) {
-        debugLog("DEBUG", "Form data fields:", pm.request.body.formdata.count());
-        pm.request.body.formdata.all().forEach(field => {
-            if (field.type === 'file') {
-                debugLog("DEBUG", `  File field: ${field.key}`);
-            } else {
-                debugLog("DEBUG", `  Text field: ${field.key} = ${field.value}`);
-            }
-        });
-    }
+if (!headers['Authorization']) {
+    console.error("MISSING: Authorization header");
+}
+if (!headers['X-Tallyfy-Client']) {
+    console.error("MISSING: X-Tallyfy-Client header");
 }
 
-// Environment variable validation
-const criticalVars = {
-    'TALLYFY_ORG_ID': 'Organization ID for API context',
-    'TALLYFY_ACCESS_TOKEN': 'Bearer token for authentication',
-    'TALLYFY_BASE_URL': 'API base URL'
-};
-
-debugLog("DEBUG", "Environment Variables:");
-Object.entries(criticalVars).forEach(([key, description]) => {
-    const value = pm.environment.get(key);
-    if (value) {
-        const safeValue = key.includes('TOKEN') ? value.substring(0, 20) + '...' : value;
-        debugLog("DEBUG", `  ✓ ${key}: ${safeValue}`);
-    } else {
-        debugLog("ERROR", `  ✗ ${key}: NOT SET! (${description})`);
+// Check required environment variables
+['TALLYFY_ORG_ID', 'TALLYFY_ACCESS_TOKEN', 'TALLYFY_BASE_URL'].forEach(key => {
+    if (!pm.environment.get(key)) {
+        console.error(`MISSING env var: ${key}`);
     }
 });
 
-// Rate limiting awareness
-const lastRequestTime = pm.globals.get("LAST_REQUEST_TIME") || 0;
-const timeSinceLastRequest = Date.now() - lastRequestTime;
-if (timeSinceLastRequest < 100) {
-    debugLog("WARN", `Fast consecutive requests (${timeSinceLastRequest}ms apart) - may hit rate limits`);
-}
-pm.globals.set("LAST_REQUEST_TIME", Date.now());
-
-// Request sequence tracking
-const requestCount = pm.globals.get("REQUEST_COUNT") || 0;
-pm.globals.set("REQUEST_COUNT", requestCount + 1);
-debugLog("INFO", `Request #${requestCount + 1} in current session`);
+console.log(`Request: ${pm.request.method} ${pm.request.url.toString()}`);
 ```
 
 ### Response analysis script
 
-Add this detailed response analyzer to your Tests tab:
+Add this to your Tests tab for automatic error diagnosis:
 
 ```javascript
-// Detailed response analysis with performance tracking
-const debugLevel = pm.environment.get("DEBUG_LEVEL") || "INFO";
-const responseTime = pm.response.responseTime;
 const statusCode = pm.response.code;
 
-// Performance analysis
-const performanceThresholds = {
-    excellent: 500,
-    good: 1000,
-    acceptable: 2000,
-    poor: 5000
-};
-
-let performanceRating = "poor";
-if (responseTime <= performanceThresholds.excellent) performanceRating = "excellent";
-else if (responseTime <= performanceThresholds.good) performanceRating = "good";
-else if (responseTime <= performanceThresholds.acceptable) performanceRating = "acceptable";
-
-console.log(`\n=== RESPONSE ANALYSIS (${performanceRating.toUpperCase()}: ${responseTime}ms) ===`);
-
-// Status code analysis with context
-const statusCategories = {
-    200: "Success",
-    201: "Created", 
-    400: "Bad Request - Check your request format",
-    401: "Unauthorized - Authentication failed",
-    403: "Forbidden - Insufficient permissions",
-    404: "Not Found - Resource doesn't exist",
-    422: "Unprocessable Entity - Validation failed",
-    429: "Too Many Requests - Rate limit exceeded",
-    500: "Internal Server Error - API issue",
-    502: "Bad Gateway - API unavailable",
-    503: "Service Unavailable - Temporary outage"
-};
-
-const statusContext = statusCategories[statusCode] || "Unknown status";
-console.log(`Status: ${statusCode} (${statusContext})`);
-
-// Headers analysis
-const headers = pm.response.headers.toObject();
-const importantHeaders = [
-    'content-type', 'x-ratelimit-remaining', 'x-ratelimit-reset',
-    'cache-control', 'etag', 'last-modified'
-];
-
-console.log("Important Headers:");
-importantHeaders.forEach(header => {
-    const value = headers[header];
-    if (value) {
-        console.log(`  ${header}: ${value}`);
-    }
-});
-
-// Rate limiting analysis
-if (headers['x-ratelimit-remaining']) {
-    const remaining = parseInt(headers['x-ratelimit-remaining']);
-    if (remaining < 100) {
-        console.warn(`⚠️  Rate limit warning: Only ${remaining} requests remaining`);
-    }
-    
-    // Store for trend analysis
-    const rateLimitHistory = JSON.parse(pm.environment.get("RATE_LIMIT_HISTORY") || '[]');
-    rateLimitHistory.push({
-        timestamp: Date.now(),
-        remaining: remaining,
-        endpoint: pm.request.url.getPath()
-    });
-    
-    // Keep only last 10 entries
-    if (rateLimitHistory.length > 10) {
-        rateLimitHistory.shift();
-    }
-    
-    pm.environment.set("RATE_LIMIT_HISTORY", JSON.stringify(rateLimitHistory));
-}
-
-// Detailed error analysis
 if (statusCode >= 400) {
-    console.error("\n=== ERROR DETAILS ===");
-    
+    console.error(`Error ${statusCode}: ${pm.response.status}`);
+
     try {
         const body = pm.response.json();
-        console.error("Response body:", JSON.stringify(body, null, 2));
-        
-        // Tallyfy-specific error formats
-        if (body.error) {
-            console.error(`\n🚨 Error: ${body.error}`);
-        }
+
         if (body.message) {
-            console.error(`💬 Message: ${body.message}`);
+            console.error(`Message: ${body.message}`);
         }
         if (body.errors) {
-            console.error("\n📋 Validation errors:");
-            Object.entries(body.errors).forEach(([field, errors]) => {
-                const errorList = Array.isArray(errors) ? errors.join(', ') : errors;
-                console.error(`  • ${field}: ${errorList}`);
+            console.error("Validation errors:");
+            Object.entries(body.errors).forEach(([field, msgs]) => {
+                console.error(`  ${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`);
             });
         }
-        
-        // Common error pattern detection
-        const errorPatterns = {
-            'Invalid client': 'Check your CLIENT_ID and CLIENT_SECRET',
-            'Token expired': 'Refresh your access token',
-            'Missing start boundary': 'Remove manually set Content-Type header for file uploads',
-            'Validation failed': 'Check required fields and data types',
-            'Resource not found': 'Verify the resource ID and your permissions'
-        };
-        
-        const errorText = JSON.stringify(body).toLowerCase();
-        Object.entries(errorPatterns).forEach(([pattern, solution]) => {
-            if (errorText.includes(pattern.toLowerCase())) {
-                console.error(`\n💡 Suggested fix: ${solution}`);
-            }
-        });
-        
     } catch (e) {
-        console.error("Body (text):", pm.response.text());
-        console.error("Note: Response body is not valid JSON");
-    }
-    
-    // Request context for debugging
-    console.error("\n=== REQUEST CONTEXT ===");
-    console.error(`Method: ${pm.request.method}`);
-    console.error(`URL: ${pm.request.url.toString()}`);
-    console.error(`Environment: ${pm.environment.name}`);
-    
-    // Add to error log
-    const errorLog = JSON.parse(pm.environment.get("ERROR_LOG") || '[]');
-    errorLog.push({
-        timestamp: new Date().toISOString(),
-        status: statusCode,
-        url: pm.request.url.toString(),
-        method: pm.request.method,
-        responseTime: responseTime,
-        environment: pm.environment.name
-    });
-    
-    // Keep only last 20 errors
-    if (errorLog.length > 20) {
-        errorLog.shift();
-    }
-    
-    pm.environment.set("ERROR_LOG", JSON.stringify(errorLog));
-}
-
-// Success analysis
-if (statusCode >= 200 && statusCode < 300) {
-    try {
-        const body = pm.response.json();
-        
-        // Data quality checks
-        if (Array.isArray(body.data)) {
-            console.log(`✅ Retrieved ${body.data.length} items`);
-            
-            if (body.data.length === 0) {
-                console.warn("⚠️  Empty result set - check your filters");
-            }
-        }
-        
-        // Response structure validation
-        const expectedFields = pm.environment.get("EXPECTED_RESPONSE_FIELDS");
-        if (expectedFields) {
-            const fields = expectedFields.split(',');
-            const missingFields = fields.filter(field => !body.hasOwnProperty(field));
-            if (missingFields.length > 0) {
-                console.warn(`⚠️  Missing expected fields: ${missingFields.join(', ')}`);
-            }
-        }
-        
-    } catch (e) {
-        console.log("✅ Request successful (non-JSON response)");
+        console.error("Response body:", pm.response.text());
     }
 }
 
-// Store response metrics
-const responseMetrics = JSON.parse(pm.environment.get("RESPONSE_METRICS") || '[]');
-responseMetrics.push({
-    timestamp: Date.now(),
-    endpoint: pm.request.url.getPath(),
-    method: pm.request.method,
-    status: statusCode,
-    responseTime: responseTime,
-    size: pm.response.text().length
-});
-
-// Keep only last 50 metrics
-if (responseMetrics.length > 50) {
-    responseMetrics.shift();
+// Log rate limit status
+const remaining = pm.response.headers.get("X-RateLimit-Remaining");
+if (remaining !== null) {
+    console.log(`Rate limit remaining: ${remaining}`);
 }
-
-pm.environment.set("RESPONSE_METRICS", JSON.stringify(responseMetrics));
 ```
 
 ## Getting help
 
 ### Before contacting support
 
-Postman experts recommend this systematic approach:
+1. Open the Postman Console (View > Show Postman Console) and check the full request/response details
+2. Verify all three required headers are present: `Authorization`, `X-Tallyfy-Client`, and `Accept`
+3. Confirm your org ID and token are valid
+4. Check the response body for specific error messages and codes
 
-1. **Enable full logging**:
-   ```javascript
-   // Add to collection pre-request script
-   pm.globals.set("DEBUG_SESSION_ID", pm.variables.replaceIn('{{$randomUUID}}'));
-   pm.globals.set("DEBUG_START_TIME", new Date().toISOString());
-   ```
-
-2. **Capture complete diagnostic data**:
-   - Enable Postman Console: View → Show Postman Console
-   - Run the failing request with debug scripts enabled
-   - Export console log: Save as file
-   - Export your collection and environment (sanitized)
-
-3. **Include these essential details**:
-   - Exact error message and response code
-   - Request details (method, full endpoint URL)
-   - Response headers and body
-   - Your organization ID (for context)
-   - Timestamp of attempt
-   - Postman version and operating system
-   - Debug session ID from step 1
-
-4. **Generate a support package**:
-   ```javascript
-   // Run this in Tests tab to generate support data
-   const supportPackage = {
-       sessionId: pm.globals.get("DEBUG_SESSION_ID"),
-       timestamp: new Date().toISOString(),
-       postmanVersion: pm.info.version,
-       environment: pm.environment.name,
-       request: {
-           method: pm.request.method,
-           url: pm.request.url.toString(),
-           headers: pm.request.headers.toObject()
-       },
-       response: {
-           status: pm.response.code,
-           headers: pm.response.headers.toObject(),
-           time: pm.response.responseTime
-       },
-       errorLog: JSON.parse(pm.environment.get("ERROR_LOG") || '[]'),
-       performanceMetrics: JSON.parse(pm.environment.get("RESPONSE_METRICS") || '[]').slice(-5)
-   };
-   
-   console.log("\n=== SUPPORT PACKAGE ===");
-   console.log(JSON.stringify(supportPackage, null, 2));
-   console.log("\nCopy the above JSON and include it with your support request");
-   ```
-
-### Community resources
-
-**Postman Community**: Many Tallyfy API issues are common patterns. Search the Postman Community forums for:
-- "401 Unauthorized" solutions
-- "multipart/form-data" file upload issues
-- OAuth authentication troubleshooting
-- Environment variable management
-
-**Expert tip**: Before posting, search for your exact error message in quotes.
+**Include these details in any support request**:
+- Exact error message and HTTP status code
+- Full request URL (with method)
+- Response body
+- Your organization ID
+- Timestamp of the attempt
 
 ### Useful resources
 
@@ -727,194 +269,6 @@ Postman experts recommend this systematic approach:
 - [Postman Community](https://community.postman.com/)<a href="https://community.postman.com/" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>
 - [Status Page](https://status.tallyfy.com/)<a href="https://status.tallyfy.com/" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a>
 - [Support Contact](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/)
-
-### Self-diagnostic checklist
-
-Run through this expert checklist before seeking help:
-
-```markdown
-## Postman Diagnostic Checklist
-
-### Authentication
-- [ ] X-Tallyfy-Client header present and set to "APIClient"
-- [ ] Authorization header format: "Bearer [token]" (exactly one space)
-- [ ] Token not expired (check TALLYFY_TOKEN_EXPIRY)
-- [ ] Using password grant, not client_credentials
-- [ ] Organization ID correct for your environment
-
-### Request Format
-- [ ] Method appropriate for operation (POST for create, GET for read, etc.)
-- [ ] URL path correct and properly encoded
-- [ ] Content-Type header appropriate for body type
-- [ ] JSON body valid if using raw mode
-- [ ] Form-data configured correctly for file uploads (no manual Content-Type)
-
-### Environment
-- [ ] Correct environment selected
-- [ ] All required variables set
-- [ ] No conflicting variables in different scopes
-- [ ] Network connectivity to go.tallyfy.com
-
-### Response Analysis
-- [ ] Check response headers for rate limit info
-- [ ] Verify response body for specific error messages
-- [ ] Response time within acceptable range (<5 seconds)
-- [ ] No CORS issues (if testing from browser)
-```
-
-## Advanced debugging techniques
-
-### Network-level debugging
-
-Sometimes issues are at the network level. Use these Postman features:
-
-```javascript
-// Network diagnostics in pre-request script
-const networkCheck = {
-    startTime: Date.now(),
-    dnsStart: Date.now()
-};
-
-pm.globals.set("NETWORK_START", JSON.stringify(networkCheck));
-
-// In test script - analyze timing
-const networkStart = JSON.parse(pm.globals.get("NETWORK_START"));
-const totalTime = Date.now() - networkStart.startTime;
-const responseTime = pm.response.responseTime;
-const networkTime = totalTime - responseTime;
-
-console.log(`Network timing: ${networkTime}ms network + ${responseTime}ms server = ${totalTime}ms total`);
-
-if (networkTime > 1000) {
-    console.warn("High network latency detected - check connection");
-}
-```
-
-### Memory and performance debugging
-
-```javascript
-// Memory usage tracking
-const memoryUsage = {
-    environmentVars: Object.keys(pm.environment.toObject()).length,
-    globalVars: Object.keys(pm.globals.toObject()).length,
-    collectionVars: Object.keys(pm.collectionVariables.toObject()).length
-};
-
-console.log("Memory usage:", memoryUsage);
-
-// Warn about memory leaks
-if (memoryUsage.environmentVars > 100) {
-    console.warn("High environment variable count - consider cleanup");
-}
-
-// Performance regression detection
-const currentResponseTime = pm.response.responseTime;
-const baselineTime = pm.environment.get("BASELINE_RESPONSE_TIME");
-
-if (baselineTime && currentResponseTime > baselineTime * 1.5) {
-    console.warn(`Performance regression: ${currentResponseTime}ms vs baseline ${baselineTime}ms`);
-}
-
-// Update rolling average
-const responseHistory = JSON.parse(pm.environment.get("RESPONSE_TIME_HISTORY") || '[]');
-responseHistory.push(currentResponseTime);
-if (responseHistory.length > 10) {
-    responseHistory.shift();
-}
-
-const averageTime = responseHistory.reduce((a, b) => a + b, 0) / responseHistory.length;
-pm.environment.set("RESPONSE_TIME_HISTORY", JSON.stringify(responseHistory));
-pm.environment.set("AVERAGE_RESPONSE_TIME", averageTime);
-```
-
-### Automated issue detection
-
-```javascript
-// Intelligent issue detection
-const issueDetector = {
-    checkAuthentication() {
-        const authHeader = pm.request.headers.get('Authorization');
-        const clientHeader = pm.request.headers.get('X-Tallyfy-Client');
-        
-        const issues = [];
-        
-        if (!authHeader) {
-            issues.push("Missing Authorization header");
-        } else if (!authHeader.startsWith('Bearer ')) {
-            issues.push("Invalid Authorization header format");
-        }
-        
-        if (!clientHeader) {
-            issues.push("Missing X-Tallyfy-Client header");
-        } else if (clientHeader !== 'APIClient') {
-            issues.push("Invalid X-Tallyfy-Client header value");
-        }
-        
-        return issues;
-    },
-    
-    checkRequestBody() {
-        const issues = [];
-        
-        if (pm.request.method === 'POST' && !pm.request.body) {
-            issues.push("POST request without body");
-        }
-        
-        if (pm.request.body && pm.request.body.mode === 'raw') {
-            try {
-                JSON.parse(pm.request.body.raw);
-            } catch (e) {
-                issues.push("Invalid JSON in request body");
-            }
-        }
-        
-        return issues;
-    },
-    
-    checkEnvironment() {
-        const issues = [];
-        const requiredVars = ['TALLYFY_BASE_URL', 'TALLYFY_ORG_ID', 'TALLYFY_ACCESS_TOKEN'];
-        
-        requiredVars.forEach(varName => {
-            if (!pm.environment.get(varName)) {
-                issues.push(`Missing environment variable: ${varName}`);
-            }
-        });
-        
-        return issues;
-    }
-};
-
-// Run all checks
-const allIssues = [
-    ...issueDetector.checkAuthentication(),
-    ...issueDetector.checkRequestBody(),
-    ...issueDetector.checkEnvironment()
-];
-
-if (allIssues.length > 0) {
-    console.error("🚨 Issues detected before sending request:");
-    allIssues.forEach(issue => console.error(`  • ${issue}`));
-} else {
-    console.log("✅ Pre-flight checks passed");
-}
-```
-
-## Debugging best practices summary
-
-**The key insight for Postman debugging**:
-- Most issues: Missing X-Tallyfy-Client header or expired tokens
-- Fewer issues: Everything else (data format, permissions, network)
-
-**Expert workflow**:
-1. Check X-Tallyfy-Client header first (always)
-2. Verify token hasn't expired
-3. Use Postman Console for detailed request/response inspection
-4. Implement thorough logging scripts
-5. Use environment variables for sensitive debugging data
-6. Document common issues and solutions in collection descriptions
-
-Remember: The X-Tallyfy-Client header solves most problems. Check it first, always.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

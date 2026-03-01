@@ -1,9 +1,9 @@
 ---
-description: This API reference explains how to modify an existing tag's properties
-  such as title and color by sending a PUT request with JSON data containing the updated
-  values to the specified organization and tag endpoint.
+description: Update an existing tag's title or color by sending a PUT request with
+  JSON data to the organization and tag endpoint.
 id: c25315e1c5a4f23d770703ea575d6735
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 4
 title: Update tag
@@ -15,29 +15,31 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `PUT /organizations/{org_id}/tags/{tag_id}`
 
-This endpoint updates the properties (like title or color) of an existing tag.
+Updates the title or color of an existing tag.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID and `{tag_id}` with the ID of the tag to update.
+Replace `{org_id}` with your organization ID and `{tag_id}` with the tag ID to update.
 
 ### Headers
 
--   `Authorization: Bearer {your_access_token}`
--   `Accept: application/json`
--   `X-Tallyfy-Client: APIClient`
--   `Content-Type: application/json`
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {your_access_token}` |
+| `Accept` | `application/json` |
+| `X-Tallyfy-Client` | `APIClient` |
+| `Content-Type` | `application/json` |
 
 ### Body (JSON)
 
-The request body requires a JSON object containing the tag properties to modify.
+Send a JSON object with the fields you want to change.
 
-Refer to the `#definitions/createTagInput` schema (often similar to update). Key fields:
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | string | Yes | Tag name (max 30 characters, must be unique within your organization) |
+| `color` | string | No | Hex color code (e.g. `#ff0000`) |
 
--   `title` (string): New title for the tag.
--   `color` (string): New hex color code.
-
-**Example Body:**
+**Example body:**
 
 ```json
 {
@@ -214,7 +216,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
     "time"
@@ -258,7 +260,7 @@ func main() {
     }
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
     if err != nil {
         fmt.Printf("Error reading update tag response body for tag %s: %v\n", tagId, err)
         return
@@ -434,21 +436,22 @@ public class TallyfyTagUpdater
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing the full details of the tag *after* the update.
+A successful request returns a `200 OK` status code and a JSON object with the updated tag.
 
 ```json
 {
   "data": {
     "id": "TAG_ID_TO_UPDATE",
-    "title": "Python Updated Tag", // Updated title
-    "color": "#34495e", // Updated color
-    // ... other tag properties ...
-    "updated_at": "YYYY-MM-DDTHH:MM:SSZ" // Reflects update time
+    "title": "Python Updated Tag",
+    "color": "#34495e",
+    "auto_generated": false,
+    "created_at": "2024-01-15T10:30:00.000Z",
+    "deleted_at": null
   }
 }
 ```
 
-If the tag ID is not found or the payload is invalid, an error status code (`404`, `400`, `422`) will be returned.
+If the tag ID is not found or the payload fails validation, expect a `404`, `422`, or `400` error.
 
 ---
 

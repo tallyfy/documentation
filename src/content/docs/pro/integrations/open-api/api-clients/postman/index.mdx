@@ -1,9 +1,10 @@
 ---
-description: This guide shows how to set up Postman with Tallyfy's API for testing
-  workflow automation endpoints including authentication configuration environment
-  setup and common operations like launching processes and completing tasks.
+description: Set up Postman with Tallyfy's REST API to test workflow automation endpoints
+  including OAuth authentication with the password grant type, required headers, and
+  common operations like launching processes and completing tasks.
 id: 0daced37a29f37b6811be18159c1e622
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 1
 title: Getting started with Postman API testing
@@ -11,92 +12,105 @@ title: Getting started with Postman API testing
 
 import { Steps } from '@astrojs/starlight/components';
 
-To test Tallyfy's API with Postman, set up authentication with your API credentials, then import our collection to explore endpoints for templates, processes, and tasks. This guide walks you through complete setup and provides real examples.
+Set up authentication with your Tallyfy credentials in Postman, then start testing endpoints for templates, processes, and tasks. No code required.
 
-## What is Postman and why use it with Tallyfy?
+## Why use Postman with Tallyfy?
 
-Postman helps you test API endpoints without writing code. For Tallyfy, this means you can quickly:
-- Launch processes programmatically
-- Update task statuses in bulk
+Postman lets you test Tallyfy's API without writing code. You can:
+- Launch processes from templates
+- Complete tasks and update statuses
 - Export workflow data
 - Test integrations before building them
 
-Think of Postman as your Tallyfy API playground - perfect for exploring what's possible before committing to code.
+Think of it as a playground for Tallyfy's API - you'll figure out what's possible before committing to code.
 
 ## Prerequisites
 
-Before starting, you need:
-- A Tallyfy account with API access enabled
-- Postman desktop app or web version (free at [postman.com](https://www.postman.com)<a href="https://www.postman.com" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>)
-- Your Tallyfy API credentials (found in Settings > API)
+You'll need:
+- A Tallyfy account with API access
+- Postman desktop or web app (free at [postman.com](https://www.postman.com)<a href="https://www.postman.com" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>)
+- Your API credentials from **Settings > Integrations > REST API** in Tallyfy
 
 ## Quick setup
 
 <Steps>
-1. **Get your Tallyfy API credentials**
-   
-   Navigate to **Settings > API** in Tallyfy and copy your:
+1. **Get your credentials from Tallyfy**
+
+   Go to **Settings > Integrations > REST API** and copy your:
    - Client ID
    - Client Secret
    - Organization ID
+   - Your Tallyfy login email and password
 
 2. **Create a Postman environment**
-   
+
    In Postman, click **Environments** > **Create Environment**. Add these variables:
    ```
    TALLYFY_CLIENT_ID = [your client id]
    TALLYFY_CLIENT_SECRET = [your client secret]
    TALLYFY_ORG_ID = [your organization id]
+   TALLYFY_USERNAME = your@email.com
+   TALLYFY_PASSWORD = [your password]
    TALLYFY_BASE_URL = https://go.tallyfy.com/api
    ```
 
 3. **Set up authentication**
-   
-   Create a new request in Postman:
+
+   Tallyfy uses the `password` grant type - most endpoints need user context. Create a new request:
    - Method: `POST`
    - URL: `{{TALLYFY_BASE_URL}}/oauth/token`
    - Body (x-www-form-urlencoded):
      ```
-     grant_type = client_credentials
+     grant_type = password
+     username = {{TALLYFY_USERNAME}}
+     password = {{TALLYFY_PASSWORD}}
      client_id = {{TALLYFY_CLIENT_ID}}
      client_secret = {{TALLYFY_CLIENT_SECRET}}
      ```
 
 4. **Test your first API call**
-   
-   After getting your access token, try listing templates:
+
+   After getting your access token, try listing templates. Every request needs these headers:
+   - `Authorization: Bearer [your access token]`
+   - `X-Tallyfy-Client: APIClient`
+   - `Accept: application/json`
+
+   Then send:
    - Method: `GET`
-   - URL: `{{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/templates`
-   - Authorization: Bearer Token (paste your access token)
+   - URL: `{{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists`
 </Steps>
+
+> **Important** - The API uses different names than the Tallyfy UI. Templates are called `checklists` and processes are called `runs` in API endpoints.
 
 ## Common Tallyfy API operations
 
-Here are the most useful endpoints for workflow automation:
+Here are the most-used endpoints. All paths sit under `/organizations/{{TALLYFY_ORG_ID}}`.
 
-### Launch a process from template
+### Launch a process from a template
 ```
-POST /organizations/{{TALLYFY_ORG_ID}}/templates/{{TEMPLATE_ID}}/launch
+POST /organizations/{{TALLYFY_ORG_ID}}/runs
+Body: { "checklist_id": "{{TEMPLATE_ID}}", "name": "My Process" }
 ```
 
 ### Complete a task
 ```
-PUT /tasks/{{TASK_ID}}/complete
+POST /organizations/{{TALLYFY_ORG_ID}}/runs/{{RUN_ID}}/completed-tasks
+Body: { "task_id": "{{TASK_ID}}" }
 ```
 
-### List all active processes
+### List active processes
 ```
-GET /organizations/{{TALLYFY_ORG_ID}}/processes?status=active
-```
-
-### Upload file to task
-```
-POST /tasks/{{TASK_ID}}/files
+GET /organizations/{{TALLYFY_ORG_ID}}/runs?status=active
 ```
 
-## What will I find in this guide?
+### Upload a file
+```
+POST /organizations/{{TALLYFY_ORG_ID}}/upload
+```
 
-This complete Postman guide is organized into focused sections:
+## What's in this guide?
+
+The Postman guide is split into focused sections:
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

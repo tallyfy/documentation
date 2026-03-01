@@ -1,9 +1,10 @@
 ---
-description: This API endpoint retrieves available process templates (called Blueprints
-  or Checklists in the API) from an organization using a GET request with optional
-  query parameters for filtering pagination and search functionality.
+description: This API endpoint retrieves process templates (called Checklists in the
+  API) from an organization using a GET request with query parameters for filtering,
+  pagination and search.
 id: 90d9d40fd55988876dd6bee569c35630
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 1
 title: List templates
@@ -11,12 +12,12 @@ title: List templates
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## List Templates API Endpoint
+## List all templates
 
-This endpoint retrieves a list of process templates (known as "Checklists" or "Blueprints" in the API) available within the specified organization.
+This endpoint returns a paginated list of templates (called "checklists" in the API) for a given organization.
 
-:::note[API vs UI Terminology]
-Note that while in the Tallyfy user interface these are called **Templates**, the API consistently refers to them as **Blueprints** or sometimes **Checklists**.
+:::note[API vs UI terminology]
+The Tallyfy UI calls these **Templates**, but the API uses **Checklists** in its endpoints and responses.
 :::
 
 ## Endpoint
@@ -25,7 +26,7 @@ Note that while in the Tallyfy user interface these are called **Templates**, th
 
 ## Request
 
-Replace `{org_id}` with your actual Organization ID.
+Replace `{org_id}` with your Organization ID.
 
 ### Headers
 
@@ -35,7 +36,20 @@ Replace `{org_id}` with your actual Organization ID.
 
 ### Query parameters (optional)
 
-Refer to the `GET /organizations/{org}/checklists` endpoint in the Swagger specification or API reference for optional query parameters like `with`, `type`, `q` (search), `page`, `per_page`, etc., to filter or paginate results.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `q` | string | Search templates by title (case-insensitive partial match) |
+| `page` | integer | Page number for pagination |
+| `per_page` | integer | Results per page (default: 10) |
+| `sort_by` | string | Field to sort by (prefix with `-` for descending) |
+| `with` | string | Comma-separated includes: `steps`, `tags`, `folder`, `permissions`, `stages`, `linked_tasks`, `assets`, `member_watchers`, `guest_watchers` |
+| `status` | string | Filter by template status |
+| `type` | string | Filter by template type |
+| `starred` | string | Filter starred templates |
+| `folder` | string | Filter by folder |
+| `tag` | string | Filter by tag |
+| `owner_id` | string | Filter by owner |
+| `archived` | string | Set to `only` for archived templates, or any truthy value to include them |
 
 ### Code samples
 
@@ -45,7 +59,7 @@ Refer to the `GET /organizations/{org}/checklists` endpoint in the Swagger speci
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = '?per_page=20&with=owner'; // Example: Get 20 templates per page and include owner details
+const queryParams = '?per_page=10&with=steps'; // Example: Get 10 templates per page with their steps
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/checklists${queryParams}`;
 
 const headers = new Headers();
@@ -58,18 +72,18 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-    return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to list templates:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
     console.log('Successfully retrieved templates:');
     console.log(JSON.stringify(data, null, 2));
-    // Access pagination info via data.meta.pagination if needed
+    // Access pagination via data.meta.pagination
 })
 .catch(error => {
     console.error('Error listing templates:', error.message);
@@ -92,11 +106,11 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters for filtering/pagination
+# Optional query parameters for filtering/pagination
 params = {
-     'q': 'Onboarding', # Example: Search for templates with 'Onboarding' in the title
-     'per_page': 5,
-     'with': 'owner' # Example: Include owner details
+     'q': 'Onboarding', # Search templates by title
+     'per_page': 10,
+     'with': 'steps' # Include step details
 }
 
 response = None
@@ -107,20 +121,18 @@ try:
     templates_data = response.json()
     print('Successfully retrieved templates:')
     print(json.dumps(templates_data, indent=4))
-    # Access pagination: templates_data.get('meta', {}).get('pagination')
+    # Pagination info: templates_data.get('meta', {}).get('pagination')
 
 except requests.exceptions.HTTPError as http_err:
-    print(f"HTTP error occurred listing templates: {http_err}") 
+    print(f"HTTP error listing templates: {http_err}")
     if response is not None:
         print(f"Response Body: {response.text}")
 except requests.exceptions.RequestException as req_err:
-    print(f"Request failed listing templates: {req_err}")
+    print(f"Request failed: {req_err}")
 except json.JSONDecodeError:
-    print("Failed to decode JSON response when listing templates")
+    print("Failed to decode JSON response")
     if response is not None:
         print(f"Response Text: {response.text}")
-except Exception as err:
-     print(f"An unexpected error occurred: {err}")
 ```
 </TabItem>
 <TabItem label="Java">
@@ -144,11 +156,11 @@ public class ListTemplates {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/checklists";
 
-        // Optional: Add query parameters
+        // Optional query parameters
         Map<String, String> queryParamsMap = new HashMap<>();
         // queryParamsMap.put("q", "Onboarding");
-        queryParamsMap.put("per_page", "5");
-        queryParamsMap.put("with", "owner");
+        queryParamsMap.put("per_page", "10");
+        queryParamsMap.put("with", "steps");
          
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
@@ -198,9 +210,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-    "net/url"
+	"net/url"
 	"os"
 	"time"
 )
@@ -217,11 +229,11 @@ func main() {
 
 	baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/checklists", orgId)
     
-    // Optional: Add query parameters
+    // Optional query parameters
     queryParams := url.Values{}
     queryParams.Add("q", "Onboarding")
-    queryParams.Add("per_page", "5")
-    queryParams.Add("with", "owner")
+    queryParams.Add("per_page", "10")
+    queryParams.Add("with", "steps")
     
     apiUrl := baseURL
     if len(queryParams) > 0 {
@@ -246,7 +258,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading list templates response body: %v\n", err)
 		return
@@ -289,10 +301,10 @@ pplx::task<void> ListTallyfyTemplates()
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("checklists"));
-    // Add optional query parameters
-    builder.append_query(U("q"), U("Onboarding")); 
-    builder.append_query(U("per_page"), 5);
-    builder.append_query(U("with"), U("owner"));
+    // Optional query parameters
+    builder.append_query(U("q"), U("Onboarding"));
+    builder.append_query(U("per_page"), 10);
+    builder.append_query(U("with"), U("steps"));
     utility::string_t apiUrl = builder.to_string();
 
     http_client client(apiUrl);
@@ -310,8 +322,6 @@ pplx::task<void> ListTallyfyTemplates()
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully retrieved templates:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
-                    // Access pagination: body[U("meta")][U("pagination")]
                 } else {
                     std::wcerr << L"Failed to list templates. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
@@ -355,9 +365,9 @@ public class TallyfyTemplateLister
         
         // Build URL with query parameters
         var query = HttpUtility.ParseQueryString(string.Empty);
-        query["q"] = "Onboarding"; // Example search
-        query["per_page"] = "5";
-        query["with"] = "owner"; // Example include
+        query["q"] = "Onboarding";
+        query["per_page"] = "10";
+        query["with"] = "steps";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/checklists?{queryString}";
 
@@ -374,13 +384,11 @@ public class TallyfyTemplateLister
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully retrieved templates:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access pagination: doc.RootElement.GetProperty("meta").GetProperty("pagination")...
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -411,7 +419,7 @@ public class TallyfyTemplateLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element in the `data` array represents a template with its details.
+A successful request returns a `200 OK` status and a JSON object with a `data` array. Each item in the array represents a template with fields like `id`, `title`, `summary`, `starred`, `type`, `status`, `owner_id`, `created_by`, `created_at`, `last_updated`, and more.
 
 ```json
 {
@@ -421,17 +429,15 @@ A successful request returns a `200 OK` status code and a JSON object containing
       "title": "Customer Onboarding Process",
       "summary": "Standard process for onboarding new customers.",
       "starred": false,
-      // ... other template properties ...
+      "type": "procedure",
+      "status": "active",
+      "owner_id": "user_abc123",
+      "created_by": "user_abc123",
+      "steps_count": 8,
+      "is_pinned": false,
       "created_at": "2025-01-10T10:00:00.000Z",
       "last_updated": "2025-05-15T14:30:00.000Z"
-    },
-    {
-      "id": "a987654321abcdefa987654321abcdef",
-      "title": "Employee Offboarding Checklist",
-      "summary": "Steps to take when an employee leaves.",
-      // ... other template properties ...
     }
-    // ... more templates ...
   ],
   "meta": {
     "pagination": {
@@ -448,7 +454,7 @@ A successful request returns a `200 OK` status code and a JSON object containing
 }
 ```
 
-If pagination is used, the `meta` object provides details about the total number of templates, current page, etc., and links to navigate through pages.
+The `meta.pagination` object tells you the total count, current page, items per page, and provides `links` for navigating between pages. Results are sorted by pinned status first, then by your `sort_by` parameter (defaults to `updated`).
 
 ---
 

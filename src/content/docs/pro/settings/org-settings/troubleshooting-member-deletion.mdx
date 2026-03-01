@@ -1,9 +1,8 @@
 ---
-description: This comprehensive guide addresses common issues and solutions when removing
-  organization members from Tallyfy including error message troubleshooting and system
-  behavior details for administrators managing member deactivation and deletion processes.
+description: Troubleshoot common errors when removing members from a Tallyfy organization - error messages, two-step deletion, and edge cases.
+about_tallyfy: true
 id: 513d9dfc464deae8ba99a57e5d14f0fd
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 25
 title: Member deletion
@@ -11,98 +10,90 @@ title: Member deletion
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Common issues and solutions for removing organization members
+## Troubleshooting member deletion
 
-Can't delete a member from your Tallyfy organization? The system requires specific conditions to be met before member removal. Here's how to resolve common blockers and handle edge cases.
+Can't delete a member from your Tallyfy organization? You must disable a member before you can permanently delete them. Here's how to fix common blockers.
 
 ### Quick diagnosis
 
-Run through this checklist to identify your issue:
-
 1. **Check member status** - Active, Disabled, or Invited?
-2. **Check admin role** - Default Admin or Administrator badge?
-3. **Count administrators** - How many total admins in your organization?
-4. **Note exact error** - What message appears when attempting deletion?
+2. **Check admin role** - Default Admin or Administrator?
+3. **Count admins** - How many active admins in the organization?
+4. **Note the exact error** - What message appears?
 
 ### Common error messages
 
-#### "Please disable the user before deletion"
+#### "Please disable the user before deletion."
 
-Tallyfy uses a two-step deletion process for safety:
-1. Navigate to **Settings** > **Organization** > **Members**
+Tallyfy requires a two-step process - disable first, then delete:
+1. Go to **Settings** > **Organization** > **Members**
 2. Click the member's name
 3. Click **Deactivate Member**
-4. Complete task reassignment
-5. Then use the permanent deletion option
+4. Reassign their tasks when prompted
+5. Then permanently delete them
 
-#### "Cannot modify the default administrator"
+#### "Cannot modify the default administrator."
 
-Transfer the default admin role first:
-1. Click on a different administrator's profile
+The full error reads: *"Cannot modify the default administrator. Please assign another member as default administrator first."*
+
+To fix this:
+1. Click a different administrator's profile
 2. Select **Make Default Administrator**
-3. Return to original member
+3. Go back to the original member
 4. Proceed with deactivation
 
-If no other admins exist, promote a Standard member to Administrator first.
+No other admins? Promote a Standard member to Administrator first.
 
-#### "Bot users cannot be disabled"
+#### "Bot users cannot be disabled."
 
-Bot accounts (like Tallyfy Bot) cannot be removed. They:
-- Don't count toward billing
-- Post automated comments
-- Handle system tasks
+Bot accounts (like Tallyfy Bot) can't be removed or disabled. They don't count toward billing - they handle automated comments and system tasks.
 
-#### "Cannot disable the last administrator"
+When removing a member through the `DELETE /organizations/{org}/users/{user_id}` endpoint, you'll see *"You can't remove a bot user from this organization!"* instead.
 
-Create another administrator first:
-1. Select any Standard member
-2. Click **Change Role** → **Administrator**
-3. Then remove the original admin
+#### No other admin available
+
+If you try to disable the only administrator, you'll get the "Cannot modify the default administrator" error. Fix it by promoting any Standard member to Administrator first, then remove the original admin.
 
 ### Special scenarios
 
 #### Member shows as removed but still has access
 
 1. Clear browser cache and cookies
-2. Verify member status shows "Deactivated"
-3. Check for active API tokens - revoke manually
+2. Verify status shows "Deactivated"
+3. Check for active API tokens - revoke them manually
 4. If access persists after 30 minutes, contact support
 
-#### Can't find deactivated member
+#### Can't find a deactivated member
 
 Deactivated members are hidden by default:
-1. Go to **Members** list
-2. Use filter: **Show: All** or **Show: Deactivated**
+1. Go to the **Members** list
+2. Filter by **Show: All** or **Show: Deactivated**
 3. Search by name or email
 
 #### Bulk member removal
 
 For multiple deletions via API:
-- Process in batches of 10
-- Allow 5 seconds between deletions
-- Always disable before deleting
-- Use the two-step process for each
+- Always disable before deleting (two-step process for each)
+- Space out requests to avoid rate limits
+- Process in reasonable batches
 
 ### System behavior details
 
 #### Email and name changes
 
-When deleted, the system:
-- Appends "(Deleted)" to last name
-- Changes email to `{email}.deleted.{user_id}`
-- Example: `john.doe@company.com` → `john.doe@company.com.deleted.12345`
+When permanently deleted, Tallyfy:
+- Appends "(Deleted)" directly to the last name (no space) - e.g. `Smith` becomes `Smith(Deleted)`
+- Changes email to `{email}.deleted.{user_id}` - e.g. `john@company.com` becomes `john@company.com.deleted.12345`
 
-This allows re-inviting the same person later without conflicts.
+This prevents conflicts if you re-invite that person later.
 
 #### What happens to member data
 
-**Immediately removed**:
-- Login capability
-- API access tokens
+**Removed immediately**:
+- Login access
 - Active sessions
-- Password data
 
-**Preserved for compliance**:
+**Kept for compliance**:
 - Task completion history (name shows with "(Deleted)")
 - Process participation records
 - Comments and attachments
@@ -110,66 +101,54 @@ This allows re-inviting the same person later without conflicts.
 
 #### Task reassignment
 
-When no suitable member exists for reassignment:
-- Tasks default to "Tallyfy Bot" (system user)
-- Common in: last member deletion, bulk deletions, API deletions without reassignment
+When no member is available for reassignment, tasks fall to "Tallyfy Bot" (the system user). This commonly happens with API deletions that skip reassignment.
 
 ### API deletion
 
-**Required sequence**:
+**Two-step sequence**:
 ```
-1. DELETE /organizations/{org_id}/users/{user_id}/disable
+1. DELETE /organizations/{org}/users/{user_id}/disable
 2. Wait for 200 response
-3. DELETE /organizations/{org_id}/users/{user_id}/delete
+3. DELETE /organizations/{org}/users/{user_id}/delete
 ```
 
-**With reassignment**:
+**Single-step with reassignment**:
 ```
-DELETE /organizations/{org_id}/users/{user_id}?with_reassignment=true&to={new_user_id}
+DELETE /organizations/{org}/users/{user_id}?with_reassignment=true&to={new_user_id}
 ```
 
-**Rate limits**: Maximum 10 deletions per minute, 429 error if exceeded
+The single-step endpoint handles deactivation and removal together, and reassigns tasks to the specified member.
 
-### Complex edge cases
+### Edge cases
 
-#### Organization with single member
-- Cannot delete last member
+#### Organization with a single member
+- You can't delete the last member
 - Contact support for organization closure
 
-#### Circular dependencies
-Admin A backs up Admin B, Admin B backs up Admin A:
-- Add third admin temporarily to break cycle
+#### Circular admin dependencies
+If Admin A backs up Admin B and vice versa, add a third admin temporarily to break the cycle.
 
-#### Template with 1000+ processes
-- May timeout during deletion
-- Use batch reassignment via API
-- Process in groups of 100
+### Recovery
 
-### Recovery options
-
-**Accidental deletion**:
-Contact support immediately with:
+Accidentally deleted someone? Contact support immediately with:
 - Organization name
 - Member email
 - Deletion date
 
-Support may restore recent deletions. For older deletions, send new invitation.
+Recent deletions may be restorable. For older ones, send a new invitation.
 
 ### When to contact support
 
-Contact support when:
-- Errors don't match those listed
-- Deletion affects 50+ processes
-- Server errors (500-series) appear
-- Deletion pending over 1 hour
+- Error messages don't match those listed here
+- Server errors (500-series) appear during deletion
+- Deletion seems stuck for over an hour
 
-**Provide**: Organization name, member email, exact error, screenshot
+**Provide**: organization name, member email, exact error message, screenshot
 
 ### Prevention tips
 
-- Maintain at least 2 administrators
-- Document default administrator
-- Test deletion in sandbox first
+- Keep at least 2 administrators at all times
+- Document who the default administrator is
 - Use consistent offboarding procedures
 
 ## Related articles

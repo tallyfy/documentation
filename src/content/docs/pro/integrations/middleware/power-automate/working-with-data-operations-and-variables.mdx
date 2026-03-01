@@ -1,9 +1,9 @@
 ---
-description: Power Automate offers robust data handling capabilities including variables
-  storage loops parsing and transformation features to effectively process and manipulate
-  Tallyfy workflow information for automated business processes.
+about_tallyfy: true
+description: Power Automate's data operations and variables let you store, loop through,
+  parse, and transform Tallyfy workflow data inside automated flows.
 id: 017bc0b84d8ffb39fd69fa8a0a907b59
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
 sidebar:
   order: 10
 title: Working with data operations and variables in Power Automate
@@ -11,57 +11,43 @@ title: Working with data operations and variables in Power Automate
 
 import { Steps } from '@astrojs/starlight/components';
 
-Your Power Automate flows need to handle real data - lots of it. When you're pulling information from Tallyfy, you'll work with collections of [tasks](/products/pro/tracking-and-tasks/tasks/), data from [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/), and everything in between. You need ways to store values temporarily, transform data, and process multiple items at once. That's where data operations and variables come in.
+When you pull information from Tallyfy into Power Automate, you'll deal with collections of [tasks](/products/pro/tracking-and-tasks/tasks/), [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) data, and JSON payloads. Variables, loops, and data operations are the tools that let you store values, transform data, and process multiple items at once.
 
-## Understanding variables in Power Automate for Tallyfy integrations
+## How variables work with Tallyfy integrations
 
-Think of variables as temporary storage boxes. They hold data while your flow runs, and that data can change as the flow progresses through different steps.
+Variables are temporary storage that persists while your flow runs. Here's why they matter for Tallyfy work:
 
-*   **Why use variables with Tallyfy integrations?**
-    *   Store intermediate results from calculations or data lookups related to Tallyfy items.
-    *   Count Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) meeting certain criteria.
-    *   Accumulate data (like a list of Tallyfy task names) before sending it to Tallyfy or another system.
-    *   Control loop behavior or conditional logic based on a changing value from Tallyfy data.
+*   Store intermediate results from Tallyfy data lookups
+*   Count [tasks](/products/pro/tracking-and-tasks/tasks/) that match specific criteria
+*   Build up a list of task names before sending it somewhere else
+*   Control loop behavior based on changing Tallyfy values
 
-*   **Types of variables:** Power Automate supports several data types:
-    *   **Boolean:** True or false.
-    *   **Integer:** Whole numbers (e.g., 10, -5).
-    *   **Float:** Numbers with decimals (e.g., 3.14).
-    *   **String:** Text.
-    *   **Array:** A list or collection of items (e.g., a list of Tallyfy task names).
-    *   **Object:** A complex data structure with key-value pairs (often representing JSON objects).
+**Variable types** in Power Automate: Boolean, Integer, Float, String, Array, and Object.
 
-*   **Common variable actions:**
-    *   **Initialize variable:** Always comes first - declares a variable, names it, sets its type and initial value
-    *   **Set variable:** Updates the value after initialization
-    *   **Increment variable / Decrement variable:** Adds or subtracts 1 (perfect for counters)
-    *   **Append to string variable:** Tacks text onto the end of a string
-    *   **Append to array variable:** Adds items to your list
+**Common variable actions:**
+*   **Initialize variable** - declares the variable with a name, type, and starting value (always goes first)
+*   **Set variable** - overwrites the current value
+*   **Increment / Decrement variable** - adds or subtracts 1, great for counters
+*   **Append to string variable** - tacks text onto the end
+*   **Append to array variable** - pushes a new item into the list
 
+## Looping through Tallyfy data with Apply to each
 
+The **Apply to each** control runs your actions once per item in an array.
 
-## Looping through Tallyfy data (Apply to each)
+*   Power Automate adds it automatically when you pick dynamic content that's a list (like rows from a Tallyfy table [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/))
+*   You can also add one manually and point it at array data from an earlier step
 
-Got multiple items to process? The **Apply to each** control handles that.
+**Tallyfy example:** Say a [task](/products/pro/tracking-and-tasks/tasks/) has a table-type [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) listing equipment for a project. When you fetch that task through the Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) or [API](/products/pro/integrations/open-api/), the table comes back as an array. Use "Apply to each" to loop through every row - maybe creating purchase orders in your ERP or adding items as tasks in another Tallyfy process.
 
-*   **How it works:** Feed it an array of Tallyfy items. It runs your actions once for every single item.
-*   **Automatic usage:** Power Automate's pretty smart - it'll add an "Apply to each" loop automatically when you select dynamic content that's a list (like rows from a Tallyfy table [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/))
-*   **Explicit usage:** You can also add an "Apply to each" control yourself and point it to array data from an earlier step
+## Parsing JSON from Tallyfy
 
-**Tallyfy example:**
-Let's say you have a [task](/products/pro/tracking-and-tasks/tasks/) with a table-type [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/) where users list equipment needed for a project. When you pull this task's details through the Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) or [API](/products/pro/integrations/open-api/), that table comes back as an array. Perfect scenario for looping.
+Tallyfy [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/) responses return JSON. The **Parse JSON** data operation turns that raw text into structured objects you can reference as dynamic content.
 
-Use "Apply to each" to go through every row. Maybe you create purchase orders in your ERP system for each item. Or add them as checklist items to another Tallyfy task. The loop handles it row by row.
-
-## Data parsing: Parse JSON action for Tallyfy data
-
-Here's the reality - Tallyfy [webhooks](/products/pro/integrations/webhooks/) and [API](/products/pro/integrations/open-api/) responses speak JSON. You need to understand that language.
-
-*   **Why parse JSON from Tallyfy?** Power Automate receives JSON strings from Tallyfy (think webhook payloads or API responses). The **Parse JSON** action turns that text into actual objects and properties you can work with. No parsing means no access to the data inside.
-*   **Using the "Parse JSON" action:**
-    1.  Add the **Parse JSON** action from Data Operations
-    2.  **Content:** Drop in your JSON string from Tallyfy
-    3.  **Schema:** This defines the structure. Here's the shortcut - click **Generate from sample** and paste in real JSON from a Tallyfy webhook or API call. Done.
+**How to set it up:**
+1.  Add **Parse JSON** from Data Operations
+2.  **Content** - point it at your JSON string from Tallyfy
+3.  **Schema** - click **Generate from sample** and paste real JSON from a Tallyfy webhook or API call
 
 :::caution[Field mapping limitations]
 When working with Tallyfy form field data in Power Automate:
@@ -72,84 +58,74 @@ When working with Tallyfy form field data in Power Automate:
 - Always use Parse JSON action first to properly structure Tallyfy data before mapping
 :::
 
+**Tallyfy example:** Someone launches a [process](/products/pro/tracking-and-tasks/processes/) and your [webhook](/products/pro/integrations/webhooks/) fires a JSON payload to Power Automate. That payload contains the process name, who started it, and all kick-off form data - but it's just a text blob until you parse it. After parsing, you can grab the initiator's email, route form data to other systems, or trigger follow-up actions.
 
+**Handling Tallyfy field types after parsing:**
+- **Text fields** - map directly as strings
+- **Dropdown fields** - use `item()?['fieldName']?['text']` for the display label
+- **Checkbox fields** - returns an array of selected values; loop or index into it
+- **Table fields** - each row is an object in an array, so you'll need a loop
+- **Date fields** - arrives in ISO format; format with `formatDateTime()`
 
-**Tallyfy example:**
-Someone launches a [process](/products/pro/tracking-and-tasks/processes/) in Tallyfy. Your [webhook](/products/pro/integrations/webhooks/) fires off a JSON payload to Power Automate. Inside that JSON? Everything you need - process name, who started it, all the launch form data. But it's just text until you parse it. Run it through "Parse JSON" and suddenly you can grab the initiator's email for notifications, use the form data to update other systems, whatever you need.
+## Transforming Tallyfy data into CSV or HTML tables
 
-**Handling Tallyfy field types in Power Automate:**
-- **Text fields**: Straight mapping as strings - easy
-- **Dropdown fields**: Need the display text? Use `item()?['fieldName']?['text']` after parsing
-- **Checkbox fields**: You get an array of what's checked. Loop through it or grab specific items by index
-- **Table fields**: Each row is an object in an array. You'll need loops here
-- **Date fields**: Comes as ISO format. Make it pretty with `formatDateTime()`
+Two data operations turn arrays into formatted output:
 
-## Data transformation for Tallyfy data: Create CSV Table and Create HTML Table
+*   **Create CSV Table** - feed it an array of Tallyfy task details, get back a CSV string for Excel
+*   **Create HTML Table** - same input, outputs an HTML table you can paste into an email
 
-Need to turn Tallyfy data into reports? These two actions have you covered:
+**Tallyfy use case:** Pull overdue [tasks](/products/pro/tracking-and-tasks/tasks/) using the Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) or [API](/products/pro/integrations/open-api/), then run them through **Create HTML Table** to email a formatted summary to stakeholders.
 
-*   **Create CSV Table:** Feed it an array of Tallyfy task details. Get back a CSV string ready for Excel
-*   **Create HTML Table:** Same idea, but outputs an HTML table you can drop right into an email
+## Putting it together - a daily task report
 
-**Tallyfy use cases:**
-*   Pull all overdue [tasks](/products/pro/tracking-and-tasks/tasks/) for a project using the Tallyfy [connector](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/) or [API](/products/pro/integrations/open-api/)
-*   Run them through **Create CSV Table** for a downloadable report
-*   Or use **Create HTML Table** to email a nicely formatted summary to stakeholders
-
-## Combining variables, loops, and data operations: a Tallyfy example
-
-Time to put it all together with a real workflow.
-
-**Scenario:** Your team lead wants a daily email showing all their Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) due today. Nice HTML format, arrives at 8 AM sharp.
+**Scenario:** Your team lead wants a daily email at 8 AM showing all their Tallyfy [tasks](/products/pro/tracking-and-tasks/tasks/) due that day, formatted as an HTML table.
 
 <Steps>
 
 1.  **Trigger: Recurrence.**
-    Set to run daily. (See [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/) for trigger types).
+    Set to run daily. (See [understanding Power Automate basics](/products/pro/integrations/middleware/power-automate/understanding-power-automate-basics/) for trigger setup.)
 
 2.  **Action: Get user profile (V2) (Office 365 Users).**
-    (Optional, if needing assignee details beyond email for Tallyfy interaction).
+    Optional - only needed if you want assignee details beyond email.
 
-3.  **Action: Tallyfy - "List tasks".**
+3.  **Action: Tallyfy - "Get a member's tasks" (`Get_User_Tasks`).**
     *   Set up your Tallyfy [connection](/products/pro/integrations/middleware/power-automate/how-can-i-integrate-tallyfy-with-microsoft-power-automate/)
-    *   **Assigned To User Email:** Your team lead's email
-    *   **Status:** Filter for `Open` or `In Progress` tasks
-    *   **Due Date:** The basic connector might not filter by exact date. Two options here - grab all open tasks and filter them yourself, or hit the Tallyfy [API](/products/pro/integrations/open-api/) directly for better filtering
+    *   **user_id** - the team lead's Tallyfy user ID
+    *   **q** - optional search query to narrow results
+    *   This action doesn't filter by date, so you'll filter in the next step
 
-4.  **(Alternative) Control: "Filter array" (Data Operation).**
-    *   **From:** Use the `value` (list of tasks) output from the "List tasks" Tallyfy action.
-    *   **Condition:** Use an [expression](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) to filter tasks where due date is today. Example:
-        `@equals(formatDateTime(item()?['dueDate'], 'yyyy-MM-dd'), formatDateTime(utcNow(), 'yyyy-MM-dd'))`
+4.  **Control: "Filter array" (Data Operation).**
+    *   **From:** the task list output from the previous step
+    *   **Condition:** use an [expression](/products/pro/integrations/middleware/power-automate/advanced-conditions-and-expressions/) to keep only tasks due today:
+        `@equals(formatDateTime(item()?['deadline'], 'yyyy-MM-dd'), formatDateTime(utcNow(), 'yyyy-MM-dd'))`
 
 5.  **Action: Initialize variable.**
     *   **Name:** `DailyTaskReportHTML`
     *   **Type:** `String`
-    *   **Value:** (Leave empty or add HTML table headers: `<table><tr><th>Task Name</th><th>Due Date</th></tr>`)
+    *   **Value:** `<table><tr><th>Task Name</th><th>Deadline</th></tr>`
 
 6.  **Control: "Apply to each".**
-    *   **Select an output from previous steps:** Use the output from the "List tasks" action (or the "Filter array" action if you used it).
+    *   **Input:** output from the "Filter array" step
 
 7.  **Inside "Apply to each": Action - "Append to string variable".**
     *   **Name:** `DailyTaskReportHTML`
-    *   **Value:** Build your table row by row:
-        `<tr><td>[Task Name dynamic content]</td><td>[Due Date dynamic content formatted nicely]</td></tr>`
-        (Pro tip: use `formatDateTime()` to make those dates readable)
+    *   **Value:** `<tr><td>[Task Name]</td><td>[Deadline formatted with formatDateTime()]</td></tr>`
 
-8.  **(Outside "Apply to each") Action: Set variable (Optional).**
-    *   Close off your table with `</table>` if you started with headers
+8.  **(Outside loop) Action: Append to string variable.**
+    *   Add `</table>` to close the HTML table
 
 9.  **Action: Send an email (V2).**
-    *   **To:** Team lead's email
+    *   **To:** team lead's email
     *   **Subject:** `Your Tallyfy Tasks Due Today`
-    *   **Body:** Switch to code view (`</>`) and drop in your `DailyTaskReportHTML` variable. Make sure HTML rendering is enabled!
+    *   **Body:** switch to code view (`</>`) and insert `DailyTaskReportHTML`. Enable HTML rendering.
 
 </Steps>
 
-## Tips for Tallyfy users working with data operations
+## Tips for working with Tallyfy data
 
-*   **Initialize early:** Put all your variable initializations right at the start. Keeps things organized.
-*   **Array structures from Tallyfy:** Watch out for arrays - they're everywhere in Tallyfy data. Table [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)? Arrays. Multiple tasks from the [API](/products/pro/integrations/open-api/)? Arrays. You'll be using "Apply to each" a lot.
-*   **Inspect with "Compose":** Can't figure out what your data looks like? Drop in a "Compose" action and output your variable or Tallyfy data. It's like console.log for Power Automate (yes, debugging is that simple).
+*   **Initialize early.** Put all variable initializations at the top of your flow. It's easier to maintain.
+*   **Expect arrays everywhere.** Table [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)? Arrays. Multiple tasks from the [API](/products/pro/integrations/open-api/)? Arrays. You'll reach for "Apply to each" often.
+*   **Debug with Compose.** Can't tell what your data looks like? Drop a "Compose" action and output your variable or Tallyfy data. It's console.log for Power Automate.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -1,11 +1,9 @@
 ---
-description: This documentation explains how to retrieve a list of groups within a
-  Tallyfy organization using a GET API endpoint with code examples provided in JavaScript
-  Python Java Go C++ and C# that demonstrate the request structure including required
-  authorization headers and optional query parameters for including additional data
-  like group logos.
+description: Retrieve a paginated list of groups in your Tallyfy organization using
+  the GET endpoint with optional search, sorting, and related data includes.
 id: 9affae8c3a5c00b72712f1297c8ac304
-lastUpdated: 2025-08-15
+lastUpdated: 2026-02-25
+about_tallyfy: true
 sidebar:
   order: 1
 title: List groups
@@ -17,11 +15,11 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `GET /organizations/{org_id}/groups`
 
-This endpoint retrieves a list of groups defined within your Tallyfy organization.
+This endpoint retrieves a paginated list of groups in your Tallyfy organization.
 
 ## Request
 
-Replace `{org_id}` with your Organization ID.
+Replace `{org_id}` with your actual organization ID.
 
 ### Headers
 
@@ -31,8 +29,13 @@ Replace `{org_id}` with your Organization ID.
 
 ### Query parameters (optional)
 
--   `with` (string): Include additional data, e.g., `assets` (for group logo).
--   Pagination parameters might be available.
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `q` | string | Search groups by name or description |
+| `per_page` | integer | Results per page (default `10`, max `100`) |
+| `page` | integer | Page number (default `1`) |
+| `sort_by` | string | Sort field - `name`, `created_at` (default), or `updated_at` |
+| `with` | string | Include related data - `assets`, `users`, or `guests` |
 
 ### Code samples
 
@@ -42,7 +45,7 @@ Replace `{org_id}` with your Organization ID.
 const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
 const orgId = 'YOUR_ORGANIZATION_ID';
 
-const queryParams = '?with=assets'; // Example: include group logos if available
+const queryParams = '?with=assets&per_page=10&page=1';
 const apiUrl = `https://go.tallyfy.com/api/organizations/${orgId}/groups${queryParams}`;
 
 const headers = new Headers();
@@ -55,12 +58,12 @@ fetch(apiUrl, {
     headers: headers
 })
 .then(response => {
-     return response.json().then(data => { // Attempt to parse JSON regardless of status
+    return response.json().then(data => {
         if (!response.ok) {
             console.error("Failed to list groups:", data);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return data; // Pass successful data along
+        return data;
     });
 })
 .then(data => {
@@ -88,9 +91,10 @@ headers = {
     'X-Tallyfy-Client': 'APIClient'
 }
 
-# Optional: Add query parameters
 params = {
-    'with': 'assets' # Example: include group logos if available
+    'with': 'assets',
+    'per_page': 10,
+    'page': 1
 }
 
 response = None
@@ -134,8 +138,11 @@ public class ListGroups {
         String orgId = System.getenv().getOrDefault("TALLYFY_ORG_ID", "YOUR_ORGANIZATION_ID");
         String baseUrl = "https://go.tallyfy.com/api/organizations/" + orgId + "/groups";
 
-        // Optional: Add query parameters
-        Map<String, String> queryParamsMap = Map.of("with", "assets"); 
+        Map<String, String> queryParamsMap = Map.of(
+            "with", "assets",
+            "per_page", "10",
+            "page", "1"
+        );
         String queryParamsString = queryParamsMap.entrySet().stream()
             .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
             .collect(Collectors.joining("&", "?", ""));
@@ -157,7 +164,6 @@ public class ListGroups {
             if (response.statusCode() == 200) {
                 System.out.println("Successfully listed groups:");
                 System.out.println(response.body());
-                // TODO: Consider parsing JSON using Jackson/Gson
             } else {
                 System.err.println("Failed to list groups. Status: " + response.statusCode());
                 System.err.println("Response Body: " + response.body());
@@ -181,11 +187,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
-    "time"
+	"time"
 )
 
 func main() {
@@ -195,9 +201,10 @@ func main() {
     if orgId == "" { orgId = "YOUR_ORGANIZATION_ID" }
     baseURL := fmt.Sprintf("https://go.tallyfy.com/api/organizations/%s/groups", orgId)
 
-    // Optional: Add query parameters
     queryParams := url.Values{}
-    queryParams.Add("with", "assets") // Example: include group logos
+    queryParams.Add("with", "assets")
+    queryParams.Add("per_page", "10")
+    queryParams.Add("page", "1")
     
     apiUrl := baseURL + "?" + queryParams.Encode()
 
@@ -219,7 +226,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
     if err != nil {
 		fmt.Printf("Error reading list groups response body: %v\n", err)
 		return
@@ -238,7 +245,6 @@ func main() {
     } else {
 	    fmt.Println(string(body))
     }
-	// TODO: Unmarshal JSON from body into a slice of structs if needed
 }
 ```
 </TabItem>
@@ -262,7 +268,9 @@ pplx::task<void> ListTallyfyGroups()
     uri_builder builder(U("https://go.tallyfy.com/api/organizations/"));
     builder.append_path(orgId);
     builder.append_path(U("groups"));
-    builder.append_query(U("with"), U("assets")); // Example query parameter
+    builder.append_query(U("with"), U("assets"));
+    builder.append_query(U("per_page"), U("10"));
+    builder.append_query(U("page"), U("1"));
     utility::string_t apiUrl = builder.to_string();
 
     http_client client(apiUrl);
@@ -280,7 +288,6 @@ pplx::task<void> ListTallyfyGroups()
                 value const & body = task.get();
                 if (response.status_code() == status_codes::OK) {
                     std::wcout << L"Successfully listed groups:\n" << body.serialize() << std::endl;
-                    // Access data: body[U("data")].as_array()
                 } else {
                     std::wcerr << L"Failed to list groups. Status: " << response.status_code() << L"\nResponse: " << body.serialize() << std::endl;
                 }
@@ -321,9 +328,10 @@ public class TallyfyGroupLister
         var accessToken = Environment.GetEnvironmentVariable("TALLYFY_ACCESS_TOKEN") ?? "YOUR_PERSONAL_ACCESS_TOKEN";
         var orgId = Environment.GetEnvironmentVariable("TALLYFY_ORG_ID") ?? "YOUR_ORGANIZATION_ID";
         
-        // Build URL with query parameters
         var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
-        query["with"] = "assets"; // Example
+        query["with"] = "assets";
+        query["per_page"] = "10";
+        query["page"] = "1";
         string queryString = query.ToString();
         var apiUrl = $"https://go.tallyfy.com/api/organizations/{orgId}/groups?{queryString}";
 
@@ -340,13 +348,11 @@ public class TallyfyGroupLister
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine("Successfully listed groups:");
-                // Pretty print JSON
                 try {
                     using var doc = JsonDocument.Parse(responseBody);
                     Console.WriteLine(JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                    // Access data: foreach (var groupElement in doc.RootElement.GetProperty("data").EnumerateArray()) { ... }
                 } catch (JsonException) {
-                    Console.WriteLine(responseBody); // Print raw if not valid JSON
+                    Console.WriteLine(responseBody);
                 }
             }
             else
@@ -365,11 +371,6 @@ public class TallyfyGroupLister
         }
     }
 
-    // Example Usage:
-    // static async Task Main(string[] args)
-    // {
-    //     await ListGroupsAsync();
-    // }
 }
 ```
 </TabItem>
@@ -377,29 +378,32 @@ public class TallyfyGroupLister
 
 ## Response
 
-A successful request returns a `200 OK` status code and a JSON object containing a `data` array. Each element represents a group in your Tallyfy organization.
+A successful request returns a `200 OK` status code and a JSON object with a `data` array of groups and a `meta` object for pagination.
 
 ```json
 {
   "data": [
     {
-      "id": "group_id_abc123", // Unique group ID
+      "id": "group_id_abc123",
       "name": "Sales Team",
       "description": "Handles all sales inquiries.",
-      "logo": null, // Or URL if logo uploaded and requested with 'with=assets'
-      "members": [1001, 1005], // Array of member user IDs
-      "guests": ["client.a@example.com"], // Array of guest emails
+      "logo": null,
+      "members": [1001, 1005],
+      "guests": ["client.a@example.com"],
       "created_at": "2023-01-15T09:00:00Z",
-      "updated_at": "2023-06-20T10:00:00Z",
-      "deleted_at": null
-    },
-    {
-      "id": "group_id_def456",
-      "name": "Support Tier 1",
-      // ... other group details ...
+      "last_updated": "2023-06-20T10:00:00Z"
     }
-  ]
-  // Potential meta object for pagination
+  ],
+  "meta": {
+    "pagination": {
+      "total": 15,
+      "count": 10,
+      "per_page": 10,
+      "current_page": 1,
+      "total_pages": 2,
+      "links": {}
+    }
+  }
 }
 ```
 

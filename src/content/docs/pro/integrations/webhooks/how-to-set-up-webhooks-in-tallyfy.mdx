@@ -1,11 +1,11 @@
 ---
-description: Tallyfy webhooks automatically transmit JSON data to external URLs when
-  workflow events occur at either the template level (firing on any step completion
-  or process launch) or step level (firing only for specific task completions) and
-  include retry logic for failed deliveries along with organizational ID headers for
-  security validation.
+about_tallyfy: true
+description: Tallyfy webhooks send JSON data to external URLs when workflow events
+  occur - at template level (any step completion or process launch/completion) or step
+  level (specific task completions) - with an organization ID header for security
+  validation.
 id: f590764433995ecdf06adf92bd5492cf
-lastUpdated: 2025-12-29
+lastUpdated: 2026-02-25
 sidebar:
   order: 1
 title: Details about webhooks
@@ -13,32 +13,33 @@ title: Details about webhooks
 
 import { Steps } from '@astrojs/starlight/components';
 
-## Webhook Configuration Guide
+## How webhooks work in Tallyfy
 
-Tallyfy webhooks are automated messages sent to external systems when specific events occur in your workflows. They transmit JSON data packets to predefined URLs, enabling real-time integration with other applications without manual intervention. This guide explains how to configure and implement webhooks in Tallyfy and avoid the common pitfalls that trip people up.
+Tallyfy webhooks send automated JSON messages to external systems when specific workflow events happen. They POST data to URLs you define, giving you real-time integration with other apps. This guide covers how to set them up and avoid common pitfalls.
 
-### Understanding webhook types
+### Webhook types
 
-Tallyfy offers two webhook configuration levels:
+Tallyfy has two webhook levels:
 
 #### Template-level webhooks
 
-Template-level webhooks trigger when **any step** within a process is completed. They also trigger when a process is initially launched, before any tasks are even completed. They transmit the complete process data, including all form fields and step statuses. Think of these as the "firehose" option - you get everything.
+Template-level webhooks fire when **any step** in a process is completed, when a process is launched, or when a process is completed. They send the full process data - all form fields and step statuses. Think of these as the "firehose" option.
+
+**When a step has its own webhook URL set, that takes priority** over the template-level webhook for that specific step.
 
 **Use cases:**
 - Track overall process progress in external systems
 - Update dashboards when any step changes
-- Trigger full data exports
-- Capture new process launches in external systems
+- Capture new process launches or completions
 
 #### Step-level webhooks
 
-Step-level webhooks trigger when a **specific step** is completed. They provide targeted integration for individual tasks within a process. These are more surgical - only fire when that particular step is done.
+Step-level webhooks fire only when a **specific step** is completed. More surgical - they only trigger when that particular step is done.
 
 **Use cases:**
-- Send notifications at critical process milestones
+- Send notifications at key process milestones
 - Trigger follow-up actions in other systems
-- Export specific form field data collected at a particular step
+- Export form field data collected at a particular step
 
 ### How webhook events flow
 
@@ -96,7 +97,7 @@ Success_Response: Success {
   style.stroke-width: 2
 }
 
-Failure_Handler: Retry Logic {
+Failure_Handler: Error Logged {
   shape: rectangle
   style.fill: "#fff3cd"
   style.stroke: "#225930"
@@ -149,45 +150,30 @@ External_System -> Failure_Handler: Error/Timeout {
   style.stroke-dash: 3
 }
 
-Failure_Handler -> Webhook_Handler: Retry 1 min {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Failure_Handler -> Webhook_Handler: Retry 5 min {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Failure_Handler -> Webhook_Handler: Retry 15 min {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Failure_Handler -> Tallyfy: Max retries\nexceeded {
+Failure_Handler -> Tallyfy: Failure logged {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
 ```
 
 **What to notice:**
-- **Two trigger types**: Template-level webhooks fire on ANY step completion or process launch, while step-level webhooks only fire for specific steps
-- **Retry mechanism**: Failed webhook deliveries automatically retry up to 3 times with exponential backoff (1 minute, 5 minutes, 15 minutes) to handle temporary network issues
-- **Security validation**: The X-Tallyfy-OrgID header authenticates webhook requests - always validate this in your middleware to prevent processing unauthorized webhooks
+- **Two trigger types** - Template-level webhooks fire on any step completion, process launch, or process completion. Step-level webhooks only fire for that specific step.
+- **Priority** - If a step has its own webhook URL, it's used instead of the template-level webhook for that step's completion event.
+- **Security** - The `X-Tallyfy-orgID` header is included in every webhook request. Always validate this in your receiving system.
 
-### Configuring template-level webhooks
+### Setting up template-level webhooks
 
 <Steps>
 1. Navigate to the template you want to configure
 2. Click **Edit** to enter template editing mode
 3. Open the **Advanced Settings** drawer
-4. Locate the Webhooks section
+4. Find the Webhooks section
 5. Toggle webhook functionality on
 6. Enter the destination URL in the **Template webhook URL** field
-7. Note the **Template alias** for reference in your integration
+7. Note the **Template alias** - you'll need it in your integration
 </Steps>
 
-### Configuring step-level webhooks
+### Setting up step-level webhooks
 
 <Steps>
 1. Navigate to the template containing your target step
@@ -199,38 +185,38 @@ Failure_Handler -> Tallyfy: Max retries\nexceeded {
 7. Save your changes
 </Steps>
 
-### Implementation example: Slack notifications
+### Example: Slack notifications via middleware
 
-This example demonstrates how to send automated notifications to a Slack channel when an employee completes an onboarding process in Tallyfy.
+Here's how to send Slack notifications when an employee completes an onboarding step in Tallyfy.
 
-#### Requirements
+#### What you'll need
 
 - Tallyfy account with Professional or Enterprise plan
-- Middleware account (such as Make.com, Power Automate, n8n, or Zapier)
-- Slack workspace with administrative access
+- Middleware account (Make.com, Power Automate, n8n, or Zapier)
+- Slack workspace with admin access
 
-:::note[Choosing the Right Middleware]
-For production integrations, we recommend comparing different [middleware platforms](/products/pro/integrations/middleware/) based on your needs. Popular options include **n8n**, **Make**, **Microsoft Power Automate**, and Zapier - each with different pricing models and capabilities.
+:::note[Choosing the right middleware]
+Compare different [middleware platforms](/products/pro/integrations/middleware/) based on your needs. Popular options include **n8n**, **Make**, **Microsoft Power Automate**, and Zapier - each with different pricing and capabilities.
 
-For maximum control and flexibility, especially if you have development resources, consider using Tallyfy's [Open API](/products/pro/integrations/open-api/) to build custom integrations that use AI to generate code for serverless functions.
+For maximum control, especially if you have dev resources, consider using Tallyfy's [Open API](/products/pro/integrations/open-api/) to build custom integrations with AI-generated code for serverless functions.
 :::
 
-#### Step 1: Configure middleware webhook receiver
+#### Step 1: Set up the middleware webhook receiver
 
 <Steps>
-1. Sign in to your middleware platform account
-2. Create a new workflow (called "Zap" in Zapier, "Flow" in Power Automate, "Scenario" in Make)
+1. Sign in to your middleware platform
+2. Create a new workflow ("Zap" in Zapier, "Flow" in Power Automate, "Scenario" in Make)
 3. Select **Webhooks** as the trigger app
 4. Choose **Catch Hook** or **When HTTP request is received** as the trigger event
 
     ![Zapier Catch Hook trigger](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-zapier-catch-hook-trigger.png)
 
-5. Copy the custom webhook URL provided by your middleware platform (you'll need this for Tallyfy)
+5. Copy the webhook URL provided by your middleware platform - you'll paste it into Tallyfy next
 
     ![Zapier webhook URL](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-zapier-webhook-url.png)
 </Steps>
 
-#### Step 2: Configure Slack message action
+#### Step 2: Configure the Slack message action
 
 <Steps>
 1. Add an action step to your workflow.
@@ -241,25 +227,24 @@ For maximum control and flexibility, especially if you have development resource
 
 4. Connect your Slack account if not already connected.
 5. Select the destination channel (e.g., #general).
-6. Create a message template using webhook data.
+6. Build a message template using the webhook data fields.
 
     ![Slack message template](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-zapier-slack-message-template.png)
-7. Include relevant details like process name, step name, and assignee in the template.
+7. Include details like process name, step name, and assignee.
 </Steps>
 
-#### Step 3: Configure Tallyfy webhook
+#### Step 3: Configure the Tallyfy webhook
 
 <Steps>
 1. Navigate to your onboarding template in Tallyfy.
 2. Enter **Edit** mode.
 3. For template-level notifications, open the **Advanced Settings** drawer.
-4. Toggle webhooks on within the Advanced Settings.
+4. Toggle webhooks on.
 5. Paste the middleware webhook URL into the **Template webhook URL** field.
-6. For step-specific notifications, select the final onboarding step.
+6. For step-specific notifications, select the relevant step instead.
 7. Open the **Advanced** tab for that step.
-8. Toggle webhooks on within the step's Advanced tab.
-9. Paste the middleware webhook URL into the step's webhook field.
-10. Save your changes.
+8. Toggle webhooks on and paste the middleware webhook URL.
+9. Save your changes.
 </Steps>
 
 #### Step 4: Test the integration
@@ -267,47 +252,46 @@ For maximum control and flexibility, especially if you have development resource
 <Steps>
 1. Run your onboarding process
 2. Complete the relevant step
-3. Verify that the notification appears in your Slack channel
+3. Verify the notification appears in your Slack channel
 
     ![Slack notification result](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-slack-notification-result.png)
 </Steps>
 
-### Security considerations
+### Security
 
-For webhook security, Tallyfy includes the `X-Tallyfy-OrgID` header in all webhook requests. You can use this header to verify that incoming webhooks are legitimate by checking against your organization's ID - you definitely don't want to process random webhook spam.
+Tallyfy includes the `X-Tallyfy-orgID` header in all webhook requests. Validate this header against your organization's ID to confirm the webhook is legitimate - you don't want to process random webhook spam.
 
 ![X-Tallyfy-OrgID header](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-x-tallyfy-orgid-header.png)
 
-:::warning[Important: Handle duplicate webhook events]
-Webhooks can fire multiple times for the same event. For example, when a task is completed and then reopened and completed again, you'll receive multiple webhook notifications. Always implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent duplicate actions in your integrated systems. Handling duplicates from the start is much easier than debugging why things ran twice later.
+:::warning[Handle duplicate webhook events]
+Webhooks can fire multiple times for the same event. For example, if a task is completed, then reopened and completed again, you'll get multiple notifications. Always implement [idempotency handling](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) to prevent duplicate actions. It's much easier to handle this from the start than debug it later.
 :::
 
-### Troubleshooting webhook issues
+### Troubleshooting
 
 **Webhooks not firing?** Here's how to diagnose:
 
-1. **Verify the URL is correct** - Copy and paste it fresh, don't type it
-2. **Check URL accessibility** - Test your webhook URL with a tool like RequestBin or Postman first
+1. **Verify the URL is correct** - Copy and paste it fresh, don't type it manually
+2. **Check URL accessibility** - Test your webhook URL with RequestBin or Postman first
 3. **Confirm webhook is enabled** - Both the toggle AND the URL field must be set
 4. **Test with a simple receiver** - Use webhook.site or RequestBin to verify Tallyfy is sending data
-5. **Check for HTTPS** - Many webhook receivers require HTTPS, not HTTP
-6. **Look for authentication requirements** - Your receiver might be rejecting unauthenticated requests
-7. **Verify process completion** - Webhooks only fire when steps are actually completed
-8. **Check retry attempts** - Look for delayed delivery (1, 5, 15 minutes after initial failure)
+5. **Check for HTTPS** - Many receivers require HTTPS, not HTTP
+6. **Look for auth requirements** - Your receiver might be rejecting unauthenticated requests
+7. **Verify step completion** - Webhooks only fire when steps are actually completed (not just opened)
 
 :::tip[Testing webhooks]
-**Always test with webhook.site first**. Go to webhook.site, get a unique URL, use it in Tallyfy, then complete a task. You'll see exactly what data Tallyfy sends. Once you confirm data is flowing, switch to your real webhook URL.
+**Always test with webhook.site first.** Get a unique URL there, use it in Tallyfy, then complete a task. You'll see exactly what data Tallyfy sends. Once you've confirmed data is flowing, switch to your real webhook URL.
 :::
 
 ### Best practices
 
-- Use HTTPS URLs for webhook destinations (HTTP is asking for trouble)
-- Implement webhook authentication in your receiving system
-- Test webhooks thoroughly before relying on them in production (seriously, test them)
-- Monitor webhook delivery using your middleware platform's logging tools
-- Consider implementing retry logic for failed webhook deliveries
-- Use webhook.site or RequestBin for initial testing before connecting to production systems
-- Always validate the payload structure - external systems change without warning
+- Use HTTPS URLs for webhook destinations - HTTP is asking for trouble
+- Validate the `X-Tallyfy-orgID` header in your receiving system
+- Test webhooks before relying on them in production
+- Monitor webhook delivery using your middleware platform's logs
+- Build retry logic into your receiving system for reliability
+- Use webhook.site or RequestBin for initial testing before connecting production systems
+- Validate the payload structure on your end - don't assume it won't change
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
