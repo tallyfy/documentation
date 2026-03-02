@@ -1145,6 +1145,24 @@ These patterns are effective when used intentionally with substance:
 - **Example**: `/products/pro/tracking-and-tasks/processes/`
 - **Public Production URL**: Base URL is `https://tallyfy.com/products/`
 - **Public Staging URL**: Base URL is `https://staging.tallyfy.com/products/`
+
+### Deployment Pipeline Architecture
+
+**Branch-to-deployment mapping:**
+
+| This repo branch | Syncs to support-docs branch | CF Pages environment | Worker | Public URL |
+|---|---|---|---|---|
+| `staging` (default) | `staging` | preview | `tallyfy-products-v2` | `staging.tallyfy.com/products/*` |
+| `main` | `production` | production | `tallyfy-products` | `tallyfy.com/products/*` |
+
+**How it works:**
+1. Push to this repo triggers `generate-ids.yml` → then `documentation-pipeline.yml`
+2. Pipeline processes content (IDs, snippets, related articles, lastUpdated dates)
+3. Sync job rsyncs `src/content/docs/` to `support-docs` on the mapped branch
+4. Cloudflare Pages auto-builds and deploys `support-docs`
+5. Cloudflare Workers strip `/products` prefix and proxy to the Pages deployment
+
+**Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`
@@ -1311,7 +1329,9 @@ Every documentation page displays its last modification date, automatically main
 
 ### How It Works
 1. **GitHub Actions Workflow** (`documentation-pipeline.yml`):
-   - Runs on every commit to staging branch (then auto-promotes staging → main)
+   - Runs on every commit to BOTH `staging` and `main` branches (no auto-promotion between them)
+   - `staging` pushes sync content to `support-docs` `staging` branch → CF Pages preview → `staging.tallyfy.com/products/*`
+   - `main` pushes sync content to `support-docs` `production` branch → CF Pages production → `tallyfy.com/products/*`
    - Executes `update-last-modified.py` script
    - Extracts last modified date from Git history for each MDX file
    - Updates `lastUpdated` field in frontmatter
