@@ -13,6 +13,7 @@ from typing import Optional
 # Blacklist words that should never appear in AI-generated content
 # Based on humanization guidelines - these words flag content as AI-generated
 BLACKLIST_REPLACEMENTS = {
+	# Tier 1 - worst offenders (200x+ AI frequency)
 	'comprehensive': 'complete',
 	'delve': 'explore',
 	'delving': 'exploring',
@@ -22,6 +23,33 @@ BLACKLIST_REPLACEMENTS = {
 	'tapestry': 'mix',
 	'multifaceted': 'complex',
 	'pivotal': 'key',
+	'meticulous': 'careful',
+	'meticulously': 'carefully',
+	'unwavering': 'steady',
+	'underscore': 'highlight',
+	'underscores': 'highlights',
+	'underscoring': 'highlighting',
+	'nuanced': 'specific',
+	'intricate': 'detailed',
+	'holistic': 'complete',
+	'groundbreaking': 'new',
+	'paradigm': 'model',
+	'synergy': 'combination',
+	'burgeoning': 'growing',
+	'testament': 'proof',
+	'poignant': 'notable',
+	'embark': 'start',
+	'foster': 'encourage',
+	'harnessing': 'using',
+	'beacon': 'example',
+	'plethora': 'many',
+	'bespoke': 'custom',
+	'reimagine': 'rethink',
+	'envision': 'imagine',
+	'pinnacle': 'peak',
+	'spearhead': 'lead',
+	'commendable': 'good',
+	# Tier 2 - high frequency (50-200x)
 	'seamless': 'smooth',
 	'seamlessly': 'smoothly',
 	'robust': 'strong',
@@ -32,12 +60,37 @@ BLACKLIST_REPLACEMENTS = {
 	'facilitates': 'helps',
 	'facilitating': 'helping',
 	'paramount': 'important',
-	'meticulous': 'careful',
-	'meticulously': 'carefully',
-	'unwavering': 'steady',
-	'underscore': 'highlight',
-	'underscores': 'highlights',
-	'underscoring': 'highlighting',
+	'optimize': 'improve',
+	'optimizes': 'improves',
+	'optimizing': 'improving',
+	'optimized': 'improved',
+	'streamline': 'simplify',
+	'streamlines': 'simplifies',
+	'streamlining': 'simplifying',
+	'streamlined': 'simplified',
+	'empower': 'enable',
+	'empowers': 'enables',
+	'empowering': 'enabling',
+	'ecosystem': 'suite',
+	'stakeholder': 'team member',
+	'stakeholders': 'team members',
+	'actionable': 'practical',
+	'cutting-edge': 'modern',
+	'best-in-class': 'top',
+	'transformative': 'major',
+	'game-changer': 'breakthrough',
+	'harness': 'use',
+	'harnesses': 'uses',
+	'elevate': 'improve',
+	'elevates': 'improves',
+	'orchestrate': 'coordinate',
+	'orchestrates': 'coordinates',
+	'orchestrating': 'coordinating',
+	'orchestration': 'coordination',
+	'bolster': 'strengthen',
+	'bolsters': 'strengthens',
+	'amplify': 'increase',
+	'amplifies': 'increases',
 }
 
 # Transition words to remove or replace
@@ -105,13 +158,19 @@ CRITICAL WRITING RULES - Follow these exactly:
 
 1. BANNED WORDS (never use): comprehensive, delve, navigate, landscape, tapestry,
    multifaceted, pivotal, seamless, robust, leverage, facilitate, paramount,
-   meticulous, unwavering, underscore
+   meticulous, unwavering, underscore, nuanced, intricate, holistic, groundbreaking,
+   paradigm, synergy, optimize, streamline, empower, ecosystem, stakeholder,
+   actionable, cutting-edge, best-in-class, transformative, game-changer, harness,
+   elevate, orchestrate, bolster, amplify, embark, foster, bespoke, reimagine
 
 2. BANNED TRANSITIONS (never start sentences with): Moreover, Furthermore, Indeed,
    Subsequently, Additionally
 
 3. WORD REPLACEMENTS: Use "complete" not "comprehensive", "use" not "leverage",
-   "smooth" not "seamless", "strong" not "robust", "help" not "facilitate"
+   "smooth" not "seamless", "strong" not "robust", "help" not "facilitate",
+   "improve" not "optimize", "simplify" not "streamline", "enable" not "empower",
+   "suite" not "ecosystem", "team member" not "stakeholder", "practical" not "actionable",
+   "coordinate" not "orchestrate", "modern" not "cutting-edge"
 
 4. STYLE: Write direct, conversational descriptions. Start with what Tallyfy does,
    not meta-commentary. Use active voice. Keep descriptions 200-350 characters.
