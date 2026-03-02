@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import time
 import requests
 from pathlib import Path
 from typing import Optional
@@ -138,35 +139,43 @@ class ClaudeClient:
 		# Inject humanization guidelines into the system prompt
 		self.system_prompt = system_prompt + HUMANIZATION_PROMPT_SUFFIX
 
-	def generate_snippet(self, prompt: str, max_tokens: int = 100, temperature: float = 0.79) -> Optional[str]:
-		"""Generate a snippet using Claude API."""
-		try:
-			payload = {
-				"model": self.MODEL,
-				"max_tokens": max_tokens,
-				"system": self.system_prompt,
-				"messages": [
-					{"role": "user", "content": prompt}
-				],
-				"temperature": temperature
-			}
+	def generate_snippet(self, prompt: str, max_tokens: int = 100, temperature: float = 0.79, max_retries: int = 3) -> Optional[str]:
+		"""Generate a snippet using Claude API with retry on transient failures."""
+		payload = {
+			"model": self.MODEL,
+			"max_tokens": max_tokens,
+			"system": self.system_prompt,
+			"messages": [
+				{"role": "user", "content": prompt}
+			],
+			"temperature": temperature
+		}
 
-			response = requests.post(
-				self.BASE_API,
-				headers=self.headers,
-				json=payload,
-				timeout=30
-			)
-			response.raise_for_status()
+		for attempt in range(1, max_retries + 1):
+			try:
+				response = requests.post(
+					self.BASE_API,
+					headers=self.headers,
+					json=payload,
+					timeout=60
+				)
+				response.raise_for_status()
+				return response.json()['content'][0]['text']
 
-			return response.json()['content'][0]['text']
-
-		except requests.exceptions.RequestException as e:
-			logger.error(f"API request failed: {str(e)}")
-			return None
-		except (KeyError, IndexError) as e:
-			logger.error(f"Failed to parse API response: {str(e)}")
-			return None
+			except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+				if attempt < max_retries:
+					wait = attempt * 5
+					logger.warning(f"Transient error (attempt {attempt}/{max_retries}), retrying in {wait}s: {e}")
+					time.sleep(wait)
+				else:
+					logger.error(f"API request failed after {max_retries} attempts: {e}")
+					return None
+			except requests.exceptions.RequestException as e:
+				logger.error(f"API request failed: {e}")
+				return None
+			except (KeyError, IndexError) as e:
+				logger.error(f"Failed to parse API response: {e}")
+				return None
 
 def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 	"""Process a single MDX file and update its snippet."""
