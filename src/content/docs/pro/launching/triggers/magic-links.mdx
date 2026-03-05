@@ -20,8 +20,8 @@ Magic links are URLs that trigger Tallyfy actions automatically when a logged-in
 - Change a task's deadline
 - Update a form field value on a task
 
-:::caution[For internal users only]
-Magic links only work for users logged in to your Tallyfy organization. They don't work for external guests. To let external people start processes, use [public kick-off forms](/products/pro/launching/triggers/kick-off-forms/).
+:::note[Works for both internal users and public forms]
+Magic link URL parameters (`ko_fields`, `default_run_name`) work on both internal kick-off forms (for logged-in users) and [public kick-off forms](/products/pro/launching/triggers/kick-off-forms/) (for external guests). This means you can embed pre-filled public form links on your website.
 :::
 
 :::warning[Required kick-off fields]
@@ -105,6 +105,38 @@ Replace `[YourOrgID]` and `[TaskID]` with your actual values. All task-based act
 - **Add comment:** `...?action=writeAComment&task_id=[TaskID]&comment=Please+review`
 - **Edit deadline:** `...?action=editDeadline&task_id=[TaskID]&deadline=YYYY-MM-DDTHH:mm:ss.SSSZ`
 - **Update form field:** `...?action=updateFormFieldValue&task_id=[TaskID]&form_fields={"fieldId123":"New+Value"}`
+
+### Pre-fill public kick-off forms
+
+You can pre-fill fields on public kick-off forms using the same `ko_fields` and `default_run_name` parameters. The public form URL follows this pattern:
+
+```text
+https://go.tallyfy.com/[YourOrgID]/public/kickoff/[TemplateAlias]?ko_fields=[JSON]&default_run_name=[Name]
+```
+
+This is useful when you want to embed application links on your website with specific values pre-selected - for example, pre-filling a property name based on which listing page the visitor clicked from.
+
+**Field value format reference** (before URL-encoding):
+
+| Field type | JSON format in `ko_fields` | Example |
+|------------|---------------------------|---------|
+| Short text | `"fieldAlias": "value"` | `"first-name": "John"` |
+| Long text / Textarea | `"fieldAlias": "value"` | `"notes": "Line 1"` |
+| Dropdown | `"fieldAlias": {"id": N, "text": "Label"}` | `"property-name": {"id": 4, "text": "16 Laurel"}` |
+| Radio button | `"fieldAlias": "Selected Label"` | `"housing-type": "BPDA"` |
+| Checkbox / Multiselect | `"fieldAlias": [{"id": N, "text": "Label", "selected": true}]` | `"unit-sizes": [{"id": 1, "text": "Studio", "selected": true}]` |
+| Date | `"fieldAlias": "YYYY-MM-DDTHH:mm:ss.SSSZ"` | `"app-date": "2026-03-05T00:00:00.000Z"` |
+| Email | `"fieldAlias": "email@example.com"` | `"contact": "john@example.com"` |
+
+**Practical example** - embedding on a property listing website:
+
+```html
+<a href="https://go.tallyfy.com/ORG_ID/public/kickoff/waitlist-app?ko_fields=%7B%22property-name%22%3A%7B%22id%22%3A4%2C%22text%22%3A%2216%20Laurel%22%7D%7D&default_run_name=Application%20-%2016%20Laurel">
+  Request Application
+</a>
+```
+
+When a visitor clicks this link, they enter their email for verification, then see the kick-off form with the property name already selected. The same `ko_fields` JSON format works for both logged-in and public kick-off forms.
 
 ### Where to use magic links
 
