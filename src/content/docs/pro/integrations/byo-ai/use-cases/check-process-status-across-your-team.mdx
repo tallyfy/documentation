@@ -1,0 +1,176 @@
+---
+about_tallyfy: true
+description: Ask your AI to pull all running Tallyfy processes and cross-reference task completion across your team to instantly spot bottlenecks and overdue work and stalled processes without manually checking each workflow one by one.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 4
+title: Check process status across your team
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Spot bottlenecks before they become problems
+
+Managers and team leads - this one's for you. Instead of clicking through a dozen open processes to figure out what's stuck, you can ask your AI to do the legwork: pull every running Tallyfy process, check which tasks are overdue, and tell you exactly who's responsible. One question replaces ten minutes of dashboard hunting.
+
+### What you'll accomplish
+
+- See the status of all running processes in one summary
+- Identify stalled or overdue tasks and who owns them
+- Spot bottlenecks across your team's workflows before they turn into real problems
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+    **Prompt to try:**
+
+    > "Show me all running processes and flag any that have tasks overdue by more than 2 days. Who's responsible for the stuck tasks?"
+
+    Claude works well with follow-up questions. After you get the initial overview, you can ask things like "What's the oldest stuck task?" or "Which person has the most overdue work right now?" - it keeps the context from your previous question and builds on it.
+  </TabItem>
+  <TabItem label="ChatGPT">
+    **Prompt to try:**
+
+    > "Pull up every active process in Tallyfy. Which ones have overdue tasks? Give me a summary with the process name, how many tasks are overdue, and who's assigned to them."
+
+    ChatGPT handles structured output well, so asking for a summary format upfront - like columns or a list - usually gets you something clean you can copy into a message or document.
+  </TabItem>
+  <TabItem label="Copilot">
+    **Prompt to try:**
+
+    > "Check all our running Tallyfy processes. Are any stuck? Show me which processes have overdue tasks and who needs to act on them."
+
+    Copilot is handy if you're already in Teams or Outlook - you can ask this while you're in the middle of something else and get the answer without switching context.
+  </TabItem>
+  <TabItem label="Gemini">
+    **Prompt to try:**
+
+    > "Give me a status report on all running Tallyfy processes. Highlight anything that's behind schedule and tell me who owns the overdue tasks."
+
+    Gemini tends to give well-organized responses when you frame the request as a "status report" - it treats it like a structured document rather than a conversational answer.
+  </TabItem>
+</Tabs>
+
+What happens when you send one of these prompts: the AI calls `get_organization_runs` to fetch all your active Tallyfy processes, then `get_tasks_for_process` for each one to check task status and due dates. It cross-references that against `get_organization_users` to match task assignments to real names. For larger organizations with many processes, it may also use `search_for_processes` to narrow results before pulling the full details.
+
+You get back a readable summary - not raw API output, but an actual answer that tells you what's fine, what's at risk, and what needs your attention right now.
+
+### How it works behind the scenes
+
+There's a small chain of API calls happening when your AI answers a process status question, and it helps to understand it so you know what to expect.
+
+**Step 1 - Get all active processes**
+
+The AI starts with `get_organization_runs`. This returns every process currently running in your Tallyfy organization - the name, which template it came from, when it was started, and its current state. Think of this as the index: it tells the AI what exists, but not the detail inside each one.
+
+**Step 2 - Pull task details for each process**
+
+Next, the AI calls `get_tasks_for_process` for each active process. This is where it gets the real signal: which tasks are complete, which are open, which are overdue, and who's assigned to each. If you have 20 running processes, the AI makes 20 calls here - it's doing the repetitive clicking you'd otherwise do yourself.
+
+**Step 3 - Cross-reference people and deadlines**
+
+With task data in hand, the AI compares due dates against today's date to calculate overdue status. It pulls `get_organization_users` to translate user IDs into actual names. The result is a list of bottlenecks with real context: not just "Task X is overdue" but "Task X in the Client Onboarding process for Acme Corp is 4 days overdue and assigned to Jamie."
+
+**For individual workloads**
+
+If you ask about a specific person - "How is Sarah's work looking?" - the AI can use `get_user_tasks` instead of scanning every process. This is faster and more focused when you already know who you want to check on.
+
+The whole chain runs in seconds. You're not waiting for a report to be generated or a dashboard to load - you're getting a real-time answer assembled from live Tallyfy data.
+
+### Tips for better results
+
+The prompts above will get you started, but small tweaks to how you ask make a real difference in what you get back.
+
+**Filter by template**
+
+If you only care about one type of process, say so. "Show me the status of all Client Onboarding processes" or "Are any of the Employee Offboarding processes stalled?" keeps the response focused instead of giving you a wall of unrelated processes.
+
+**Ask about specific people**
+
+"How are Marcus's processes looking?" or "Which tasks does Priya own that are overdue?" pulls individual workload data using `get_user_tasks` and is much faster than scanning everything. Good for 1-on-1 check-ins or when someone's out and you need to reassign their work.
+
+**Request a specific format**
+
+If you need to share the results in a meeting or paste them into a Slack message, ask for a format upfront. "Give me a table with columns: process name, template, percentage complete, overdue task count, and how long it's been stuck" gets you something ready to share without editing.
+
+**Set a threshold**
+
+"Only flag tasks overdue by more than 3 days" cuts out the noise. Not every overdue task is a crisis - a task that's 6 hours past due is very different from one that's been stuck for a week. Setting thresholds helps you focus on things that actually need your attention.
+
+**Combine filters**
+
+You can stack these: "Show me all running HR onboarding processes where a task has been overdue for more than 5 days, and tell me who's assigned to the stuck task." The AI handles the logic of combining these conditions - you don't need to think about which API call does what.
+
+**Ask for a trend, not just a snapshot**
+
+"Have the number of overdue tasks gone up compared to last week?" or "Which processes have been running the longest without completing?" gets at systemic issues rather than just today's status. This is useful for identifying templates that need to be redesigned, not just processes that need a nudge.
+
+### What good output looks like
+
+A well-formed answer to a process status question from your AI should tell you:
+
+- How many processes are currently active
+- Which ones have overdue tasks (with the process name and template it came from)
+- How many tasks are overdue in each, and by how many days
+- Who owns the stuck tasks
+- Any processes that have been active for an unusually long time with little progress
+
+You might get something like:
+
+> "You have 14 active processes. 3 have overdue tasks:
+> - Client Onboarding - Riverbank Financial (template: Client Onboarding): 2 tasks overdue, assigned to Sam (3 days) and Alex (1 day)
+> - Employee Offboarding - Jordan Lee (template: HR Offboarding): 1 task overdue, assigned to HR Team (5 days)
+> - Vendor Review - Q1 Suppliers (template: Vendor Review): 1 task overdue, assigned to Finance (7 days)
+>
+> The Finance-assigned task in Vendor Review has been stuck the longest. Want me to send a reminder to any of these assignees?"
+
+That last offer - "want me to send a reminder?" - is a good example of how this tool can chain into the next action. You can say yes and have the AI draft a message, or ask it to pull up more detail on one of the stuck processes.
+
+### When this is most useful
+
+**Monday morning standup prep**
+
+Before your team call, ask for a full process status sweep. You walk in knowing exactly what's stuck, who to ask about it, and where to focus the conversation. No more "I'll have to check and get back to you."
+
+**End-of-week review**
+
+"What processes started this week? Which ones made the most progress? Are any that started Monday still not past the first task?" This gives you a real view of your team's throughput without pulling a report manually.
+
+**Before a client call**
+
+"Show me the status of the Client Onboarding process for Meridian Corp." One question gives you everything you need to update the client: what's done, what's in progress, what's next, and whether anything is behind.
+
+**When someone's out**
+
+"What open tasks does Jamie have right now?" pulls a full list so you can reassign or flag anything time-sensitive. Much faster than asking around or checking each process manually.
+
+**Spotting systemic problems**
+
+If the same task keeps appearing in your overdue list week after week across multiple process instances, that's a sign the template needs fixing - not just the individual process. Asking "which task step shows up most often in overdue lists?" can surface those patterns.
+
+### Take it further
+
+Once you know what's stuck, you can act on it without leaving your AI conversation. Some things you can do next:
+
+- Ask the AI to send a task reminder to the person who's overdue
+- Have it reassign a task to someone else
+- Ask it to update the due date on a specific task
+- Request a written summary you can paste into a team update
+
+Tallyfy's MCP integration means your AI isn't just reading data - it can take actions too. Spotting a bottleneck and fixing it can happen in the same conversation.
+
+- [Get a daily briefing of your tasks](/products/pro/integrations/byo-ai/use-cases/get-a-daily-briefing-of-your-tasks/)
+- [Generate reports from process data](/products/pro/integrations/byo-ai/use-cases/generate-reports-from-process-data/)
+- [Find anything across your workflows](/products/pro/integrations/byo-ai/use-cases/find-anything-across-your-workflows/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > </LinkTitleCard>
+  <LinkTitleCard header="Processes" href="/products/pro/tracking-and-tasks/processes/" > </LinkTitleCard>
+  <LinkTitleCard header="Tracker view" href="/products/pro/tracking-and-tasks/tracker-view/" > </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > </LinkTitleCard>
+</CardGrid>

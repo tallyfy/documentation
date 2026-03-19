@@ -1,0 +1,151 @@
+---
+about_tallyfy: true
+description: Tell your AI to launch a Tallyfy process from any template with kick-off form data pre-filled from a plain language description so you can start workflows instantly without navigating to the template and manually entering each field.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 7
+title: Launch processes with pre-filled data
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Start a workflow with one sentence
+
+Instead of opening Tallyfy, finding the right template, and filling in kick-off form fields one by one, just tell your AI what you need. Describe the details in plain language and it launches the process with everything pre-filled - no tab-switching, no manual data entry, no hunting for the right template name.
+
+### What you'll accomplish
+
+- Launch any Tallyfy process template from your AI chat
+- Pre-fill kick-off form fields with data from your plain language description
+- Skip the manual template-finding and form-filling workflow
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+> Launch the Client Onboarding template for Acme Corp. They're an Enterprise tier client based in London, primary contact is Jane Smith at jane@acme.com, contract value is $50,000.
+
+**What happens**: Claude calls `get_all_templates` or `search_for_templates` to find the right template by name. Then it calls `get_kickoff_fields` to see exactly what form fields that template expects. Finally, it calls `launch_process` with the template ID, a process name, and the kick-off data matched to the right fields. Claude is particularly good at inferring which field your data belongs to - "Enterprise tier" maps to a dropdown, "$50,000" maps to a currency field, and so on.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> Start a new Client Onboarding process. Client name: Acme Corp. Tier: Enterprise. Location: London. Contact: Jane Smith, jane@acme.com. Contract: $50,000.
+
+**What happens**: ChatGPT calls `search_for_templates` to locate the Client Onboarding template, then calls `get_kickoff_fields` to discover what the template needs at launch. It maps each piece of data you provided to the corresponding field and calls `launch_process` to start the workflow. The structured format of this prompt - with labeled fields - makes it easy for ChatGPT to match your data precisely.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> Kick off the Client Onboarding template in Tallyfy for Acme Corp - Enterprise tier, based in London. Main contact is Jane Smith (jane@acme.com), $50K contract.
+
+**What happens**: Copilot calls `get_all_templates` to find the Client Onboarding template, then `get_kickoff_fields` to check what data the template needs. It translates "$50K" to the correct numeric value and maps everything else to the matching fields before calling `launch_process`. Because this prompt is slightly less formal, Copilot may confirm the contract value interpretation before proceeding.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> Launch a Client Onboarding in Tallyfy for Acme Corp. Details: Enterprise tier, London office, contact Jane Smith jane@acme.com, contract value $50,000.
+
+**What happens**: Gemini calls `search_for_templates` to locate the right template, then `get_kickoff_fields` to understand the form structure. It maps your description to the available fields and calls `launch_process` to start the workflow. Gemini tends to present a summary of what it's about to do before executing, so you get a clear preview of which field each piece of data is going into.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+Three tool calls happen in sequence - and understanding each one helps you write better prompts.
+
+**Step 1: Find the template**
+
+Your AI calls `get_all_templates` or `search_for_templates` depending on how specific your prompt is. If you say "Client Onboarding," it searches for that by name. If you're not sure of the exact name - "the onboarding template we use for new enterprise clients" - the AI uses search to find the closest match and may ask you to confirm before proceeding.
+
+**Step 2: Discover the kick-off fields**
+
+Once the template is identified, your AI calls `get_kickoff_fields` to see exactly what data that template collects at launch. This is important. Tallyfy templates vary - some have two fields, some have fifteen. The AI reads the actual field definitions: field names, field types (text, dropdown, number, date, email), which fields are required, and what the valid options are for dropdown fields.
+
+This step is what makes the pre-filling accurate. Rather than guessing at field names, the AI knows precisely what the template expects.
+
+**Step 3: Launch with pre-filled data**
+
+Your AI calls `launch_process` with three things: the template ID it found in step one, a process name (usually derived from your description - something like "Client Onboarding - Acme Corp"), and the kick-off field values matched to the right field IDs.
+
+The matching logic is straightforward. If a field is labeled "Company name" and you said "Acme Corp," that's an obvious match. If a field is a dropdown for "Client tier" with options Enterprise, Business, and Starter, and you said "Enterprise tier client," the AI selects Enterprise. If a field expects an email address and you provided one, it goes there.
+
+What happens when data is ambiguous? The AI asks. If you said "50K" and the field expects a number, most AIs will interpret that as 50000 without asking. But if you mentioned a date range and the template has both a "contract start date" and a "contract end date" field, the AI will clarify which date goes where rather than guess.
+
+Required fields that are completely missing from your description will always trigger a question before the process launches. The AI won't skip required fields or leave them blank - it will ask you to provide the missing information first.
+
+### Tips for better results
+
+**Name the template precisely.** Tallyfy templates have exact names - "Client Onboarding" and "Enterprise Client Onboarding" could be two different templates. If you're not sure of the exact name, ask first: "What onboarding templates do we have?" The AI will list them and you can pick the right one.
+
+**Include all the data you want pre-filled.** The AI can only fill fields from information you provide. If the kick-off form has a "Sales rep" field and you don't mention who that is, the AI will either leave it blank (if it's optional) or ask you. Front-loading all the relevant details in your prompt saves a round-trip.
+
+**Ask what fields are available before launching.** If you're not sure what a template collects, ask: "What kick-off fields does the Client Onboarding template have?" The AI calls `get_kickoff_fields` and returns the full list. Then you can craft a prompt that covers everything.
+
+**Launch multiple processes at once.** You can describe several at the same time: "Launch Employee Onboarding for these three new hires: [names and details]." The AI will launch them sequentially, one per template instance, applying the right data to each. This is useful for batch work - onboarding a cohort of new hires, for example, or starting client processes for everyone who signed up this week.
+
+**Use copy-paste for structured data.** If you have a table or a list of new client details from a spreadsheet, paste it directly into your prompt. The AI handles unstructured input well, but tabular data with clear labels maps to form fields with almost no ambiguity.
+
+**Mix process launch with context.** You can include relevant background: "Launch the Contract Review template for Acme Corp. Note that their legal team requires two-week turnaround and they flagged data residency as a concern - include that in the notes field." As long as there's a notes or free-text field in the kick-off form, the AI will put that context there.
+
+### What the AI does with dropdown fields
+
+Dropdown fields deserve a mention because they behave differently from text fields. When the kick-off form has a dropdown - say, "Client tier" with options Enterprise, Business, and Starter - the AI reads those options from `get_kickoff_fields` and matches your description to the closest one.
+
+If your description is unambiguous ("Enterprise tier"), the match is automatic. If it's ambiguous ("large client"), the AI will either pick what seems most likely and tell you what it chose, or ask you to confirm. Most AIs err toward asking rather than guessing on dropdowns, since picking the wrong option can affect how the process routes and who gets assigned.
+
+Date fields work similarly. If the form expects a specific date format, the AI handles the conversion - "next Monday" becomes an actual date, "end of Q2" becomes June 30.
+
+### When the AI asks for confirmation
+
+Not everything launches automatically. Your AI will pause and ask before proceeding in a few situations:
+
+- **Required fields are missing** - if the form requires a field you didn't mention, the AI will ask for it rather than launch with gaps
+- **Template ambiguity** - if "Client Onboarding" matches multiple templates, the AI lists them and asks which one you mean
+- **Destructive interpretations** - if the AI is unsure whether a value belongs in one field or another, it asks rather than guesses
+- **Dropdown mismatches** - if your description doesn't clearly match any dropdown option, the AI shows you the options and asks you to pick
+
+This confirmation behavior is intentional. The whole point of pre-filling data is accuracy - a process launched with the wrong client tier or the wrong contract value creates downstream problems in Tallyfy that are harder to fix after the fact.
+
+### After the process launches
+
+Once `launch_process` succeeds, Tallyfy creates a running process with all your kick-off data in place. The AI returns confirmation: the process name, its ID, and usually a direct link to open it in Tallyfy.
+
+From that point, the process runs like any other - tasks get assigned to the right people based on the template's assignment rules, deadlines are calculated, and notifications go out. The only difference from launching manually is that you never touched the Tallyfy interface.
+
+If you want to verify, ask: "What's the status of the Acme Corp onboarding process?" The AI will call the relevant tools to check and report back.
+
+### Take it further
+
+- [Insert data into form fields from other systems](/products/pro/integrations/byo-ai/use-cases/insert-data-into-form-fields-from-other-systems/)
+- [Create tasks from meeting notes](/products/pro/integrations/byo-ai/use-cases/create-tasks-from-meeting-notes/)
+- [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Launching processes" href="/products/pro/launching/" > How to launch a process from a template in Tallyfy, including kick-off form data and assignment options. </LinkTitleCard>
+  <LinkTitleCard header="Templates" href="/products/pro/documenting/templates/" > How templates work in Tallyfy and how to create and configure them for your team. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables across your Tallyfy workflows. </LinkTitleCard>
+</CardGrid>

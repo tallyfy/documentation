@@ -1,0 +1,151 @@
+---
+about_tallyfy: true
+description: Ask your AI to run a health check on any Tallyfy template to find steps with missing instructions or empty form fields or unassigned steps or missing deadlines and then automatically fill in the gaps with sensible defaults.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 13
+title: Audit and improve your templates
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Find what's missing and fix it automatically
+
+Templates accumulate gaps over time - steps with no instructions, form fields nobody ever filled in, ownership that was never assigned. Your AI runs a health check on any Tallyfy template, tells you exactly what's missing, and fills in the gaps with sensible defaults so you can launch a cleaner, more reliable process.
+
+### What you'll accomplish
+
+- Run a complete health check on any Tallyfy template
+- Identify missing descriptions, form fields, assignees, and deadlines
+- Let the AI fill in gaps automatically with sensible defaults
+- Audit multiple templates at once
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+    ```text
+    Audit the Customer Onboarding template. Check every step for: missing instructions, missing form fields, missing assignees, and missing deadlines. Then fill in everything that's missing with sensible defaults.
+    ```
+  </TabItem>
+  <TabItem label="ChatGPT">
+    ```text
+    Run a health check on all my Tallyfy templates. Which ones have steps with no description or no form fields? Give me a summary table showing template name, number of empty steps, and what's missing.
+    ```
+  </TabItem>
+  <TabItem label="Copilot">
+    ```text
+    Look at the Vendor Onboarding template in Tallyfy. Are there any steps that are missing descriptions or don't have anyone assigned? Fix anything that's missing - add descriptions based on the step names and suggest who should be assigned.
+    ```
+  </TabItem>
+  <TabItem label="Gemini">
+    ```text
+    Analyze the Sales Pipeline template. For each step, tell me: does it have a description? Does it have form fields? Is someone assigned? Is there a deadline? Then suggest improvements for any step that's incomplete.
+    ```
+  </TabItem>
+</Tabs>
+
+**What happens:** The AI uses `assess_template_health` for an overall health check, then `get_template_steps` for step details. It calls `analyze_template_automations` to check automation rules. For fixes, it uses `edit_description_on_step`, `suggest_form_fields_for_step`, `add_form_field_to_step`, `suggest_step_deadline`, and `add_assignees_to_step`.
+
+### How it works behind the scenes
+
+The audit runs in two phases.
+
+**Phase 1 - Analysis:**
+
+1. `assess_template_health` - gets an overall health score covering step clarity, form fields, automations, and deadlines
+2. `get_template_steps` - retrieves every step with its description, form fields, assignees, and deadline info
+3. `analyze_template_automations` - checks for conflicts, redundancies, or missing automation rules
+4. `suggest_automation_consolidation` - identifies automation rules that could be simplified
+
+**Phase 2 - Fixes (if requested):**
+
+5. `edit_description_on_step` - writes instructions for steps that have none
+6. `suggest_form_fields_for_step` - recommends form fields based on step content
+7. `add_form_field_to_step` - adds the suggested fields
+8. `suggest_step_deadline` - recommends deadlines based on step type and complexity
+9. `add_assignees_to_step` - assigns roles based on step content
+
+The AI decides which tools to call based on what it finds. If a template has full descriptions but no deadlines, it skips straight to `suggest_step_deadline`. If everything looks good, it says so rather than making unnecessary changes.
+
+### What the health check covers
+
+A good Tallyfy template does more than list what needs to happen - it tells people how to do it, who's responsible, and when it needs to be done. The health check looks at six dimensions:
+
+**Step descriptions** - Are instructions clear and complete? A step called "Review contract" means different things to different people. The AI checks whether each step has enough context for someone unfamiliar with the process to complete it correctly.
+
+**Form fields** - Does each step collect the data it needs? Steps that gather information but have no form fields force people to document things outside Tallyfy, in emails or spreadsheets, where they're harder to track. The AI flags steps whose names or descriptions imply data collection but have no fields attached.
+
+**Assignments** - Is someone responsible for every step? Unassigned steps are the most common reason processes stall. They sit in limbo until someone notices and figures out who should own them. The AI checks every step and suggests an assignee based on the step's content and any patterns it sees elsewhere in the template.
+
+**Deadlines** - Do time-sensitive steps have due dates? Not every step needs a deadline, but steps like "Send contract" or "Submit application" usually do. The AI identifies steps that should have a deadline and suggests one based on the step type and typical process timelines.
+
+**Automation rules** - Are there conflicts, redundancies, or gaps? A template might have two automation rules that trigger on the same condition but take different actions, or a step that should trigger an action but doesn't. The AI reviews all automation rules and checks for logical consistency.
+
+**Step ordering** - Does the sequence make sense? Steps should flow in an order that reflects how work actually gets done. The AI looks for dependencies that aren't reflected in the ordering - for example, a step that requires information from a later step.
+
+### Auditing multiple templates
+
+The most valuable audits often happen at the organization level, not the template level. You can ask broad questions across your entire Tallyfy account:
+
+- "Which of my templates are incomplete?"
+- "Find all steps across all templates that have no description"
+- "Which templates have zero automation rules?"
+- "Show me every unassigned step in all my templates"
+- "Which templates haven't been updated in over a year?"
+- "Find templates where more than half the steps have no instructions"
+
+For these requests, the AI uses `get_all_templates` to retrieve every template, then loops through each one calling `get_template_steps` and `assess_template_health`. It compiles the results into a summary you can act on - either by fixing issues across all templates at once, or by prioritizing the worst offenders first.
+
+This kind of organization-wide audit is especially useful when you're inheriting templates someone else built, onboarding a new team onto Tallyfy, or doing a periodic review of processes that haven't been touched in a while. Running it before you launch a process catches problems that would otherwise surface as confusion or delays once real work is in flight.
+
+### When to run an audit
+
+A few situations where running this check pays off immediately:
+
+**Before launching a new process** - Templates often get built in a hurry, with placeholders and good intentions that never got filled in. A quick audit before launch catches empty steps and missing owners before they cause problems.
+
+**After inheriting templates from someone else** - When you take over a process that someone else built, you rarely know what's missing until something goes wrong. An audit gives you a complete picture of what's there and what's not.
+
+**When a process keeps breaking down** - If a process consistently gets stuck at the same step, or if people keep asking the same questions about what they're supposed to do, the root cause is usually a gap in the template itself - a missing description, an unassigned step, a form field that was never added.
+
+**Periodic reviews** - Processes change over time. Steps get added, roles change, deadlines that made sense two years ago no longer apply. A regular audit keeps templates aligned with how work actually gets done.
+
+**Before sharing templates with clients or partners** - If external people are going to run your Tallyfy processes, every step needs to be self-explanatory. An audit ensures nothing requires insider knowledge to complete.
+
+### Tips for better results
+
+**Start with analysis before asking for fixes.** Saying "Audit first, then fix" gives you a chance to review what the AI found before it makes changes. You might agree with some suggestions and disagree with others.
+
+**Review suggestions before they're applied.** You can say "Show me what you'd change before changing it" and the AI will list every proposed edit. This is the right approach for templates that are actively in use, where unexpected changes could confuse people mid-process.
+
+**Be specific about what to fix.** If you only want descriptions added but don't want form fields touched, say so: "Only add descriptions, don't change form fields." The AI respects scope constraints.
+
+**For organization-wide audits, ask for a summary first.** Ask "Give me a summary of which templates need the most work" before diving into individual fixes. This helps you prioritize and avoid spending time on templates that are already in good shape.
+
+**Use the audit before launching a process.** It's much easier to fix gaps before a process is running than after. People who are partway through a process find changes disorienting, and mid-run edits to steps can create inconsistencies between active runs and the updated template.
+
+**Combine the audit with other improvements.** After fixing gaps, you might want to build automation rules for steps that currently require manual follow-up, or split a complex step into two clearer ones. The audit is a good starting point for a broader template improvement session.
+
+### What good templates look like
+
+After running an audit and applying fixes, a well-formed Tallyfy template has a few consistent qualities. Every step has a description that tells someone unfamiliar with the process exactly what to do - not just a step name, but actual instructions. Steps that collect information have form fields that capture the right data in a structured way. Every step has an owner, whether that's a specific person, a role, or a group. Time-sensitive steps have deadlines. And automation rules are clean - no conflicts, no redundancies, and no obvious gaps where a rule should exist but doesn't.
+
+None of this requires hours of manual review. The AI does the analysis in seconds and applies fixes just as quickly. The result is a template that's ready to run reliably, with less confusion and fewer interruptions.
+
+### Take it further
+
+- [Set up automation rules in plain language](/products/pro/integrations/byo-ai/use-cases/set-up-automation-rules-in-plain-language/)
+- [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/)
+- [Merge and combine templates](/products/pro/integrations/byo-ai/use-cases/merge-and-combine-templates/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > </LinkTitleCard>
+  <LinkTitleCard header="Templates" href="/products/pro/documenting/templates/" > </LinkTitleCard>
+  <LinkTitleCard header="Automations" href="/products/pro/documenting/templates/automations/" > </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > </LinkTitleCard>
+</CardGrid>

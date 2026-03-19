@@ -1,0 +1,150 @@
+---
+about_tallyfy: true
+description: Ask your AI for a morning briefing of all Tallyfy tasks organized by urgency with overdue items flagged and due-today tasks highlighted and upcoming deadlines listed so you start each day knowing exactly what needs attention first.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 3
+title: Get a daily briefing of your tasks
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Your morning standup - powered by AI
+
+Instead of scrolling through your task list every morning trying to piece together what's urgent, just ask your AI. In one prompt, you get a prioritized view of everything assigned to you in Tallyfy - overdue items at the top, what's due today in the middle, and what's coming up this week so you can plan ahead.
+
+### What you'll accomplish
+
+- Get a prioritized summary of all your Tallyfy tasks in one prompt
+- Identify overdue and urgent items instantly so nothing slips through
+- Start your day with a clear action plan instead of a wall of undifferentiated tasks
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+> Give me a morning briefing of my Tallyfy tasks. What's overdue, what's due today, and what's coming up this week? Prioritize by urgency.
+
+**What happens**: Claude calls `get_my_tasks` to pull everything assigned to you from Tallyfy. It then reads each task's deadline, groups them into overdue, due today, and due this week, and presents a clean prioritized summary. Claude is particularly good at calling out tasks that have been overdue for multiple days and flagging them as needing immediate attention.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> Show me all my Tallyfy tasks organized by urgency - overdue first, then due today, then this week. Flag anything that's been sitting too long.
+
+**What happens**: ChatGPT calls `get_my_tasks` to retrieve your full task list from Tallyfy, then sorts and groups everything by deadline. The request to flag tasks that have been sitting too long prompts it to calculate how many days overdue each item is - handy for spotting things that have drifted.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> Pull up my Tallyfy tasks and organize them by deadline. I want to see what's overdue, what's due today, and what I should plan for this week.
+
+**What happens**: Copilot calls `get_my_tasks` to fetch your current Tallyfy task list and organizes everything chronologically by urgency. The "plan for this week" framing often prompts it to add brief notes about task context - like which process a task belongs to - so you get a richer briefing without having to ask separately.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+> What does my Tallyfy task list look like today? Group everything by urgency - overdue, due today, and due this week.
+
+**What happens**: Gemini calls `get_my_tasks` to retrieve your tasks from Tallyfy and structures the response around the three urgency buckets you asked for. Gemini tends to present this in a clear list format by default, which works well as a quick morning scan.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+The core of this use case is a single tool call: `get_my_tasks`. When you send your morning briefing prompt, your AI immediately reaches out to Tallyfy, authenticates as you, and pulls back everything currently assigned to you - task names, deadlines, the process each task belongs to, and its current status.
+
+From there, the AI does the sorting. It reads each task's due date, compares it to today's date, and slots each task into a category:
+
+- **Overdue** - deadline has passed, not yet completed
+- **Due today** - deadline is today
+- **Due this week** - deadline is within the next seven days
+- **No deadline** - tasks with no due date set
+
+The AI then presents these groups in order of urgency, with overdue at the top. Most AIs will also calculate how many days overdue something is, which helps you triage quickly - a task that's one day overdue is different from one that's been sitting for two weeks.
+
+If you ask for team-wide tasks rather than just your own, the AI may also call `search_for_tasks` to pull in tasks assigned to others on your team. This is useful if you're a manager doing a morning check-in across your whole team rather than just your personal work queue.
+
+One thing worth noting: the AI is reading live data from Tallyfy. It's not working from a cached snapshot. So if someone just completed a task five minutes ago, it won't show up in your overdue list. The briefing is always current.
+
+### Tips for better results
+
+**Ask for specific time frames.** "What's due before Friday?" or "Show me anything due in the next 48 hours" gives you a tighter, more actionable list than a full week view when you're in crunch mode.
+
+**Request a format.** Adding "give me a markdown table" or "bullet points only, no extra commentary" shapes the output to match how you want to read it. If you're pasting the briefing into a Slack message or a daily note, a specific format saves you editing time.
+
+**Add context fields.** "Include the process name for each task" tells the AI to pull in the parent workflow for every item. This is useful when you're juggling multiple projects - knowing a task belongs to "Q2 Onboarding" vs "Website Refresh" changes how you prioritize.
+
+**Ask about blockers.** "Which of my overdue tasks might be blocked by someone else?" prompts the AI to look at task dependencies and assignee information in Tallyfy, surfacing items where you might need to follow up with a colleague rather than just act yourself.
+
+**Make it a habit.** The same prompt every morning means the AI builds familiarity with your typical task patterns. Some AIs will start to notice things like "you usually have three tasks due on Wednesdays" and surface that kind of context unprompted after a few days of consistent use.
+
+**Ask for a count.** "How many tasks do I have in each category?" is a fast gut-check. Seven overdue tasks is a different kind of morning than zero.
+
+### Sample briefing output
+
+Here's the kind of response you can expect. The exact format varies by AI, but the content structure is consistent:
+
+---
+
+**Your Tallyfy task briefing - Thursday, March 19**
+
+**Overdue (3 tasks)**
+- Review vendor contract - due March 14 (5 days overdue) - Contract Review process
+- Submit expense report - due March 16 (3 days overdue) - Finance Monthly process
+- Approve design mockups - due March 17 (2 days overdue) - Website Redesign process
+
+**Due today (2 tasks)**
+- Send weekly status update - due today - Team Operations process
+- Complete onboarding checklist for new hire - due today - HR Onboarding process
+
+**Due this week (4 tasks)**
+- Finalize Q2 budget draft - due March 21 - Finance Planning process
+- Review pull request from dev team - due March 22 - Engineering Sprint process
+- Schedule client check-in call - due March 22 - Account Management process
+- Update internal documentation - due March 24 - Knowledge Base process
+
+**No deadline (2 tasks)**
+- Explore new tool options for reporting
+- Brainstorm campaign ideas for Q3
+
+---
+
+That's nine tasks you'd otherwise have to manually scan for, now organized and prioritized in about three seconds. The overdue items are obvious, you know exactly what you need to finish today before logging off, and you have a clear view of what's coming up so you can block time in advance.
+
+### Take it further
+
+Once you're comfortable with the daily briefing, a few natural next steps open up in Tallyfy:
+
+- [Check process status across your team](/products/pro/integrations/byo-ai/use-cases/check-process-status-across-your-team/) - zoom out from your personal task list to see how whole workflows are progressing
+- [Find anything across your workflows](/products/pro/integrations/byo-ai/use-cases/find-anything-across-your-workflows/) - when the morning briefing surfaces something you need to dig into, use search to pull up the full context
+- [Create tasks from meeting notes](/products/pro/integrations/byo-ai/use-cases/create-tasks-from-meeting-notes/) - turn action items from your morning standup directly into Tallyfy tasks without switching apps
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Connect your AI to Tallyfy" href="/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/" > Step-by-step guide to linking Claude, ChatGPT, Copilot, or Gemini to your Tallyfy account. </LinkTitleCard>
+  <LinkTitleCard header="Tasks view" href="/products/pro/tracking-and-tasks/tasks-view/" > Understand how the Tallyfy tasks view works and what information it surfaces. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables. </LinkTitleCard>
+</CardGrid>

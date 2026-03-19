@@ -1,0 +1,193 @@
+---
+about_tallyfy: true
+description: Describe your process in plain language and your AI builds a complete Tallyfy template step by step through back-and-forth conversation adding steps and form fields and assignments and deadlines as you refine the workflow together.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 10
+title: Build a template through conversation
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Describe your process - your AI builds it
+
+You know how your process works. You just don't want to click through template builders to set it up. Describe what happens step by step in plain language, and your AI creates the Tallyfy template for you - adding steps, form fields, assignments, and deadlines as you go.
+
+No UI navigation required. No hunting for the right settings panel. Just describe, refine, and you're done.
+
+### What you'll accomplish
+
+- Build a complete Tallyfy template by describing your process in conversation
+- Add form fields, assignments, and deadlines through natural language
+- Iterate and refine the template through back-and-forth with your AI
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+```text
+I need a template for handling customer complaints. There are 5 stages:
+
+1. Receive complaint - log the customer name, email, complaint type (product defect, billing issue, service problem, other), and a description of what happened
+2. Investigate - the support team looks into it, documents findings, and determines if it's valid
+3. Propose resolution - draft a resolution offer (refund, replacement, credit, or apology) and get it reviewed
+4. Get customer approval - send the resolution to the customer and get their response
+5. Close case - document the outcome and mark as resolved
+
+Can you build this as a Tallyfy template? Add the right form fields for each step.
+```
+
+**What happens**: Claude creates a new template, then works through it step by step. It calls `add_step_to_template` for each stage, `edit_description_on_step` to write clear instructions, `suggest_form_fields_for_step` to recommend what data to capture, and `add_form_field_to_step` to add text fields, dropdowns, and date pickers. Claude is good at inferring field types from your description - "complaint type (product defect, billing issue...)" maps directly to a dropdown with those exact options.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Build me a Tallyfy template for an office supply request process. Here's how it works:
+
+1. Submit request - employee enters their name, department, what they need, quantity, and reason for the request
+2. Manager review - their direct manager approves or rejects the request, adds a note if rejected
+3. Procurement - if approved, the procurement team places the order and logs the vendor, cost, and expected delivery date
+4. Delivery confirmation - the employee confirms they received the items and marks the request complete
+
+Add appropriate form fields to each step.
+```
+
+**What happens**: ChatGPT builds the template incrementally. You'll see each tool call in the response as it adds steps and form fields - useful if you want to track exactly what's being created. It calls `add_step_to_template` for each stage, then uses `suggest_form_fields_for_step` and `add_form_field_to_step` to populate each step with the right fields. The structured format of this prompt makes it easy for ChatGPT to match your data to the correct field types.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+I want to create a Tallyfy template for our content publishing workflow:
+
+1. Draft submission - writer submits the article title, topic, target audience, and word count
+2. Editorial review - editor reviews the draft, adds feedback notes, and approves or sends back for revision
+3. SEO review - SEO team checks the content, logs keyword recommendations, and marks it optimized
+4. Final approval - department head gives final sign-off before publishing
+5. Publish and promote - content team publishes the article and logs the publish date and distribution channels used
+
+Please build this template with form fields on each step.
+```
+
+**What happens**: Copilot calls `add_step_to_template` for each step in your workflow, then follows up with `suggest_form_fields_for_step` and `add_form_field_to_step` to wire up the data collection. Because Copilot lives inside Microsoft 365, you can describe workflows directly from documents, emails, or Teams conversations - copy the process outline from wherever it already lives and paste it straight in.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Create a Tallyfy template for our bug fix workflow:
+
+1. Bug report - developer logs the bug title, severity (critical, high, medium, low), affected system, steps to reproduce, and expected vs actual behavior
+2. Triage - tech lead reviews the report, confirms the priority level, and assigns it to the right developer
+3. Fix development - assigned developer writes the fix, notes what was changed, and links the pull request
+4. Code review - a second developer reviews the PR and approves or requests changes
+5. QA testing - QA engineer tests the fix, confirms it's resolved, and logs the test result
+6. Deploy and close - the fix gets deployed, the deployment date is logged, and the ticket is closed
+
+Add form fields that make sense for each stage.
+```
+
+**What happens**: Gemini calls `add_step_to_template` for each stage, then builds out the form fields using `suggest_form_fields_for_step` and `add_form_field_to_step`. Gemini tends to present a summary of the template structure before executing, so you get a preview of what it's about to build. This is useful for catching anything you want to adjust before the template is created.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+Your AI processes your description and makes multiple tool calls in sequence to build the template from scratch.
+
+**Creating the template**: First, the AI calls the tool to create a new empty Tallyfy template, giving it a name based on what you described. This is the container everything else goes into.
+
+**Adding steps**: For each stage you described, the AI calls `add_step_to_template`. Steps are added in order - the AI reads your numbered list and preserves the sequence. If you described branching (like "if rejected, loop back to step 1"), it will note that and ask how you want to handle conditional logic before proceeding.
+
+**Writing step instructions**: The AI calls `edit_description_on_step` for each step to add clear instructions. These aren't just the step name - they're the actual guidance that will appear for whoever completes the task. The AI generates these from your description, expanding brief notes into actionable instructions.
+
+**Recommending form fields**: Before adding fields, the AI calls `suggest_form_fields_for_step`. This is where it reasons about what data each step actually needs to collect. A step described as "log the customer name, email, and complaint type" is straightforward. A step described more loosely - "the team documents their findings" - will prompt the AI to ask what specifically should be captured.
+
+**Adding form fields**: The AI calls `add_form_field_to_step` for each field. Field types are inferred from your description:
+- Lists of options ("product defect, billing issue, service problem") → dropdown field
+- Names, free-text descriptions → text field
+- Dates and deadlines → date picker
+- Numeric values → number field
+- Email addresses → email field
+- Yes/no decisions → checkbox
+
+**Setting assignments**: If you mentioned who handles each step - "the support team," "their direct manager," "the procurement team" - the AI calls `add_assignees_to_step` to assign the relevant group or role. It works with groups and job titles, not just individual users, so new team members automatically pick up the right tasks.
+
+**Suggesting deadlines**: For steps where timing matters, the AI calls `suggest_step_deadline` based on the complexity you described. It won't invent deadlines you didn't mention, but it will recommend reasonable ones if you ask.
+
+The whole build happens in one conversation. You describe, the AI builds, and you can see the results in your Tallyfy account as the tool calls complete.
+
+### The iterative advantage
+
+This is where conversational template building really pays off. The first pass creates a working template - but the second and third exchanges refine it into something genuinely useful.
+
+After the initial build, you might say:
+
+- "Actually, add a checkbox on the first step for 'Customer acknowledged receipt of our response'"
+- "Make step 3 an approval step - it needs manager sign-off before moving forward"
+- "Add a priority field to step 1 - options should be urgent, high, normal, low"
+- "Move step 4 before step 3, the sequence is wrong"
+- "What form fields would you suggest for the investigation step?"
+- "Add a text area on the final step for 'Internal notes - visible to staff only'"
+
+Each instruction triggers the exact right tool calls. You're not learning which menu has which option - you're just saying what you want and watching it happen.
+
+The AI keeps the full context of your template in the conversation. "Make the third step an approval" works because the AI knows what the third step is. "Add a field similar to the one on step 2" works because it remembers what's already there.
+
+A few things the AI will ask rather than assume:
+
+- **Branching logic**: If you describe a step that should behave differently based on a previous answer (like "if rejected, go back to draft"), the AI will confirm the exact condition before setting it up
+- **Assignment ambiguity**: If you say "the manager approves it" but haven't specified which group or job title that maps to in Tallyfy, the AI asks before assigning
+- **Required vs. optional fields**: If it's not clear whether a field should block step completion or just be suggested, the AI will ask
+
+### Tips for better results
+
+**Start with the big picture, then add detail.** Describe all your steps first, then refine each one. Trying to specify every field on step one before moving to step two makes the conversation harder to follow - for you and the AI.
+
+**Name the roles and groups that should be assigned, not specific people.** "The procurement team" or "direct manager" works better than "John" or "Sarah" - those role-based assignments work for everyone in your organization, not just current employees.
+
+**Mention step types explicitly when they matter.** "Make this an approval step" or "this should be an email step" tells the AI to use Tallyfy's specialized step types rather than a standard task. Approval steps in Tallyfy have built-in approve/reject logic - much better than a custom form field trying to replicate the same thing.
+
+**Ask the AI for suggestions.** If you're not sure what form fields make sense for a step, just ask: "What form fields would make sense on the investigation step?" The AI calls `suggest_form_fields_for_step` and gives you a list based on the step description. You pick what to keep.
+
+**Describe branching in plain language.** "If the complaint type is billing, skip the investigation step and go directly to resolution" is enough for the AI to understand the conditional. It will confirm the details before setting up the automation rule.
+
+**Reference your existing process documentation.** If you have a process map, a Word document describing the workflow, or even an email chain that explains how something works - paste the relevant section and ask the AI to build a Tallyfy template from it. It handles unstructured source material well.
+
+**Iterate freely.** Unlike a template builder UI where you have to navigate to each element, the AI conversation keeps everything in context. Changing your mind about step order, field names, or assignments is just a sentence away.
+
+### Take it further
+
+- [Import a document as a template](/products/pro/integrations/byo-ai/use-cases/import-a-document-as-a-template/)
+- [Set up automation rules in plain language](/products/pro/integrations/byo-ai/use-cases/set-up-automation-rules-in-plain-language/)
+- [Audit and improve your templates](/products/pro/integrations/byo-ai/use-cases/audit-and-improve-your-templates/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Templates" href="/products/pro/documenting/templates/" > How templates work in Tallyfy and how to create and configure them for your team. </LinkTitleCard>
+  <LinkTitleCard header="Automations" href="/products/pro/documenting/templates/automations/" > Set up if-this-then-that rules that trigger actions automatically in your Tallyfy processes. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables across your Tallyfy workflows. </LinkTitleCard>
+</CardGrid>

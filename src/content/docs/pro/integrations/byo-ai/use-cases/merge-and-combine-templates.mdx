@@ -1,0 +1,172 @@
+---
+about_tallyfy: true
+description: Ask your AI to combine steps from multiple Tallyfy templates into one or split a template apart by reading both templates and merging intelligently while handling duplicate steps and ordering and form field conflicts automatically.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 12
+title: Merge and combine templates
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Combine or split templates without starting over
+
+Two overlapping templates? One template that's grown too big? Your AI can merge multiple Tallyfy templates into one, pull specific steps from one into another, or split a template apart - all through conversation, without rebuilding from scratch.
+
+No exporting, no copying and pasting between tabs, no losing your form fields in the process.
+
+### What you'll accomplish
+
+- Merge steps from two or more templates into a single combined template
+- Pull specific steps from one template into another
+- Handle duplicate steps, ordering conflicts, and form field overlaps
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+```text
+We have two templates: "New Employee IT Setup" and "New Employee HR Onboarding". Merge them into a single "Complete Employee Onboarding" template. Put HR steps first, then IT steps. Remove any duplicate steps like "Send welcome email" that appear in both.
+```
+
+**What happens**: Claude calls `get_template` and `get_template_steps` on both source templates to read every step, form field, description, and assignment. It compares steps by name and content to identify duplicates - "Send welcome email" shows up in both, so Claude keeps the more complete version and flags the other. Then it calls `clone_template` on the HR template to create the starting point, renames it to "Complete Employee Onboarding", and calls `add_step_to_template` for each unique IT step in the right order. Claude is particularly good at explaining its decisions as it goes - it'll tell you exactly which duplicate it kept and why.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+I want to take steps 3, 4, and 5 from the "Sales Qualification" template and add them to the end of the "Lead Intake" template in Tallyfy. Keep all the form fields from those steps.
+```
+
+**What happens**: ChatGPT calls `get_template_steps` on the Sales Qualification template to find steps 3, 4, and 5 with their full details - descriptions, form fields, and assignments. Then it calls `get_template` on Lead Intake to understand what's already there and where the end is. It adds each of the three steps via `add_step_to_template` and recreates the form fields on each using `add_form_field_to_step`. ChatGPT shows you each tool call in the response, so you can see exactly which fields transferred and confirm everything arrived correctly in Tallyfy.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Our "Client Onboarding" template has 15 steps and it's too long. Split it into two templates: "Client Onboarding - Setup" (steps 1-8) and "Client Onboarding - Training" (steps 9-15). Clone the original first so we don't lose it.
+```
+
+**What happens**: Copilot calls `clone_template` twice - once for each half - then reads the step list from the original via `get_template_steps`. For the Setup clone it removes steps 9-15, and for the Training clone it removes steps 1-8. Because Copilot lives inside Microsoft 365, you can use this from Teams or Outlook - useful when a colleague messages you "this template is way too long" and you want to fix it right there in the chat.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Merge the "Quarterly Budget Review" and "Quarterly Compliance Check" templates into one "Quarterly Review" template. Interleave the steps so that each budget step is followed by its related compliance step.
+```
+
+**What happens**: Gemini reads both templates via `get_template` and `get_template_steps`, then presents you with a proposed step order before doing anything in Tallyfy. You see the interleaved sequence and can adjust it before Gemini commits to any changes. Once you confirm, it clones one template, renames it, and adds the other template's steps in the specified interleaved order. Gemini tends to ask for your approval at the planning stage - helpful when the merge logic is complex and you want to catch ordering mistakes early.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+The AI works through a merge in a predictable sequence. Knowing the steps helps you write clearer prompts and spot potential issues before they happen.
+
+**Step 1: Read both source templates**
+
+The AI calls `get_template` and `get_template_steps` on every template involved in the merge. This pulls back the complete picture: every step name, description, step type (task, approval, email), position, assignees, groups, and every form field attached to each step. Nothing is assumed - the AI reads what's actually in Tallyfy before deciding what to do with it.
+
+For a merge involving two templates with ten steps each, that's twenty steps with all their associated data read before a single change is made. This is what makes the merge reliable rather than destructive.
+
+**Step 2: Clone one template as the starting point**
+
+Rather than creating a blank template and rebuilding everything, the AI calls `clone_template` on one of the source templates. The clone preserves all existing steps, form fields, descriptions, and assignments exactly as they are. From there, the AI only needs to add the steps from the second template - which is much less work and much less likely to introduce errors.
+
+Which template gets cloned first? Usually whichever one provides the "base" order you want - in the HR/IT example, the HR template gets cloned because you want HR steps first.
+
+**Step 3: Compare and identify duplicates**
+
+Before adding anything from the second template, the AI scans both step lists for duplicates. It looks at step names and descriptions, not just titles. A step called "Send welcome email" in one template and "Welcome email to new hire" in another might be functionally identical even though the names differ.
+
+When duplicates are found, the AI picks the more complete version - the one with the longer description, more form fields, or clearer instructions. It tells you which one it kept and which it skipped. If the versions are different enough that keeping both might make sense, the AI asks rather than deciding on its own.
+
+**Step 4: Add non-duplicate steps from the second template**
+
+For each step that doesn't already exist in the cloned template, the AI calls `add_step_to_template` to add it in the right position. Position matters - if you said "HR steps first, then IT steps," the IT steps land after all the HR steps, not interspersed.
+
+Then, for each added step, the AI calls `edit_description_on_step` if the descriptions need merging - say, both templates had a similar step but with different instructions, and you want to combine the best parts of both into a single description.
+
+**Step 5: Handle form fields from the added steps**
+
+Steps brought in from the second template carry their form fields with them - in theory. In practice, the AI calls `add_form_field_to_step` to explicitly recreate each field on the new step, since field definitions don't transfer automatically through a step copy.
+
+If both templates had a step with a "Client Name" field, the AI adds that field once and notes the duplicate. You don't end up with two "Client Name" fields on the same step.
+
+### Handling conflicts
+
+Real merges don't always go smoothly. Here's what happens with the most common friction points.
+
+**Duplicate steps**
+
+Steps with similar names or content are flagged before anything is changed. The AI tells you what it found - "Both templates have a step called 'Send welcome email'. Template A's version has a longer description and three form fields. Template B's version has only a title. I'll keep Template A's version." You can override that decision if you prefer the other one.
+
+If the AI genuinely can't determine which version is better - they're different but neither is clearly more complete - it asks you. It won't silently pick one and move on.
+
+**Step ordering**
+
+You control the order by specifying it in your prompt. "HR steps first, then IT steps" is the simplest form. "Interleave budget steps and compliance steps alternately" is more complex but the AI handles it. If you don't specify an order, the AI uses the source templates' original order and puts the second template's steps after the first template's.
+
+For splits, you can specify by step number ("steps 1-8") or by step name ("everything up to and including the 'Contract Signed' step"). Either works.
+
+**Form field overlaps**
+
+The most common overlap is a field like "Client Name" or "Department" that exists on similar steps in both templates. When the AI finds this, it keeps one instance and notes the duplicate. The field that ends up on the merged step is the one from whichever template you cloned as the base - unless you specify otherwise in your prompt.
+
+Different field types are more nuanced. If one template has a "Notes" field as a short text field and the other has it as a long text area, the AI will flag the conflict and ask which type you want. These aren't things it guesses at.
+
+**Different step types**
+
+If one template has a step as a standard task and the other has a matching step as an approval, the AI asks which type you prefer before proceeding. An approval step routes through Tallyfy's approval logic - someone has to formally approve it before the process moves forward. A standard task just gets completed. These are meaningfully different, so the AI doesn't pick one silently.
+
+### Tips for better results
+
+**Name both templates exactly as they appear in Tallyfy.** Template names are matched case-insensitively but the closer your prompt matches the actual name, the faster the AI finds the right template. If you're not sure of the exact name, ask first: "What templates do I have that relate to onboarding?" The AI will list them.
+
+**Specify the order explicitly.** "Template A steps first, then Template B" is unambiguous. "Merge them together" leaves the AI to guess what order you want, which may or may not match your intent.
+
+**Say what to do with duplicates before the AI asks.** "Remove any steps that appear in both templates" saves a round-trip. So does "Keep the version with the most detail if steps overlap." If you're fine with the AI deciding, you don't need to say anything - it'll ask when it's unsure.
+
+**Clone the originals first if the source templates matter.** If you want to keep the original templates intact after the merge, tell the AI: "Clone both templates first, then merge the clones. Don't change the originals." This way you can always go back to the pre-merge versions in Tallyfy.
+
+**For splits, specify which steps go where.** "Steps 1-8 into Template A, steps 9-15 into Template B" is clear. "The setup steps in one template and the training steps in another" works too, as long as there's a natural boundary the AI can identify. If the split point isn't obvious, the AI will ask you to clarify rather than guess.
+
+**Be explicit about form fields.** If specific form fields matter to you - "make sure the 'Contract Value' field from the Finance template transfers to the merged template" - say so. The AI always tries to preserve form fields, but calling out the critical ones means they won't get missed.
+
+**Ask for a plan before execution on complex merges.** For anything involving three or more templates, or an interleaved step order, add "Show me the proposed step order before you build anything" to your prompt. You get to review the plan and catch ordering mistakes before any changes land in Tallyfy.
+
+### Take it further
+
+- [Import a document as a template](/products/pro/integrations/byo-ai/use-cases/import-a-document-as-a-template/) - if you're starting from a Word doc or SOP rather than existing templates, this is the faster path
+- [Audit and improve your templates](/products/pro/integrations/byo-ai/use-cases/audit-and-improve-your-templates/) - once your merged template is built, run it through an AI review to catch gaps, unclear steps, or missing assignments
+- [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/) - start from scratch through conversation instead of merging existing templates
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Templates" href="/products/pro/documenting/templates/" > How templates work in Tallyfy and how to create and configure them for your team. </LinkTitleCard>
+  <LinkTitleCard header="Edit templates" href="/products/pro/documenting/templates/edit-templates/" > How to edit a template in Tallyfy including steps, assignments, form fields, and automation rules. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables across your Tallyfy workflows. </LinkTitleCard>
+</CardGrid>

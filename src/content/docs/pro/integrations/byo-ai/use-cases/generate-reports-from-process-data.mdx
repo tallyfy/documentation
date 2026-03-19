@@ -1,0 +1,186 @@
+---
+about_tallyfy: true
+description: Ask your AI to pull data from running Tallyfy processes and produce formatted reports with completion counts and average durations and bottleneck analysis and summary tables without exporting data or building dashboards manually.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 15
+title: Generate reports from process data
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Get answers from your process data instantly
+
+Need to know how many onboarding processes completed this month? Which steps take the longest? Where work gets stuck? Ask your AI. It pulls the data directly from Tallyfy and gives you a formatted report - no spreadsheet exports, no dashboard setup, no waiting.
+
+### What you'll accomplish
+
+- Generate ad-hoc reports from Tallyfy process data through conversation
+- Get completion counts, timing analysis, and bottleneck identification
+- Produce formatted summaries without exporting data or building reports manually
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+    ```text
+    How many Client Onboarding processes did we complete this month? What was the average time from start to finish? Which steps took the longest? Give me a summary table.
+    ```
+
+    Claude handles follow-up questions well. After your initial report, you can drill down - "Which of those processes took more than two weeks?" or "Who was assigned to the slowest step?" - and it keeps the context from your previous question.
+  </TabItem>
+  <TabItem label="ChatGPT">
+    ```text
+    Give me a report on all our active processes in Tallyfy right now. For each template type, show: how many are running, how many are overdue, and the average completion percentage. Format it as a table.
+    ```
+
+    ChatGPT handles structured output well. Asking for a specific format upfront - a table, a numbered list, columns with specific headers - gets you something clean that you can copy directly into a document or message.
+  </TabItem>
+  <TabItem label="Copilot">
+    ```text
+    Pull data from all completed Sales Pipeline processes in the last quarter. I want to know: total number completed, average duration, which step had the most delays, and a breakdown by deal size (from the form fields).
+    ```
+
+    Copilot is particularly useful here if you're already working in Microsoft 365 - you can ask for this report while you're in a document or a Teams chat, get the answer inline, and paste it wherever you need it without switching apps.
+  </TabItem>
+  <TabItem label="Gemini">
+    ```text
+    Analyze our Support Ticket processes. How many are open right now? What's the average resolution time? Which support team member handles the most tickets? Show me any patterns in bottlenecks.
+    ```
+
+    Gemini tends to produce well-organized output when you frame the request as an "analysis" - it treats it like a structured report rather than a conversational answer, which works well when you want something you can share.
+  </TabItem>
+</Tabs>
+
+**What happens:** The AI chains multiple tool calls - `get_all_templates` to find the right template, `get_organization_runs` to retrieve process data filtered by template and status, `get_tasks_for_process` for each process to analyze individual task timing and completion, and `get_organization_users` to attribute work to real names. It then calculates the metrics you asked for and assembles everything into a formatted report.
+
+### How it works behind the scenes
+
+Report generation typically chains four to six tool calls, happening in sequence without you needing to manage any of it.
+
+**Step 1 - Identify the template**
+
+The AI starts with `get_all_templates` or `search_for_templates` to find the template you're asking about. If you say "Client Onboarding", it matches that to the right template in your Tallyfy organization and gets its ID. This ID is what everything else uses to filter data correctly.
+
+**Step 2 - Retrieve the processes**
+
+Next, `get_organization_runs` fetches all processes that match your criteria - filtered by template, status (completed, active, overdue), and date range. If you asked for "this month", the AI applies that filter here. The result is a list of process instances with high-level metadata: when they started, when they finished (if completed), and their current state.
+
+**Step 3 - Pull task-level detail**
+
+This is where the depth comes from. The AI calls `get_tasks_for_process` for each process to retrieve the tasks inside it - their completion times, who was assigned, whether they were overdue, and any form field data. For a report on 20 completed processes, this means 20 separate calls running in sequence. It's doing the repetitive clicking you'd otherwise do yourself.
+
+**Step 4 - Map users to names**
+
+Task data comes back with user IDs. The AI calls `get_organization_users` to translate those IDs into actual names - so the report says "Jamie handled 8 tickets" instead of "user_id_4892 handled 8 tickets".
+
+**Step 5 - Optional grouping**
+
+If you asked for breakdowns by tag or category, `get_tags` groups processes accordingly before the final calculations.
+
+**Step 6 - Assemble the report**
+
+With all the data in hand, the AI calculates what you asked for - counts, averages, durations, rankings - and formats it according to your instructions. No raw API output, just the answer.
+
+### Types of reports you can ask for
+
+The prompts above are a starting point. Here are the most common report types and how to ask for them.
+
+**Completion reports**
+
+"How many [template] processes completed this month/quarter/year?" This is the simplest report type - a count with optional breakdowns. You can add conditions: "How many completed on time?" or "How many completed in under a week?"
+
+**Timing analysis**
+
+"What's the average time to complete [template]? Which steps take the longest?" This pulls duration data from completed processes, calculates averages across all steps, and ranks them. Useful for spotting where time accumulates in a process.
+
+**Bottleneck identification**
+
+"Where do processes get stuck? Which steps have the most overdue tasks?" This looks at task-level overdue data across active processes and surfaces the steps that consistently cause delays. Good for identifying whether you have a template problem (poorly designed step) or a capacity problem (step consistently assigned to one person who's overloaded).
+
+**Team workload**
+
+"Who's handling the most processes? Who has the most overdue tasks?" Attribution reports map tasks back to specific people and show workload distribution. Useful before a 1-on-1, or when someone's out and you need to redistribute their queue.
+
+**Comparison reports**
+
+"Compare completion times for Client Onboarding this quarter versus last quarter." The AI pulls data from both periods and presents a side-by-side comparison. You can add more dimensions: "Break it down by which team ran the process" or "Show me whether it improved after we changed the template in February."
+
+**Status snapshots**
+
+"Give me a dashboard-style summary of all running processes right now." This is the real-time overview - counts by template, completion percentages, overdue counts, upcoming deadlines. Good for a Monday morning check-in or a weekly team update.
+
+### Multi-step analysis
+
+The real value comes from chaining questions. Each one builds on the previous, and the AI keeps context across the whole conversation.
+
+A typical session might look like this:
+
+1. "Show me all Client Onboarding processes from Q1" - establishes the data set
+2. "Which ones took more than three weeks?" - filters to the slow ones
+3. "What step caused the delay in each of those?" - finds the common bottleneck
+4. "Add a comment to each of those processes noting the bottleneck for review" - takes action on the finding
+5. "Write me a summary I can paste into our team Slack channel" - formats the output for sharing
+
+None of that requires switching tools, exporting data, or building anything. It happens in a single Tallyfy-connected conversation.
+
+You can also go the other direction - start specific and zoom out. "Show me the Smith Corp onboarding process" leads naturally to "Is this typical or is it slower than average?" which leads to "What's the average completion time across all onboarding processes?"
+
+### What good report output looks like
+
+A well-formed report from your AI doesn't look like raw API output. It looks like something a person wrote, structured for the specific question you asked.
+
+For a completion and timing report, you might get:
+
+> "You completed 23 Client Onboarding processes in March. Average time from launch to completion was 9.2 days. The slowest step was 'Legal review' (average 3.1 days), followed by 'IT setup' (average 2.4 days). 4 processes took more than 14 days - all 4 had a delay at the Legal review step."
+
+For a status snapshot:
+
+> "Currently active processes: 31 total across 6 templates. 8 have at least one overdue task. The most affected template is Vendor Onboarding (5 of 9 active runs have overdue tasks). The oldest overdue task is 11 days past due, assigned to the Procurement team."
+
+That last detail - identifying the specific bottleneck and who owns it - is what makes this more useful than a dashboard. A dashboard shows you the number. Your AI tells you what it means and who to talk to.
+
+### Tips for better results
+
+**Specify time ranges explicitly.** "This month" is good. "Since January 1st" is better when you want precision. "Last 30 days" works well for rolling windows. If you don't specify, the AI will often ask - but giving it upfront saves a round trip.
+
+**Name the template exactly as it appears in Tallyfy.** If the template is called "Client Onboarding v2", use that name. If you're not sure, ask: "What templates do we have for onboarding?" and pick from the list.
+
+**Ask for a specific format.** "Markdown table", "bullet points", "numbered list by total processes", "sorted by average duration" - the more specific you are about format, the less editing you need to do before sharing.
+
+**For comparisons, be explicit about what you're comparing.** "Compare Q1 and Q2" is clear. "Compare this year to last year, broken down by template" is even better because it tells the AI exactly what dimensions to split on.
+
+**Start broad, then drill down.** "Show me all processes" followed by "drill into the ones that took the longest" is usually faster than constructing a complex filtered query upfront. You can narrow down once you see what the data looks like.
+
+**If you need exact numbers, ask the AI to count rather than estimate.** For precision reporting - headcounts, completion rates, SLA compliance - explicitly ask the AI to count each item rather than give you a rough figure. It will be more careful about exactness when you make that expectation clear.
+
+**Combine with actions.** Once you have your report, you can act on it in the same conversation. "Send a reminder to everyone with an overdue task in those processes" or "Flag the three slowest processes for review" - Tallyfy's MCP integration means your AI can read and write, not just read.
+
+### When this is most useful
+
+**Weekly team reviews.** Instead of manually building a status report before every meeting, ask your AI to generate it. Five seconds instead of thirty minutes.
+
+**End-of-quarter rollups.** Completion counts, average durations, team performance breakdowns - all available in one conversation without touching a spreadsheet.
+
+**Identifying template problems.** If the same step keeps showing up as the bottleneck across dozens of process instances, that's a template problem, not a people problem. Reporting at scale makes this pattern visible.
+
+**Client updates.** "Show me the current status of the Riverbank Financial onboarding process" gives you everything you need for a client call - what's done, what's in progress, what's next, and whether anything is behind.
+
+**Capacity planning.** "Who has the most active tasks right now?" or "Which team member is involved in the most running processes?" helps you spot overload before someone drops the ball.
+
+### Take it further
+
+- [Check process status across your team](/products/pro/integrations/byo-ai/use-cases/check-process-status-across-your-team/)
+- [Find anything across your workflows](/products/pro/integrations/byo-ai/use-cases/find-anything-across-your-workflows/)
+- [Audit and improve your templates](/products/pro/integrations/byo-ai/use-cases/audit-and-improve-your-templates/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > </LinkTitleCard>
+  <LinkTitleCard header="Processes" href="/products/pro/tracking-and-tasks/processes/" > </LinkTitleCard>
+  <LinkTitleCard header="Tracker view" href="/products/pro/tracking-and-tasks/tracker-view/" > </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > </LinkTitleCard>
+</CardGrid>

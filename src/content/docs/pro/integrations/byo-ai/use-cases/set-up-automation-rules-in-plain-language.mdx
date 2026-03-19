@@ -1,0 +1,203 @@
+---
+about_tallyfy: true
+description: Describe business rules in everyday language and your AI creates the matching if-then automation rules in your Tallyfy templates automatically so you can set up conditional logic and step routing and assignment changes without learning the automation builder.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 14
+title: Set up automation rules in plain language
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Describe the rule - your AI builds the automation
+
+Tallyfy automations use if-then logic to route tasks, skip steps, change assignments, and trigger actions based on data in your processes. Instead of configuring these rules through the automation builder, just describe what you want in plain language. Your AI translates the business logic and creates the rules directly in your template.
+
+No menu hunting. No figuring out which condition type maps to which field. Just say what should happen and when.
+
+### What you'll accomplish
+
+- Create automation rules by describing business logic in plain language
+- Set up conditional step visibility, assignment changes, and deadline adjustments
+- Skip the automation builder entirely
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+```text
+On the Sales Pipeline template: if the deal value field is under $10,000, skip the Legal Review step. If the deal value is over $50,000, add the VP of Sales as an approver on the Final Approval step.
+```
+
+**What happens**: Claude calls `get_template` and `get_template_steps` to read the template structure and find the exact step IDs and form field IDs it needs. Then it calls `analyze_template_automations` to check whether any existing rules might conflict with what you've described. Finally, it calls `create_automation_rule` twice - once for each condition you described - translating "skip the Legal Review step" into a hide-step automation and "add the VP of Sales as an approver" into an assignment automation. Claude confirms what was created so you can verify before testing.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Set up these automation rules on the Employee Onboarding template in Tallyfy:
+
+1. If the department is Engineering, show the "Dev Environment Setup" step. Otherwise hide it.
+2. If the employee type is Contractor, skip the "Benefits Enrollment" step.
+3. If the start date is less than 7 days away, set all deadlines to 1 business day instead of 3.
+```
+
+**What happens**: ChatGPT reads the template structure to locate each step and form field mentioned. It then creates each rule in sequence, showing you the tool calls as they happen - useful for tracking exactly which condition maps to which action. For the department rule, it creates a show-step automation tied to the department dropdown field. For the contractor rule, it creates a hide-step automation. For the deadline rule, it sets up a deadline adjustment automation scoped to the start date field. You'll see a summary of all three rules once they're created in Tallyfy.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+I need automation rules on the Support Ticket template:
+- Priority High → assign to senior support team and set deadline to 4 hours
+- Priority Medium → assign to general support and set deadline to 1 business day
+- Priority Low → assign to self-service queue and set deadline to 3 business days
+```
+
+**What happens**: Copilot reads the template to find the priority field and existing step assignments, then creates three separate automation rules - one per priority level. Each rule combines an assignment change and a deadline adjustment in the same action set. Because Copilot lives inside Microsoft 365, you can describe rules directly from emails, Teams conversations, or documents that already contain your support routing logic - copy the relevant section and paste it straight in rather than retyping.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Add these rules to the Purchase Order template:
+- If amount is over $5,000, add the Finance Manager as an approver
+- If amount is over $25,000, add the CFO as a second approver
+- If the vendor is flagged as "new vendor", show the Vendor Verification step
+```
+
+**What happens**: Gemini typically presents a structured plan of the rules it identified before executing - so you get a preview of what it's about to create, with the chance to correct anything before changes land in Tallyfy. Once confirmed, it reads the template to find the amount field, vendor field, and step IDs, then calls `create_automation_rule` for each condition. The overlapping dollar thresholds (over $5,000 AND over $25,000) both apply when a PO exceeds $25,000, so both approvers get added. Gemini handles that layering correctly and will confirm the logic with you if it detects potential overlap.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+Your AI works through a predictable sequence every time you describe an automation rule. Understanding the steps helps you write better prompts.
+
+**Step 1: Read the template structure**
+
+Before creating anything, the AI calls `get_template` and `get_template_steps` to read the full template. It's looking for step IDs, form field IDs, existing assignments, and the field types that matter for your conditions. A field called "deal value" might be a number field, a currency field, or a text field - that distinction changes how the condition is written.
+
+**Step 2: Check for conflicts**
+
+The AI calls `analyze_template_automations` to scan existing rules. If a rule already hides the Legal Review step under a different condition, the AI flags it before creating a potentially contradictory rule. This is where describing your intent matters - "skip Legal Review for small deals" tells the AI something different than "always show Legal Review for enterprise customers," even if both involve the same step.
+
+**Step 3: Create each rule**
+
+The AI calls `create_automation_rule` for each condition you described. Each rule has two parts:
+
+- **Trigger condition**: which field value or event starts the rule (a dropdown selection, a number threshold, a date comparison, a checkbox state)
+- **Action**: what happens when the condition is true (hide a step, show a step, change an assignee, adjust a deadline)
+
+The AI maps your natural language to Tallyfy's automation types:
+
+- "skip step" / "hide step" → hide step automation
+- "show step" / "add step" → show step automation
+- "assign to" / "add approver" → assignment automation
+- "set deadline" → deadline automation
+
+**Step 4: Confirm what was created**
+
+Once the rules are created, the AI summarizes them in plain language so you can verify the logic before testing. Something like: "I created two rules. Rule 1 hides the Legal Review step when deal value is less than $10,000. Rule 2 adds VP of Sales as an approver on Final Approval when deal value is greater than $50,000."
+
+That confirmation is worth reading carefully - it's the fastest way to catch a misread condition before it affects live processes.
+
+### Common automation patterns
+
+Different business scenarios map to different automation types in Tallyfy. Here's what each looks like in plain language.
+
+**Conditional step visibility**
+
+"If [field value matches condition], show/hide [step name]"
+
+This is the most common pattern. Steps that don't apply get hidden; steps needed in special cases get revealed. Real examples:
+
+- "If the department is HR, show the HRIS Access Setup step"
+- "If the project type is Internal, skip the Client Sign-off step"
+- "If the applicant answered No to the background check consent question, hide the Background Check step"
+
+The condition can be a dropdown selection, a checkbox, a number comparison, a date, or even whether a particular field was filled in at all.
+
+**Dynamic assignment**
+
+"If [condition], assign [step] to [person or group]"
+
+Route tasks to different people based on the data in your process. Useful when the same step should go to different approvers depending on deal size, department, geography, or any other field.
+
+- "If the region is EMEA, assign the Compliance Review step to the EU Legal team"
+- "If the budget exceeds $100,000, assign Final Approval to the CFO instead of the department head"
+- "If the ticket type is Security, add the Security team as an additional assignee"
+
+Note that assignment automations add or change assignees - they don't remove existing ones unless you specify that explicitly.
+
+**Deadline adjustments**
+
+"If [condition], set deadline to [time period]"
+
+Tighten or extend deadlines based on priority, urgency, or other criteria. The time period can be hours, business days, or calendar days.
+
+- "If priority is Critical, set all step deadlines to 4 hours"
+- "If the renewal date is within 30 days, set the Contract Review deadline to 1 business day"
+- "If the deal size is over $500,000, extend the Due Diligence deadline to 10 business days"
+
+**Multi-condition rules**
+
+"If [condition A] AND [condition B], then [action]"
+
+Combine conditions when a single field value isn't enough to trigger the right behavior. Both conditions must be true for the action to fire.
+
+- "If department is Sales AND deal size is over $50,000, add the Revenue Operations team to the Forecast Review step"
+- "If vendor type is New AND contract value is over $10,000, show the Extended Vetting step"
+
+The AI handles AND logic naturally when you describe it that way. If you need OR logic - where either condition alone should trigger the action - say "or" explicitly and the AI will create separate rules or ask how you want it structured.
+
+### Tips for better results
+
+**Reference exact step names and field names from your template.** The AI reads your template to find matches, but "the approval step" is harder to resolve than "the Final Approval step." Field names matter too - "the amount field" and "the deal value field" might be different fields in your template.
+
+**Be explicit about thresholds.** "Greater than $50,000" and "at least $50,000" are different conditions. "Less than" and "up to" have edge cases at the boundary. State the exact threshold and whether the boundary value is included.
+
+**Ask the AI to check for conflicts.** Before creating new rules on a template that already has automations, say: "Check for any existing rules that might contradict this before creating it." The AI calls `analyze_template_automations` and flags anything worth reviewing.
+
+**Describe one logical group at a time.** If you have five unrelated rules, describe them in one prompt and let the AI work through them. But if you're setting up a complex routing system with overlapping conditions, take it one rule at a time and verify each one before adding the next.
+
+**Test the logic before going live.** After creating rules, ask: "What would happen if someone selected Engineering in the department field and filled in a start date 3 days from now?" The AI walks through which rules would fire and what the resulting step visibility and assignments would look like - without actually launching a process.
+
+**Specify the field value format your template uses.** If your priority dropdown uses "High / Medium / Low" but you say "urgent" in your prompt, the AI will either ask for clarification or try to map it. Save time by matching the exact option text from your form field.
+
+**Handle edge cases explicitly.** "If the deal value is over $50,000, add the VP of Sales as an approver" - but what happens for deals under $50,000? If you want the step assignment to stay as-is, that's fine. If you want a different assignee for smaller deals, say so. The AI won't assume what the else condition should be.
+
+### Take it further
+
+- [Audit and improve your templates](/products/pro/integrations/byo-ai/use-cases/audit-and-improve-your-templates/)
+- [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/)
+- [Generate reports from process data](/products/pro/integrations/byo-ai/use-cases/generate-reports-from-process-data/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Automations" href="/products/pro/documenting/templates/automations/" > Set up if-this-then-that rules that trigger actions automatically in your Tallyfy processes. </LinkTitleCard>
+  <LinkTitleCard header="Automation examples" href="/products/pro/documenting/templates/automations/examples/" > Real-world examples of automation rules you can use in your Tallyfy templates. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables across your Tallyfy workflows. </LinkTitleCard>
+</CardGrid>

@@ -1,0 +1,166 @@
+---
+about_tallyfy: true
+description: Paste raw meeting notes or action items into your AI chat and it will parse them into individual Tallyfy tasks with titles and assignees and deadlines extracted automatically so nothing from your meeting falls through the cracks.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 6
+title: Create tasks from meeting notes
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Turn action items into tracked tasks instantly
+
+Meetings generate action items. Most of them get lost. You leave a standup with five things to follow up on, someone types them into a chat message, and by Thursday no one remembers who said they'd handle what. Paste your meeting notes into your AI and it creates Tallyfy tasks for every action item - with the right assignees and deadlines - in one go.
+
+No reformatting required. Messy notes work fine. The AI handles the parsing.
+
+### What you'll accomplish
+
+- Convert raw meeting notes into structured Tallyfy tasks
+- Automatically assign tasks to the right team members
+- Set deadlines based on what was discussed in the meeting
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Setup**: If you haven't connected Claude to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first - it takes about two minutes.
+
+**Prompt to try**:
+
+```text
+Here are my meeting notes from today's standup:
+
+- Sarah to finish the Q3 report by Friday
+- Mike needs to review the vendor contract this week
+- Everyone should update their project status by end of day Wednesday
+- Lisa to schedule the client demo for next Tuesday
+
+Create Tallyfy tasks for each action item. Assign them to the right people and set the deadlines mentioned.
+```
+
+**What happens**: Claude calls `get_organization_users` to find Sarah, Mike, and Lisa in your Tallyfy member list. Then it calls `create_task_from_text` for each action item, passing the full natural language description so Tallyfy can extract the title, assignee, and deadline automatically. Claude is good at flagging ambiguous items - if "everyone" doesn't map to a specific user, it'll ask before creating.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Setup**: If you haven't connected ChatGPT to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+I just got out of a meeting. Here are the action items we agreed on:
+
+- Sarah to finish the Q3 report by Friday
+- Mike needs to review the vendor contract this week
+- Everyone should update their project status by end of day Wednesday
+- Lisa to schedule the client demo for next Tuesday
+
+Turn each of these into a Tallyfy task, assign them to whoever's named, and set the deadlines.
+```
+
+**What happens**: ChatGPT looks up your organization's user list via `get_organization_users` to match names to real Tallyfy accounts, then fires `create_task_from_text` for each item. You'll see each tool call in the response - useful if you want to spot-check assignments before they land in Tallyfy.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Setup**: If you haven't connected Copilot to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Pull these action items from my meeting notes and add them to Tallyfy as tasks:
+
+- Sarah to finish the Q3 report by Friday
+- Mike needs to review the vendor contract this week
+- Everyone should update their project status by end of day Wednesday
+- Lisa to schedule the client demo for next Tuesday
+
+Match each person to their Tallyfy account and set the right due dates.
+```
+
+**What happens**: Copilot calls `get_organization_users` to resolve names, then creates each task via `create_task_from_text`. Because Copilot lives inside Microsoft 365, you can paste notes straight from Teams meeting chat or a OneNote page - no need to clean up formatting first.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Setup**: If you haven't connected Gemini to Tallyfy yet, follow the [connect your AI to Tallyfy](/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/) guide first.
+
+**Prompt to try**:
+
+```text
+Here's what came out of our team meeting today - can you create a Tallyfy task for each action item?
+
+- Sarah to finish the Q3 report by Friday
+- Mike needs to review the vendor contract this week
+- Everyone should update their project status by end of day Wednesday
+- Lisa to schedule the client demo for next Tuesday
+
+Assign each task to the person named and use the deadline mentioned.
+```
+
+**What happens**: Gemini calls `get_organization_users` to match names to Tallyfy accounts, then creates each task with `create_task_from_text`. Gemini tends to summarize what it created at the end - a quick list of tasks with assignees and deadlines - so you can confirm everything landed correctly before moving on.
+
+  </TabItem>
+</Tabs>
+
+### How it works behind the scenes
+
+There are two tool calls involved, and they happen in sequence.
+
+First, the AI calls `get_organization_users`. This pulls the full member list for your Tallyfy organization - names, email addresses, user IDs. The AI then reads through your meeting notes and tries to match each name it finds against that list. Sarah becomes a specific user ID. Mike becomes another. This step is what makes assignment work - without it, the AI would be guessing.
+
+Then, for each distinct action item, the AI calls `create_task_from_text`. You pass the natural language description - something like "Sarah to finish the Q3 report by Friday" - and Tallyfy's MCP server does the extraction. It pulls out the task title, reads the assignee field, and parses the deadline. The task shows up in Tallyfy assigned to the right person with the due date set.
+
+A few things worth knowing about how the name matching works. If you use a first name that exists in your organization exactly once, the match is automatic. If you have two people named Sarah, the AI will ask which one. If a name doesn't appear in your Tallyfy member list at all - say, someone who hasn't been invited yet - the AI will flag it and ask how you want to handle it. It won't silently skip the task or assign it to the wrong person.
+
+The deadline parsing handles relative dates reasonably well. "By Friday" becomes the upcoming Friday's date. "This week" typically becomes end of the working week. "Next Tuesday" looks past the current week to the following one. If you want precision, use explicit dates - "March 28" is better than "end of the month" for anything time-sensitive.
+
+### Tips for better results
+
+**Use full names that match your Tallyfy member list.** First names work when they're unique in your organization, but "Sarah Chen" is safer than "Sarah" if you have multiple Sarahs. Your AI will ask for clarification if there's ambiguity, but saving that extra step is worth it.
+
+**Mention specific dates rather than relative ones.** "By March 28" works more reliably than "next week" or "soon." If your notes say "by end of Q1," add a date clarification before submitting the prompt.
+
+**Paste the notes exactly as they are.** Don't reformat them. Bullet points, run-on sentences, parenthetical comments - the AI handles all of it. Cleaning up your notes before pasting is unnecessary work.
+
+**Add context if tasks need it.** "Mike to review the vendor contract" creates a task. "Mike to review the vendor contract - focus on the indemnification clauses, flagged by legal" creates a more useful one with actual context in the description. More information in the notes means more information in the task.
+
+**If you have a meeting transcript, paste the relevant section.** You don't need to pre-extract action items. Many AIs can read a full transcript and identify which lines are action items versus discussion. Try: "Here's our meeting transcript - find all the action items and create Tallyfy tasks for each one."
+
+**Include the meeting name or project name in your prompt.** "Create Tallyfy tasks for each action item from our Q2 planning meeting" gives the AI useful context for naming and organizing the tasks. Some AIs will include the meeting name in the task description automatically.
+
+**Review before your team acts on the tasks.** The AI is reading natural language, which means occasional misreads. "Sarah mentioned she'd look at the report" might get parsed as a task even if Sarah was just saying she'd glance at it - not commit to delivering it. A quick scan of the created tasks before you log off takes thirty seconds and catches those edge cases.
+
+### What to do when names don't match
+
+The most common friction point is name matching. Your meeting notes say "Jordan" but Jordan's Tallyfy account is under "Jordan M." or a work email with a different display name.
+
+When this happens, the AI will stop and ask. It might say: "I found 'Lisa' in your notes but couldn't match her to a Tallyfy user. Do you want me to skip this task, assign it to you, or is her account under a different name?"
+
+A few ways to get ahead of this:
+
+- Before your first run, ask your AI: "List all the members in my Tallyfy organization" - this shows you exactly what names and display names are in the system.
+- If your team uses nicknames or shortened names in meetings, keep a simple note of the mapping: "Dan = Daniel Thompson in Tallyfy."
+- For recurring meetings with a fixed set of attendees, you can front-load the names in your prompt: "The meeting attendees in Tallyfy are: Sarah Chen, Mike Okafor, Lisa Patel. Here are the action items..."
+
+### Take it further
+
+Once you're comfortable turning meeting notes into tasks, a few natural extensions open up in Tallyfy:
+
+- [Launch processes with pre-filled data](/products/pro/integrations/byo-ai/use-cases/launch-processes-with-pre-filled-data/) - if a meeting kicks off a repeatable workflow (like a new client onboarding), launch the full process instead of individual tasks
+- [Insert data into form fields from other systems](/products/pro/integrations/byo-ai/use-cases/insert-data-into-form-fields-from-other-systems/) - push data from meeting notes or other sources into form fields on tasks already in progress
+- [Get a daily briefing of your tasks](/products/pro/integrations/byo-ai/use-cases/get-a-daily-briefing-of-your-tasks/) - the morning after a meeting, ask your AI to show you all the tasks created yesterday and which ones are most urgent
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > Explore all the ways you can use your own AI with Tallyfy. </LinkTitleCard>
+  <LinkTitleCard header="Connect your AI to Tallyfy" href="/products/pro/integrations/byo-ai/use-cases/connect-your-ai-to-tallyfy/" > Step-by-step guide to linking Claude, ChatGPT, Copilot, or Gemini to your Tallyfy account. </LinkTitleCard>
+  <LinkTitleCard header="Tasks" href="/products/pro/tracking-and-tasks/tasks/" > Understand how tasks work in Tallyfy and what you can do with them. </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > Learn about the bring-your-own-AI integration and what it enables. </LinkTitleCard>
+</CardGrid>

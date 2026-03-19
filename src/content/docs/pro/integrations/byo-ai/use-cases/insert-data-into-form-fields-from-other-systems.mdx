@@ -1,0 +1,189 @@
+---
+about_tallyfy: true
+description: Copy data from emails or spreadsheets or CRM records or any external source into your AI chat and it fills the matching Tallyfy form fields on any task automatically so you never need to retype information that already exists somewhere else.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 8
+title: Insert data into form fields from other systems
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Stop retyping data that already exists
+
+You have client details in an email, pricing in a spreadsheet, or contact info in your CRM. Instead of manually copying each field into Tallyfy, paste the raw data into your AI chat and tell it which task to fill in. Done.
+
+### What you'll accomplish
+
+- Fill Tallyfy form fields with data from any external source
+- Eliminate manual copy-paste between systems
+- Map unstructured data to structured form fields automatically
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Prompt to try:**
+
+```text
+Here's a client record from our CRM:
+
+Company: Brightside Solutions
+Contact: Maria Chen, maria@brightside.io
+Phone: +1-555-0142
+Industry: Healthcare
+Annual Revenue: $2.3M
+Contract Start: March 1, 2026
+
+Fill in the form fields on the "Client Details" task in the Brightside Solutions onboarding process.
+```
+
+Claude handles this well because it reads the task's form field definitions first, then maps each piece of your pasted data to the right field. If the form has a dropdown for Industry, it matches "Healthcare" to the closest available option. If it can't confidently map something, it asks you rather than guessing wrong.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Prompt to try:**
+
+```text
+I got this info from an email:
+
+Name: Brightside Solutions
+Main contact: Maria Chen (maria@brightside.io, +1-555-0142)
+They're in healthcare, $2.3M revenue
+Starting March 1
+
+Can you put this into the Client Details form in the Brightside onboarding process on Tallyfy?
+```
+
+ChatGPT is fine with loosely formatted input - you don't need to clean up the email text first. Paste it as-is and let ChatGPT figure out what maps where. It tends to confirm the mappings it made before writing anything, which gives you a chance to catch any mismatches.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Prompt to try:**
+
+```text
+I have a row from our onboarding spreadsheet:
+
+Brightside Solutions | Maria Chen | maria@brightside.io | +1-555-0142 | Healthcare | $2.3M | 2026-03-01
+
+Fill in the Client Details task in the Brightside Solutions onboarding process. The columns are: Company, Contact Name, Email, Phone, Industry, Revenue, Contract Start.
+```
+
+Copilot handles tabular data from spreadsheets cleanly when you tell it what the columns mean. If you're pasting directly from Excel or Google Sheets, include a header row or label the columns inline - it makes the mapping much more reliable.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Prompt to try:**
+
+```text
+Here's what I extracted from a PDF proposal:
+
+Client: Brightside Solutions
+Primary contact: Maria Chen
+Email: maria@brightside.io
+Phone: +1-555-0142
+Sector: Healthcare
+Contract value: $2.3M annually
+Start date: March 1, 2026
+
+Update the Client Details form on the onboarding task for Brightside Solutions in Tallyfy.
+```
+
+Gemini works well when your source is unstructured text like a PDF or contract document. Paste the relevant section directly - you don't need to reformat it. Gemini reads the field labels on the Tallyfy task and figures out which chunks of your text belong where.
+
+  </TabItem>
+</Tabs>
+
+What happens when you send one of these prompts: the AI calls `search_for_processes` to find the right process, then `get_tasks_for_process` to locate the specific task. It reads the form fields on that task, maps your pasted data to the correct fields, and calls `update_task` to fill them in. The whole thing takes a few seconds.
+
+### How it works behind the scenes
+
+There's a short chain of steps your AI runs every time you paste data and ask it to fill a Tallyfy form.
+
+**Step 1 - Find the right process**
+
+The AI calls `search_for_processes` using the name or keywords you gave it - "Brightside Solutions onboarding" in the example above. This returns the matching process and its ID. If there are multiple matches (say you have several onboarding processes with similar names), the AI asks you to confirm which one before proceeding.
+
+**Step 2 - Locate the specific task**
+
+Next, `get_tasks_for_process` pulls all the tasks in that process. The AI scans for the one you named - "Client Details" in our example - and reads its form field definitions. This is the key step: before it writes anything, it knows exactly what fields exist, what type each one is (text, dropdown, date, number), and what options are available for any dropdowns.
+
+**Step 3 - Map your data to the fields**
+
+This is where the AI does the real work. It reads your pasted text and matches each piece to the most appropriate form field. A few things to know about how it handles edge cases:
+
+- **Dropdowns**: The AI matches your text to the closest available option. "Healthcare" might map to a dropdown option called "Health & Life Sciences" - and it tells you that's what it did.
+- **Dates**: Different formats (March 1, 2026 / 2026-03-01 / 01/03/2026) all get converted to whatever format the field expects.
+- **Currency**: "$2.3M" gets interpreted as a numeric value if the field is a number type.
+- **Ambiguous data**: If something could map to two different fields, the AI asks rather than guessing.
+
+**Step 4 - Write the values**
+
+Finally, `update_task` writes all the mapped values into the form fields in one call. You get a confirmation showing what was filled in where, so you can verify the mapping looks right.
+
+### Tips for better results
+
+**Name the process and task as they appear in Tallyfy.** The AI searches by name, so "Client Details task in the Brightside Solutions onboarding" works much better than "that form in the new client thing." Copy the process name and task name from Tallyfy if you're not sure what they're called.
+
+**Paste raw data as-is.** You don't need to reformat your email, CRM export, or spreadsheet row into a clean structure. The AI is good at picking out the relevant data from messy text. The exception is if your source has a lot of irrelevant information - trim it down to just the fields you actually want to fill.
+
+**Label ambiguous data.** If you're pasting something that could be interpreted multiple ways, add a quick label. "Revenue: $2.3M" is clearer than just "$2.3M" floating in a paragraph. Takes two seconds and prevents a wrong mapping.
+
+**Works for partial updates too.** You don't have to fill every field in one go. "Update just the phone number and contract start date on the Client Details task" is completely valid. The AI fills only what you specify and leaves everything else alone.
+
+**For bulk operations, be explicit about scope.** "I have 5 client records, fill in the Client Details task for each matching process" works - but name each process clearly so the AI can find them. If the process names are predictable (like "Acme Corp Onboarding", "Bright Solutions Onboarding"), paste the full list and it handles the matching.
+
+**Check dropdown options before you paste.** If you know a field has a dropdown and your data uses different terminology than Tallyfy's options (e.g., your CRM says "SMB" but Tallyfy's dropdown says "Small Business"), you can tell the AI upfront: "The Industry field uses these options: Healthcare, Finance, Retail, Technology, Other." This eliminates any guesswork.
+
+### What good output looks like
+
+After you paste your data and send the prompt, expect the AI to confirm what it did - something like this:
+
+> "I found the Brightside Solutions onboarding process and located the Client Details task. Here's what I filled in:
+>
+> - Company Name: Brightside Solutions
+> - Primary Contact: Maria Chen
+> - Email: maria@brightside.io
+> - Phone: +1-555-0142
+> - Industry: Healthcare (matched to dropdown option "Healthcare & Life Sciences")
+> - Annual Revenue: 2300000 (converted from $2.3M)
+> - Contract Start Date: 2026-03-01
+>
+> All 7 fields have been updated. Want me to complete the task or leave it open for review?"
+
+That last question is useful - in Tallyfy, a task can be updated without being marked complete. If the form still needs a human to review it before submission, leave it open. If the data is final and you want to move the process forward, tell the AI to complete it.
+
+### When this saves the most time
+
+**After a sales call.** Your notes or CRM record are already full of the client details you just collected. Instead of switching to Tallyfy and retyping everything into the onboarding form, paste the CRM record into your AI and let it fill the task.
+
+**Processing inbound emails.** A new client emails their details - company name, contact, requirements. Paste the email directly and tell the AI which task to fill. No reformatting needed.
+
+**Importing from a spreadsheet.** You're migrating a batch of records from a spreadsheet into Tallyfy processes. Copy a row, paste it with the column headers, point the AI at the right task. Repeat for each row. Much faster than opening each task and typing by hand.
+
+**After a form submission from another tool.** You received data through a Google Form, Typeform, or your website's contact form. Paste the submission into your AI and route it to the right Tallyfy task. This is a lightweight integration that doesn't require any webhook configuration.
+
+**When you need to correct a field.** "The phone number on the Client Details task for Brightside is wrong - it should be +1-555-0199." One sentence. Done. You don't have to find the task, open it, locate the field, clear the old value, type the new one.
+
+### Take it further
+
+Once your form fields are filled, the natural next step is often to complete the task and move the process forward - or to launch a new process with the data already pre-populated.
+
+- [Launch processes with pre-filled data](/products/pro/integrations/byo-ai/use-cases/launch-processes-with-pre-filled-data/)
+- [Create tasks from meeting notes](/products/pro/integrations/byo-ai/use-cases/create-tasks-from-meeting-notes/)
+- [Import forms into kick-off or step fields](/products/pro/integrations/byo-ai/use-cases/import-forms-into-kick-off-or-step-fields/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > </LinkTitleCard>
+  <LinkTitleCard header="Form fields" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > </LinkTitleCard>
+  <LinkTitleCard header="Tasks" href="/products/pro/tracking-and-tasks/tasks/" > </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > </LinkTitleCard>
+</CardGrid>

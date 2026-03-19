@@ -1,0 +1,229 @@
+---
+about_tallyfy: true
+description: Take fields from an external form like a PDF or web form or Google Form or spreadsheet column headers and recreate them as Tallyfy kick-off form fields or step form fields by pasting the field list into your AI chat.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-03-19
+sidebar:
+  order: 11
+title: Import forms into kick-off or step fields
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Recreate any form inside Tallyfy
+
+Have a PDF form, a Google Form, or a spreadsheet with column headers you want to turn into Tallyfy form fields? Paste the field list into your AI and tell it where to put them - kick-off form or a specific step. The AI creates each field with the right type, matching text fields to text, dropdowns to dropdowns, dates to dates.
+
+### What you'll accomplish
+
+- Convert external form fields into Tallyfy kick-off or step form fields
+- Automatically match field types (text, dropdown, date, checkbox, etc.)
+- Skip manual field-by-field creation in the template builder
+
+### Try it now
+
+<Tabs>
+  <TabItem label="Claude">
+
+**Prompt to try:**
+
+```text
+Here are the fields from our client intake form:
+
+- Client Name (text, required)
+- Company (text, required)
+- Email (text, required)
+- Phone (text)
+- Country (dropdown: US, UK, Canada, Australia, Germany, France, Other)
+- Department (dropdown: Sales, Marketing, Engineering, Support, Finance, HR)
+- Project Type (dropdown: New Implementation, Migration, Consulting, Training)
+- Start Date (date)
+- Budget Range (dropdown: Under $10K, $10K-$50K, $50K-$100K, Over $100K)
+- Additional Notes (long text)
+
+Add these as kick-off form fields on the Client Intake template.
+```
+
+Claude works well here because it reads the template's existing kick-off structure first, then adds each field in order. It matches the type descriptions you provide - "long text" becomes a textarea, "dropdown: US, UK..." becomes a dropdown with those exact options. If a field type is ambiguous, Claude will pick the most sensible Tallyfy equivalent and tell you what it chose.
+
+  </TabItem>
+  <TabItem label="ChatGPT">
+
+**Prompt to try:**
+
+```text
+We have a Google Form for new hire requests with these fields. Can you recreate them
+as kick-off fields on our New Hire Request template in Tallyfy?
+
+Full Name - short answer, required
+Department - multiple choice: Engineering, Marketing, Sales, Support, Finance
+Position Title - short answer, required
+Start Date - date
+Salary Range - multiple choice: $40-60K, $60-80K, $80-100K, $100K+
+Remote/Hybrid/Office - multiple choice
+Equipment Needed - checkboxes: Laptop, Monitor, Headset, Standing Desk
+Hiring Manager - short answer
+Justification - paragraph
+```
+
+This framing mirrors how Google Forms describes its own field types - "short answer" maps to a text field, "multiple choice" maps to a dropdown, "paragraph" maps to a textarea, and "checkboxes" maps to a multi-select. ChatGPT handles that translation reliably and tends to confirm the mappings before writing anything, which gives you a chance to catch mismatches early.
+
+  </TabItem>
+  <TabItem label="Copilot">
+
+**Prompt to try:**
+
+```text
+I need these fields added to step 2 "Vendor Assessment" on the Vendor Onboarding
+template in Tallyfy:
+
+Vendor Name, Primary Contact, Contact Email, Tax ID, Insurance Certificate (yes/no),
+Annual Revenue, Number of Employees, Industry, References Provided (yes/no),
+Risk Rating (Low/Medium/High)
+
+Make Vendor Name, Contact Email, and Tax ID required. Use dropdowns where it
+makes sense.
+```
+
+This prompt targets a specific step rather than the kick-off form - useful when the fields belong mid-process rather than at launch. Copilot reads the step's current field list, then adds the new ones. Giving it the explicit instruction "use dropdowns where it makes sense" is enough for Copilot to correctly identify Risk Rating (Low/Medium/High) and Insurance Certificate (yes/no) as the dropdown candidates.
+
+  </TabItem>
+  <TabItem label="Gemini">
+
+**Prompt to try:**
+
+```text
+I'm copying field headers from our supplier evaluation spreadsheet. Can you add
+these as form fields on the kick-off form of the Supplier Evaluation template?
+
+Supplier Name | Company Type | Primary Contact | Contact Email | Country of Origin |
+Product Category | Annual Supply Volume | Certifications Held | Payment Terms |
+Notes
+
+Supplier Name, Primary Contact, and Contact Email should be required. Company Type
+and Product Category should be dropdowns - I'll fill in the options after.
+```
+
+Gemini handles pipe-delimited or tab-separated column headers from spreadsheets well. The instruction "I'll fill in the options after" tells it to create the dropdown fields with no options initially - you can add the choices separately once the fields exist. This works if you haven't finalized the option lists yet.
+
+  </TabItem>
+</Tabs>
+
+What happens when you send one of these prompts: the AI calls `get_template` or `search_for_templates` to find the template, then `get_kickoff_fields` or `get_template_steps` to see what fields already exist. Then it calls `add_form_field_to_step` for each field in your list, matching your described type to the right Tallyfy field type. For any dropdowns, it calls `update_dropdown_options` to set the choices. Required fields get flagged via `update_form_field`.
+
+### How it works behind the scenes
+
+There's a short chain of tool calls your AI runs every time you paste a field list and ask it to recreate them in Tallyfy.
+
+**Step 1 - Find the target template**
+
+The AI calls `search_for_templates` or `get_template` using the name you provided. If you said "Client Intake template," it finds that by name and retrieves the template ID. If multiple templates match, it asks you to confirm which one before proceeding.
+
+**Step 2 - Read what already exists**
+
+Before creating anything, the AI calls `get_kickoff_fields` (if you're adding to the kick-off form) or `get_template_steps` followed by the relevant step data (if you're adding to a specific step). This prevents duplicate fields - if "Client Name" already exists, the AI skips it rather than creating a second one.
+
+**Step 3 - Map your field descriptions to Tallyfy field types**
+
+This is where the translation happens. Tallyfy has a defined set of field types, and your AI maps your descriptions to them:
+
+| What you write | Tallyfy field type |
+|---|---|
+| text, short answer, string | Text field |
+| long text, paragraph, textarea | Textarea field |
+| dropdown, multiple choice, select | Dropdown field |
+| date | Date field |
+| yes/no, boolean | Radio or dropdown (Yes/No) |
+| checkboxes, multi-select | Multi-select field |
+| number, integer, currency | Number field |
+| email | Text field (email validation) |
+| file, attachment | File upload field |
+
+If you describe a field ambiguously - just "Contact" without a type - the AI defaults to text and tells you that's what it used. You can always change it afterward.
+
+**Step 4 - Create the fields**
+
+The AI calls `add_form_field_to_step` for each field in sequence. Fields are created in the order you listed them, which becomes their display order in the form. For dropdown fields, it calls `update_dropdown_options` immediately after creating the field to set the available choices. Required fields get a separate `update_form_field` call to mark them as required.
+
+**Step 5 - Confirm what was created**
+
+Once all fields are created, the AI returns a summary - something like "Added 10 fields to the Client Intake kick-off form. Vendor Name, Primary Contact, and Contact Email are required. Country and Department are dropdowns." You can verify this matches your original list before anyone starts using the template.
+
+### Tips for better results
+
+**Specify the field type inline.** The more explicit you are, the more accurate the result. "Industry (dropdown)" is clearer than just "Industry." If it's a dropdown, list the options too: "Industry (dropdown: Healthcare, Finance, Retail, Technology, Other)." This saves a follow-up call to add the options.
+
+**Mark required fields explicitly.** Write "required" next to any field that must be completed before submission, or list them separately at the end: "Make Client Name, Email, and Company required." The AI picks up both formats.
+
+**Name the template and location precisely.** Tallyfy templates have exact names and can have many steps. "Step 2 Vendor Assessment on the Vendor Onboarding template" is unambiguous. "The vendor form" is not. If you're not sure of the exact step name, ask first: "What steps are in the Vendor Onboarding template?"
+
+**Tell it whether you want kick-off fields or step fields.** These are different locations in Tallyfy - kick-off fields are collected before the process starts, step fields are collected when a specific task is completed. Be explicit about which one you want.
+
+**Paste from your source as-is.** You don't need to reformat your Google Form export, PDF field list, or spreadsheet headers before pasting. The AI handles various formats - comma-separated, pipe-delimited, numbered lists, bullet points. Just include a clear indication of field types where you have them.
+
+**For large forms, break it into batches.** If you have 30+ fields, consider splitting the request into two or three prompts - maybe grouped by section. This reduces the chance of any single field being missed and makes the confirmation output easier to review.
+
+**If dropdown options aren't final yet, say so.** "Create these as dropdowns - I'll add the options separately" tells the AI to create empty dropdowns that you can populate later. This is useful when you're still deciding on the option values.
+
+**Check the field order after creation.** Fields are added in the order you listed them. If your original form had a specific logical flow, make sure your list reflects that before pasting. Reordering fields after creation is possible in the template builder, but it's easier to get it right the first time.
+
+### What good output looks like
+
+After you paste your field list and send the prompt, expect a confirmation like this:
+
+> "I found the Client Intake template and added 10 fields to the kick-off form:
+>
+> - Client Name (text, required)
+> - Company (text, required)
+> - Email (text, required)
+> - Phone (text)
+> - Country (dropdown: US, UK, Canada, Australia, Germany, France, Other)
+> - Department (dropdown: Sales, Marketing, Engineering, Support, Finance, HR)
+> - Project Type (dropdown: New Implementation, Migration, Consulting, Training)
+> - Start Date (date)
+> - Budget Range (dropdown: Under $10K, $10K-$50K, $50K-$100K, Over $100K)
+> - Additional Notes (textarea)
+>
+> All fields are now live on the template's kick-off form."
+
+That summary is worth reviewing against your original list - check the types, the dropdown options, and which fields are required. If something looks off, you can tell the AI to fix it: "Change Budget Range to a text field" or "Add 'Other' as an option to the Department dropdown."
+
+### When this saves the most time
+
+**Migrating from paper forms.** You have a PDF intake form that's been in use for years. Type out the field names and types, paste them in, and the AI rebuilds that form as a Tallyfy kick-off in a few minutes - no clicking through the field builder for each one.
+
+**Converting Google Forms.** Google Forms exports a list of questions with types. Paste that list, tell the AI it's for your template's kick-off or a specific step, and it recreates the structure in Tallyfy. No manual translation required.
+
+**Using spreadsheet column headers as form fields.** If you track process intake data in a spreadsheet, the column headers are already a field list. Copy them, note which are dropdowns and which are free text, paste into your AI. The Tallyfy form mirrors the spreadsheet structure.
+
+**Standardizing forms across templates.** You have a set of client-facing fields that should appear consistently across several templates. Build the list once, then send the same prompt to each template in sequence: "Add these fields to the Client Intake template... now add them to the Contract Review template... now the Client Offboarding template." Same fields, same types, consistent across all three.
+
+**After a process redesign.** Your team overhauled an onboarding workflow and the new version needs different data collected at kick-off. Rather than clicking through the template builder to remove old fields and add new ones, paste the new field list and ask the AI to rebuild the kick-off form from scratch.
+
+### Handling field types your source doesn't specify
+
+Not every form you import from will have explicit type labels. If your source just lists field names without types - "Vendor Name, Contact Email, Industry, Annual Revenue, Risk Level" - the AI will infer reasonable types based on the name:
+
+- Fields named with "email", "e-mail" → text field
+- Fields named with "date", "start", "end", "deadline" → date field
+- Fields ending in "amount", "value", "revenue", "budget" → number field
+- Fields like "notes", "comments", "description", "justification" → textarea
+- Everything else → text field by default
+
+The AI will tell you what it inferred for each field. If "Risk Level" should be a dropdown (Low/Medium/High) but the AI created it as a text field, tell it: "Change Risk Level to a dropdown with options: Low, Medium, High." One correction, done.
+
+### Take it further
+
+- [Import a document as a template](/products/pro/integrations/byo-ai/use-cases/import-a-document-as-a-template/)
+- [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/)
+- [Merge and combine templates](/products/pro/integrations/byo-ai/use-cases/merge-and-combine-templates/)
+
+## Related articles
+
+<CardGrid>
+  <LinkTitleCard header="BYO AI use cases" href="/products/pro/integrations/byo-ai/use-cases/" > </LinkTitleCard>
+  <LinkTitleCard header="Form fields" href="/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/" > </LinkTitleCard>
+  <LinkTitleCard header="Templates" href="/products/pro/documenting/templates/" > </LinkTitleCard>
+  <LinkTitleCard header="BYO AI" href="/products/pro/integrations/byo-ai/" > </LinkTitleCard>
+</CardGrid>
