@@ -139,9 +139,9 @@ App -> Note: "Monitor expiration" {
 **What to notice:**
 - The access token is returned in the URL fragment (after `#`) - fragments aren't sent to servers, which adds a layer of protection
 - Authentication happens entirely on Tallyfy's domain, so your app never sees user credentials
-- The `X-Tallyfy-Client` header is required for all API calls after authentication
+- You must include the `X-Tallyfy-Client` header in all API calls after authentication
 
-#### Step 1 - Redirect users to Tallyfy's authorization page
+#### Step 1 - redirect users to Tallyfy's authorization page
 
 Direct your users to the Tallyfy authorization endpoint:
 
@@ -149,9 +149,9 @@ Direct your users to the Tallyfy authorization endpoint:
 https://account.tallyfy.com/oauth/authorize?client_id=YOUR_CLIENT_ID&response_type=token&redirect_uri=YOUR_REDIRECT_URL
 ```
 
-Replace `YOUR_CLIENT_ID` with your application's client ID and `YOUR_REDIRECT_URL` with your registered redirect URI. Users must have a verified email to proceed - they'll see Tallyfy's login page where they authenticate with their own credentials.
+Replace `YOUR_CLIENT_ID` with your application's client ID and `YOUR_REDIRECT_URL` with your registered redirect URI. Users need a verified email to proceed - they'll see Tallyfy's login page where they authenticate with their own credentials.
 
-#### Step 2 - Handle the redirect with the access token
+#### Step 2 - handle the redirect with the access token
 
 After successful authentication, Tallyfy redirects back to your redirect URI with the access token in the URL **fragment** (after `#`, not `?`):
 
@@ -168,7 +168,7 @@ Your application should:
 Implicit grant tokens are valid for 6 months. Plan your token refresh strategy accordingly.
 :::
 
-#### Step 3 - Make API requests with the access token
+#### Step 3 - make API requests with the access token
 
 Include the access token in the Authorization header for all Tallyfy API requests:
 
@@ -179,7 +179,7 @@ X-Tallyfy-Client: APIClient
 ```
 
 :::note[Required headers]
-Always include `X-Tallyfy-Client: APIClient` in all API calls. Requests without this header will be rejected.
+Always include `X-Tallyfy-Client: APIClient` in all API calls. Tallyfy rejects requests without this header.
 :::
 
 ### Example implementation
@@ -198,7 +198,7 @@ https://yourapp.com/auth/callback#access_token=eyJhbGciOiJSUzI1NiIs...&token_typ
 
 #### Handling multi-organization users
 
-A Tallyfy user can belong to multiple organizations. After authentication, the access token is tied to whichever organization the user is logged into at the time. If your app needs to work across multiple Tallyfy organizations:
+A Tallyfy user can belong to multiple organizations. After authentication, the access token is tied to whichever organization the user is logged into. If your app needs to work across multiple Tallyfy organizations:
 
 1. Store the organization context alongside the access token
 2. Consider adding organization selection in your application
@@ -220,7 +220,7 @@ A Tallyfy user can belong to multiple organizations. After authentication, the a
 | Token doesn't work | Token expired or user email unverified | Check expiration and ensure the user has verified their email |
 | Organization context issues | User belongs to multiple organizations | Clarify organization context during authentication |
 
-For any issues with your OAuth implementation, contact Tallyfy Support with details about the error and your setup.
+If you run into issues with your OAuth implementation, contact Tallyfy Support with details about the error and your setup.
 
 [^1]: A simplified OAuth flow where the access token is returned directly in the redirect URL fragment - no intermediate authorization code exchange needed
 
