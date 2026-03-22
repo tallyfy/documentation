@@ -55,6 +55,34 @@ PROMPT_LEAKAGE_PATTERNS = [
 	r'You are tasked with',         # System prompt preamble
 ]
 
+def truncate_description(text: str, max_chars: int = 100, max_sentences: int = 2) -> str:
+	"""
+	Cap a description to at most max_sentences sentences and max_chars characters.
+
+	1. Split into sentences and keep at most max_sentences.
+	2. If the result still exceeds max_chars, truncate at the last word
+	   boundary before max_chars and append "...".
+	"""
+	if not text or len(text) <= max_chars:
+		return text
+
+	# Split on sentence-ending punctuation followed by a space or end-of-string
+	sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+	truncated = ' '.join(sentences[:max_sentences]).strip()
+
+	if len(truncated) <= max_chars:
+		return truncated
+
+	# Truncate at the last word boundary before max_chars (reserve 3 chars for "...")
+	cut = truncated[:max_chars - 3]
+	last_space = cut.rfind(' ')
+	if last_space > 0:
+		cut = cut[:last_space]
+	# Remove trailing punctuation fragments before adding ellipsis
+	cut = cut.rstrip('.,;:!?')
+	return cut + '...'
+
+
 def detect_prompt_leakage(text: str) -> bool:
 	"""
 	Detect if text contains LLM prompt artifacts or system instructions.
@@ -142,6 +170,9 @@ def get_recommendations(article_id):
 			else:
 				# Sanitize the snippet to remove AI-typical blacklist words
 				sanitized_description = sanitize_ai_content(raw_snippet)
+
+			# Cap description length: max 2 sentences / 100 characters
+			sanitized_description = truncate_description(sanitized_description)
 
 			result.append({"header": header,
 						   "description": sanitized_description,

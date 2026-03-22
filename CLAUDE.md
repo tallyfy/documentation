@@ -49,11 +49,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🚨 CRITICAL: Humanizing Rules Integration
 
-**ALL AI content operations MUST incorporate the comprehensive humanizing guidelines from `humanizing-rules.md`**. These rules ensure content appears natural, human-written, and undetectable as AI-generated.
+### Adapted humanization rules for documentation
 
-**Before any AI content work**: Review and apply the humanizing rules found in `/Users/amit/Documents/GitHub/documentation/humanizing-rules.md`
+These rules apply to ALL documentation content (adapted from blog humanization rules -- docs-specific, lighter touch):
 
-**Required in every AI prompt**: Include humanizing guidelines for conversational tone, varied sentence rhythm, specific examples, answer-first structure, and elimination of AI-typical phrases.
+**Zero-tolerance blacklisted words** (always replace):
+delve, landscape, tapestry, multifaceted, pivotal, comprehensive, seamless, robust, leverage, facilitate, paramount, meticulous, underscore, moreover, furthermore, indeed, subsequently, additionally, endeavor, embark, "in essence", notably, arguably, methodology, stakeholder, innovative, scalable
+
+**Context-dependent words** (keep when technical, replace when AI filler):
+- "framework" -- KEEP for actual software frameworks, REPLACE "a framework for understanding"
+- "navigate" -- KEEP for UI instructions ("navigate to Settings"), REPLACE "navigate challenges"
+- "utilize" -- KEEP only in URLs that can't be changed, otherwise replace with "use"
+
+**Mandatory rules:**
+- Zero em-dashes (—) in all content. Use periods, commas, colons, or spaced hyphens instead
+- Use contractions naturally throughout, including footnotes (don't, won't, can't, it's, you'll, etc.). Exception: keep uncontracted for emphasis ("Do NOT delete")
+- All headings in sentence case (capitalize first word + proper nouns only)
+- All frontmatter descriptions must end with a period, be 150-350 chars
+- Fix empty alt text on images: `![]()` -> `![Descriptive text]()`
+- Replace wordy phrases: "in order to" -> "to", "prior to" -> "before", etc.
+
+**Do NOT apply to docs** (blog-only rules):
+- E-E-A-T markers, experience markers, catchphrase pools
+- Self-doubt expressions, creative immersion
+- Named entity density, register mixing
+- Paragraph rhythm SD targets, British English markers
+
+### Governance: preventing regression
+
+All new documentation articles must pass these checks before merge:
+- Zero em-dashes
+- Zero blacklisted words (zero-tolerance list)
+- At least 1 contraction per article (3+ for articles over 400 words)
+- Description ends with period
+- Headings in sentence case
+- No empty alt text on images
 
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
