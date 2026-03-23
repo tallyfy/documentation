@@ -674,13 +674,30 @@ This validates frontmatter, imports, and related articles sections.
   - Make titles different from main H2 headings
 
 ### Content Automation System
-This repository uses a sophisticated Python-based content automation system:
+This repository uses a Python-based content automation system:
 
 1. **Content IDs**: Generated server-side with MD5 hashes for unique page identification
 2. **AI-Generated Descriptions**: `generate-snippets.py` uses Claude AI to create page descriptions
 3. **Related Articles**: `generate-related-articles.py` fetches cross-references via Answers API
 4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
 5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
+
+### Pipeline behavior: what's safe to edit vs auto-generated
+
+The `documentation-pipeline.yml` runs on every push. Here's what each step does to your files:
+
+| Pipeline step | Trigger | What it changes | Safe to edit manually? |
+|---|---|---|---|
+| `generate-ids.yml` | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
+| `generate-snippets` | **New files only** (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
+| `upload-to-tallyfy-answers` | Every push | Nothing in files (uploads to Answers API) | N/A |
+| `update-last-modified` | Every push | `lastUpdated` field from git history | No - always recalculated from git |
+| `generate-related-articles` | Every push | `## Related articles` section at bottom | No - fully regenerated each run |
+| `sync` | Every push | Copies to support-docs repo | N/A |
+
+**Key takeaway**: `description` and article body content are safe to edit manually. The pipeline won't overwrite them. Fields like `lastUpdated` and `Related articles` are auto-generated and will be overwritten on every push.
+
+**ACCURACY_CHECK comments**: Must use JSX syntax `{/* ACCURACY_CHECK: ... */}` not HTML `<!-- -->`. HTML comments between frontmatter and imports break MDX parsing.
 
 ### Content Validation
 Run `python scripts/markdown-lint.py --dir src/content/docs` to validate frontmatter YAML structure, required fields, UUID format, and sidebar order requirements.
@@ -1196,6 +1213,37 @@ These patterns are effective when used intentionally with substance:
 5. Cloudflare Workers strip `/products` prefix and proxy to the Pages deployment
 
 **Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
+
+**Deploying staging to production:**
+```bash
+# 1. Ensure staging is clean and pipeline has passed
+git checkout staging && git pull
+
+# 2. Merge staging into main
+git checkout main && git pull
+git merge staging
+
+# 3. If merge conflicts on auto-generated fields (lastUpdated, related articles):
+#    - Always accept EITHER version (content is identical, timestamps differ)
+#    - For related articles: accept either, pipeline regenerates on push
+git push origin main
+
+# 4. Wait for pipeline to complete on main branch
+#    - Check: https://github.com/tallyfy/documentation/actions
+#    - Pipeline syncs to support-docs 'production' branch
+#    - Cloudflare Pages auto-builds from support-docs
+
+# 5. Purge Cloudflare cache (if needed for immediate visibility)
+#    - Use Cloudflare dashboard or API with cloudflare_credentials.json
+
+# 6. Return to staging
+git checkout staging
+```
+
+**Verifying deployment:**
+- Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
+- Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
+- Check CF Pages build: GitHub Actions logs show sync status
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`

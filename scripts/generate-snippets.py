@@ -236,6 +236,42 @@ class ClaudeClient:
 				logger.error(f"Failed to parse API response: {e}")
 				return None
 
+def post_process_description(text: str) -> str:
+	"""Enforce description quality rules deterministically after AI generation.
+
+	Rules:
+	- Must end with a period
+	- 150-350 characters (truncate or pad if needed)
+	- Maximum 2 sentences
+	- Strip leading/trailing whitespace and quotes
+	"""
+	if not text:
+		return text
+
+	# Strip whitespace and surrounding quotes
+	result = text.strip().strip('"').strip("'").strip()
+
+	# Cap at 2 sentences: split on period-space or period-end, keep first 2
+	sentences = re.split(r'(?<=\.)\s+', result)
+	if len(sentences) > 2:
+		result = ' '.join(sentences[:2])
+
+	# Ensure ends with period
+	if result and not result.endswith('.'):
+		result = result.rstrip(',;:!?') + '.'
+
+	# Truncate to 350 chars max (cut at last word boundary before limit)
+	if len(result) > 350:
+		truncated = result[:347]
+		last_space = truncated.rfind(' ')
+		if last_space > 200:
+			result = truncated[:last_space].rstrip(',;:') + '...'
+		else:
+			result = truncated + '...'
+
+	return result
+
+
 def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 	"""Process a single MDX file and update its snippet."""
 	try:
@@ -257,8 +293,8 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 			logger.error(f"Corrupted snippet preview: {snippet[:200]}...")
 			return False
 
-		# Sanitize AI-generated content to remove blacklist words
-		data['description'] = sanitize_ai_content(snippet)
+		# Sanitize AI-generated content to remove blacklist words, then enforce format rules
+		data['description'] = post_process_description(sanitize_ai_content(snippet))
 		with open(file_path, "w", encoding='utf-8') as f:
 			f.write(frontmatter.dumps(data))
 
