@@ -49,7 +49,7 @@ Templates accumulate gaps over time - steps with no instructions, form fields no
   </TabItem>
 </Tabs>
 
-**What happens:** The AI uses `assess_template_health` for an overall health check, then `get_template_steps` for step details. It calls `analyze_template_automations` to check automation rules. For fixes, it uses `edit_description_on_step`, `suggest_form_fields_for_step`, `add_form_field_to_step`, `suggest_step_deadline`, and `add_assignees_to_step`.
+**What happens:** The AI uses `assess_template_health` for complete template data, then `get_template_steps` for step details. It calls `analyze_template_automations` to check automation rules and detect redundancies, and `suggest_automation_consolidation` for prioritized improvement suggestions. For fixes, it uses `edit_description_on_step`, `suggest_form_fields_for_step`, `add_form_field_to_step`, `suggest_step_deadline`, and `add_assignees_to_step`.
 
 ### How it works behind the scenes
 
@@ -57,10 +57,10 @@ The audit runs in two phases.
 
 **Phase 1 - Analysis:**
 
-1. `assess_template_health` - gets an overall health score covering step clarity, form fields, automations, and deadlines
+1. `assess_template_health` - retrieves complete template data including metadata, steps, automations, and kickoff fields
 2. `get_template_steps` - retrieves every step with its description, form fields, assignees, and deadline info
-3. `analyze_template_automations` - checks for conflicts, redundancies, or missing automation rules
-4. `suggest_automation_consolidation` - identifies automation rules that could be simplified
+3. `analyze_template_automations` - checks for conflicts, redundancies, and orphaned rules with automatic redundancy detection
+4. `suggest_automation_consolidation` - returns prioritized suggestions for consolidation (duplicates, conflicts, merge candidates)
 
 **Phase 2 - Fixes (if requested):**
 
