@@ -466,12 +466,12 @@ import os, glob
 from pathlib import Path
 
 # Count all .mdx files and update DOCUMENTATION_STRUCTURE.md
-docs_dir = '/Users/amit/Documents/GitHub/documentation/src/content/docs'
+docs_dir = 'src/content/docs'
 all_files = glob.glob(os.path.join(docs_dir, '**/*.mdx'), recursive=True)
 total_files = len(all_files)
 
 # Update the file count in DOCUMENTATION_STRUCTURE.md
-structure_file = '/Users/amit/Documents/GitHub/documentation/DOCUMENTATION_STRUCTURE.md'
+structure_file = 'DOCUMENTATION_STRUCTURE.md'
 with open(structure_file, 'r') as f:
     content = f.read()
 
