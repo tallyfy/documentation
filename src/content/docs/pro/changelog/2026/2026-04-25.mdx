@@ -1,0 +1,45 @@
+---
+description: Hardening release with four security fixes including SSO-only password bypass and guest cross-org task leak, eight bug fixes covering folders, universal search, push notifications, and webhooks, plus a unified system log for events the API performs.
+lastUpdated: 2026-04-25
+sidebar:
+  order: 1
+title: '2026-04-25'
+---
+
+### Security
+
+- **[API]** SSO-only organizations now redirect password sign-ins to your identity provider, closing a bypass when SSO enforcement was on.
+- **[API]** Denied SSO sign-up attempts now scrub partial user and organization data so half-created identities can't be reused.
+- **[API]** Closed a cross-organization data leak where [guests](/products/pro/documenting/guests/) belonging to multiple orgs could see [tasks](/products/pro/tracking-and-tasks/tasks/) from every org they'd ever joined.
+- **[API]** Hardened [variable](/products/pro/documenting/templates/variables/) replacement and [template](/products/pro/documenting/templates/) rendering against zero-width characters and stored content injection.
+
+### Bug fixes
+
+- **[API]** Two users launching [processes](/products/pro/tracking-and-tasks/processes/) at the same instant no longer hit a duplicate-ID error. Concurrent [template](/products/pro/documenting/templates/) edits also retry silently instead of failing.
+- **[API]** Fixed [folder](/products/pro/documenting/templates/organize-templates-into-folders/) deletion failures, mis-positioning after updates, and accidental folder-type changes when moving folders between sections.
+- **[API]** [Folders](/products/pro/documenting/templates/organize-templates-into-folders/) now sort by position consistently, and Light [members](/products/pro/documenting/members/) can no longer create, edit, or delete folders.
+- **[API]** Universal search now handles special characters and spaces correctly across [tasks](/products/pro/tracking-and-tasks/tasks/), [templates](/products/pro/documenting/templates/), and form captures.
+- **[API]** Public [kickoff forms](/products/pro/launching/) now fall back to the [template](/products/pro/documenting/templates/) title when the kickoff title is empty, so guests no longer see a blank header.
+- **[API]** Push notifications and emails for very long [task](/products/pro/tracking-and-tasks/tasks/) descriptions or comments now truncate cleanly instead of failing to deliver.
+- **[API]** [Webhook](/products/pro/integrations/webhooks/) deliveries that occasionally timed out are now ~10x faster thanks to eager-loading task data in a single query.
+- **[API]** Reset-password requests for certain edge-case accounts now return a usable response instead of failing silently.
+- **[API]** Fixed a broken text-template route returning 404 and a recurring-jobs route that 500'd on non-numeric IDs.
+
+### New features
+
+- **[API]** Template creators can flag a People Picker [kickoff](/products/pro/launching/) field as "default to guest". The launching guest is auto-assigned, saving a manual step for self-service onboarding.
+- **[API]** Webhook, billing, email, security, and process events now flow into a unified system log so you can see exactly what the API does on your behalf.
+- **[API]** MCP OAuth consent screen disables Authorize until at least one scope is checked, auto-closes after a successful deep-link, and shows a clean error page on cancel.
+
+### Performance
+
+- **[API]** The [templates](/products/pro/documenting/templates/) listing endpoint is faster on organizations with many templates thanks to eager loading on the `/checklists` API.
+
+### Changes
+
+- **[API]** Recurly "already closed" and expected OAuth 400 errors no longer flood our error logs, so genuine issues surface faster for our team.
+- **[API]** Removed about 1,470 lines of unused PHP classes, listeners, and helpers. Pure cleanup with no behavior change.
+
+### Dependencies
+
+- **[API]** Updated several library dependencies including `phpseclib`, `aws/aws-sdk-php`, `league/commonmark`, and `rollup` for security and stability.
