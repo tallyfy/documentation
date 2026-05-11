@@ -1,0 +1,170 @@
+---
+about_tallyfy: true
+description: Tallyfy's System Log gives administrators a single place to see webhook
+  failures, email delivery events, billing changes, security events, automatic
+  process actions, and AI usage for their organization. Three tabs cover system
+  events, email events, and AI usage. Data is retained for 90 days and can be
+  filtered, searched, and exported as CSV.
+sidebar:
+  order: 7
+title: System log
+---
+
+## What the system log shows
+
+The System Log is an admin-only view of every customer-relevant event captured for your Tallyfy organization. It answers questions like:
+
+* "Did our webhook to the CRM fail yesterday?"
+* "Did the welcome email to alice@example.com get delivered or did it bounce?"
+* "How much did our team spend on the AI assistant last month?"
+* "Who tried to log in with a wrong password to my org last week?"
+
+Three things are tracked: server-side system events, email delivery events, and AI usage events. The log is read-only. You can't edit or delete entries from it.
+
+:::note[Admin only]
+Only Administrators can open the System Log. Standard members, Light members, and Guests don't see this menu.
+:::
+
+## How to access the system log
+
+Open the left sidebar and click **System Logs**. The page opens to the **System** tab by default. Use the tabs at the top to switch between System, Email, and AI Usage views.
+
+If you don't see **System Logs** in the sidebar, your role is not Administrator. Ask an Administrator to elevate your role, or to share an export with you.
+
+## The three tabs
+
+### System tab
+
+Captures events that happen inside Tallyfy's backend on behalf of your organization. Five categories:
+
+| Category | What it captures |
+|----------|------------------|
+| Webhook | Outgoing webhook calls Tallyfy makes to your endpoints (success and failure, with HTTP status). |
+| Email | Server-side send attempts (separate from the per-recipient delivery events on the Email tab). |
+| Billing | Recurly payment outcomes and subscription state changes. |
+| Security | Failed login attempts, password resets, role changes, email-address changes, and "made public" actions on blueprints and kickoff forms. |
+| Process | Auto-archive and auto-complete actions performed by Tallyfy's bot user against your processes and tasks. |
+
+#### System event reference
+
+| Event | Category | Meaning |
+|-------|----------|---------|
+| `webhook_sent` | Webhook | A webhook was sent successfully (HTTP 2xx). |
+| `webhook_failed` | Webhook | A webhook failed. The full URL and HTTP status are visible in the row. |
+| `email_sent` | Email | Server attempted to send an email (per-recipient delivery is on the Email tab). |
+| `email_send_failed` | Email | Server-side send attempt failed before reaching the email provider. |
+| `smtp_send_failed` | Email | The configured SMTP transport rejected the message. |
+| `billing_payment_succeeded` | Billing | Recurly confirmed a successful charge. |
+| `billing_payment_failed` | Billing | Recurly rejected a charge. The reason from Recurly is visible in the row. |
+| `billing_subscription_created` | Billing | A new subscription was created for the org. |
+| `billing_subscription_updated` | Billing | The subscription plan or quantity changed. |
+| `billing_subscription_expired` | Billing | The subscription lapsed (typically after repeated payment failures). |
+| `login_failed` | Security | A login attempt for an email belonging to your org failed (wrong password, MFA, etc.). |
+| `password_reset_initiated` | Security | A password-reset email was requested for an account in your org. |
+| `password_reset_completed` | Security | A user in your org successfully completed a password reset. |
+| `role_changed` | Security | An Administrator changed another member's role. |
+| `email_address_changed` | Security | A member changed their login email. |
+| `blueprint_made_public` | Security | An Administrator made a blueprint public (anyone with the link can view). |
+| `kickoff_form_made_public` | Security | An Administrator published a kickoff form publicly. |
+| `process_auto_archived` | Process | Tallyfy's bot user auto-archived a completed process per your archive policy. |
+| `task_auto_completed` | Process | Tallyfy's bot user auto-completed a task per your auto-complete rules. |
+
+### Email tab
+
+Per-recipient delivery and engagement events from Mailgun, the email provider Tallyfy uses. This tab is the most useful answer to "did this customer actually receive the email?".
+
+| Event | Meaning |
+|-------|---------|
+| `email_sent` | Tallyfy handed the message to Mailgun for delivery. |
+| `email_delivered` | Mailgun confirmed the receiving server accepted the message. |
+| `email_failed` | A delivery attempt failed (transient or permanent). |
+| `email_bounced` | The receiving server permanently rejected the message (invalid address, mailbox full, blocked, etc.). |
+| `email_unsubscribed` | The recipient clicked the unsubscribe link. |
+| `email_complained` | The recipient marked the message as spam in their mail client. |
+| `email_send_failed` | Tallyfy couldn't hand the message to Mailgun (rare). |
+| `smtp_send_failed` | The custom SMTP transport (if configured) rejected the message. |
+
+### AI usage tab
+
+Captures every interaction the AI assistant or MCP tools have on behalf of users in your org. Events vary by interaction type (a chat message, an MCP tool call, an embedding request) but each row carries the same fields:
+
+* **User** that made the request
+* **Model** used (for example, Opus or Sonnet)
+* **Prompt tokens / completion tokens / total tokens**
+* **Cost (USD)** for the request
+* **Latency (ms)**
+* **Success / error** with the error message if it failed
+
+Use this tab to track AI spend by team member, watch latency trends, and find failing requests when a user reports the AI behaving oddly.
+
+## Filtering and search
+
+Every tab has the same filter controls along the top. The filter panel collapses on narrow screens.
+
+* **Date range** picker. Maximum 90 days. The picker won't let you go further back.
+* **Category** (System tab only) and **Event type** multi-select chips.
+* **Severity** (System tab only): error, warning, info.
+* **Global search** box. Free-text search across event names and error messages. It's case-insensitive (a search for `connection refused` matches `Connection refused`).
+* **Advanced filters** (collapsible): per-column "contains" search for event name, message, recipient, and subject.
+* **Actor** picker for the user who triggered the event. There's a "Bot user" preset that selects your org's automation bot, so you can answer "what did the bot do this week?" in one click.
+* **Sort by** column with ascending / descending toggle.
+* **Page size**: 25, 50, 100, or 200 rows per page.
+
+## CSV export
+
+Click **Export CSV** in the toolbar. The export uses your current filters and streams rows to a downloaded file. There's no row cap. A 90-day window for a busy org typically exports in a few seconds.
+
+The CSV includes the same columns visible in the table plus the full message body. Use it for compliance archives or to share specific failures with engineering.
+
+## Pre-authentication events
+
+Failed-login and password-reset events happen before the user is signed in, so Tallyfy can't tag them with an org ID at capture time. The System Log resolves them to your org by matching the entered email address against your member list. So you'll see:
+
+* Failed login attempts where the email belongs to a member of your org. Useful for spotting credential-stuffing attempts.
+* Password resets initiated for emails that belong to your org, plus the matching `password_reset_completed` event when the user finishes.
+
+You won't see:
+
+* Failed logins for email addresses that aren't yet members of any org. Tallyfy can't safely assign these to your org.
+* SSO denial events that don't capture the attempted email.
+* Invitation events for an invitee who's not yet a Tallyfy user. These are tracked separately and may be added in a later release.
+
+A small **Pre-auth** badge appears next to events resolved this way, so you can tell them apart from events captured directly with your org ID.
+
+If you want to hide pre-auth events from a search, toggle off **Include pre-authentication events** in the filter panel.
+
+## We log who reads the system log
+
+Every time someone opens or exports the System Log, Tallyfy records a `system_log_viewed` event. It shows up in the System tab itself, with the user, timestamp, log type, and the filters that were applied.
+
+This is on purpose: if your org needs to know who's been auditing, you can answer that question from inside the same UI. The audit-of-audit event is visible to all Administrators and exports normally with CSV.
+
+## 90-day retention
+
+System Log data is retained for 90 days. Events older than 90 days are removed and cannot be recovered. If you need a longer history, export the CSV monthly and archive it in your own storage.
+
+The 90-day cap is a hard limit. The date-range picker won't let you go past it. If you need an older event for an active investigation, contact support quickly: we may still have it in our internal logging stack, but we can't promise anything past 90 days.
+
+## What's not in the system log
+
+For privacy and security, the following are deliberately excluded:
+
+* Raw API request and response bodies. Use Tallyfy's API audit trail (separate feature) if you need request-level inspection.
+* Internal monitoring events (uptime probes, capacity forecasts, queue health checks). These would be noise.
+* API keys, OAuth tokens, passwords, and session cookies. These are stripped before any event is written. We never log secrets.
+
+Webhook URLs are returned in full because customers want to debug their own integrations. If you put a secret in a webhook URL query string, that secret will appear in the log. Use webhook signing headers instead of URL parameters for secrets.
+
+## Common questions
+
+**Why don't I see events from before yesterday?**
+Check the date-range picker. It defaults to the last 24 hours. Expand it to 90 days for the full window.
+
+**The Email tab is empty for an email I know we sent.**
+Two possibilities. Mailgun events arrive a few seconds after the send, so very recent emails may not have a delivery event yet (the `email_sent` event from the System tab will show, but `email_delivered` is in the Email tab and lags slightly). Or, the message was sent through your own SMTP transport, which doesn't report delivery back to Tallyfy.
+
+**Can I see what changed in a `role_changed` event?**
+Yes. Click the row to expand it. The "before" and "after" role values are in the detail panel, along with the user who made the change.
+
+**Can I get realtime updates without refreshing?**
+The page polls when you switch back to the tab, and there's a manual **Refresh** button in the toolbar. Realtime push updates are tracked as a separate feature request.
