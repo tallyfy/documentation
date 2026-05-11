@@ -119,8 +119,6 @@ def sanitize_ai_content(text: str) -> str:
 
 	return result
 
-RECOMMEND_ENDPOINT = 'https://answers.tallyfy.com/collections/tyfy/recommend/'
-
 # Create an argument parser
 parser = argparse.ArgumentParser()
 
@@ -129,11 +127,19 @@ parser.add_argument('--dir', type=str)
 
 parser.add_argument('--answers_api_key', type=str)
 
+# Base URL of the Tallyfy Answers instance to query for recommendations.
+# Must match the instance that the documentation-pipeline uploaded to in the same run,
+# otherwise the regenerated snippets read from a stale index. Workflow passes
+# https://staging.answers.tallyfy.com on staging branch; default targets production for main.
+parser.add_argument('--base_url', type=str, default='https://answers.tallyfy.com')
+
 args = parser.parse_args()
 
 dir_path = args.dir
 
 ANSWERS_API_KEY = args.answers_api_key
+
+RECOMMEND_ENDPOINT = args.base_url.rstrip('/') + '/collections/tyfy/recommend/'
 
 ANSWERS_HEADERS = {
 	'Authorization': ANSWERS_API_KEY

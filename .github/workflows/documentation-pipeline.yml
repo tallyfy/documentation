@@ -163,7 +163,11 @@ jobs:
         run: |
           git pull
           python -m pip install --upgrade python-frontmatter requests
-          python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+          else
+            python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
+          fi
         shell: bash
       - name: Commit and push
         run: |
