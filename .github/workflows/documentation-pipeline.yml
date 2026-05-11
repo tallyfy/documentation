@@ -1,5 +1,15 @@
 name: Documentation Pipeline
 
+# Design (see tallyfy/documentation#56):
+# Staging is the sole owner of auto-regen. The 3 jobs that rewrite MDX files
+# (generate-snippets, update-last-modified, generate-related-articles) early-exit
+# when head_branch == "main". After a staging → main merge, main inherits the
+# frozen staging-side output and the main pipeline never re-touches it. This
+# eliminates the perpetual <CardGrid> drift caused by main and staging querying
+# different Answers indexes (answers.tallyfy.com vs staging.answers.tallyfy.com).
+# Main still runs: validate-markdown, upload-to-tallyfy-answers (prod search),
+# check-deleted-files (clean prod Answers), and sync (rsync to support-docs).
+
 on:
   workflow_run:
     workflows: ["Tallyfy Answers - Generate IDs"]
@@ -40,6 +50,10 @@ jobs:
           python-version: '3.10'
       - name: Generate snippets script
         run: |
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            echo "Skipping snippet generation on main — staging owns auto-regen (see #56). Files inherit from staging via merge."
+            exit 0
+          fi
           file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
             git pull
@@ -50,6 +64,7 @@ jobs:
           fi
         shell: bash
       - name: Commit and push articles with snippets
+        if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
           file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
@@ -130,11 +145,16 @@ jobs:
           python-version: '3.10'
       - name: Update lastUpdated dates from Git history
         run: |
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            echo "Skipping lastUpdated regen on main — staging owns auto-regen (see #56)."
+            exit 0
+          fi
           git pull
           python -m pip install --upgrade python-frontmatter
           python scripts/update-last-modified.py --dir=src/content/docs
         shell: bash
       - name: Commit and push lastUpdated dates
+        if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git config --local user.email "action@github.com"
@@ -161,15 +181,16 @@ jobs:
           python-version: '3.10'
       - name: Generate related articles script
         run: |
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            echo "Skipping Related articles regen on main — staging owns auto-regen (see #56). Cards arrive via merge."
+            exit 0
+          fi
           git pull
           python -m pip install --upgrade python-frontmatter requests
-          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-            python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
-          else
-            python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
-          fi
+          python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
         shell: bash
       - name: Commit and push
+        if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git config --local user.email "action@github.com"

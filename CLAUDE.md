@@ -552,7 +552,7 @@ This validates frontmatter, imports, and related articles sections.
      order: 15
    description: [AI-generated comprehensive description]
    title: [Article title in sentence case]
-   lastUpdated: 2025-08-15  # Auto-generated from Git history
+   lastUpdated: 2025-08-15  # Auto-generated from Git history on staging pushes; frozen on main
    ---
    ```
    - New articles must use ID: `0000000000000000000000000000000000`
@@ -564,7 +564,7 @@ This validates frontmatter, imports, and related articles sections.
      - **Example**: "Tallyfy administrators can configure organization-wide working days and hours to automatically adjust task deadlines based on your business calendar."
    - **sidebar.order**: Use sequential numbers (1, 2, 3...) for articles within a section to control display order
    - **title**: Must be short, practical, and in sentence case with only first letter capitalized unless proper nouns
-   - **lastUpdated**: Automatically updated from Git history by GitHub Actions (YYYY-MM-DD format)
+   - **lastUpdated**: Automatically updated from Git history by GitHub Actions on `staging` pushes (YYYY-MM-DD format); frozen on `main` via merge — see tallyfy/documentation#56
    - **CRITICAL Title vs. Heading Rule**: The frontmatter title MUST be different from the main H2 heading
      - Title: Short and practical (e.g., "Create a table of contents")
      - H2 Heading: Slightly different, clarifying context (e.g., "Using table of contents in Tallyfy")
@@ -659,7 +659,7 @@ This validates frontmatter, imports, and related articles sections.
    - **Header format**: Use category prefix like "API >", "Members >", "Settings >"
    - **URLs**: Always include trailing slash in href
    - **Descriptions**: Write complete sentences describing the article content
-   - **GitHub Actions Warning**: The `generate-related-articles.py` script runs automatically on GitHub and will overwrite ANY manual changes to Related articles sections
+   - **GitHub Actions Warning**: The `generate-related-articles.py` script runs automatically on `staging` pushes and will overwrite ANY manual changes to Related articles sections. It does NOT run on `main` (see tallyfy/documentation#56); `main` inherits the staging-frozen section via merge.
 
 ### Content Creation Rules
 - Only create new articles when absolutely necessary
@@ -684,18 +684,20 @@ This repository uses a Python-based content automation system:
 
 ### Pipeline behavior: what's safe to edit vs auto-generated
 
-The `documentation-pipeline.yml` runs on every push. Here's what each step does to your files:
+The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but auto-regen steps that REWRITE MDX files run only on `staging` (see tallyfy/documentation#56). `main` inherits whatever staging produced via merge and the pipeline doesn't re-touch those files. This eliminates the perpetual drift caused by the two branches querying different Answers indexes.
 
-| Pipeline step | Trigger | What it changes | Safe to edit manually? |
-|---|---|---|---|
-| `generate-ids.yml` | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
-| `generate-snippets` | **New files only** (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
-| `upload-to-tallyfy-answers` | Every push | Nothing in files (uploads to Answers API) | N/A |
-| `update-last-modified` | Every push | `lastUpdated` field from git history | No - always recalculated from git |
-| `generate-related-articles` | Every push | `## Related articles` section at bottom | No - fully regenerated each run |
-| `sync` | Every push | Copies to support-docs repo | N/A |
+| Pipeline step | Runs on | Trigger | What it changes | Safe to edit manually? |
+|---|---|---|---|---|
+| `generate-ids.yml` | staging only (new files arrive via merge to main) | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
+| `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
+| `generate-snippets` | **staging only** | New files only (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
+| `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search) | Nothing in files (uploads to Answers API) | N/A |
+| `check-deleted-files` | main only | Every push (cleans deleted articles from prod Answers) | Nothing in files | N/A |
+| `update-last-modified` | **staging only** | Every push to staging | `lastUpdated` field from git history | No - always recalculated from git on staging |
+| `generate-related-articles` | **staging only** | Every push to staging | `## Related articles` section at bottom | No - fully regenerated on each staging run |
+| `sync` | both branches | Every push | Copies to support-docs (staging → staging branch, main → production branch) | N/A |
 
-**Key takeaway**: `description` and article body content are safe to edit manually. The pipeline won't overwrite them. Fields like `lastUpdated` and `Related articles` are auto-generated and will be overwritten on every push.
+**Key takeaway**: `description` and article body content are safe to edit manually. The pipeline won't overwrite them. Fields like `lastUpdated` and `Related articles` are auto-generated on `staging` and will be overwritten on every staging push; `main` inherits them frozen via merge.
 
 **ACCURACY_CHECK comments**: Must use JSX syntax `{/* ACCURACY_CHECK: ... */}` not HTML `<!-- -->`. HTML comments between frontmatter and imports break MDX parsing.
 
@@ -1207,7 +1209,7 @@ These patterns are effective when used intentionally with substance:
 
 **How it works:**
 1. Push to this repo triggers `generate-ids.yml` → then `documentation-pipeline.yml`
-2. Pipeline processes content (IDs, snippets, related articles, lastUpdated dates)
+2. Pipeline processes content. **On `staging`**: IDs, snippets, related articles, lastUpdated dates are all auto-regenerated. **On `main`**: only validation + Answers upload + deleted-file cleanup + sync run; the 3 regen jobs early-exit (see tallyfy/documentation#56).
 3. Sync job rsyncs `src/content/docs/` to `support-docs` on the mapped branch
 4. Cloudflare Pages auto-builds and deploys `support-docs`
 5. Cloudflare Workers strip `/products` prefix and proxy to the Pages deployment
@@ -1223,9 +1225,11 @@ git checkout staging && git pull
 git checkout main && git pull
 git merge staging
 
-# 3. If merge conflicts on auto-generated fields (lastUpdated, related articles):
-#    - Always accept EITHER version (content is identical, timestamps differ)
-#    - For related articles: accept either, pipeline regenerates on push
+# 3. Merge conflicts on auto-generated fields (lastUpdated, related articles)
+#    should NOT occur under the current pipeline (see tallyfy/documentation#56):
+#    staging is the sole owner of auto-regen, so main inherits the staging-frozen
+#    values via merge and never regenerates them. If a conflict does appear, accept
+#    the staging side — it's the regen source-of-truth.
 git push origin main
 
 # 4. Wait for pipeline to complete on main branch
@@ -1413,7 +1417,7 @@ Every documentation page displays its last modification date, automatically main
    - Runs on every commit to BOTH `staging` and `main` branches (no auto-promotion between them)
    - `staging` pushes sync content to `support-docs` `staging` branch → CF Pages preview → `staging.tallyfy.com/products/*`
    - `main` pushes sync content to `support-docs` `production` branch → CF Pages production → `tallyfy.com/products/*`
-   - Executes `update-last-modified.py` script
+   - Executes `update-last-modified.py` script **on `staging` pushes only**; the `main` pipeline skips this step and inherits the staging-frozen value via merge (see tallyfy/documentation#56)
    - Extracts last modified date from Git history for each MDX file
    - Updates `lastUpdated` field in frontmatter
 
