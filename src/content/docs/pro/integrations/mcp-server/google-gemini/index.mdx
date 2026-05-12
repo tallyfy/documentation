@@ -118,7 +118,7 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
 
 3. **Register an OAuth client for Tallyfy**
 
-   Tallyfy supports Dynamic Client Registration. Generate a client_id for Gemini Enterprise with one curl call:
+   Tallyfy supports Dynamic Client Registration. Register a confidential client for Gemini Enterprise with one curl call:
 
    ```bash
    curl -s -X POST https://mcp.tallyfy.com/mcp/oauth/register \
@@ -128,15 +128,11 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
        "redirect_uris": ["https://vertexaisearch.cloud.google.com/oauth-redirect"],
        "grant_types": ["authorization_code","refresh_token"],
        "response_types": ["code"],
-       "token_endpoint_auth_method": "none"
+       "token_endpoint_auth_method": "client_secret_basic"
      }'
    ```
 
-   The response contains a `client_id`. Save it.
-
-   <Aside type="caution" title="Client secret workaround">
-   Tallyfy's OAuth server currently uses PKCE-only public clients, so the DCR response doesn't include a `client_secret`. The Gemini Enterprise console marks **Client Secret** as a required field. As a workaround, enter a non-empty placeholder string like `pkce-public-client-no-secret` - Tallyfy's token endpoint ignores the secret because PKCE replaces it. We're tracking confidential-client support; if the console rejects the placeholder, [file an issue](https://github.com/tallyfy/mcp/issues) with the exact error message.
-   </Aside>
+   The response contains both `client_id` and `client_secret`. Save both — you'll paste them into the Cloud Console in the next step.
 
 4. **Add the data store in Cloud Console**
 
@@ -148,7 +144,7 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
    | **Authorization URL** | `https://mcp.tallyfy.com/mcp/oauth/authorize` |
    | **Token URL** | `https://mcp.tallyfy.com/mcp/oauth/token` |
    | **Client ID** | (from step 3 response) |
-   | **Client Secret** | `pkce-public-client-no-secret` (see workaround above) |
+   | **Client Secret** | (from step 3 response) |
    | **Scopes** | `mcp.users.read mcp.tasks.read mcp.tasks.write mcp.processes.read mcp.processes.write mcp.templates.read mcp.templates.write mcp.forms.read mcp.forms.write mcp.automation.read mcp.automation.write` |
 
 5. **Add a server description**
@@ -231,7 +227,7 @@ Build multi-agent systems with the Agent Development Kit that combine Tallyfy wi
 - **Tools default to disabled** - after creating the data store, you must manually enable each Tallyfy tool via **Actions** -> **Reload custom actions**.
 - **No public Google directory for MCP server vendors** - Tallyfy isn't surfaced by default to Gemini Enterprise customers. Each org adds it themselves through the steps above.
 - **Visual process tracker doesn't render in chat** - like other chat surfaces, Gemini shows you text. Complex forms become text interactions, and you'll ask for status updates explicitly.
-- **PKCE-only OAuth today** - Tallyfy's OAuth server is currently public-client only. See the client secret workaround in the Enterprise setup steps above.
+- **OAuth client types supported** - Tallyfy supports both PKCE public clients (CLI, Code Assist) and confidential clients with `client_secret_basic` (Gemini Enterprise). All flows use OAuth 2.1 with S256 PKCE.
 
 ## Best use cases
 
@@ -258,7 +254,7 @@ Monitor active processes and alert me to any at risk of missing their SLA, with 
 
 ## Security
 
-- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist use PKCE with S256 code challenge through DCR. Gemini Enterprise also uses PKCE today (see the workaround note above for the client secret field). Refresh tokens rotate automatically.
+- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist register as PKCE public clients through DCR. Gemini Enterprise registers as a confidential client (`client_secret_basic`) through DCR. All flows use S256 PKCE for code challenge. Refresh tokens rotate automatically.
 - **Data handling** - Google processes your data per their AI policies. Enterprise teams get Vertex AI controls and audit logging in Cloud Logging.
 - **Network** - All traffic over HTTPS. Enterprise deployments can add VPC Service Controls and private connectivity.
 
