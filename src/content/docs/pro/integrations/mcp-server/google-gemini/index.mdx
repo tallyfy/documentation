@@ -13,11 +13,15 @@ title: Tallyfy MCP server with Google Gemini
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 import { Aside } from '@astrojs/starlight/components';
 
-:::note[Server endpoint]
-The MCP server is hosted at `https://mcp.tallyfy.com/` and listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=tallyfy) as `com.tallyfy/mcp-server`. Three Google surfaces connect to it: Gemini CLI, Gemini Code Assist, and Gemini Enterprise.
+:::note[Server endpoints]
+Tallyfy publishes two endpoints for Gemini: the primary at `https://mcp.tallyfy.com/` (DigitalOcean) and the **Google Cloud Run mirror at `https://mcp-gcp.tallyfy.com/`** (Tier-1 for Gemini Enterprise). Both expose the same 113 tools and share the same OAuth backend, so your access tokens work on either endpoint. The server is listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=tallyfy) as `com.tallyfy/mcp-server`. Three Google surfaces connect to it: Gemini CLI, Gemini Code Assist, and Gemini Enterprise.
 :::
 
-Tallyfy connects to Google's three Gemini surfaces through OAuth 2.1 with streamable-HTTP transport. For developers, the Gemini CLI and Gemini Code Assist auto-discover OAuth via Dynamic Client Registration. For enterprise teams, admins add Tallyfy as a Custom MCP Server data store in the Gemini Enterprise console.
+Tallyfy connects to Google's three Gemini surfaces through OAuth 2.1 with streamable-HTTP transport. For developers, the Gemini CLI and Gemini Code Assist auto-discover OAuth via Dynamic Client Registration against `https://mcp.tallyfy.com/`. For enterprise teams, admins add Tallyfy as a Custom MCP Server data store in the Gemini Enterprise console; we recommend using `https://mcp-gcp.tallyfy.com/` (the Cloud Run mirror) for that path since it puts the origin inside Google's own network.
+
+:::tip[Why two endpoints?]
+The Cloud Run mirror (`mcp-gcp.tallyfy.com`) is operationally identical to the primary endpoint but is hosted on Google Cloud Run. For Gemini Enterprise customers this means lower-latency egress, easier VPC-SC and Cloud Logging integration, and an origin that lives inside Google's compliance perimeter. The deploy pipeline (Cloud Build → Artifact Registry → Cloud Run) is fully operational; every push to the MCP server repo deploys to both endpoints in parallel. Pick whichever endpoint your AI surface prefers; the data and behavior are the same.
+:::
 
 ## Gemini MCP support status
 
@@ -118,10 +122,10 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
 
 3. **Register an OAuth client for Tallyfy**
 
-   Tallyfy supports Dynamic Client Registration. Register a confidential client for Gemini Enterprise with one curl call:
+   Tallyfy supports Dynamic Client Registration. Register a confidential client for Gemini Enterprise with one curl call. The server advertises both `client_secret_basic` and `client_secret_post` as supported token endpoint auth methods - Gemini Enterprise typically uses `client_secret_basic`, but either works:
 
    ```bash
-   curl -s -X POST https://mcp.tallyfy.com/mcp/oauth/register \
+   curl -s -X POST https://mcp-gcp.tallyfy.com/mcp/oauth/register \
      -H "Content-Type: application/json" \
      -d '{
        "client_name": "Gemini Enterprise - YourOrgName",
@@ -132,20 +136,23 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
      }'
    ```
 
-   The response contains both `client_id` and `client_secret`. Save both — you'll paste them into the Cloud Console in the next step.
+   The response contains both `client_id` and `client_secret`. Save both - you'll paste them into the Cloud Console in the next step. You can register against either endpoint (`mcp.tallyfy.com` or `mcp-gcp.tallyfy.com`); the credentials are valid on both because they share the OAuth backend.
 
 4. **Add the data store in Cloud Console**
 
-   In Google Cloud Console: **Gemini Enterprise** -> **Data stores** -> **Create data store** -> **Custom MCP Server (Preview)** -> **Add MCP server**. Fill the form:
+   In Google Cloud Console: **Gemini Enterprise** -> **Data stores** -> **Create data store** -> **Custom MCP Server (Preview)** -> **Add MCP server**. Fill the form using the **Cloud Run mirror** so your origin stays inside Google's network:
 
    | Field | Value |
    |---|---|
-   | **MCP Server URL** | `https://mcp.tallyfy.com/` |
-   | **Authorization URL** | `https://mcp.tallyfy.com/mcp/oauth/authorize` |
-   | **Token URL** | `https://mcp.tallyfy.com/mcp/oauth/token` |
+   | **MCP Server URL** | `https://mcp-gcp.tallyfy.com/` |
+   | **Authorization URL** | `https://mcp-gcp.tallyfy.com/mcp/oauth/authorize` |
+   | **Token URL** | `https://mcp-gcp.tallyfy.com/mcp/oauth/token` |
    | **Client ID** | (from step 3 response) |
    | **Client Secret** | (from step 3 response) |
+   | **Token endpoint auth method** | `client_secret_basic` (or `client_secret_post`) |
    | **Scopes** | `mcp.users.read mcp.tasks.read mcp.tasks.write mcp.processes.read mcp.processes.write mcp.templates.read mcp.templates.write mcp.forms.read mcp.forms.write mcp.automation.read mcp.automation.write` |
+
+   If you prefer the DigitalOcean origin, swap all three URLs to `mcp.tallyfy.com` - the behavior is identical.
 
 5. **Add a server description**
 
@@ -227,7 +234,7 @@ Build multi-agent systems with the Agent Development Kit that combine Tallyfy wi
 - **Tools default to disabled** - after creating the data store, you must manually enable each Tallyfy tool via **Actions** -> **Reload custom actions**.
 - **No public Google directory for MCP server vendors** - Tallyfy isn't surfaced by default to Gemini Enterprise customers. Each org adds it themselves through the steps above.
 - **Visual process tracker doesn't render in chat** - like other chat surfaces, Gemini shows you text. Complex forms become text interactions, and you'll ask for status updates explicitly.
-- **OAuth client types supported** - Tallyfy supports both PKCE public clients (CLI, Code Assist) and confidential clients with `client_secret_basic` (Gemini Enterprise). All flows use OAuth 2.1 with S256 PKCE.
+- **OAuth client types supported** - Tallyfy supports both PKCE public clients (CLI, Code Assist) and confidential clients (Gemini Enterprise). Confidential clients can use either `client_secret_basic` or `client_secret_post` for the token endpoint; both methods are advertised in the server's `/.well-known/oauth-authorization-server` metadata. All flows use OAuth 2.1 with S256 PKCE.
 
 ## Best use cases
 
@@ -254,7 +261,7 @@ Monitor active processes and alert me to any at risk of missing their SLA, with 
 
 ## Security
 
-- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist register as PKCE public clients through DCR. Gemini Enterprise registers as a confidential client (`client_secret_basic`) through DCR. All flows use S256 PKCE for code challenge. Refresh tokens rotate automatically.
+- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist register as PKCE public clients through DCR. Gemini Enterprise registers as a confidential client through DCR using `client_secret_basic` or `client_secret_post` (both advertised by the server). All flows use S256 PKCE for code challenge. Refresh tokens rotate automatically.
 - **Data handling** - Google processes your data per their AI policies. Enterprise teams get Vertex AI controls and audit logging in Cloud Logging.
 - **Network** - All traffic over HTTPS. Enterprise deployments can add VPC Service Controls and private connectivity.
 
