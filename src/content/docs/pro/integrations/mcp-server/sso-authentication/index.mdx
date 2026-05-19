@@ -22,6 +22,8 @@ SSO integration with MCP servers solves **repeated authentication across multipl
 
 Tallyfy's MCP server already implements OAuth 2.1 with PKCE S256, Dynamic Client Registration (RFC 7591), and authorization server metadata discovery (RFC 8414). Tokens are RS256-signed JWTs with the public key at `/.well-known/jwks.json`. The well-known endpoint at `/.well-known/oauth-authorization-server` lets AI clients like ChatGPT and Claude Desktop discover OAuth endpoints automatically. Scopes use dot notation, for example `mcp.tasks.read`, `mcp.processes.write`, and `mcp.templates.read`. The server is listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=tallyfy) as `com.tallyfy/mcp-server`.
 
+**Token resource binding (`mcp_resource` claim)** - Access tokens carry a canonical `mcp_resource` claim that pins the token to a specific MCP resource URL (the server endpoint it was issued for). The server uses this claim to detect and reject tokens replayed against a different resource. For backwards compatibility with legacy Passport-issued tokens (which use `aud: 1`), the server also accepts tokens that lack `mcp_resource` but present the expected legacy audience, so existing integrations keep working while new clients get the stricter binding.
+
 ## The authentication challenge in MCP
 
 MCP servers don't know who you are by default. They receive requests from AI agents with no identity or context. This creates gaps when accessing enterprise systems that need user credentials.
