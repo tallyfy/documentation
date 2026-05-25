@@ -1,0 +1,159 @@
+---
+about_tallyfy: true
+description: The Terminal Jobs tab is your persistent log of every AI run in Tallyfy Desktop. Each run is also a Tallyfy task, so the same history appears in your Tallyfy account. Local SQLite, tiered cancellation, and full streaming output replay.
+sidebar:
+  order: 20
+  label: Terminal Jobs
+title: Terminal Jobs tab
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## What the Terminal Jobs tab is
+
+The Terminal Jobs tab is the Tallyfy Desktop view of every AI run you've ever started. Each row is one run: provider, model, prompt summary, start time, duration, status, and cost (where the provider reports it). Click any row to expand a panel that shows the full streamed output of that run.
+
+Think of it as the desktop app's process monitor for AI work. If Activity Monitor is to the OS what Terminal Jobs is to your AI history.
+
+![Terminal Jobs tab with several entries showing provider, model, duration, and status](https://screenshots.tallyfy.com/desktop-ai/terminal-jobs.png)
+
+## Every run is also a Tallyfy task
+
+The v2.0.0 invariant: every AI run, including local Ollama runs, creates a row in a system Tallyfy checklist called "AI Runs." The checklist is created automatically on your first run. The task records:
+
+- The provider (Claude, Codex, Gemini, Ollama)
+- The model name
+- A short summary of the prompt (first 80 characters)
+- The start and end timestamps
+- The cost in USD (where the provider reports it; 0 for Ollama and Codex)
+- The terminal status (success, error, cancelled)
+- A deep link back to the desktop app: `tallyfy://desktop-run/<runId>`
+
+If something fails, the task stays. It's marked with the error code so you can see what happened from any device that has access to your Tallyfy account.
+
+This is what makes Terminal Jobs and Tallyfy work in tandem:
+
+| View | Lives on | Best for |
+|---|---|---|
+| Terminal Jobs tab | Your local SQLite database | Real-time view of running jobs, full streamed output replay, cancellation |
+| AI Runs checklist in Tallyfy | Tallyfy cloud | Cross-device run history, audit log, automation triggers on AI activity |
+
+If you have Tallyfy Desktop installed on two computers, each one has its own Terminal Jobs tab (showing only that machine's runs), but the Tallyfy "AI Runs" checklist shows every run from every machine.
+
+## Reading a run row
+
+Each row shows:
+
+- **Provider icon** - Claude, Codex, Gemini, or Ollama
+- **Model** - the exact model name (e.g., `claude-sonnet-4-6`, `gemini-2.5-flash`)
+- **Prompt summary** - the first 80 characters of your prompt
+- **Started** - relative timestamp (e.g., "3 minutes ago"), with the exact UTC timestamp on hover
+- **Duration** - end minus start, in seconds or minutes
+- **Cost** - USD cost reported by the provider, or "n/a" for Ollama and Codex
+- **Status** - one of:
+  - **Running** - active right now, with a spinner
+  - **Success** - completed without error
+  - **Error** - hit an error code; expand to see the message and recovery hint
+  - **Cancelled** - you (or the system) cancelled it before completion
+
+The row also shows the run id (a short hash). Pass it to the desktop app's command palette or paste it into a Tallyfy task comment to deep-link the run.
+
+## Viewing run details
+
+Click any row to expand the detail panel. It shows:
+
+1. **Full prompt** - what you typed
+2. **Streamed output** - the assistant's response, exactly as it appeared in the chat, including any tool use blocks
+3. **Thinking blocks** (Claude only) - collapsed by default; expand to see the model's reasoning
+4. **Tool calls** - each MCP or Tallyfy tool the AI invoked, with input parameters and output
+5. **Token usage** - input tokens, output tokens, and cache stats (Claude only)
+6. **Terminal event** - the final `result` or `error` from the provider
+
+The detail panel is read-only. To re-run the same prompt, click **Open in chat**; the original chat session reappears in the corresponding provider tab with the prompt pre-filled.
+
+## Cancelling a running job
+
+Click the cancel button (X icon) on any row whose status is "Running." Tallyfy Desktop uses a tiered cancellation policy:
+
+1. **SIGINT** - sent first. The CLI gets a clean interrupt; most providers stop within a second or two.
+2. **SIGTERM** - sent after 2 seconds if SIGINT didn't take. Forces a process termination.
+3. **SIGKILL** - sent after another 5 seconds if SIGTERM didn't take. Unconditional kill.
+
+The cancelled run emits a clean `error` event with code `cancelled` and the Tallyfy task is updated with status `cancelled`. Token usage and partial output up to the cancel point are preserved.
+
+For Ollama runs (which talk to the local daemon over HTTP), cancellation propagates an `AbortSignal` through the HTTP request; the daemon stops generating tokens within a few milliseconds.
+
+## Filtering and search
+
+The Terminal Jobs tab has a search bar at the top. Type any of:
+
+- A provider name (e.g., `claude`) to filter to that provider's runs
+- A model name (e.g., `gemini-2.5-flash`)
+- A keyword from the prompt
+- A status (e.g., `error`, `cancelled`)
+- A date (e.g., `today`, `yesterday`, `2026-05-19`)
+
+Filters combine: `claude error today` shows Claude runs that failed today.
+
+There's also a quick-filter strip at the top:
+
+- **All** - default
+- **Running** - active jobs only
+- **Today** - runs started today (your local timezone)
+- **Failed** - status error or cancelled
+- **Costly** - runs over a threshold (default $0.50 USD; configurable in settings)
+
+## Local SQLite storage
+
+The Terminal Jobs data lives in a SQLite database on your machine at:
+
+- **macOS**: `~/Library/Application Support/Tallyfy/runs.db`
+- **Windows**: `%APPDATA%\Tallyfy\runs.db`
+- **Linux**: `~/.config/Tallyfy/runs.db`
+
+Why local: AI runs can contain sensitive prompts (HR conversations, contract drafts, code with API keys you accidentally pasted). Storing the raw event stream locally means the only cloud copy is the Tallyfy task metadata, which is much narrower.
+
+The database has three tables:
+
+- `runs` - one row per run, with the columns shown in the tab
+- `events` - the full AIEvent stream for each run (text chunks, tool calls, errors)
+- `tasks` - the mapping from run id to Tallyfy task id
+
+The `events` table can grow quickly if you have long chats. Tallyfy Desktop auto-prunes events older than 90 days (the `runs` and `tasks` rows stay; only the streaming detail is dropped). Pruning can be disabled in settings.
+
+## Exporting runs
+
+For compliance or audit, you can export run data:
+
+1. Click any run row to expand it
+2. Click **Export** at the bottom of the detail panel
+3. Pick **JSON** (raw events) or **Markdown** (readable transcript)
+
+The export includes everything the local database has for that run. The Tallyfy task is not included in the export (it's already in Tallyfy; query that side for the audit-trail view).
+
+## Privacy guardrails
+
+A few things Terminal Jobs does *not* do:
+
+- It doesn't send the raw streamed events to Tallyfy. Only the metadata (provider, model, prompt summary, cost, duration) makes it to the Tallyfy task.
+- It doesn't send anything to a third-party telemetry endpoint. Tallyfy Desktop's optional telemetry covers feature usage, not run content.
+- It doesn't store your Tallyfy session token in `runs.db`. The token is in the OS keychain; runs.db only stores the run id and the Tallyfy task id.
+
+## What this enables
+
+Because every AI run is a Tallyfy task, you can do things that wouldn't be possible if the runs lived only inside the desktop app:
+
+- **Trigger automations on AI activity**. Set up a Tallyfy automation: when an AI Run task is created with cost > $1, notify the team.
+- **Audit AI usage by user**. Filter the AI Runs checklist by assignee to see who's using the most AI time.
+- **Cross-device continuity**. Start a long-running Claude job on your laptop; check its status from your phone via the Tallyfy mobile app.
+- **Tie AI runs to processes**. If an AI run created a task in another Tallyfy process, you can see the chain in the task's metadata.
+
+The [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) is the inbound side of this loop. Terminal Jobs is the outbound side: it's the audit trail of every run that happened.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Overview</b>" href="/products/pro/integrations/tallyfy-desktop-ai/" > What Tallyfy Desktop is, the four AI tabs, and why every AI run becomes a Tallyfy task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Task Intent Widget</b>" href="/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/" > The widget that turns AI chat into Tallyfy tasks, process launches, and template edits with one click. The inbound side of the AI-to-Tallyfy loop. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Claude</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-claude/" > Install the Anthropic Claude CLI and sign in with your Claude.ai subscription. Claude reports cost per run, which appears in Terminal Jobs. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Ollama</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-ollama/" > Install Ollama locally and run open-source models offline. Ollama runs still appear in Terminal Jobs and create Tallyfy tasks. </LinkTitleCard>
+</CardGrid>
