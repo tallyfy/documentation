@@ -2,6 +2,8 @@
 
 > **NEVER use auto memory** (`~/.claude/projects/*/memory/`) — store all knowledge in this repo's CLAUDE.md file.
 
+> **AI task reliability cross-links (2026-05):** three doc pages carry a one-line curious-reader callout to the public marketing tool `https://tallyfy.com/tools/ai-task-reliability/` (and the post `/ai-tasks-not-jobs/`): `pro/tracking-and-tasks/tasks/index.mdx`, `pro/documenting/templates/automations/index.mdx`, `pro/integrations/computer-ai-agents/index.mdx`. They are plain root-relative links, no embed. Leave them unless the tool URL changes.
+
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
