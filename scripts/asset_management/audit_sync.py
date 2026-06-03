@@ -264,6 +264,34 @@ def sync(inv: AssetInventory, docs_dir: Path = DOCS_DIR, dry_run: bool = True,
     return summary
 
 
+def worklist(inv: AssetInventory, limit: int = 5) -> list:
+    """Next image rows that still need captions (image type, empty alt, not 404)."""
+    out = []
+    for r in inv.read_inventory():
+        if _row_needs_caption(r):
+            out.append(r.get('production_url', ''))
+            if len(out) >= limit:
+                break
+    return out
+
+
+def set_caption(inv: AssetInventory, url: str, alt: str, descriptive: str, seo: str) -> bool:
+    """Write the 3 captions for the row whose production_url matches (atomic)."""
+    rows = inv.read_inventory()
+    found = False
+    for r in rows:
+        if inv._urls_match(r.get('production_url', ''), url):
+            r['ai_caption_alt'] = alt.strip()
+            r['ai_caption_descriptive'] = descriptive.strip()
+            r['ai_caption_seo'] = seo.strip()
+            r['needs_caption'] = 'no'
+            found = True
+            break
+    if found:
+        inv.write_inventory(rows)
+    return found
+
+
 def main():
     p = argparse.ArgumentParser(description='Audit / safe-auto sync the documentation asset inventory')
     sub = p.add_subparsers(dest='cmd')
@@ -275,11 +303,29 @@ def main():
     sp.add_argument('--dry-run', action='store_true', help='Show what would change, write nothing')
     sp.add_argument('--no-head-check', action='store_true', help='Skip HEAD url_exists checks (faster)')
 
+    wp = sub.add_parser('worklist', help='Next uncaptioned image URLs')
+    wp.add_argument('--limit', type=int, default=5)
+
+    cp = sub.add_parser('set-caption', help='Write the 3 captions for one URL')
+    cp.add_argument('--url', required=True)
+    cp.add_argument('--alt', required=True)
+    cp.add_argument('--descriptive', required=True)
+    cp.add_argument('--seo', required=True)
+
     args = p.parse_args()
     if not args.cmd:
         p.print_help(); sys.exit(1)
 
     inv = AssetInventory()
+
+    if args.cmd == 'worklist':
+        for u in worklist(inv, args.limit):
+            print(u)
+        sys.exit(0)
+    if args.cmd == 'set-caption':
+        ok = set_caption(inv, args.url, args.alt, args.descriptive, args.seo)
+        print("OK" if ok else "NOT_FOUND")
+        sys.exit(0 if ok else 1)
 
     if args.cmd == 'audit':
         a = audit(inv)
