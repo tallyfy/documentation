@@ -264,11 +264,22 @@ def sync(inv: AssetInventory, docs_dir: Path = DOCS_DIR, dry_run: bool = True,
     return summary
 
 
+def _load_skip() -> set:
+    """URLs to skip permanently (poison items: blank/broken captures a human must re-shoot).
+    One normalized URL per line in caption-skip.txt beside this script; '#' comments allowed."""
+    p = Path(__file__).parent / 'caption-skip.txt'
+    if not p.exists():
+        return set()
+    return {normalize_url(ln) for ln in p.read_text(encoding='utf-8').splitlines()
+            if ln.strip() and not ln.lstrip().startswith('#')}
+
+
 def worklist(inv: AssetInventory, limit: int = 5) -> list:
-    """Next image rows that still need captions (image type, empty alt, not 404)."""
+    """Next image rows still needing captions (image, empty alt, not 404), minus the skip-list."""
+    skip = _load_skip()
     out = []
     for r in inv.read_inventory():
-        if _row_needs_caption(r):
+        if _row_needs_caption(r) and normalize_url(r.get('production_url', '')) not in skip:
             out.append(r.get('production_url', ''))
             if len(out) >= limit:
                 break
