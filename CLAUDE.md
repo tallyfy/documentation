@@ -1556,7 +1556,24 @@ for feature in features:
 
 All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
 
-**📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process.
+**🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
+
+**Source of truth:** `scripts/asset_management/` is the single implementation. The `documentation-asset-manager` skill (global `~/.claude/skills/` and the repo `.claude/skills/` copy) is a thin pointer to these scripts - never re-fork the code into the skill.
+
+**📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process. The support-docs remark plugin reads `production_url` -> the three caption columns.
+
+**🔁 Auditing & syncing the inventory** (no R2 credentials needed - read-mostly):
+
+```bash
+cd scripts/asset_management
+python3 orchestrator.py audit --out /tmp/docs-audit.md   # report: referenced-not-in-inventory, dead(404), orphaned, uncaptioned
+python3 orchestrator.py sync --dry-run                    # preview adding skeleton rows for referenced-not-in-inventory images
+python3 orchestrator.py sync                              # apply (atomic; refreshes article refs; destructive items stay report-only)
+```
+
+`audit` scans `src/content/docs/**` for `screenshots.tallyfy.com` URLs and cross-references the CSV (URL-encoding-aware). `sync` is safe-auto: it only ADDS skeleton rows + refreshes `article_ids`; it never deletes dead/orphaned rows (those are surfaced in the report for human decision).
+
+**🗂️ Bulk caption backlog → asset-sync Large Job.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so it runs under the Large-Job Protocol at `~/GitHub/temporary/asset-sync-job/` (single resumable command `bash run.sh`; the CSV itself is the done-ledger). Do NOT try to caption the whole backlog in one session.
 
 ### Asset Storage Architecture
 
@@ -1663,12 +1680,13 @@ The skill automatically generates three types of captions using Claude Vision:
 - `ai_caption_seo` - SEO-optimized caption
 - `needs_caption` - `yes`|`no` (based on file type)
 
-**Current Inventory Stats**:
-- Total assets: 812
-- Active (used in docs): 290
-- Orphaned (not referenced): 499
-- Missing (404s): 23
-- With AI captions: 288+
+**Inventory snapshot** (re-derived 2026-06-02 by `orchestrator.py audit` - run it for live numbers):
+- Total rows: 818
+- With AI captions: 428
+- Image rows still missing captions: ~350 (the `needs_caption=yes` flag was only set on 6 rows - it badly under-counts; trust `audit`, not the flag)
+- Orphaned (source_type=orphaned, not referenced): 499  [GATED - human decides cleanup]
+- Dead / 404 (source_type=missing): 23  [GATED]
+- Referenced in docs but NOT yet inventoried: 55 images (16 `illustrations/*`, 39 `tallyfy/*`) - `sync` adds these as skeleton rows
 
 ### Credentials and Configuration
 

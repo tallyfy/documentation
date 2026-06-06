@@ -6,6 +6,8 @@ Provides CRUD operations and analysis for the master asset inventory.
 """
 
 import csv
+import os
+import tempfile
 import requests
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -51,15 +53,30 @@ class AssetInventory:
 
     def write_inventory(self, assets: List[Dict[str, str]]):
         """
-        Write complete inventory to CSV.
+        Write complete inventory to CSV, atomically.
+
+        Writes to a temp file in the same directory then os.replace()s it over
+        the target, so an interrupted write can never leave a torn/half CSV.
 
         Args:
             assets: List of asset dictionaries to write
         """
-        with open(self.csv_path, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=self.COLUMNS)
-            writer.writeheader()
-            writer.writerows(assets)
+        # extrasaction='ignore' so any extra keys (e.g. transient scan fields)
+        # never crash the writer.
+        dir_ = self.csv_path.parent
+        fd, tmp = tempfile.mkstemp(dir=dir_, prefix='.inv-', suffix='.csv.tmp')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=self.COLUMNS, extrasaction='ignore')
+                writer.writeheader()
+                writer.writerows(assets)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.csv_path)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
 
     def find_asset(
         self,
