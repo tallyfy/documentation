@@ -933,7 +933,7 @@ All 17 diagram types are technically supported, but use these based on content n
 **SOLUTION**: ALWAYS verify URLs exist before adding click directives:
 ```bash
 # Check if a URL exists
-ls /Users/amit/Documents/GitHub/documentation/src/content/docs/pro/[path]/index.mdx
+ls ~/GitHub/documentation/src/content/docs/pro/[path]/index.mdx
 ```
 
 Common correct URLs:
