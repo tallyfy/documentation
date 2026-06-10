@@ -1,9 +1,9 @@
 ---
 about_tallyfy: true
 description: Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory)
-  for SAML-based single sign-on. An admin creates an enterprise app in Entra ID and
-  exchanges SAML configuration values with Tallyfy Support to enable automatic login
-  and account provisioning.
+  for self-serve SAML single sign-on. An admin creates an enterprise app in Entra ID,
+  then pastes the metadata into the SSO wizard under Settings to enable automatic login.
+  Entra provisioning adds SCIM directory sync.
 id: 48968155ce4f1add2efe9138508b969d
 lastUpdated: 2026-03-22
 sidebar:
@@ -17,15 +17,15 @@ import { Steps } from '@astrojs/starlight/components';
 
 Connect Microsoft Entra ID (formerly Azure Active Directory) to Tallyfy in about 30 minutes. Your users get automatic login and account creation - no separate passwords needed.
 
-:::caution[Coordination required]
-SSO setup requires exchanging config details between your organization and Tallyfy. Submit a support ticket first - you can't do this alone.
+:::note[You set this up yourself]
+SSO is self-serve. You configure both sides: create the enterprise app in Entra ID, then paste the Entra metadata into Tallyfy under **Settings > Organization > Security > SSO**. No support ticket needed.
 :::
 
 ### Requirements
 
 - Microsoft Entra ID administrator access
-- Tallyfy Professional or Enterprise plan
-- SAML config values from Tallyfy Support
+- A Tallyfy administrator account on any paid plan
+- The Tallyfy SP values from the SSO wizard (shown when you pick Microsoft Entra ID)
 
 ### What you'll do
 
@@ -35,7 +35,7 @@ SSO setup requires exchanging config details between your organization and Tally
 
 ## How SSO setup works
 
-You, Tallyfy Support, and Microsoft Entra ID work together through a three-party setup.
+You configure both Microsoft Entra ID and Tallyfy yourself. The Tallyfy SSO wizard is where you copy the SP values out and paste the Entra metadata back in.
 
 ```d2
 direction: right
@@ -53,13 +53,7 @@ Azure: "Entra ID" {
   style.font-color: "#fff"
 }
 
-Support: "Tallyfy\nSupport" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Tallyfy: "Tallyfy\nPlatform" {
+Tallyfy: "Tallyfy\nSSO wizard" {
   shape: rectangle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
@@ -73,79 +67,65 @@ User: "End User" {
 }
 
 # Setup Flow
-Admin -> Support: "1. Request\nSSO setup" {
+Admin -> Tallyfy: "1. Open wizard,\ncopy SP values" {
   style.stroke: "#225930"
 }
 
-Support -> Admin: "2. Provide\nconfig values" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Admin -> Azure: "3. Create\nenterprise app" {
+Admin -> Azure: "2. Create\nenterprise app" {
   style.stroke: "#225930"
 }
 
-Admin -> Azure: "4. Configure\nSAML settings" {
+Admin -> Azure: "3. Configure\nSAML settings" {
   style.stroke: "#225930"
 }
 
-Admin -> Azure: "5. Set user\nattributes" {
+Admin -> Azure: "4. Set user\nattributes" {
   style.stroke: "#225930"
 }
 
-Azure -> Admin: "6. Download\nmetadata XML" {
+Azure -> Admin: "5. Get\nmetadata" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
 
-Admin -> Support: "7. Send\nmetadata" {
-  style.stroke: "#225930"
-}
-
-Support -> Tallyfy: "8. Configure\nSSO endpoint" {
+Admin -> Tallyfy: "6. Paste\nmetadata" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
 
-Support -> Admin: "9. Confirm\nSSO ready" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Admin -> Tallyfy: "10. Test\nlogin flow" {
+Admin -> Tallyfy: "7. Test, then\nenable SSO" {
   style.stroke: "#225930"
 }
 
 # User Auth Flow
-User -> Tallyfy: "11. Access\napplication" {
+User -> Tallyfy: "8. Access\napplication" {
   style.stroke: "#333"
   style.stroke-width: 2
 }
 
-Tallyfy -> Azure: "12. Redirect\nto IdP" {
+Tallyfy -> Azure: "9. Redirect\nto IdP" {
   style.stroke: "#333"
 }
 
-User -> Azure: "13. Enter\ncredentials" {
+User -> Azure: "10. Enter\ncredentials" {
   style.stroke: "#333"
 }
 
-Azure -> Azure: "14. Validate\nuser" {
+Azure -> Azure: "11. Validate\nuser" {
   style.stroke: "#666"
   style.stroke-dash: 3
 }
 
-Azure -> Tallyfy: "15. SAML\nassertion" {
+Azure -> Tallyfy: "12. SAML\nassertion" {
   style.stroke: "#333"
   style.stroke-width: 2
 }
 ```
 
 **Key points:**
-- Steps 1-10 are one-time setup between you and Tallyfy Support
-- Steps 11-15 happen every time someone logs in
-- You can't skip the support ticket (step 1)
+- Steps 1-7 are the one-time self-serve setup you run yourself across Tallyfy and Entra ID
+- Steps 8-12 happen every time someone logs in
+- No support ticket is needed to turn SSO on
 
 ### Phase 1: Create enterprise application
 
@@ -194,16 +174,15 @@ Assign users now or after setup - your choice:
 1. Click **Edit** in the Basic SAML Configuration section.
 
     ![Basic SAML Configuration section with Edit button](https://screenshots.tallyfy.com/azuresso-5.png)
-2. In Tallyfy, go to your organization profile.
-3. Open the **Org Settings** tab.
-4. Click **Add Configuration Details**.
-5. Scroll down to find the default SAML values.
+2. In Tallyfy, go to **Settings > Organization > Security > SSO**.
+3. Start a new connection and pick **Microsoft Entra ID** as the provider.
+4. Copy the **SP ACS URL** and **SP Entity ID** shown on the first step of the wizard.
 
     ![Tallyfy organization settings showing SAML configuration values](https://screenshots.tallyfy.com/azuresso-7.png)
     ![Tallyfy SAML details with SP ACS URL and SP Entity ID](https://screenshots.tallyfy.com/azuresso-8.png)
-6. Copy Tallyfy's **SP ACS URL** to Microsoft Entra ID's **Reply URL (Assertion Consumer Service URL)** field.
-7. Copy Tallyfy's **SP Entity ID** to Microsoft Entra ID's **Identifier (Entity ID)** field.
-8. Click **Save**.
+5. Copy Tallyfy's **SP ACS URL** to Microsoft Entra ID's **Reply URL (Assertion Consumer Service URL)** field.
+6. Copy Tallyfy's **SP Entity ID** to Microsoft Entra ID's **Identifier (Entity ID)** field.
+7. Click **Save**.
 
     ![Reply URL and Identifier fields in Microsoft Entra ID SAML configuration](https://screenshots.tallyfy.com/azuresso-6.png)
 </Steps>
@@ -238,32 +217,32 @@ Your final attribute config should look like this:
 
 #### Get Microsoft Entra ID SAML information
 
-You need three things from Microsoft Entra ID:
+You need your Entra metadata. The simplest path is the metadata URL:
 
 <Steps>
-1. Go to the **Set up** section.
-2. Copy the **Login URL**.
-3. Copy the **Microsoft Entra ID Identifier**.
-4. Download the **Certificate (Base64)** from the SAML Signing Certificate section.
+1. Go to the **Set up** section (it's the SAML signing certificate area).
+2. Copy the **App Federation Metadata Url**. Tallyfy can fetch this directly.
+3. If you'd rather provide the values by hand, also copy the **Login URL** and **Microsoft Entra ID Identifier**, and download the **Certificate (Base64)**.
 
     ![Microsoft Entra ID SAML setup section with Login URL and certificate download](https://screenshots.tallyfy.com/azuresso-12.png)
 </Steps>
 
-#### Send information to Tallyfy Support
+#### Paste the metadata into Tallyfy
+
+Back in the Tallyfy SSO wizard (**Settings > Organization > Security > SSO**), move to the **Enter IdP details** step:
 
 <Steps>
-1. Send these three items to Tallyfy Support
-2. Tallyfy Support configures your SAML settings on their end
+1. **Metadata URL** - paste the **App Federation Metadata Url**. Tallyfy fetches and parses it. Easiest option.
+2. **Manual entry** - enter the **Login URL**, the **Microsoft Entra ID Identifier**, and the **Certificate** instead.
 
-    ![Tallyfy Support SAML configuration screen](https://screenshots.tallyfy.com/azuresso-13.png)
+    ![Tallyfy SAML configuration screen](https://screenshots.tallyfy.com/azuresso-13.png)
 </Steps>
 
-#### Turn on SAML authentication
-
-After Tallyfy Support confirms everything's ready:
+#### Test and enable
 
 <Steps>
-1. Turn on the SAML activation toggle
+1. Run the wizard's **Test connection** step and fix anything it flags.
+2. Once the test passes, click **Enable** to turn SSO on.
 
     ![SAML activation toggle in Tallyfy settings](https://screenshots.tallyfy.com/azuresso-14.png)
 </Steps>
@@ -271,7 +250,7 @@ After Tallyfy Support confirms everything's ready:
 ### User access
 
 <Steps>
-1. Get your organization's SSO login URL from the SAML setup modal (Tallyfy Support provides this)
+1. Get your organization's SSO login URL from the SSO wizard (it's shown next to the connection)
 2. Share this URL with your Microsoft Entra ID users
 
     ![SSO login URL in Tallyfy SAML setup modal](https://screenshots.tallyfy.com/azuresso-15.png)
@@ -279,7 +258,7 @@ After Tallyfy Support confirms everything's ready:
 
 When users visit this URL:
 - Existing Tallyfy users log in automatically
-- New users get an account created on first login
+- New users from a verified domain get an account created on first login when auto-join is on. Verify your domain under the **Domains** tab first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
 
 ### Troubleshooting
 
@@ -291,6 +270,20 @@ Users can't log in? Check these:
 4. Users are using the SSO URL (not regular login)
 5. Still stuck? Contact Tallyfy Support
 </Steps>
+
+### Set up SCIM provisioning (optional)
+
+SAML signs people in. SCIM keeps your directory in sync. With Entra provisioning on, Entra ID pushes user assignments and removals to Tallyfy automatically, so accounts track your directory and you stop paying for people who've left.
+
+<Steps>
+1. In Tallyfy, go to **Settings > Organization > Security > SCIM** and turn SCIM on
+2. Copy the **Base URL** (this is the tenant URL) and the **bearer token** (the token shows once, so store it safely)
+3. In Entra ID, open your Tallyfy enterprise app and go to the **Provisioning** tab, then set **Provisioning Mode** to **Automatic**
+4. Under **Admin Credentials**, paste the Tallyfy **Base URL** into **Tenant URL** and the **bearer token** into **Secret Token**
+5. Click **Test Connection**, save, then start provisioning
+</Steps>
+
+To map Entra groups to Tallyfy roles, provision groups whose names match Tallyfy's reserved group names (for example `tallyfy-admins`). Full details are in [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/).
 
 :::note[Advanced integration]
 Microsoft Entra ID's OAuth 2.0 and On-Behalf-Of token exchange work with AI systems. Microsoft unified its identity products under the Entra brand, improving multicloud support. Learn about [enterprise SSO patterns with MCP servers](/products/pro/integrations/mcp-server/sso-authentication/) to extend your Entra ID identity management to AI-powered workflow automation.

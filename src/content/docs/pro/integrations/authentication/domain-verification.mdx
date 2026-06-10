@@ -1,0 +1,74 @@
+---
+about_tallyfy: true
+description: Verify ownership of your organization's email domains in Tallyfy by adding
+  a DNS TXT record. A verified domain is the precondition for safe just-in-time auto-join
+  and for SSO-only enforcement, so strangers whose own IdP asserts your domain can't be
+  added to your org.
+id: 0000000000000000000000000000000000
+lastUpdated: 2026-06-10
+sidebar:
+  order: 5
+title: Domain verification
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Prove you own your email domain
+
+Domain verification tells Tallyfy that an email domain like `acme.com` really belongs to your organization. You prove it by adding one DNS TXT record. Once a domain is verified, Tallyfy can safely auto-join new people from that domain and let you enforce SSO-only login. You do all of this yourself under **Settings > Organization > Security > Domains**, on any paid plan.
+
+Why it matters: SSO assertions carry an email address, but an email address alone isn't proof. Any identity provider can technically assert any email. A verified domain is the check that stops someone whose own IdP claims an `@acme.com` address from being auto-added to your Acme org.
+
+### What a verified domain turns on
+
+A domain stays unverified until you publish the TXT record. Verifying it turns on two things:
+
+| Feature | What verification enables |
+|---------|---------------------------|
+| **Auto-join (JIT)** | New users whose email is on a verified domain get a Tallyfy account created automatically on first SSO login (when auto-join is on). |
+| **SSO-only enforcement** | The **Require SSO** switch stays disabled until you have a verified domain, because enforcement without proof of ownership is unsafe. |
+
+Plain SSO login works without a verified domain. You only need verification for auto-join and enforcement.
+
+### Add and verify a domain
+
+You'll need access to your domain's DNS settings (or someone on your team who has it). The record is a standard TXT entry, the same kind you'd add for email or other service verifications.
+
+<Steps>
+1. In Tallyfy, go to **Settings > Organization > Security > Domains**.
+2. Click **Add domain** and enter your domain, for example `acme.com`. Use the bare domain, not a full email address.
+3. Tallyfy shows you a **TXT record name** and a unique **value** to publish. Copy both with the copy buttons.
+4. In your DNS provider (GoDaddy, Cloudflare, Route 53, and so on), add a new **TXT** record using that name and value. Save it.
+5. Back in Tallyfy, click **Verify**. Tallyfy looks up the TXT record and, once it matches, marks the domain verified with a badge.
+</Steps>
+
+DNS changes can take a few minutes to propagate, sometimes longer. If the first verify attempt fails, wait a bit and try again. The token stays valid, so you don't need to start over.
+
+### After verification
+
+Once the badge shows verified, you can keep the TXT record in place. Tallyfy may re-check ownership over time, so removing the record later can un-verify the domain.
+
+Add every domain your team uses for email. If people sign in from both `acme.com` and `acme.co.uk`, verify both so auto-join and enforcement cover everyone.
+
+:::note[Verified domains and guests]
+Verified domains also support existing behavior like converting same-domain guests into members. Verifying a domain doesn't change who's already in your org. It only controls how new SSO users are handled going forward.
+:::
+
+### Troubleshooting
+
+Verification not passing? Check these:
+
+- The TXT record name and value match exactly what Tallyfy shows. A trailing space or a missing character will fail.
+- You added a **TXT** record, not a CNAME or A record.
+- You're verifying the bare domain (`acme.com`), not a subdomain or an email address.
+- Enough time has passed for DNS to propagate. Try again after a few minutes.
+- You can confirm the record is live with a public DNS lookup tool before clicking Verify again.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Authentication > Authentication and SSO</b>" href="/products/pro/integrations/authentication/" > Set up self-serve SSO and SCIM on any paid plan, with domain verification and SSO-only enforcement. </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > SCIM provisioning</b>" href="/products/pro/integrations/authentication/scim-provisioning/" > Sync users automatically from your identity provider with SCIM, including group-to-role mapping. </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > SSO enforcement and break-glass</b>" href="/products/pro/integrations/authentication/sso-enforcement-and-break-glass/" > Require SSO for your org while keeping an admin password fallback so a broken IdP can't lock you out. </LinkTitleCard>
+</CardGrid>

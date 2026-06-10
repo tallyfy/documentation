@@ -1,8 +1,9 @@
 ---
 about_tallyfy: true
-description: Set up SAML-based SSO between JumpCloud and Tallyfy by creating a custom
-  SAML app and exchanging metadata with Tallyfy Support. Enables automatic login and
-  just-in-time account creation for assigned users.
+description: Set up SAML-based SSO between JumpCloud and Tallyfy yourself by creating a
+  custom SAML app, then pasting the JumpCloud metadata into the self-serve SSO wizard
+  under Settings. Enables automatic login and just-in-time account creation for assigned
+  users, with optional SCIM directory sync.
 id: 2e8fd5bf9d011d7256e6b30fbc01f75a
 lastUpdated: 2026-03-22
 sidebar:
@@ -16,22 +17,22 @@ import { Steps } from '@astrojs/starlight/components';
 
 Connect JumpCloud with Tallyfy using SAML-based SSO for automatic user login and account creation. Setup takes about 30 minutes.
 
-:::caution[Coordination required]
-SSO setup requires exchanging configuration between your organization and Tallyfy. You can't complete this on your own - submit a support ticket to get started.
+:::note[You set this up yourself]
+SSO is self-serve. You configure both sides: create the SAML app in JumpCloud, then paste the JumpCloud metadata into Tallyfy under **Settings > Organization > Security > SSO**. No support ticket needed.
 :::
 
 ### Requirements
 
 - JumpCloud administrator account
 - JumpCloud SSO Package or higher (or SSO add-on)
-- Tallyfy Pro or Enterprise plan
-- SAML configuration values from Tallyfy Support
+- A Tallyfy administrator account on any paid plan
+- The Tallyfy SP values from the SSO wizard (shown when you pick JumpCloud)
 
 ### What you'll do
 
 1. Create a custom SAML application in JumpCloud
 2. Configure service provider settings and attribute mappings
-3. Exchange metadata with Tallyfy Support and enable SSO
+3. Paste the JumpCloud metadata into the Tallyfy SSO wizard, test, and enable
 
 ### Phase 1 - Create JumpCloud SAML application
 
@@ -64,14 +65,12 @@ SSO setup requires exchanging configuration between your organization and Tallyf
 
 #### Step 1 - Get Tallyfy SAML values
 
-Tallyfy's service provider configuration tells JumpCloud where to send authentication data.
+Tallyfy's service provider configuration tells JumpCloud where to send authentication data. You'll find these values in the Tallyfy SSO wizard.
 
 <Steps>
-1. Contact Tallyfy Support to access your organization's profile
-2. Go to the **Org Settings** tab
-3. Click **Add Configuration Details**
-4. Locate the default SAML values section
-5. You'll need two values:
+1. In Tallyfy, go to **Settings > Organization > Security > SSO**
+2. Start a new connection and pick **JumpCloud** (or generic SAML) as the provider
+3. Copy the two SP values shown on the first step:
    - **SP ACS URL** (Assertion Consumer Service URL)
    - **SP Entity ID** (Service Provider Entity ID)
 </Steps>
@@ -127,26 +126,31 @@ These names are case-sensitive. Your mappings should look like this:
 <Steps>
 1. In your JumpCloud SAML application, stay on the **SSO** tab
 2. Find the **IDP Certificate Valid** section
-3. Note these three values (you'll send them to Tallyfy Support):
+3. Note these three values (you'll paste them into Tallyfy):
    - **IDP Entity ID**
    - **IDP URL** (Single Sign-On URL)
    - **IDP Certificate** (X.509 Certificate)
 
     ![JumpCloud IDP certificate and metadata section](https://screenshots.tallyfy.com/jumpcloud-sso-6.png)
-4. Alternatively, click **export metadata** at the bottom of the SSO tab and save the XML file to send to Tallyfy Support instead
+4. Easier option: click **export metadata** at the bottom of the SSO tab and save the XML file. You can paste this whole file into the Tallyfy wizard instead of the individual values.
 </Steps>
 
-#### Step 2 - Send info to Tallyfy Support
+#### Step 2 - Paste the metadata into Tallyfy and test
+
+Back in the Tallyfy SSO wizard (**Settings > Organization > Security > SSO**):
 
 <Steps>
-1. Send the **IDP Entity ID**, **IDP URL**, and **X.509 Certificate** to Tallyfy Support (or send the metadata XML file)
-2. Tallyfy Support will configure these values in your organization's SAML settings
-3. Wait for confirmation that configuration is complete
+1. Move to the **Enter IdP details** step
+2. Choose how to provide JumpCloud's metadata:
+   - **XML paste** - paste the exported metadata file (easiest)
+   - **Manual entry** - enter the **IDP URL**, **IDP Entity ID**, and **X.509 Certificate**
+3. Run the **Test connection** step. Fix any errors it reports before moving on.
+4. Once the test passes, **enable** the connection
 </Steps>
 
-#### Step 3 - Activate and assign users
+JumpCloud doesn't publish a fetchable metadata URL per app, so use XML paste or manual entry here.
 
-Once Tallyfy Support confirms your settings are configured:
+#### Step 3 - Activate and assign users
 
 <Steps>
 1. In JumpCloud, go to the **User Groups** tab in your Tallyfy application
@@ -155,7 +159,6 @@ Once Tallyfy Support confirms your settings are configured:
 4. Toggle the application to **Active**
 
     ![JumpCloud application activation toggle and user assignment](https://screenshots.tallyfy.com/jumpcloud-sso-7.png)
-5. Coordinate with Tallyfy Support to toggle the SAML activation switch for your organization
 </Steps>
 
 ### User provisioning and access
@@ -163,50 +166,47 @@ Once Tallyfy Support confirms your settings are configured:
 Once everything's configured:
 
 <Steps>
-1. Get the Tallyfy SSO login URL from Tallyfy Support
+1. Get your org's SSO login URL from the SSO wizard in Tallyfy (it's shown next to the connection)
 2. Share this URL with users assigned to the JumpCloud application
 3. Users can also access Tallyfy through their JumpCloud user portal
 </Steps>
 
 What happens at login:
 - **Existing Tallyfy account** - they're logged in automatically with JumpCloud credentials
-- **No account yet** - Tallyfy creates one on first login using the email, first name, and last name from JumpCloud
+- **No account yet** - if auto-join is on and the user's email is on a verified domain, Tallyfy creates an account on first login using the email, first name, and last name from JumpCloud. Verify your domain first under the **Domains** tab. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
 
 ### SSO authentication flow
 
 ```d2
 Admin: Admin
 JumpCloud: JumpCloud
-Support: Tallyfy Support
 Tallyfy: Tallyfy
 User: User
 
 # Setup Phase
-Admin -> Support: 1. Request SSO
-Support -> Admin: 2. Send SP config
-Admin -> JumpCloud: 3. Create custom SAML app
-Admin -> JumpCloud: 4. Enter SP details
-Admin -> JumpCloud: 5. Map attributes
-JumpCloud -> Admin: 6. Get IDP metadata
-Admin -> Support: 7. Send metadata
-Support -> Tallyfy: 8. Configure SSO
+Admin -> Tallyfy: 1. Open SSO wizard, copy SP values
+Admin -> JumpCloud: 2. Create custom SAML app
+Admin -> JumpCloud: 3. Enter SP details
+Admin -> JumpCloud: 4. Map attributes
+JumpCloud -> Admin: 5. Export IDP metadata
+Admin -> Tallyfy: 6. Paste metadata in wizard
+Admin -> Tallyfy: 7. Test connection
+Admin -> Tallyfy: 8. Enable SSO
 Admin -> JumpCloud: 9. Assign users
-Support -> Admin: 10. Confirm ready
-Admin -> Tallyfy: 11. Test login
 
 # Authentication Phase
-User -> Tallyfy: 12. Access Tallyfy
-Tallyfy -> JumpCloud: 13. Redirect to IDP
-User -> JumpCloud: 14. Enter credentials
-JumpCloud -> JumpCloud: 15. Validate user
-JumpCloud -> Tallyfy: 16. Send SAML assertion
-Tallyfy -> Tallyfy: 17. Check or create user
-Tallyfy -> User: 18. Grant access
+User -> Tallyfy: 10. Access Tallyfy
+Tallyfy -> JumpCloud: 11. Redirect to IDP
+User -> JumpCloud: 12. Enter credentials
+JumpCloud -> JumpCloud: 13. Validate user
+JumpCloud -> Tallyfy: 14. Send SAML assertion
+Tallyfy -> Tallyfy: 15. Check or create user
+Tallyfy -> User: 16. Grant access
 ```
 
-- Steps 1-11 are the one-time setup between your Admin, JumpCloud, and Tallyfy Support
-- Steps 12-18 happen every time a user logs in
-- Tallyfy auto-creates accounts for new users (step 17) using email and name attributes from JumpCloud
+- Steps 1-9 are the one-time self-serve setup you run yourself across Tallyfy and JumpCloud
+- Steps 10-16 happen every time a user logs in
+- Tallyfy auto-creates accounts for new users from a verified domain (step 15) using email and name attributes from JumpCloud
 
 ### Troubleshooting
 
@@ -224,9 +224,23 @@ Can't log in? Check these first:
 
 **User portal access** - Users can access Tallyfy through their JumpCloud portal alongside other apps.
 
-**Just-in-time provisioning** - User accounts in Tallyfy are created automatically on first SSO login. No manual provisioning or SCIM setup needed.
+**Just-in-time provisioning** - User accounts in Tallyfy are created automatically on first SSO login from a verified domain. SCIM is optional but recommended for larger teams (see below).
 
 **Group-based access** - Control Tallyfy access by assigning JumpCloud user groups rather than individual users.
+
+### Set up SCIM provisioning (optional)
+
+SAML logs people in. SCIM keeps your roster in sync. With SCIM on, JumpCloud pushes user adds, updates, and deactivations to Tallyfy automatically, so you don't rely on someone logging in first and you don't pay for people who've left.
+
+<Steps>
+1. In Tallyfy, go to **Settings > Organization > Security > SCIM** and turn SCIM on
+2. Copy the **Base URL** and the **bearer token** (the token is shown once, so store it safely)
+3. In JumpCloud, open your Tallyfy SAML app and go to the **Identity Management** tab
+4. Enable identity management, then paste the Tallyfy **Base URL** into the SCIM base URL field and the **bearer token** as the token
+5. Test the connection in JumpCloud, then assign user groups to provision them into Tallyfy
+</Steps>
+
+To map JumpCloud groups to Tallyfy roles, name the groups to match Tallyfy's reserved group names (for example `tallyfy-admins`). Full details are in [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/).
 
 :::note[SSO with AI tools]
 Want to extend JumpCloud identity management to AI-powered workflow tools? Check out [SSO patterns with MCP servers](/products/pro/integrations/mcp-server/sso-authentication/) for more.

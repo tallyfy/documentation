@@ -1,9 +1,9 @@
 ---
 about_tallyfy: true
-description: Tallyfy offers free SSO on all paid plans with support for Microsoft
-  Entra ID, Google Workspace, Okta, OneLogin, JumpCloud, and any SAML 2.0 provider.
-  Teams log in with existing corporate credentials and can use SSO-based approval
-  audit trails for internal approvals.
+description: Tallyfy offers free, self-serve SSO and SCIM on any paid plan with support
+  for Microsoft Entra ID, Google Workspace, Okta, OneLogin, JumpCloud, and any SAML 2.0
+  provider. Org admins configure SSO themselves under Settings, verify a domain by DNS
+  TXT, sync users with SCIM, and can enforce SSO-only login with an admin break-glass.
 id: 7faeab864f7856efac783cc546282977
 lastUpdated: 2026-03-22
 sidebar:
@@ -13,9 +13,17 @@ title: Authentication and SSO
 
 ## Single Sign-On integration
 
-Tallyfy includes free Single Sign-On (SSO) for all paid plans. Your team logs in with existing corporate credentials from Microsoft Entra ID, Google Workspace, Okta, OneLogin, JumpCloud, or any SAML 2.0 provider. Setup takes about 30 minutes.
+Tallyfy includes free Single Sign-On (SSO) on any paid plan, and you set it up yourself. An org admin configures the connection, tests it, and turns it on from **Settings > Organization > Security > SSO**. No support ticket needed. Your team then logs in with existing corporate credentials from Microsoft Entra ID, Google Workspace, Okta, OneLogin, JumpCloud, or any SAML 2.0 provider. Most admins finish in about 30 minutes.
 
-You can also enforce SSO-only access - blocking email/password logins entirely.
+There's more than just login. You can verify your email domain by DNS so new users auto-join the right org, sync your whole directory with SCIM so people are added and removed automatically, and enforce SSO-only access that blocks email and password logins. Owners and admins always keep a password fallback, so a broken identity provider can't lock you out.
+
+:::note[Available on any paid plan]
+Self-serve SSO, domain verification, SCIM directory sync, and SSO-only enforcement are all included on any active paid Tallyfy plan. There's no separate add-on and no per-feature tier. If your org is on a free or expired plan, the Security pages prompt you to upgrade first.
+:::
+
+### Where to set it up
+
+Everything lives in one place. Sign in as an administrator, open **Settings > Organization > Security**, and you'll find tabs for **SSO**, **Domains**, **SCIM**, and the security **Activity** log. Each tab is covered in its own guide below.
 
 ### SSO benefits
 
@@ -24,9 +32,45 @@ You can also enforce SSO-only access - blocking email/password logins entirely.
 | **Security** | Apply your org's existing security policies and MFA to Tallyfy |
 | **One login** | Team members use their corporate username and password |
 | **Access control** | Manage Tallyfy permissions from your identity provider |
-| **Auto-provisioning** | New users get Tallyfy accounts on first SSO login |
+| **Auto-provisioning** | New users get Tallyfy accounts on first SSO login (once your domain is verified) |
+| **Directory sync** | SCIM adds, updates, and deactivates users automatically from your IdP |
 | **Consistent policies** | Same password complexity and session rules across all systems |
 | **Less IT overhead** | No more Tallyfy-specific password resets |
+
+### Set up SSO yourself
+
+The SSO wizard walks you through it in four steps. You don't need to write any XML by hand.
+
+1. **Pick your identity provider.** Choose Okta, Microsoft Entra ID, Google Workspace, OneLogin, JumpCloud, generic SAML, or generic OIDC. Tallyfy shows you the exact SP values to copy into your IdP (the ACS URL and entity ID).
+2. **Enter your IdP details.** Use one of the three methods below.
+3. **Test the connection.** Tallyfy validates your metadata and certificate before it lets you go live, so you catch problems early instead of during a real login.
+4. **Turn it on.** Once the test passes, enable the connection. Your team can sign in through SSO right away.
+
+Pick the per-IdP guide further down for screenshots and the exact field names in your provider.
+
+### Three ways to connect your identity provider
+
+When you reach the "enter IdP details" step, Tallyfy gives you three ways to hand over your provider's SAML metadata. They all end up in the same place, so use whichever your IdP makes easiest.
+
+| Method | When to use it | What you paste |
+|--------|----------------|----------------|
+| **Metadata URL** | Your IdP publishes a metadata link (most do). The easiest option. | The URL. Tallyfy fetches and parses it for you. |
+| **XML paste** | Your IdP gives you a metadata file to download. | The full metadata XML, pasted into the box. |
+| **Manual entry** | You'd rather type the values, or your IdP doesn't export metadata. | The sign-in URL, issuer/entity ID, and signing certificate. |
+
+With the metadata URL method, Tallyfy can re-read your IdP's metadata later, which helps when your provider rotates its signing certificate.
+
+### Verify your domain first
+
+Before SSO can auto-join new people or be enforced org-wide, you prove you own your email domain. You do this by adding a DNS TXT record. A verified domain is the safety check that stops a stranger, whose own IdP happens to assert an `@yourcompany.com` address, from being auto-added to your org.
+
+Domain verification is its own short setup. See [Domain verification](/products/pro/integrations/authentication/domain-verification/) for the steps and what each verified domain turns on.
+
+### Sync users automatically with SCIM
+
+SCIM connects Tallyfy to your identity provider's directory so user accounts stay in sync without anyone clicking around. When someone joins a group in your IdP, they get a Tallyfy account. When they leave, their Tallyfy access is removed and the seat frees up. No more paying for ex-employees.
+
+Turn it on under **Settings > Organization > Security > SCIM**. See [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/) for how to generate the token and map IdP groups to Tallyfy roles.
 
 ### SSO as replacement for e-signatures
 
@@ -62,15 +106,17 @@ For external party signatures (customers, vendors) or specific regulatory requir
 
 ### Enforcing SSO-only access
 
-Tallyfy can lock down your org so SSO is the only login method. When `sso_auth_only` is enabled:
+You can lock your org down so SSO is the only way most people log in. Flip the **Require SSO** switch under **Settings > Organization > Security > SSO**. When enforcement is on:
 
-- Email and password logins are disabled org-wide
-- Manual member invites are blocked - all users must come through your identity provider
+- Email and password logins are turned off for regular members
+- Manual member invites are blocked, so all users come through your identity provider
 - Non-SSO login attempts redirect to your SAML login page
 
-For security details, see [Compliance documentation on Mandatory Single Sign-On](/products/pro/compliance/#mandatory-single-sign-on-sso).
+The switch stays disabled until you have a verified domain, because that's what makes enforcement safe. Turning it on asks you to re-enter your password (a step-up check) and emails every org admin so changes are never silent.
 
-To enable SSO-only mode, [contact Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/).
+**The break-glass guarantee:** org owners and admins keep their password login even under enforcement. If your identity provider goes down or a misconfiguration breaks SSO, an admin can still sign in with a password and fix it. You can't accidentally lock your whole org out.
+
+For the full enforcement walk-through and recovery steps, see [SSO enforcement and break-glass](/products/pro/integrations/authentication/sso-enforcement-and-break-glass/). For security background, see the [Compliance documentation on Mandatory Single Sign-On](/products/pro/compliance/#mandatory-single-sign-on-sso).
 
 ### SSO authentication flow
 
@@ -80,7 +126,7 @@ Here's what happens when someone logs in via SSO:
 2. Tallyfy redirects to your identity provider (Entra ID, Google, etc.)
 3. User authenticates with corporate credentials and MFA
 4. Identity provider sends a SAML assertion back to Tallyfy
-5. First-time users get accounts created automatically from identity provider data (email, first name, last name)
+5. Existing users are matched and logged in. First-time users from a verified domain get an account created automatically from identity provider data (email, first name, last name) when auto-join is on
 
 ![SSO authentication flow diagram](https://screenshots.tallyfy.com/tallyfy-sso-flow.png)
 
@@ -112,14 +158,15 @@ Cloud directory platform with SAML-based SSO.
 [**JumpCloud Setup Guide →**](/products/pro/integrations/authentication/how-to-integrate-jumpcloud-samlsso-with-tallyfy/)
 
 #### Other SAML 2.0 providers
-Any SAML 2.0-compatible identity provider works. Contact support to verify compatibility.
+Any SAML 2.0-compatible identity provider works. Pick the **Generic SAML** option in the wizard and use the metadata URL or XML paste method. OIDC providers work too via the **Generic OIDC** option. If your provider does something unusual, [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) can help you check compatibility.
 
 ### Requirements for SSO setup
 
+- **A paid plan** - SSO and SCIM are available on any active paid plan
 - **Admin access** in both Tallyfy and your identity provider
-- **Metadata exchange** - URLs, certificates, and entity IDs between systems
+- **A verified domain** if you want auto-join or SSO-only enforcement (login alone works without one)
 - **Attribute mapping** - email, first name, and last name fields from your identity provider to Tallyfy
-- **Testing** - verify with different user types before rolling out org-wide
+- **Testing** - the wizard's built-in test, plus a check with different user types before rolling out org-wide
 
 :::note[SSO with MCP servers]
 If you're using [MCP servers](/products/pro/integrations/mcp-server/) for AI workflows, SSO can extend to those too. See [SSO authentication with MCP servers](/products/pro/integrations/mcp-server/sso-authentication/).
@@ -127,11 +174,12 @@ If you're using [MCP servers](/products/pro/integrations/mcp-server/) for AI wor
 
 ### Getting started
 
-1. Pick the setup guide for your identity provider above
-2. [Contact Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) or your account manager
-3. Your IT team configures the identity provider side
-4. Test with users from different departments and roles
-5. Tell your team about the new login process
+1. Sign in as an administrator and open **Settings > Organization > Security > SSO**
+2. Pick the setup guide for your identity provider above and follow it alongside the wizard
+3. Configure the identity provider side, then paste your metadata into Tallyfy
+4. Run the connection test, then enable SSO
+5. (Optional) Verify your domain, turn on SCIM, and switch on enforcement
+6. Test with users from different departments and roles, then tell your team about the new login
 
 ### Troubleshooting authentication issues
 
