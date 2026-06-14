@@ -238,6 +238,59 @@ A production-ready system exists at `/documentation/scripts/footnote-annotator.p
 - Average character count: 95 characters per footnote
 - Most valuable categories: Technical terms (30%), API parameters (25%), Performance metrics (20%), Tallyfy-specific terms (15%)
 
+## 🧭 Role-based navigation: "By role" section, RoleChooser widget, and Audience bylines
+
+Three connected pieces help readers find what applies to *them*. Both components are defined in **/support-docs** (the framework repo); the content and placement live here in /documentation.
+
+### "By role" landing pages (`pro/by-role/`)
+
+An additive, skippable navigation layer that points each role to EXISTING articles (no new article content, no content forking - it sits on top of the normal sidebar tree).
+
+- `pro/by-role/index.mdx` - the hub (the role widget at full size).
+- `pro/by-role/editor.mdx` - full-seat editors (build, launch, track, administer).
+- `pro/by-role/user.mdx` - light-seat members (complete your own work).
+- `pro/by-role/guest.mdx` - external guests (finish an emailed task).
+
+Each page is a curated, answer-first set of grouped question -> article links. Keep them breathable, not exhaustive. These curated pages are the source of truth - we deliberately do NOT tag every article with role frontmatter.
+
+### RoleChooser widget (reusable)
+
+`import { RoleChooser } from "~/components";` then drop it on any page:
+
+- `<RoleChooser variant="hero" />` - large, for the hub and the manual homepage.
+- `<RoleChooser variant="inline" />` - compact, for embedding near the top of a section index.
+- `<RoleChooser variant="inline" exclude="editor" heading="..." />` - drops the current role's card (used on the role pages themselves; `exclude` is `editor`, `member`, or `guest`).
+
+The widget is always skippable (the full tree stays in the sidebar). Defined at `support-docs/src/components/RoleChooser.astro`. Currently embedded on `pro/index.mdx` and the tutorials, documenting, tracking-and-tasks, and launching index pages - add it to more pages freely (it's just one import + one tag).
+
+### Audience byline (per-article "who is this for")
+
+When an article applies ONLY to a specific role, mark it with the byline as the FIRST body element (it renders just under the title):
+
+```mdx
+import { Audience } from "~/components";
+
+<Audience to="administrator" />
+```
+
+Values and when to use them (grounded in api-v2 permissions - do NOT over-label):
+
+- `administrator` - truly admin-gated features only (api-v2 `admin` middleware): billing, org settings, branding/SMTP, system log, member role-change/remove/permissions, SSO setup, permanent delete.
+- `editor` - full-seat authoring that `light_role_restrict` blocks for Light members: creating and editing templates, documents, automations, variables.
+- `guest` - genuinely guest-facing articles (what a guest reads), NOT the member-facing "managing guests" articles.
+- **No byline** = anyone can use it (Light members and guests included). Most articles get NO byline; absence is the signal.
+
+**De-dup rule:** if an article already had an inline "Admin only" callout that the byline now states, remove the callout. Never keep both.
+
+Defined at `support-docs/src/components/Audience.astro`. Bulk annotation is an idempotent, resumable job at `temporary/by-role-audience-job/` (`annotate.py` + per-role `.tsv` manifests - safe to re-run; it skips files that already carry an `<Audience>`).
+
+### Author / entity attribution (publisher entity, NOT a personal byline)
+
+Docs are attributed to the **Tallyfy organization** (publisher), set globally in `support-docs/src/utils/structured-data.ts` (`ORGANIZATION_SCHEMA` + per-page `TechArticle`, with `founder` = Amit Kothari by `@id` to `https://tallyfy.com/authors/amit-kothari/`). This is deliberate: for non-YMYL help docs a personal author byline is not a Google ranking factor and implies an editorial process the auto-pipeline doesn't run (a Trust risk). So:
+
+- Do NOT add a visible personal author byline or per-article `Person` schema to docs.
+- Named-author E-E-A-T stays on the blog (website-astro), where readers expect it.
+
 ## D2 Diagrams Resources
 
 **Production-Ready Diagram Assets**: 63 D2 diagrams are available as external SVG files for reuse across all platforms. See the **D2 Diagrams Inventory** section in `/README.md` for complete details.
