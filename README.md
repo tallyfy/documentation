@@ -461,6 +461,15 @@ For systematic updates of time-sensitive content, we use queue-based processing:
 
 See `/temporary/doc-updater/` for automation scripts and queue management tools.
 
+## Role-based navigation & audience bylines
+
+Readers can jump to a role-tailored guide via the **By role** section (`src/content/docs/pro/by-role/`: editor, member/user, guest) and the **"Where do you fit in Tallyfy?"** widget. Two reusable components power this, both defined in the `support-docs` framework repo and imported here via `~/components`:
+
+- `<RoleChooser variant="hero|inline" />` - the role chooser widget. Embed it on any page; it's already on the manual homepage and the main section index pages.
+- `<Audience to="administrator|editor|guest" />` - a small per-article byline marking when an article applies only to one role, placed as the first body element. Most articles get none.
+
+Docs are attributed to the Tallyfy organization (a publisher entity in `support-docs`), not a personal author byline. Full conventions, the api-v2-grounded classification rules, the de-dup rule, and the bulk-annotation runner (`temporary/by-role-audience-job/`) are documented in `CLAUDE.md`.
+
 ## D2 Diagrams Inventory
 
 ### Overview

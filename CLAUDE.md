@@ -2,6 +2,8 @@
 
 > **NEVER use auto memory** (`~/.claude/projects/*/memory/`) — store all knowledge in this repo's CLAUDE.md file.
 
+> **AI task reliability cross-links (2026-05):** three doc pages carry a one-line curious-reader callout to the public marketing tool `https://tallyfy.com/tools/ai-task-reliability/` (and the post `/ai-tasks-not-jobs/`): `pro/tracking-and-tasks/tasks/index.mdx`, `pro/documenting/templates/automations/index.mdx`, `pro/integrations/computer-ai-agents/index.mdx`. They are plain root-relative links, no embed. Leave them unless the tool URL changes.
+
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -235,6 +237,59 @@ A production-ready system exists at `/documentation/scripts/footnote-annotator.p
 - ~3% (technical/API docs) benefit from 3-5 footnotes
 - Average character count: 95 characters per footnote
 - Most valuable categories: Technical terms (30%), API parameters (25%), Performance metrics (20%), Tallyfy-specific terms (15%)
+
+## 🧭 Role-based navigation: "By role" section, RoleChooser widget, and Audience bylines
+
+Three connected pieces help readers find what applies to *them*. Both components are defined in **/support-docs** (the framework repo); the content and placement live here in /documentation.
+
+### "By role" landing pages (`pro/by-role/`)
+
+An additive, skippable navigation layer that points each role to EXISTING articles (no new article content, no content forking - it sits on top of the normal sidebar tree).
+
+- `pro/by-role/index.mdx` - the hub (the role widget at full size).
+- `pro/by-role/editor.mdx` - full-seat editors (build, launch, track, administer).
+- `pro/by-role/user.mdx` - light-seat members (complete your own work).
+- `pro/by-role/guest.mdx` - external guests (finish an emailed task).
+
+Each page is a curated, answer-first set of grouped question -> article links. Keep them breathable, not exhaustive. These curated pages are the source of truth - we deliberately do NOT tag every article with role frontmatter.
+
+### RoleChooser widget (reusable)
+
+`import { RoleChooser } from "~/components";` then drop it on any page:
+
+- `<RoleChooser variant="hero" />` - large, for the hub and the manual homepage.
+- `<RoleChooser variant="inline" />` - compact, for embedding near the top of a section index.
+- `<RoleChooser variant="inline" exclude="editor" heading="..." />` - drops the current role's card (used on the role pages themselves; `exclude` is `editor`, `member`, or `guest`).
+
+The widget is always skippable (the full tree stays in the sidebar). Defined at `support-docs/src/components/RoleChooser.astro`. Currently embedded on `pro/index.mdx` and the tutorials, documenting, tracking-and-tasks, and launching index pages - add it to more pages freely (it's just one import + one tag).
+
+### Audience byline (per-article "who is this for")
+
+When an article applies ONLY to a specific role, mark it with the byline as the FIRST body element (it renders just under the title):
+
+```mdx
+import { Audience } from "~/components";
+
+<Audience to="administrator" />
+```
+
+Values and when to use them (grounded in api-v2 permissions - do NOT over-label):
+
+- `administrator` - truly admin-gated features only (api-v2 `admin` middleware): billing, org settings, branding/SMTP, system log, member role-change/remove/permissions, SSO setup, permanent delete.
+- `editor` - full-seat authoring that `light_role_restrict` blocks for Light members: creating and editing templates, documents, automations, variables.
+- `guest` - genuinely guest-facing articles (what a guest reads), NOT the member-facing "managing guests" articles.
+- **No byline** = anyone can use it (Light members and guests included). Most articles get NO byline; absence is the signal.
+
+**De-dup rule:** if an article already had an inline "Admin only" callout that the byline now states, remove the callout. Never keep both.
+
+Defined at `support-docs/src/components/Audience.astro`. Bulk annotation uses `scripts/audience_byline.py` (idempotent - skips files already carrying an `<Audience>`, and preserves frontmatter + line endings byte-for-byte). It reads a simple `ROLE<TAB>path` manifest; re-derive the per-role file list by grepping existing bylines or from the classification rules above.
+
+### Author / entity attribution (publisher entity, NOT a personal byline)
+
+Docs are attributed to the **Tallyfy organization** (publisher), set globally in `support-docs/src/utils/structured-data.ts` (`ORGANIZATION_SCHEMA` + per-page `TechArticle`, with `founder` = Amit Kothari by `@id` to `https://tallyfy.com/authors/amit-kothari/`). This is deliberate: for non-YMYL help docs a personal author byline is not a Google ranking factor and implies an editorial process the auto-pipeline doesn't run (a Trust risk). So:
+
+- Do NOT add a visible personal author byline or per-article `Person` schema to docs.
+- Named-author E-E-A-T stays on the blog (website-astro), where readers expect it.
 
 ## D2 Diagrams Resources
 
@@ -1554,7 +1609,24 @@ for feature in features:
 
 All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
 
-**📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process.
+**🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
+
+**Source of truth:** `scripts/asset_management/` is the single implementation. The `documentation-asset-manager` skill (global `~/.claude/skills/` and the repo `.claude/skills/` copy) is a thin pointer to these scripts - never re-fork the code into the skill.
+
+**📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process. The support-docs remark plugin reads `production_url` -> the three caption columns.
+
+**🔁 Auditing & syncing the inventory** (no R2 credentials needed - read-mostly):
+
+```bash
+cd scripts/asset_management
+python3 orchestrator.py audit --out /tmp/docs-audit.md   # report: referenced-not-in-inventory, dead(404), orphaned, uncaptioned
+python3 orchestrator.py sync --dry-run                    # preview adding skeleton rows for referenced-not-in-inventory images
+python3 orchestrator.py sync                              # apply (atomic; refreshes article refs; destructive items stay report-only)
+```
+
+`audit` scans `src/content/docs/**` for `screenshots.tallyfy.com` URLs and cross-references the CSV (URL-encoding-aware). `sync` is safe-auto: it only ADDS skeleton rows + refreshes `article_ids`; it never deletes dead/orphaned rows (those are surfaced in the report for human decision).
+
+**🗂️ Bulk caption backlog → asset-sync Large Job.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so it runs under the Large-Job Protocol at `~/GitHub/temporary/asset-sync-job/` (single resumable command `bash run.sh`; the CSV itself is the done-ledger). Do NOT try to caption the whole backlog in one session.
 
 ### Asset Storage Architecture
 
@@ -1661,12 +1733,13 @@ The skill automatically generates three types of captions using Claude Vision:
 - `ai_caption_seo` - SEO-optimized caption
 - `needs_caption` - `yes`|`no` (based on file type)
 
-**Current Inventory Stats**:
-- Total assets: 812
-- Active (used in docs): 290
-- Orphaned (not referenced): 499
-- Missing (404s): 23
-- With AI captions: 288+
+**Inventory snapshot** (re-derived 2026-06-02 by `orchestrator.py audit` - run it for live numbers):
+- Total rows: 818
+- With AI captions: 428
+- Image rows still missing captions: ~350 (the `needs_caption=yes` flag was only set on 6 rows - it badly under-counts; trust `audit`, not the flag)
+- Orphaned (source_type=orphaned, not referenced): 499  [GATED - human decides cleanup]
+- Dead / 404 (source_type=missing): 23  [GATED]
+- Referenced in docs but NOT yet inventoried: 55 images (16 `illustrations/*`, 39 `tallyfy/*`) - `sync` adds these as skeleton rows
 
 ### Credentials and Configuration
 

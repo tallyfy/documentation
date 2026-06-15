@@ -11,9 +11,9 @@ from pathlib import Path
 from datetime import datetime
 
 # Paths
-DOCS_DIR = "/Users/amit/Documents/GitHub/documentation/src/content/docs"
-STRUCTURE_FILE = "/Users/amit/Documents/GitHub/documentation/DOCUMENTATION_STRUCTURE.md"
-CLAUDE_FILE = "/Users/amit/Documents/GitHub/documentation/CLAUDE.md"
+DOCS_DIR = "~/GitHub/documentation/src/content/docs"
+STRUCTURE_FILE = "~/GitHub/documentation/DOCUMENTATION_STRUCTURE.md"
+CLAUDE_FILE = "~/GitHub/documentation/CLAUDE.md"
 
 def count_files_by_directory():
     """Count .mdx files in each directory."""

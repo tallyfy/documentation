@@ -372,11 +372,43 @@ Examples:
     # Verify command
     subparsers.add_parser('verify', help='Verify configuration')
 
+    # Audit command (read-only; no R2 credentials needed)
+    audit_parser = subparsers.add_parser('audit', help='Read-only audit: referenced-not-in-inventory, dead, orphaned, uncaptioned')
+    audit_parser.add_argument('--out', help='Write markdown report to this path')
+
+    # Sync command (safe-auto; no R2 credentials needed)
+    sync_parser = subparsers.add_parser('sync', help='Safe-auto: add skeleton rows for referenced-not-in-inventory + refresh article refs')
+    sync_parser.add_argument('--dry-run', action='store_true', help='Show changes, write nothing')
+    sync_parser.add_argument('--no-head-check', action='store_true', help='Skip HEAD url_exists checks')
+
     args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    # Audit / sync run WITHOUT the R2 uploader (read-mostly, no credentials needed).
+    if args.command in ('audit', 'sync'):
+        from audit_sync import audit as _audit, sync as _sync, write_report as _write_report
+        from pathlib import Path as _Path
+        inv = AssetInventory()
+        if args.command == 'audit':
+            a = _audit(inv)
+            print(f"Inventory rows: {a['total_rows']}")
+            print(f"URLs referenced in docs: {a['distinct_urls_in_docs']}")
+            print(f"Referenced-not-in-inventory: {len(a['referenced_not_in_inventory'])} "
+                  f"({len(a['referenced_not_in_inventory_images'])} images)")
+            print(f"Dead: {len(a['dead_rows'])} | Orphaned: {len(a['orphaned_rows'])} | "
+                  f"Missing captions: {len(a['missing_caption_rows'])}")
+            if args.out:
+                _write_report(a, _Path(args.out))
+                print(f"Report written: {args.out}")
+        else:
+            s = _sync(inv, dry_run=args.dry_run, head_check=not args.no_head_check)
+            tag = 'DRY-RUN' if s['dry_run'] else 'APPLIED'
+            print(f"[{tag}] added={s['added']} (live images={s['added_images_live']}, "
+                  f"dead={s['added_dead']}) refreshed_refs={s['refreshed_refs']}")
+        sys.exit(0)
 
     # Verify configuration first
     if args.command == 'verify':
