@@ -282,7 +282,7 @@ Values and when to use them (grounded in api-v2 permissions - do NOT over-label)
 
 **De-dup rule:** if an article already had an inline "Admin only" callout that the byline now states, remove the callout. Never keep both.
 
-Defined at `support-docs/src/components/Audience.astro`. Bulk annotation is an idempotent, resumable job at `temporary/by-role-audience-job/` (`annotate.py` + per-role `.tsv` manifests - safe to re-run; it skips files that already carry an `<Audience>`).
+Defined at `support-docs/src/components/Audience.astro`. Bulk annotation uses `scripts/audience_byline.py` (idempotent - skips files already carrying an `<Audience>`, and preserves frontmatter + line endings byte-for-byte). It reads a simple `ROLE<TAB>path` manifest; re-derive the per-role file list by grepping existing bylines or from the classification rules above.
 
 ### Author / entity attribution (publisher entity, NOT a personal byline)
 
