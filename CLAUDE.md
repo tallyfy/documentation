@@ -86,6 +86,64 @@ All new documentation articles must pass these checks before merge:
 - Description ends with period
 - Headings in sentence case
 - No empty alt text on images
+- Passes `scripts/simplicity-check.py` below the complexity threshold (business-reader simplicity)
+
+## ✍️ Write for business readers, not engineers (lowest common denominator)
+
+Tallyfy's docs are read by busy, non-technical business people: buyers, admins, and everyday users, many reading in a second language. NOT engineers. Write for the lowest common denominator. The most common failure in our docs is sounding like a spec sheet: leading with OAuth flows, RFC numbers, VRAM math, and benchmark scores that a business reader neither understands nor needs.
+
+**This rule sits alongside the humanization rules above. It doesn't replace them.** Keep the contractions, varied rhythm, sentence-case headings, and the em-dash ban. This adds one thing: simple enough for anyone.
+
+### The reading-level target
+
+- Aim for roughly an 8th-grade reading level (Flesch-Kincaid grade ≤ ~9, Reading Ease ≥ ~60).
+- Short sentences. One idea each. Plain everyday words over fancy ones ("use" not "utilize", "set up" not "provision").
+- A reader should understand the opening without Googling a single term.
+
+### Lead with the business answer
+
+The first 2-3 sentences after the H2 say what this does *for you*, in plain words, with zero jargon and zero spec. State the outcome, then the "how", then any detail. Our `byo-ai/use-cases/*` articles are the model: imitate them.
+
+- Good: "Sign in once with your normal company login, and every approved AI tool just works. No separate password per tool."
+- Bad: "Tallyfy's MCP server implements OAuth 2.1 with PKCE S256 and Dynamic Client Registration (RFC 7591)."
+
+### Demote technical detail. Never delete it. Never lose meaning.
+
+Real technical facts (OAuth/PKCE/RFC/JWT/VRAM/benchmarks/limits/setup specifics) are valuable to whoever actually does the integration. Don't strip them. Move them down, and keep every one:
+
+- **A single inline term** that has to stay in the flow goes to a footnote (`[^1]`, 50-150 chars, placed before the Related articles section).
+- **A block of specs** (the whole OAuth flow, VRAM tables, benchmark numbers, config snippets) goes to a clearly-labeled section near the bottom. **Pick the heading that fits who needs it:**
+  - `## For your IT team` for SSO, security, org/admin setup
+  - `## For developers` for API, code, MCP/webhook wiring
+  - `## Technical details` as the neutral default when it's neither
+
+  Start that section with: *"(Skip this unless you're setting up the technical side.)"*
+
+**Never lose essential meaning.** Before you simplify, list every essential point in the article (facts, steps, limits, supported options, gotchas). After, confirm each one still appears somewhere: body, footnote, or the technical section. Simplifying the language is required. Dropping a fact is a bug. Only true fluff (empty benefit statements) gets deleted.
+
+### Jargon discipline
+
+- **Never in business prose** (demote to a footnote or technical section, or cut): PKCE, RS256, JWT, jwks, RFC numbers, `mcp_resource`, stdio, SSE, VRAM, TFLOPs, quantization, MoE, FP8, tokens/second, DLP, WAF, VNet, load balancer.
+- **Explain on first use** (a one-line gloss or footnote the first time, then use it freely): OAuth, OIDC, SAML, SCIM, webhook, SSO, MFA, IAM, API, BPMN, RPA, MCP, inference, embeddings, SLM, LLM.
+- **Fine as-is** (our product vocabulary): templates, processes, tasks, steps, runs, blueprints, snippets, automations, kick-off form, job titles, guests, light users, tracker view.
+
+### Diagrams: simple or none
+
+A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not business readers. Keep each diagram to a single clear idea (an approval flow, a simple sequence). If a diagram needs a legend to follow, it's too complex. Cut it or move it to the technical section.
+
+### Reference docs are the exception
+
+Developer and API reference under `pro/integrations/open-api`, `pro/integrations/webhooks`, and `manufactory/` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
+
+### Enforce it
+
+Before committing any article, run:
+
+```bash
+python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
+```
+
+It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
