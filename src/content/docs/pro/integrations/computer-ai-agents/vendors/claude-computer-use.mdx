@@ -1,13 +1,11 @@
 ---
 about_tallyfy: false
-description: Claude Computer Use lets an AI agent visually control a screen through
-  screenshots and mouse/keyboard actions inside a sandboxed Docker environment and
-  Tallyfy orchestrates this by sending task instructions via webhook and capturing
-  results back into workflow fields so you can automate repetitive desktop and web
-  UI tasks like form filling and legacy data extraction while keeping humans in the
-  loop for oversight.
+description: Claude Computer Use lets an AI agent control a screen through screenshots
+  and mouse and keyboard actions in a sandboxed Docker environment. Tallyfy sends
+  the task and captures the results, so you can automate repetitive desktop and web
+  UI work like form filling and legacy data extraction, with people kept in the loop.
 id: 77698ab94281d0bdaad78200bfeab52f
-lastUpdated: 2026-03-22
+lastUpdated: 2026-06-16
 sidebar:
   order: 14
 title: Claude computer use
@@ -100,9 +98,9 @@ Claude -> Loop: "Repeat until done" {
 ```
 
 **What to notice:**
-- Tallyfy provides the task description and expected outputs that guide Claude's actions
-- Claude loops through screenshot-analyze-act cycles until the task is done
-- Results, logs, and screenshots get captured back into Tallyfy fields
+- Tallyfy provides the task description and expected outputs that guide Claude's actions.
+- Claude loops through screenshot-analyze-act cycles until the task is done.
+- Results, logs, and screenshots get captured back into Tallyfy fields.
 
 ### Model support and performance
 
@@ -111,7 +109,7 @@ Claude -> Loop: "Repeat until done" {
 - **Claude Opus 4.6** - Flagship model for the most demanding tasks
 - **Claude Haiku 4.5** - Lighter option for simpler, faster automation
 
-**Performance benchmarks (OSWorld):**
+**Performance benchmarks (OSWorld[^3]):**
 - Sonnet 4.6 scores 72.5% - now matching human-level performance (72.4%)
 - Rapid improvement from earlier models (Sonnet 4.5 scored 61.4%)
 - Still experimental, so expect some errors on tricky UI interactions
@@ -189,9 +187,9 @@ App -> Tallyfy: "9. Update task\nwith results" {
 ```
 
 **What to notice:**
-- Tallyfy triggers your intermediary app via webhook with task data
-- The loop between Claude and the sandbox continues until the task is done
-- All tool execution happens in an isolated sandbox for security
+- Tallyfy triggers your intermediary app via webhook[^1] with task data.
+- The loop between Claude and the sandbox continues until the task is done.
+- All tool execution happens in an isolated sandbox for security.
 
 ### Core components
 
@@ -234,19 +232,19 @@ Computer Use works well for specific automation scenarios. Early adopters includ
 Claude's computer use is still developing. Anthropic acknowledges these constraints:
 
 **Technical:**
-- **Latency**: Tasks with dozens or hundreds of steps can be slow
-- **Error-prone**: Scrolling, dragging, and zooming remain challenging
-- **Resolution**: May struggle above 1024x768 or 1280x800 due to image scaling
-- **Reliability**: Some actions people do effortlessly are still hard for Claude
+- **Latency**: tasks with dozens or hundreds of steps can be slow.
+- **Error-prone**: scrolling, dragging, and zooming remain challenging.
+- **Resolution**: it may struggle above 1024x768 or 1280x800 due to image scaling.
+- **Reliability**: some actions people do effortlessly are still hard for Claude.
 
 **Safety:**
-- Claude may follow instructions found on-screen, even if they conflict with yours
-- Risk of prompt injection from webpages or images
-- Potential for misuse if not properly isolated
+- Claude may follow instructions found on-screen, even if they conflict with yours.
+- There's a risk of prompt injection from webpages or images.
+- There's potential for misuse if it isn't properly isolated.
 
 **Rate limits:**
-- API rate limits apply based on your tier
-- Processing time varies with task complexity
+- API rate limits apply based on your tier.
+- Processing time varies with task complexity.
 
 ### Getting started
 
@@ -286,66 +284,24 @@ You'll need to build an intermediary app that connects Tallyfy to the Anthropic 
 
 </Steps>
 
-### Basic integration example
+### Reference implementation
 
-A simplified example of the integration flow:
-
-```python
-from anthropic import Anthropic
-import os
-
-client = Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
-
-# Basic computer use request
-response = client.messages.create(
-    model="claude-sonnet-4-6-20260220",
-    max_tokens=1024,
-    tools=[
-        {
-            "type": "computer_20250124",
-            "name": "computer",
-            "display_width_px": 1024,
-            "display_height_px": 768,
-        },
-        {
-            "type": "text_editor_20250124",
-            "name": "text_editor",
-        },
-        {
-            "type": "bash_20250124",
-            "name": "bash",
-        }
-    ],
-    messages=[
-        {
-            "role": "user",
-            "content": "Open the file manager and navigate to Documents folder"
-        }
-    ]
-)
-
-# Handle tool use requests in the response
-# Execute tools in your sandbox
-# Return results to Claude
-# Continue loop until task complete
-```
-
-**Note**: This is simplified. Real implementations need full agent loop handling, tool execution in a Docker sandbox, and result processing.
+Don't build the API calls and agent loop from scratch. Anthropic ships a working Docker reference implementation (the quickstart you pulled above) with the container, the three tools, and the agent loop already wired up. Start from that, then point it at your Tallyfy webhook. Tool names and model IDs change often, so copy the current ones from [Anthropic's docs](https://docs.anthropic.com).
 
 ### Security best practices
 
 **Key measures:**
-- Run Computer Use in a dedicated container or VM with minimal privileges
-- Limit internet access to approved domains only
-- Never give access to sensitive data or credentials
-- Keep Claude isolated from production systems
-- Require human confirmation for critical actions
-- Enable audit logging
+- Run Computer Use in a dedicated container or VM with minimal privileges.
+- Limit internet access to approved domains only.
+- Never give access to sensitive data or credentials.
+- Keep Claude isolated from production systems.
+- Require human confirmation for critical actions.
+- Enable audit logging.
 
 **Known risks:**
-- Prompt injection - Claude may follow on-screen instructions
-- Code execution risks if not properly sandboxed
-- Information theft if given access to sensitive data
+- Prompt injection - Claude may follow on-screen instructions.
+- Code execution risks if it isn't properly sandboxed.
+- Information theft if it's given access to sensitive data.
 
 ### When to use it
 
@@ -376,7 +332,7 @@ response = client.messages.create(
 - Adapts when UIs change
 
 **Disadvantages:**
-- Slower than traditional RPA for simple tasks
+- Slower than traditional RPA[^2] for simple tasks
 - Still experimental with some error-prone execution
 - Requires Docker and sandbox infrastructure
 - Higher latency than direct API calls
@@ -398,10 +354,14 @@ response = client.messages.create(
 - [ ] Refine prompts based on success rates
 - [ ] Scale gradually with proven workflows
 
+[^1]: Webhooks let Tallyfy and your app message each other automatically the moment something happens.
+[^2]: Robotic process automation - older bots that follow fixed scripts and break when a screen changes.
+[^3]: OSWorld is a standard test of how well an AI agent completes real tasks across desktop and web apps.
+
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Integrations > Computer AI agents</b>" href="/products/pro/integrations/computer-ai-agents/" > Computer AI agents visually interpret and interact with any screen-based interface like a human... </LinkTitleCard>
 <LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with Claude (text chat)</b>" href="/products/pro/integrations/mcp-server/claude-anthropic/" > Claude Desktop connects to Tallyfy's MCP server for natural language workflow management. Set up... </LinkTitleCard>
+<LinkTitleCard header="<b>Computer Ai Agents > Local computer use agents</b>" href="/products/pro/integrations/computer-ai-agents/local-computer-use-agents/" > Local computer use agents run AI automation on your own hardware, so data stays private and... </LinkTitleCard>
 <LinkTitleCard header="<b>Vendors > OpenAI agent capabilities</b>" href="/products/pro/integrations/computer-ai-agents/vendors/openai-chatgpt-agent/" > OpenAI's agent tools including the Responses API, Agents SDK, and Computer Use model connect... </LinkTitleCard>
-<LinkTitleCard header="<b>Byo Ai > Claude integration</b>" href="/products/pro/integrations/byo-ai/claude-integration/" > Claude connects to Tallyfy's MCP server at mcp.tallyfy.com using OAuth 2.1 with PKCE. Manage... </LinkTitleCard>
 </CardGrid>

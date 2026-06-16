@@ -4,7 +4,7 @@ description: Claude Desktop connects to Tallyfy's MCP server for natural languag
   workflow management. Set up via Desktop Extensions or manual JSON config, then query
   tasks, analyze processes, and combine with Computer Use for visual automation.
 id: debb8566d1dc2086132f42c2267c3242
-lastUpdated: 2026-05-28
+lastUpdated: 2026-06-16
 sidebar:
   order: 20
 title: Using Tallyfy MCP server with Claude (text chat)
@@ -12,17 +12,66 @@ title: Using Tallyfy MCP server with Claude (text chat)
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-:::note[Server endpoint]
-Tallyfy's MCP server is hosted at `https://mcp.tallyfy.com/` (note the trailing slash, no `/mcp/` suffix) and listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. The server speaks the standard streamable-http transport, authenticates via OAuth 2.1 with Dynamic Client Registration, and exposes the same 107 tools to all Claude clients (Desktop, claude.ai connectors, Claude Code). Access tokens carry the canonical `mcp_resource` claim so the server can bind the token to the resource it was issued for.
+## Chat with Claude to run your Tallyfy work
+
+Connect Claude to Tallyfy and you can manage your work just by chatting. Ask Claude about your tasks, launch and review processes, or build a template, and it does the work in your Tallyfy account for you. It works in the Claude Desktop app and on claude.ai, on any paid Claude plan.
+
+:::note[Which Claude feature is this?]
+This page covers **Claude's text chat** connecting to your Tallyfy data. That's different from [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/), which controls a screen visually (mouse, keyboard, screenshots). Use text chat here for data questions, analysis, and automation. Use Computer Use for visual tasks that need clicking around an interface.
 :::
 
-## Overview
+### What you can do
 
-Claude Desktop was the first AI assistant to offer native MCP integration. The Anthropic family that supports remote MCP today includes Claude Opus, Sonnet, and Haiku models on Pro, Max, Team, and Enterprise plans, plus Claude Code in VS Code, JetBrains, and GitHub Actions.
+Once it's connected, you talk to Claude in plain language and it works in Tallyfy for you. For example, you can ask it to:
 
-This guide covers setting up Tallyfy's MCP server with Claude Desktop, claude.ai connectors, and Claude Code. The setup uses remote OAuth, no local installation required.
+- **Run your day.** Show today's tasks, flag anything overdue, and build a prioritized action list.
+- **Find and fix stalled work.** Spot processes that have stopped moving, figure out what's blocking them, and suggest next steps.
+- **Shuffle work around.** Reassign all of someone's open tasks to a colleague when they go on vacation.
+- **Build and improve templates.** Turn a flowchart into a ready-to-run template, or review an existing process and suggest improvements.
+- **Pull reports.** Generate an SOP from a template, or a compliance report showing completion times and any missed deadlines.
 
-## MCP architecture flow
+Claude also asks before it acts. When a request is vague, it pops up a short set of questions to confirm what you mean before it touches your account, so it doesn't guess.
+
+### See it in action
+
+Real screenshots from claude.ai with the Tallyfy connector active. Each one shows a different thing Claude can do.
+
+A user dropped a flowchart into Claude and asked for a matching template. Claude built a 7-step Business Trip Request with 5 if-then rules - approval gates, parallel notifications, and conditional show/hide on rejection.
+
+![Claude creating a 7-step Business Trip Request template in Tallyfy with 5 automation rules matching a flowchart](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-template-creation.png)
+
+Claude doesn't guess. When the question is ambiguous, it surfaces a structured picker so you confirm scope before any tools fire. Here Claude needs to know whose tasks, what counts as pending, and how to define "next month" before it'll touch your account.
+
+![Claude.ai Cowork sidebar showing the Tallyfy connector connected, with Claude asking four clarifying questions before querying pending tasks](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-clarifying-questions.png)
+
+Asked to review a Client Onboarding process and suggest improvements, Claude first confirms what you actually want - suggest only, suggest then edit on approval, or edit directly - then routes the rest of the run based on your answer.
+
+![Claude.ai Cowork sidebar reviewing a Client Onboarding process and confirming scope with four options including suggest only, edit on approval, edit directly, or something else](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-process-review.png)
+
+For a bigger question, the right-side progress sidebar shows Claude working in steps - reading your profile, pulling your tasks, then counting and double-checking. The result here: 822 open tasks, 805 of them already overdue, and 0 due in the next 30 days because everything is already past its date. Claude flagged the surprise and offered three follow-up paths instead of just answering the literal question.
+
+![Claude.ai answering a pending-tasks question against the Tallyfy MCP server, with the progress sidebar showing four completed sub-steps and a detailed breakdown of 822 open tasks - 805 overdue and 17 auto-skipped](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-overdue-analysis.png)
+
+### Good to know
+
+- **It's text, not the visual app.** You won't see Tallyfy's visual tracker, flowcharts, or progress bars in the chat. A process that's three-quarters done comes back as the words "75% complete." When you want the visual view, pull the data in Claude, then open Tallyfy's web app.
+- **It's not live.** Claude checks when you ask. It won't ping you on its own when a task changes, so you ask it to check, or set up alerts in Tallyfy for urgent items.
+- **Forms get flattened.** Rich forms become plain text, long dropdowns get listed out, file uploads need a separate step, and dates become typed text.
+- **Everything runs as one person.** The connection uses a single Tallyfy identity, so every action shows up under the account that set it up. You can't switch accounts mid-chat.
+
+### Is it secure?
+
+Yes. You sign in with your own Tallyfy account to authorize the connection, and the Claude Desktop app keeps your sign-in token in your computer's secure keychain (macOS Keychain or Windows Credential Manager), never in plain text. All traffic runs over HTTPS, and you should handle the data you pull with the same GDPR and CCPA care as any other system. The full security setup is under [For developers](#for-developers).
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+Tallyfy's MCP server is hosted at `https://mcp.tallyfy.com/` (note the trailing slash, no `/mcp/` suffix) and listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. The server speaks the standard streamable-http transport, authenticates via OAuth 2.1 with Dynamic Client Registration, and exposes the same 107 tools to all Claude clients (Desktop, claude.ai connectors, Claude Code). Access tokens carry the canonical `mcp_resource` claim so the server can bind the token to the resource it was issued for.
+
+Claude Desktop was the first AI assistant to offer native MCP integration. The Anthropic family that supports remote MCP today includes Claude Opus, Sonnet, and Haiku models on Pro, Max, Team, and Enterprise plans, plus Claude Code in VS Code, JetBrains, and GitHub Actions. The remote setup uses OAuth, with no local installation required.
+
+### MCP architecture flow
 
 ```d2
 direction: down
@@ -106,17 +155,7 @@ Claude -> User: "11. Display results\nin chat" {
 - API authentication happens once at startup via the Bearer token in your environment variable
 - Claude auto-discovers tools from the MCP server and shows them with the hammer icon
 
-:::warning[Important: Claude Desktop vs Claude Computer Use]
-This article covers **Claude Desktop's text-chat MCP integration** - natural language access to Tallyfy data via API. This differs from [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/), which controls computer interfaces visually (mouse, keyboard, screenshots).
-
-**Key differences:**
-- **Claude Desktop + MCP** (this article): Text chat connecting to APIs and data sources
-- **Claude Computer Use**: Visual control of desktop apps via screenshots and input actions
-
-Use **MCP** for data queries, analysis, and API automation. Use **Computer Use** for visual UI tasks that need clicking and seeing interface elements.
-:::
-
-## Claude Desktop MCP support
+### Claude Desktop MCP support
 
 Claude Desktop's MCP features include:
 
@@ -130,16 +169,16 @@ Claude Desktop's MCP features include:
 - **Tool discovery**: Auto-detects and displays available MCP tools
 - **Governance**: MCP is governed by the Agentic AI Foundation under the Linux Foundation (since December 2025)
 
-## Prerequisites
+### Prerequisites
 
 - Claude Desktop installed (latest version with Desktop Extensions)
 - Tallyfy API key from your organization settings
 - For manual setup: Node.js 18+ and comfort editing JSON files
 - For Desktop Extensions: Just click install on any .mcpb file - no configuration needed
 
-## MCP tools and integrations
+### Other MCP servers and directories
 
-### Official MCP servers
+Official MCP servers you can pair with Tallyfy:
 
 - **GitHub**: Repos, issues, PR workflows
 - **Stripe**: Payment processing
@@ -153,14 +192,14 @@ Claude Desktop's MCP features include:
 - **Atlassian**: Jira and Confluence via remote MCP
 - **ServiceNow**: Workflow automation
 
-### MCP directories
+MCP directories:
 
 - **PulseMCP (pulsemcp.com)**: Large, regularly updated directory
 - **mcpservers.org**: Community collection synced with GitHub
 - **MCP Market (mcpmarket.com)**: Figma, Databricks, Storybook connectors
 - **mcp.so**: Anthropic's community platform with server registry
 
-## Setting up Tallyfy MCP server with Claude Desktop
+### Set up the Tallyfy MCP server with Claude Desktop
 
 <Steps>
 
@@ -280,69 +319,60 @@ Claude Desktop's MCP features include:
 
 </Steps>
 
-## Live examples in Claude
+### Example prompts
 
-Real screenshots from claude.ai with the Tallyfy connector active. Each one shows a different MCP capability in action.
-
-### Template creation from a flowchart
-
-A user dropped a flowchart into Claude and asked for a matching template. Claude used `create_template`, `add_step_to_template`, and `create_automation_rule` to build a 7-step Business Trip Request with 5 if-then rules - approval gates, parallel notification, conditional show/hide on rejection.
-
-![Claude creating a 7-step Business Trip Request template in Tallyfy with 5 automation rules matching a flowchart](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-template-creation.png)
-
-### Clarifying questions before pulling data
-
-Claude doesn't guess. When the question is ambiguous, the `ask_user_question` MCP tool surfaces a structured picker so you confirm scope before any tools fire. Here Claude needs to know whose tasks, what counts as pending, and how to define "next month" before it'll touch your account.
-
-![Claude.ai Cowork sidebar showing the Tallyfy connector connected, with Claude asking four clarifying questions via the ask_user_question MCP tool before querying pending tasks](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-clarifying-questions.png)
-
-### Reviewing an existing process
-
-Asked to review a Client Onboarding process and suggest improvements, Claude first confirms what you actually want - suggest only, suggest then edit on approval, or edit directly. The 4-option picker comes from `ask_user_to_rank` and the response routes the rest of the run.
-
-![Claude.ai Cowork sidebar reviewing a Client Onboarding process and using ask_user_question to confirm scope - four options including suggest only, edit on approval, edit directly, or something else](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-process-review.png)
-
-### Multi-tool analysis with progress tracking
-
-The right-side progress sidebar shows Claude chaining `get_me`, `get_my_tasks`, then counting + verifying. End result: 822 open tasks, 805 explicitly flagged overdue by Tallyfy, 0 due in the next 30 days because everything is already past its date. Claude flagged the surprise and offered three follow-up paths instead of just answering the literal question.
-
-![Claude.ai answering a pending-tasks question against the Tallyfy MCP server, with the progress sidebar showing four completed sub-steps and a detailed breakdown of 822 open tasks - 805 overdue and 17 auto-skipped](https://screenshots.tallyfy.com/tallyfy/pro/mcp-claude-overdue-analysis.png)
-
-## Practical examples
-
-### Task management
-
+**Task management**
 ```
 Find all tasks assigned to me due this week and create a summary report.
 ```
 
 Claude will query Tallyfy via the `search_tasks` tool, filter by user and date range, format a structured report, and optionally save it locally via filesystem MCP.
 
-### Stalled process detection
-
+**Stalled process detection**
 ```
 Check for stalled processes in our "Customer Onboarding" template and suggest next actions.
 ```
 
 Claude queries active processes, identifies tasks that haven't progressed, analyzes blockers, and provides recommendations.
 
-### Bulk reassignment
-
+**Bulk reassignment**
 ```
 Reassign all of John's open tasks to Sarah - he's on vacation.
 ```
 
 Claude finds John's tasks, filters for open status, reassigns them, and summarizes the changes.
 
-## Claude Desktop features for Tallyfy
+More prompts that work well:
 
-### Projects for persistent context
+```
+Show me all tasks due today, any overdue items, and processes needing my attention. Create a prioritized action list.
+```
+
+```
+Analyze the last 50 completed 'Customer Onboarding' processes. Find the steps with longest completion times and suggest improvements.
+```
+
+```
+Generate an SOP document for our 'Invoice Processing' template with all steps, responsible parties, and average completion times.
+```
+
+```
+Review team member skills and current workload, then suggest optimal task assignments for next week's projects.
+```
+
+```
+Create a compliance report showing all 'Data Access Request' processes from last quarter, including completion times and SLA violations.
+```
+
+### Claude Desktop features for Tallyfy
+
+#### Projects for persistent context
 
 Claude Desktop's **Projects** feature lets you create a project per workflow or client. Upload process docs once and reference them across sessions. Task history persists between conversations - ideal for managing processes that span weeks or months.
 
 Projects also support memory - Claude extracts and saves key facts to maintain continuity. Extended thinking lets it work through multi-step problems, alternating between reasoning and tool calls.
 
-### Local file system integration
+#### Local file system integration
 
 Unlike web-based AI, Claude Desktop can access your local files:
 
@@ -363,7 +393,7 @@ Unlike web-based AI, Claude Desktop can access your local files:
 
 This lets you read process docs from disk, export Tallyfy data to CSV, and sync local templates.
 
-### Tool composition
+#### Tool composition
 
 Connecting multiple MCP servers is where Claude Desktop gets powerful. Example multi-server workflow:
 
@@ -372,7 +402,7 @@ Connecting multiple MCP servers is where Claude Desktop gets powerful. Example m
 3. Slack MCP notifies the HR team with status updates
 4. GitHub MCP creates IT access tickets
 
-### Developer tools
+#### Developer tools
 
 - MCP server logs: `~/Library/Logs/Claude/` (macOS) or `%APPDATA%\Claude\logs\` (Windows)
 - Built-in tool call debugging
@@ -380,61 +410,7 @@ Connecting multiple MCP servers is where Claude Desktop gets powerful. Example m
 - Remote MCP servers on Cloudflare with OAuth - no local setup
 - GitHub Actions support for CI/CD workflows
 
-## Limitations
-
-### No visual interface
-
-Claude Desktop is text-only. You can't see Tallyfy's visual process tracker, clickable flowcharts, or progress bars. You'll get "75% complete" as plain text instead.
-
-**Workaround**: Have Claude pull the data, then view it in Tallyfy's web UI.
-
-### No real-time updates
-
-MCP is request-response, not live streaming. There are no push notifications when tasks change - you must ask Claude to check.
-
-**Workaround**: Schedule periodic checks or set up webhooks for urgent items.
-
-### Limited form handling
-
-Rich forms become flat text. Multi-select dropdowns with 50 options get listed out. File uploads need a separate step. Date pickers become manual text entry.
-
-### Single identity
-
-One API key means one identity. Everything runs as the key owner, you can't switch accounts, and the audit trail shows a single person for all actions.
-
-## Best use cases
-
-### Morning workflow review
-
-```
-Show me all tasks due today, any overdue items, and processes needing my attention. Create a prioritized action list.
-```
-
-### Process analysis
-
-```
-Analyze the last 50 completed 'Customer Onboarding' processes. Find the steps with longest completion times and suggest improvements.
-```
-
-### Documentation generation
-
-```
-Generate an SOP document for our 'Invoice Processing' template with all steps, responsible parties, and average completion times.
-```
-
-### Task routing
-
-```
-Review team member skills and current workload, then suggest optimal task assignments for next week's projects.
-```
-
-### Compliance reporting
-
-```
-Create a compliance report showing all 'Data Access Request' processes from last quarter, including completion times and SLA violations.
-```
-
-## Combining MCP with Computer Use
+### Combining MCP with Computer Use
 
 Pair Claude's text-based MCP with [Claude Computer Use](/products/pro/integrations/computer-ai-agents/vendors/claude-computer-use/) for broader automation:
 
@@ -442,7 +418,7 @@ Pair Claude's text-based MCP with [Claude Computer Use](/products/pro/integratio
 
 **Computer Use handles**: Visual interfaces, third-party form filling, UI navigation, apps without APIs
 
-### Example hybrid workflow
+#### Example hybrid workflow
 
 **Step 1 - MCP** (data gathering):
 ```
@@ -454,7 +430,7 @@ Analyze all completed audit processes this month, identify non-compliance issues
 Open the government compliance portal, navigate to the monthly report section, and fill in the form using the CSV data. Screenshot each step for audit trail.
 ```
 
-### Hybrid best practices
+#### Hybrid best practices
 
 1. **MCP for data** - API access is faster and more reliable than UI automation
 2. **Computer Use for UI-only tasks** - only when there's no API available
@@ -462,7 +438,7 @@ Open the government compliance portal, navigate to the monthly report section, a
 4. **Watch costs** - Computer Use with screenshots costs more than MCP API calls
 5. **MCP is more predictable** - API operations are deterministic; visual automation isn't
 
-## Security
+### Security
 
 1. **Configuration security**
    - Desktop Extensions encrypt credentials via OS secure storage (Keychain, Credential Manager)
@@ -490,9 +466,9 @@ Open the government compliance portal, navigate to the monthly report section, a
    - Remote MCP eliminates local attack surface but needs internet
    - Implement exponential backoff for retries
 
-## Advanced configuration
+### Advanced configuration
 
-### Multiple MCP servers
+#### Multiple MCP servers
 
 Claude Desktop supports multiple simultaneous MCP connections:
 
@@ -517,7 +493,7 @@ Claude Desktop supports multiple simultaneous MCP connections:
 }
 ```
 
-### Custom server tips
+#### Custom server tips
 
 1. **Use TypeScript for type safety**
    ```typescript
@@ -545,7 +521,7 @@ Claude Desktop supports multiple simultaneous MCP connections:
    console.error(`[Tallyfy MCP] ${new Date().toISOString()} - ${request.method}`);
    ```
 
-## Known issues
+### Known issues
 
 1. **Windows paths**: Use forward slashes `/` or double backslashes `\\` in JSON configs
 2. **Large datasets**: Paginate when pulling 1000+ items - Claude truncates big responses
@@ -555,7 +531,7 @@ Claude Desktop supports multiple simultaneous MCP connections:
 6. **SSE deprecated**: Use Streamable HTTP for new integrations
 7. **Remote MCP needs internet**: Local stdio servers work offline; remote ones don't
 
-## Claude vs ChatGPT for MCP
+### Claude vs ChatGPT for MCP
 
 **Claude Desktop**:
 - Mature MCP implementation with Desktop Extensions (.mcpb)
@@ -570,7 +546,7 @@ Claude Desktop supports multiple simultaneous MCP connections:
 
 **Choose Claude** for the most mature MCP experience, Desktop Extensions, Projects for persistent context, and Computer Use hybrid workflows. **Consider ChatGPT** for Microsoft integration or enterprise admin-controlled connectors.
 
-## Best practices
+### Best practices
 
 1. **Start with read-only** operations before adding write capabilities
 2. **Test in sandbox** - never test against production Tallyfy data
@@ -582,8 +558,8 @@ Claude Desktop supports multiple simultaneous MCP connections:
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Byo Ai > Claude integration</b>" href="/products/pro/integrations/byo-ai/claude-integration/" > Claude connects to Tallyfy's MCP server at mcp.tallyfy.com using OAuth 2.1 with PKCE. Manage... </LinkTitleCard>
 <LinkTitleCard header="<b>Integrations > MCP server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server lets you control workflows through plain English in ChatGPT, Claude... </LinkTitleCard>
+<LinkTitleCard header="<b>Byo Ai > Claude integration</b>" href="/products/pro/integrations/byo-ai/claude-integration/" > Claude connects to Tallyfy's MCP server at mcp.tallyfy.com using OAuth 2.1 with PKCE. Manage... </LinkTitleCard>
 <LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with ChatGPT</b>" href="/products/pro/integrations/mcp-server/openai-chatgpt/" > ChatGPT Enterprise and Team users can connect to Tallyfy's MCP server through OAuth 2.1 to... </LinkTitleCard>
-<LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with Microsoft Copilot Studio</b>" href="/products/pro/integrations/mcp-server/microsoft-copilot-studio/" > Connect Tallyfy's MCP server to Microsoft Copilot Studio through Power Platform custom... </LinkTitleCard>
+<LinkTitleCard header="<b>Claude Anthropic > Run analytics with Claude</b>" href="/products/pro/integrations/mcp-server/claude-anthropic/analytics-with-claude/" > Get real analytics from Tallyfy by asking Claude. Connect the Tallyfy MCP server, ask in plain... </LinkTitleCard>
 </CardGrid>

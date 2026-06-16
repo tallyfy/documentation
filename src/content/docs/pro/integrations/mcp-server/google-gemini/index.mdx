@@ -4,7 +4,7 @@ description: Connect Tallyfy's MCP server to Gemini CLI, Gemini Code Assist, and
   Enterprise. Run OAuth 2.1 with Dynamic Client Registration for the CLI surfaces,
   and add Tallyfy as a Custom MCP Server data store for enterprise teams.
 id: '00000000000000000000000000000000'
-lastUpdated: 2026-05-28
+lastUpdated: 2026-06-16
 sidebar:
   order: 25
 title: Tallyfy MCP server with Google Gemini
@@ -13,31 +13,72 @@ title: Tallyfy MCP server with Google Gemini
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 import { Aside } from '@astrojs/starlight/components';
 
-:::note[Server endpoints]
-Tallyfy publishes two endpoints for Gemini: the primary at `https://mcp.tallyfy.com/` (DigitalOcean) and the **Google Cloud Run mirror at `https://mcp-gcp.tallyfy.com/`** (Tier-1 for Gemini Enterprise). Both expose the same 107 tools and share the same OAuth backend, so your access tokens work on either endpoint. The server is listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. Three Google surfaces connect to it: Gemini CLI, Gemini Code Assist, and Gemini Enterprise.
-:::
+## Run Tallyfy by chatting in Google Gemini
 
-Tallyfy connects to Google's three Gemini surfaces through OAuth 2.1 with streamable-HTTP transport. For developers, the Gemini CLI and Gemini Code Assist auto-discover OAuth via Dynamic Client Registration against `https://mcp.tallyfy.com/`. For enterprise teams, admins add Tallyfy as a Custom MCP Server data store in the Gemini Enterprise console; we recommend using `https://mcp-gcp.tallyfy.com/` (the Cloud Run mirror) for that path since it puts the origin inside Google's own network.
+Connect Tallyfy to Google Gemini and you can run your workflows just by typing in plain English. Ask Gemini to find your overdue tasks, launch a process, or point out where work is getting stuck, and it does the work in Tallyfy for you. No clicking through screens.
 
-:::tip[Why two endpoints?]
-The Cloud Run mirror (`mcp-gcp.tallyfy.com`) is operationally identical to the primary endpoint but is hosted on Google Cloud Run. For Gemini Enterprise customers this means lower-latency egress, easier VPC-SC and Cloud Logging integration, and an origin that lives inside Google's compliance perimeter. The deploy pipeline (Cloud Build → Artifact Registry → Cloud Run) is fully operational; every push to the MCP server repo deploys to both endpoints in parallel. Pick whichever endpoint your AI surface prefers; the data and behavior are the same.
-:::
+There are three ways to connect, and which one you pick depends on who's using it. The setup for each is further down, under [For developers](#for-developers).
 
-## Gemini MCP support status
+### What you can do
 
-- **Gemini CLI** - remote streamable-HTTP MCP via `~/.gemini/settings.json`; OAuth auto-discovered through DCR and PKCE
-- **Gemini Code Assist** - same configuration schema as Gemini CLI in VS Code; IntelliJ uses `mcp.json`
-- **Gemini Enterprise** - Custom MCP Server data store (Preview); per-organization configuration in the Google Cloud Console
-- **Apigee integration** - optional path for converting managed APIs into MCP servers (not needed for Tallyfy; we publish our own server directly)
+Once Tallyfy is connected, you just talk to Gemini and it handles the rest. For example, you can ask it to:
 
-## Prerequisites
+- Find all your overdue tasks and summarize them grouped by who they're assigned to.
+- Look at last month's onboarding processes and point out where they slow down.
+- Review one of your templates and suggest ways to improve it.
+- Watch your running work and flag anything at risk of missing its deadline, with a guess at why.
 
-- A Tallyfy account with an active organization
-- For the Gemini CLI path: `@google/gemini-cli` installed (`npm install -g @google/gemini-cli`)
-- For Gemini Code Assist: the Code Assist extension installed in VS Code or IntelliJ, signed in to a Google account with Gemini access
-- For Gemini Enterprise: Discovery Engine Editor IAM role (`roles/discoveryengine.editor`) plus the ability to override the org policy that blocks custom MCP server data stores
+Because Gemini lives inside Google's tools, you can also mix Tallyfy with the rest of them. Pull process timings next to data in BigQuery, kick off a review in Tallyfy when a new file lands in Cloud Storage and ping the team in Gmail, or have Gemini read an image or document as part of a review. Gemini handles pictures and files, not just text.
 
-## Connect Tallyfy in Gemini CLI
+### Which way should you connect?
+
+- **Gemini CLI** - the command-line tool, for developers who work in a terminal.
+- **Gemini Code Assist** - the same thing, but inside the VS Code or IntelliJ code editor.
+- **Gemini Enterprise** - for a whole team. Your Google Cloud admin sets it up once, then everyone can use it. This one is in Preview right now.
+
+The first two take about a minute. The Enterprise setup is more involved and your Google admin handles it. All three steps are under [For developers](#for-developers).
+
+### Good to know
+
+- **Enterprise is in Preview.** As of May 2026, the Gemini Enterprise setup screens and field names may still change.
+- **Your admin turns tools on.** After Enterprise setup, each Tallyfy tool starts switched off. An admin enables the ones your team should use.
+- **Chat is text only.** Gemini shows you text, so Tallyfy's visual tracker won't appear in the chat. You ask for status updates in words instead.
+- **Tallyfy isn't in a public Gemini directory.** Each organization adds Tallyfy itself using the steps below. It won't show up on its own.
+
+### Is it secure?
+
+Yes. You sign in with your own normal Tallyfy login through OAuth[^1], the same secure sign-in standard banks and big apps use, so you never paste a password into Gemini. Your sign-in is tied to your Tallyfy organization, and access tokens refresh on their own in the background. Enterprise teams also get Google's Vertex AI controls and audit logs in Cloud Logging. Full details are in [For developers](#for-developers).
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+### Server endpoints
+
+Tallyfy publishes two endpoints for Gemini, and they behave identically:
+
+- **Primary:** `https://mcp.tallyfy.com/` (hosted on DigitalOcean).
+- **Google Cloud Run mirror:** `https://mcp-gcp.tallyfy.com/` (the Tier-1 choice for Gemini Enterprise).
+
+Both expose the same 107 tools and share the same OAuth backend, so your access tokens work on either one. The server is listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`.
+
+The Cloud Run mirror is operationally identical to the primary endpoint but runs on Google Cloud Run. For Gemini Enterprise that means lower-latency egress, easier VPC Service Controls and Cloud Logging integration, and an origin that lives inside Google's compliance perimeter. The deploy pipeline (Cloud Build, then Artifact Registry, then Cloud Run) is fully operational, and every push to the MCP server repo deploys to both endpoints in parallel. Pick whichever endpoint your AI surface prefers - the data and behavior are the same.
+
+### Gemini MCP support status
+
+- **Gemini CLI** - remote streamable-HTTP MCP via `~/.gemini/settings.json`; OAuth auto-discovered through DCR and PKCE.
+- **Gemini Code Assist** - same configuration schema as Gemini CLI in VS Code; IntelliJ uses `mcp.json`.
+- **Gemini Enterprise** - Custom MCP Server data store (Preview); per-organization configuration in the Google Cloud Console.
+- **Apigee integration** - an optional path for converting managed APIs into MCP servers (not needed for Tallyfy; we publish our own server directly).
+
+### Prerequisites
+
+- A Tallyfy account with an active organization.
+- For the Gemini CLI path: `@google/gemini-cli` installed (`npm install -g @google/gemini-cli`).
+- For Gemini Code Assist: the Code Assist extension installed in VS Code or IntelliJ, signed in to a Google account with Gemini access.
+- For Gemini Enterprise: Discovery Engine Editor IAM role (`roles/discoveryengine.editor`) plus the ability to override the org policy that blocks custom MCP server data stores.
+
+### Connect Tallyfy in Gemini CLI
 
 <Steps>
 
@@ -88,7 +129,7 @@ The Cloud Run mirror (`mcp-gcp.tallyfy.com`) is operationally identical to the p
 
 </Steps>
 
-## Connect Tallyfy in Gemini Code Assist
+### Connect Tallyfy in Gemini Code Assist
 
 <Steps>
 
@@ -106,7 +147,7 @@ The Cloud Run mirror (`mcp-gcp.tallyfy.com`) is operationally identical to the p
 
 </Steps>
 
-## Connect Tallyfy in Gemini Enterprise
+### Connect Tallyfy in Gemini Enterprise
 
 Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is configured per-organization by your Google Cloud admin. The connection setup happens entirely on Google's side. There's no approval step or vendor signup at Tallyfy.
 
@@ -181,89 +222,30 @@ Gemini Enterprise's Custom MCP Server data store (Preview as of May 2026) is con
 
 </Steps>
 
-## Practical examples
+### How Gemini calls Tallyfy
 
-### Task management via natural language
+When you ask in plain language, Gemini picks the right Tallyfy tools and runs them:
 
-**Prompt:**
-```
-Using Tallyfy, find all overdue tasks and create a summary grouped by assignee.
-```
-
-Gemini calls `search_for_tasks` with an overdue filter, groups by assignee, and writes a summary.
-
-### Process analytics
-
-**Prompt:**
-```
-Analyze our customer onboarding processes from the last month and identify bottlenecks.
-```
-
-Gemini queries process history through MCP tools, computes per-step completion times, and surfaces the slowest steps.
-
-### Template review
-
-**Prompt:**
-```
-Review our Invoice Processing template and suggest improvements.
-```
-
-Gemini fetches the template with `get_template`, walks the step dependencies and automation rules, and proposes changes.
-
-## Gemini-specific features
-
-### Google Cloud integration
+- *"Find all overdue tasks and create a summary grouped by assignee."* Gemini calls `search_for_tasks` with an overdue filter, groups by assignee, and writes a summary.
+- *"Analyze our customer onboarding processes from the last month and identify bottlenecks."* Gemini queries process history through MCP tools, computes per-step completion times, and surfaces the slowest steps.
+- *"Review our Invoice Processing template and suggest improvements."* Gemini fetches the template with `get_template`, walks the step dependencies and automation rules, and proposes changes.
 
 Because Gemini runs inside Google's platform, you can combine Tallyfy data with other Google services:
 
-- **BigQuery** - analyze Tallyfy process data alongside your data warehouse
-- **Cloud Run** - deploy your own MCP logic at scale
-- **Pub/Sub** - drive event-based workflow triggers
+- **BigQuery** - analyze Tallyfy process data alongside your data warehouse. For example, correlate support tickets in BigQuery with support process completion times in Tallyfy.
+- **Cloud Run** - deploy your own MCP logic at scale.
+- **Pub/Sub** - drive event-based workflow triggers, such as kicking off a document review in Tallyfy when a file lands in Cloud Storage.
+- **Vertex AI agents** - build multi-agent systems with the Agent Development Kit that combine Tallyfy with other services under Google's governance controls.
 
-### Multimodal input
+Gemini's multimodal input also lets it process images and documents alongside text, which helps with visual inspection workflows or document review processes.
 
-Gemini can process images and documents alongside text. That's handy for visual inspection workflows or document review processes.
+### Security and authentication
 
-### Vertex AI agents
-
-Build multi-agent systems with the Agent Development Kit that combine Tallyfy with other services under Google's governance controls.
-
-## Limitations
-
-- **Preview status** - Custom MCP Server data store is in Preview as of May 2026; the Console UI and field names may change.
-- **Tools default to disabled** - after creating the data store, you must manually enable each Tallyfy tool via **Actions** -> **Reload custom actions**.
-- **No public Google directory for MCP server vendors** - Tallyfy isn't surfaced by default to Gemini Enterprise customers. Each org adds it themselves through the steps above.
-- **Visual process tracker doesn't render in chat** - like other chat surfaces, Gemini shows you text. Complex forms become text interactions, and you'll ask for status updates explicitly.
-- **OAuth client types supported** - Tallyfy supports both PKCE public clients (CLI, Code Assist) and confidential clients (Gemini Enterprise). Confidential clients can use either `client_secret_basic` or `client_secret_post` for the token endpoint; both methods are advertised in the server's `/.well-known/oauth-authorization-server` metadata. All flows use OAuth 2.1 with S256 PKCE.
-
-## Best use cases
-
-### Data-driven optimization
-
-Combine BigQuery analytics with Tallyfy process data:
-```
-Correlate customer support tickets from BigQuery with support process completion times in Tallyfy.
-```
-
-### Multi-service automation
-
-Coordinate across Google Cloud and Tallyfy:
-```
-When a new document lands in Cloud Storage, kick off the document review process in Tallyfy and notify the team via Gmail.
-```
-
-### Process monitoring
-
-Use Gemini's analytical strengths for workflow insights:
-```
-Monitor active processes and alert me to any at risk of missing their SLA, with a root-cause hypothesis.
-```
-
-## Security
-
-- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist register as PKCE public clients through DCR. Gemini Enterprise registers as a confidential client through DCR using `client_secret_basic` or `client_secret_post` (both advertised by the server). All flows use S256 PKCE for code challenge. Refresh tokens rotate automatically.
+- **Authentication** - OAuth 2.1. Gemini CLI and Code Assist register as PKCE public clients through DCR. Gemini Enterprise registers as a confidential client through DCR using `client_secret_basic` or `client_secret_post` (both advertised by the server in its `/.well-known/oauth-authorization-server` metadata). All flows use S256 PKCE for the code challenge. Refresh tokens rotate automatically.
 - **Data handling** - Google processes your data per their AI policies. Enterprise teams get Vertex AI controls and audit logging in Cloud Logging.
 - **Network** - All traffic over HTTPS. Enterprise deployments can add VPC Service Controls and private connectivity.
+
+[^1]: OAuth is the standard that lets you sign in to one app using another account, without sharing your password.
 
 ## Related articles
 <CardGrid>
