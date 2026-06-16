@@ -28,13 +28,15 @@ The System Log is an admin-only view of every customer-relevant event captured f
 
 Three things are tracked: server-side system events, email delivery events, and AI usage events. The log is read-only. You can't edit or delete entries from it.
 
-## How to access the system log
+The rest of this page covers how to open the log, what each of the three tabs shows, how to find and export events, and a few things worth knowing about retention and privacy.
+
+## Open the system log
 
 Open the left sidebar and click **System Logs**. The page opens to the **System** tab by default. Use the tabs at the top to switch between System, Email, and AI Usage views.
 
 If you don't see **System Logs** in the sidebar, your role is not Administrator. Ask an Administrator to elevate your role, or to share an export with you.
 
-## The three tabs
+## What each tab shows
 
 ### System tab
 
@@ -48,7 +50,7 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | Security | Failed login attempts, password resets, role changes, email-address changes, and "made public" actions on blueprints and kickoff forms. |
 | Process | Auto-archive and auto-complete actions performed by Tallyfy's bot user against your processes and tasks. |
 
-#### System event reference
+#### Full list of system events
 
 | Event | Category | Meaning |
 |-------|----------|---------|
@@ -62,7 +64,7 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | `billing_subscription_created` | Billing | A new subscription was created for the org. |
 | `billing_subscription_updated` | Billing | The subscription plan or quantity changed. |
 | `billing_subscription_expired` | Billing | The subscription lapsed (typically after repeated payment failures). |
-| `login_failed` | Security | A login attempt for an email belonging to your org failed (wrong password, MFA, etc.). |
+| `login_failed` | Security | A login attempt for an email belonging to your org failed (wrong password, a failed multi-factor (MFA) check, and so on). |
 | `password_reset_initiated` | Security | A password-reset email was requested for an account in your org. |
 | `password_reset_completed` | Security | A user in your org successfully completed a password reset. |
 | `role_changed` | Security | An Administrator changed another member's role. |
@@ -89,7 +91,7 @@ Per-recipient delivery and engagement events from Mailgun, the email provider Ta
 
 ### AI usage tab
 
-Captures every interaction the AI assistant or MCP tools have on behalf of users in your org. Events vary by interaction type (a chat message, an MCP tool call, an embedding request) but each row carries the same fields:
+Captures every interaction the AI assistant or MCP tools (outside AI apps that connect to Tallyfy) have on behalf of users in your org. Events vary by interaction type (a chat message, an MCP tool call, an embedding request) but each row carries the same fields:
 
 * **User** that made the request
 * **Model** used (for example, Opus or Sonnet)
@@ -100,7 +102,9 @@ Captures every interaction the AI assistant or MCP tools have on behalf of users
 
 Use this tab to track AI spend by team member, watch latency trends, and find failing requests when a user reports the AI behaving oddly.
 
-## Filtering and search
+## Find and export events
+
+### Filter and search
 
 Every tab has the same filter controls along the top. The filter panel collapses on narrow screens.
 
@@ -113,17 +117,19 @@ Every tab has the same filter controls along the top. The filter panel collapses
 * **Sort by** column with ascending / descending toggle.
 * **Page size**: 25, 50, 100, or 200 rows per page.
 
-## CSV export
+### Export to CSV
 
 Click **Export CSV** in the toolbar. The export uses your current filters and streams rows to a downloaded file. There's no row cap. A 90-day window for a busy org typically exports in a few seconds.
 
 The CSV includes the same columns visible in the table plus the full message body. Use it for compliance archives or to share specific failures with engineering.
 
-## Pre-authentication events
+## Good to know
+
+### Login and password events from before sign-in
 
 Failed-login and password-reset events happen before the user is signed in, so Tallyfy can't tag them with an org ID at capture time. The System Log resolves them to your org by matching the entered email address against your member list. So you'll see:
 
-* Failed login attempts where the email belongs to a member of your org. Useful for spotting credential-stuffing attempts.
+* Failed login attempts where the email belongs to a member of your org. This helps you spot credential-stuffing, where attackers try many stolen passwords against your accounts.
 * Password resets initiated for emails that belong to your org, plus the matching `password_reset_completed` event when the user finishes.
 
 You won't see:
@@ -136,19 +142,19 @@ A small **Pre-auth** badge appears next to events resolved this way, so you can 
 
 If you want to hide pre-auth events from a search, toggle off **Include pre-authentication events** in the filter panel.
 
-## We log who reads the system log
+### Who viewed the log
 
 Every time someone opens or exports the System Log, Tallyfy records a `system_log_viewed` event. It shows up in the System tab itself, with the user, timestamp, log type, and the filters that were applied.
 
-This is on purpose: if your org needs to know who's been auditing, you can answer that question from inside the same UI. The audit-of-audit event is visible to all Administrators and exports normally with CSV.
+This is on purpose: if your org needs to know who's been auditing, you can answer that question from inside the same UI. This record of log views is visible to all Administrators and exports normally with CSV.
 
-## 90-day retention
+### How long events are kept
 
 System Log data is retained for 90 days. Events older than 90 days are removed and cannot be recovered. If you need a longer history, export the CSV monthly and archive it in your own storage.
 
 The 90-day cap is a hard limit. The date-range picker won't let you go past it. If you need an older event for an active investigation, contact support quickly: we may still have it in our internal logging stack, but we can't promise anything past 90 days.
 
-## What's not in the system log
+### What's not logged
 
 For privacy and security, the following are deliberately excluded:
 
