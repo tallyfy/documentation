@@ -36,6 +36,14 @@ from pathlib import Path
 SKIP_FILES = ["404.mdx"]
 SKIP_DIRS = ["src/content/docs/pro/changelog", "src/content/docs/changelog"]
 
+# Pure developer code-reference areas - never simplified for business readers
+# (auto-style API code snippets and API-client tool setup). Excluded from triage
+# like changelog; they are structural reference, not prose articles.
+EXCLUDE_FROM_TRIAGE = [
+    "open-api/code-samples",
+    "open-api/api-clients",
+]
+
 DEFAULT_THRESHOLD = 45
 
 # ---------------------------------------------------------------------------
@@ -311,6 +319,8 @@ def gather_files(base_dir):
     files = []
     for path, _subdirs, names in os.walk(base_dir):
         if any(sd in path for sd in SKIP_DIRS):
+            continue
+        if any(ex in path for ex in EXCLUDE_FROM_TRIAGE):
             continue
         for name in names:
             if name.endswith(".mdx") and name not in SKIP_FILES:
