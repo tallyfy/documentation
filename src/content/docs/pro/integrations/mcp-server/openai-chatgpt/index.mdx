@@ -12,17 +12,50 @@ title: Using Tallyfy MCP server with ChatGPT
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-:::note[Server endpoint]
+## Run your Tallyfy work from ChatGPT
+
+Connect Tallyfy to ChatGPT and you can manage your workflows just by typing what you need. Ask ChatGPT to find tasks, review a template, or pull a report, and it does the work in your Tallyfy account for you. It's available on ChatGPT Team, Enterprise, and Education plans.
+
+ChatGPT is text only, so it's great for searching, analyzing, and planning, but it can't show you Tallyfy's visual screens. The setup steps are under [For developers](#for-developers).
+
+### What you can do
+
+Once it's connected, you talk to ChatGPT in plain language and it works in Tallyfy for you. For example, you can:
+
+- **Search in plain English.** "Find all templates related to employee onboarding that include background check steps." ChatGPT searches names, descriptions, and step content, and finds it in seconds.
+- **Get form-field suggestions.** Ask it to add the right fields to collect customer feedback in a process, and it suggests fields with sensible validation rules.
+- **Try out automations safely.** Ask "if I route tasks by deal value, how would these 5 deals get assigned?" and it simulates the result without touching your live processes.
+- **Keep docs and templates in sync.** Paste an updated procedure and ask ChatGPT to update the matching template, highlighting what changed.
+- **Spot patterns worth keeping.** Have it review the one-off tasks people added to a process last month and suggest which ones belong in the template for good.
+- **Answer hard questions.** "Which step in our sales process takes longest, and who's fastest at it?" It analyzes your data and answers, with links to the exact processes it looked at.
+
+### Good to know
+
+ChatGPT is a chat window, so anything that needs Tallyfy's visual screens won't work well here:
+
+- **No visual tracker.** You can't see Tallyfy's progress bars, color-coded statuses, or workflow diagrams, so spotting bottlenecks or SLA risk at a glance isn't possible. For charts and trends, connect a BI tool to [Tallyfy Analytics](/products/pro/integrations/analytics/) instead.
+- **Forms get flattened.** Long dropdowns become a wall of text, dates turn into typed text, and you can't upload files.
+- **Building [templates](/products/pro/documenting/templates/) is clumsy.** There's no drag-and-drop to reorder steps, no visual branching, and no preview.
+- **Bulk work is slow.** Reassigning 50 tasks means 50 commands or one risky bulk instruction, and big lists come back as pages of text.
+- **It's not live.** ChatGPT only checks when you ask, so you won't see a teammate's change until your next query, and two people can't edit the same template at once.
+
+The takeaway: use ChatGPT for search, analysis, and planning, then jump into Tallyfy's visual interface to actually run the work.
+
+### Which ChatGPT plans you need
+
+Team, Enterprise, and Education plans can connect Tallyfy as a custom app (after turning on Developer Mode). Plus and Pro plans get pre-built connectors and any installed apps from the directory.
+
+### Is it secure?
+
+Yes. You sign in with your own Tallyfy account to authorize the connection and choose which organization to connect. A couple of good habits: connect with an account that has only the permissions ChatGPT needs (not a full admin account), review which templates hold sensitive data, and check your access logs now and then. The full setup and security notes are under [For developers](#for-developers).
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+### Server endpoint and support status
+
 The MCP server is hosted at `https://mcp.tallyfy.com/` and exposes 107 tools. ChatGPT supports it through Custom Connectors (Team, Enterprise, Education plans) and through ChatGPT Apps (when you've installed it from the apps directory). The server is also published on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. A verification endpoint at `https://mcp.tallyfy.com/.well-known/openai-apps-challenge` confirms ownership for OpenAI's Apps directory; Tallyfy's directory listing is in progress with OpenAI.
-:::
-
-## What this integration does
-
-ChatGPT Enterprise, Team, and Education users can connect to Tallyfy through its MCP server. You manage workflows using natural language - type what you need and ChatGPT handles the API calls.
-
-This guide covers setup, what works well, and what doesn't.
-
-## ChatGPT MCP support status
 
 - **Availability** - Team, Enterprise, and Education plans support custom MCP server connections via Developer Mode. Plus and Pro plans get pre-built connectors and installed apps from the directory.
 - **Access method** - Developer Mode (custom connector) and ChatGPT Apps (from the directory)
@@ -33,14 +66,14 @@ This guide covers setup, what works well, and what doesn't.
 
 You must enable Developer Mode in ChatGPT settings to use MCP servers in regular conversations.
 
-## Prerequisites
+### Prerequisites
 
 - ChatGPT Enterprise, Team, or Education subscription
 - A Tallyfy account with organization access
 - Access to create custom apps in ChatGPT
 - Familiarity with OAuth authentication flows
 
-## Setting up Tallyfy MCP server with ChatGPT
+### Set up Tallyfy in ChatGPT
 
 <Steps>
 
@@ -94,136 +127,67 @@ You must enable Developer Mode in ChatGPT settings to use MCP servers in regular
 
 </Steps>
 
-## Practical examples
+### Example prompts
 
-### Finding overdue tasks
-
-**Prompt:**
+**Finding overdue tasks**
 ```
 Using Tallyfy, find all overdue tasks assigned to the marketing team and summarize them by priority.
 ```
 
-**What happens:**
-1. ChatGPT calls `search_for_tasks` with an overdue filter
-2. Filters results by marketing team assignment
-3. Groups findings by priority
-4. Returns a formatted summary
+What happens: ChatGPT calls `search_for_tasks` with an overdue filter, filters results by marketing team assignment, groups findings by priority, and returns a formatted summary.
 
-### Analyzing template health
-
-**Prompt:**
+**Analyzing template health**
 ```
 Analyze our "Customer Onboarding" template in Tallyfy and suggest improvements.
 ```
 
-**What happens:**
-1. Calls `get_template` to pull template details
-2. Runs `assess_template_health` for complete template data
-3. Runs `analyze_template_automations` for automation analysis
-4. Suggests specific optimizations
+What happens: ChatGPT calls `get_template` to pull template details, runs `assess_template_health` for complete template data, runs `analyze_template_automations` for automation analysis, and suggests specific optimizations.
 
-### Creating workflow documentation
-
-**Prompt:**
+**Creating workflow documentation**
 ```
 Generate documentation for our "Invoice Processing" workflow, including all steps and form fields.
 ```
 
-**What happens:**
-1. Retrieves template structure using `get_template`
-2. Lists all steps with descriptions
-3. Documents form fields for each step
-4. Includes automation rules
+What happens: ChatGPT retrieves the template structure using `get_template`, lists all steps with descriptions, documents form fields for each step, and includes automation rules.
 
-## Limitations of the text-based UI
+These prompts also work well:
+
+```
+Find all templates related to employee onboarding that include background check steps
+```
+
+```
+Add appropriate form fields to collect customer feedback in our support process
+```
+
+```
+If I set up an automation to assign tasks based on deal value, show me how it would route these 5 example deals
+```
+
+```
+Here's our updated SOX compliance procedure. Update our audit template to match these new requirements, highlighting what changed
+```
+
+```
+Analyze one-off tasks added to our hiring processes last month and suggest which should be added to the template
+```
+
+```
+Which step in our sales process has the longest average completion time, and which team members are fastest at completing it?
+```
+
+### Limitations of the text-based interface
 
 ChatGPT's text interface hits real walls with certain Tallyfy features:
 
-### Form field interactions
+- **Form field interactions** - Dropdowns, multi-selects, and complex inputs don't translate well to plain text. A dropdown with 20+ options becomes a wall of text. Date pickers become "type the date in YYYY-MM-DD format." File uploads aren't possible at all.
+- **Visual workflow representation** - ChatGPT can't display Tallyfy's visual process tracker or workflow diagrams. You lose step-by-step flow visualization, real-time progress updates, and dependency mapping.
+- **Bulk operations** - Reassigning 50 tasks means 50 individual commands (or one complex bulk instruction that might fail). Filtering and sorting large process lists produces pages of text. Batch template updates give no visual confirmation.
+- **Real-time collaboration** - ChatGPT's turn-based model doesn't support live updates. Your teammate finishes a task, and you won't know until you ask again. Notifications get buried in conversation history. Two people can't work on the same template simultaneously.
 
-Dropdowns, multi-selects, and complex inputs don't translate well to plain text. A dropdown with 20+ options becomes a wall of text. Date pickers become "type the date in YYYY-MM-DD format." File uploads aren't possible at all.
+Features that specifically don't render well: the visual **Tracker View** (progress bars and color-coded statuses), the drag-and-drop template builder (no visual branching logic or structure preview), advanced filtering and saved views, and analytics (no charts, graphs, or trend visualizations - connect your BI tools to [Tallyfy Analytics](/products/pro/integrations/analytics/) for those, and build [templates](/products/pro/documenting/templates/) in Tallyfy's own UI). ChatGPT does shine at natural-language search, what-if automation simulations, and complex questions about your [processes](/products/pro/tracking-and-tasks/processes/).
 
-### Visual workflow representation
-
-ChatGPT can't display Tallyfy's visual process tracker or workflow diagrams. You lose step-by-step flow visualization, real-time progress updates, and dependency mapping.
-
-### Bulk operations
-
-Reassigning 50 tasks means 50 individual commands (or one complex bulk instruction that might fail). Filtering and sorting large process lists produces pages of text. Batch template updates give no visual confirmation.
-
-### Real-time collaboration
-
-ChatGPT's turn-based model doesn't support live updates. Your teammate finishes a task, and you won't know until you ask again. Notifications get buried in conversation history. Two people can't work on the same template simultaneously.
-
-## Features that don't work well in ChatGPT
-
-### Visual process tracker
-
-Tallyfy's **Tracker View** shows running processes with progress bars and color-coded statuses. ChatGPT can't render any of it, so monitoring process health at a glance, spotting bottlenecks across workflows, and tracking SLA compliance visually aren't possible.
-
-### Template builder
-
-Creating and editing [templates](/products/pro/documenting/templates/) through ChatGPT is awkward. No drag-and-drop for reordering steps, no visual branching logic, and no preview of the template structure.
-
-### Advanced filtering and views
-
-Tallyfy's filtering doesn't translate to text. You can't save custom views, multi-dimensional filtering requires complex natural language, and there are no visual indicators for results.
-
-### Analytics
-
-No charts, graphs, or trend visualizations. For visual analytics, connect your BI tools to [Tallyfy Analytics](/products/pro/integrations/analytics/) instead.
-
-## Where ChatGPT shines with Tallyfy MCP
-
-### Natural language search
-
-```
-"Find all templates related to employee onboarding that include background check steps"
-```
-
-ChatGPT searches template names, descriptions, and step content - finding what you need in seconds.
-
-### Form field generation
-
-```
-"Add appropriate form fields to collect customer feedback in our support process"
-```
-
-ChatGPT examines your process context and suggests fields with appropriate validation rules.
-
-### What-if automation scenarios
-
-```
-"If I set up an automation to assign tasks based on deal value, show me how it would route these 5 example deals"
-```
-
-ChatGPT runs the simulation without touching your live processes.
-
-### Process documentation updates
-
-```
-"Here's our updated SOX compliance procedure. Update our audit template to match these new requirements, highlighting what changed"
-```
-
-ChatGPT reads your document, identifies changes, and updates your template accordingly.
-
-### Template optimization from task patterns
-
-```
-"Analyze one-off tasks added to our hiring processes last month and suggest which should be added to the template"
-```
-
-ChatGPT spots patterns and suggests which ad-hoc tasks deserve a permanent place in your template.
-
-### Complex query answering
-
-```
-"Which step in our sales process has the longest average completion time, and which team members are fastest at completing it?"
-```
-
-ChatGPT analyzes your data and returns the answer with links to the specific [processes](/products/pro/tracking-and-tasks/processes/) it examined.
-
-## Security considerations
+### Security considerations
 
 1. **Access control** - Use accounts with minimal required permissions. Consider a dedicated service account for the ChatGPT integration.
 
@@ -231,7 +195,7 @@ ChatGPT analyzes your data and returns the answer with links to the specific [pr
 
 3. **Prompt injection** - Be cautious of templates or data containing prompt-like text. Verify unexpected ChatGPT behaviors and report suspicious activity to both OpenAI and Tallyfy support.
 
-## Known issues
+### Known issues
 
 1. **Deep Research is read-only** - Enable Developer Mode in ChatGPT Settings for write operations
 2. **Session timeouts** - Long-running queries may timeout after 60 seconds
@@ -241,7 +205,7 @@ ChatGPT analyzes your data and returns the answer with links to the specific [pr
 6. **No webhook support** - Can't trigger or respond to Tallyfy webhooks
 7. **Terminology** - OpenAI renamed "connectors" to "apps" in December 2025, so some docs may use the old term
 
-## Best practices
+### Best practices
 
 1. **Be specific** - Instead of "show me tasks," try "show me high-priority tasks assigned to John due this week"
 2. **Batch requests** - Combine related queries in a single prompt
@@ -249,7 +213,7 @@ ChatGPT analyzes your data and returns the answer with links to the specific [pr
 4. **Save effective prompts** - Reuse prompts that work well for common workflows
 5. **Combine with Tallyfy's UI** - Use ChatGPT for analysis and planning, then execute in Tallyfy's visual interface
 
-## What's next
+### What's next
 
 - **Write capabilities** - Already available via Developer Mode
 - **OAuth 2.1** - Live now with PKCE and Dynamic Client Registration
