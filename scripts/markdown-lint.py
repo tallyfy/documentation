@@ -75,14 +75,18 @@ def validate_mdx_file(file_path):
         print("Missing 'order' in sidebar.")
         return False
 
-    if frontmatter['id'] == '0000000000000000000000000000000000':
+    # Coerce to string first. An unquoted placeholder like `id: 0000...` is parsed by
+    # PyYAML as an int, and uuid.UUID(<int>) raises AttributeError (not ValueError),
+    # which crashes the whole lint run and silently skips the pipeline's sync step.
+    id_value = str(frontmatter['id'])
+    if id_value == '0000000000000000000000000000000000':
         print("'id' is not a valid UUID.")
         return False
 
     # Validate id is a valid UUID
     try:
-        uuid.UUID(frontmatter['id'])
-    except ValueError:
+        uuid.UUID(id_value)
+    except (ValueError, AttributeError, TypeError):
         print("'id' is not a valid UUID.")
         return False
 
