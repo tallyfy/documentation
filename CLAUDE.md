@@ -99,6 +99,7 @@ Tallyfy's docs are read by busy, non-technical business people: buyers, admins, 
 - Aim for roughly an 8th-grade reading level (Flesch-Kincaid grade ≤ ~9, Reading Ease ≥ ~60).
 - Short sentences. One idea each. Plain everyday words over fancy ones ("use" not "utilize", "set up" not "provision").
 - A reader should understand the opening without Googling a single term.
+- End bullet items with a period when they're complete thoughts. It reads cleaner, and it stops readability tools from treating a run of period-less bullets as one giant run-on sentence.
 
 ### Lead with the business answer
 
@@ -1361,6 +1362,8 @@ git checkout staging
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status
+- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success` (`gh api 'accounts/<account_id>/pages/projects/support-docs/deployments?env=production&per_page=1'`).
+- **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`

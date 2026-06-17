@@ -1,8 +1,9 @@
 ---
 about_tallyfy: true
-description: Claude Desktop connects to Tallyfy's MCP server for natural language
-  workflow management. Set up via Desktop Extensions or manual JSON config, then query
-  tasks, analyze processes, and combine with Computer Use for visual automation.
+description: Connect Claude to Tallyfy's hosted MCP server to manage workflows in
+  plain language. Add it as a custom connector in Claude.ai or Claude Desktop, sign
+  in with OAuth, then query tasks, analyze processes, and combine with Computer Use
+  for visual automation.
 id: debb8566d1dc2086132f42c2267c3242
 lastUpdated: 2026-06-16
 sidebar:
@@ -87,7 +88,7 @@ Claude: "Claude Desktop\nApp" {
   style.font-color: "#fff"
 }
 
-MCP: "MCP Server\n(tallyfy-server.js)" {
+MCP: "Tallyfy MCP server\n(mcp.tallyfy.com)" {
   shape: hexagon
   style.fill: "#fff3cd"
 }
@@ -105,7 +106,7 @@ Claude -> MCP: "2. Tool discovery\n(list available tools)" {
   style.stroke: "#333"
 }
 
-MCP -> MCP: "3. Initialize with\nAPI token" {
+MCP -> MCP: "3. OAuth sign-in\n(authorize once)" {
   style.stroke: "#666"
   style.stroke-dash: 3
 }
@@ -151,8 +152,8 @@ Claude -> User: "11. Display results\nin chat" {
 ```
 
 **Key points:**
-- The MCP server runs locally and uses stdio (standard input/output) - not network protocols
-- API authentication happens once at startup via the Bearer token in your environment variable
+- Tallyfy hosts the MCP server at mcp.tallyfy.com and Claude reaches it over the network (streamable HTTP) - there's nothing to install or run locally
+- You authorize once with OAuth 2.1: you sign in with your Tallyfy account and Claude stores the token securely, so there's no API key to paste
 - Claude auto-discovers tools from the MCP server and shows them with the hammer icon
 
 ### Claude Desktop MCP support
@@ -171,10 +172,9 @@ Claude Desktop's MCP features include:
 
 ### Prerequisites
 
-- Claude Desktop installed (latest version with Desktop Extensions)
-- Tallyfy API key from your organization settings
-- For manual setup: Node.js 18+ and comfort editing JSON files
-- For Desktop Extensions: Just click install on any .mcpb file - no configuration needed
+- A paid Claude plan (Pro, Max, Team, or Enterprise) - remote connectors aren't on Free
+- Claude.ai in a browser, or the latest Claude Desktop app
+- A Tallyfy account you can sign in with - you authorize through OAuth, so there's no API key to paste
 
 ### Other MCP servers and directories
 
@@ -199,125 +199,55 @@ MCP directories:
 - **MCP Market (mcpmarket.com)**: Figma, Databricks, Storybook connectors
 - **mcp.so**: Anthropic's community platform with server registry
 
-### Set up the Tallyfy MCP server with Claude Desktop
+### Connect the Tallyfy MCP server
+
+You don't build or run anything - Tallyfy hosts the server at `https://mcp.tallyfy.com`. You add it as a remote connector and sign in once. Claude discovers the OAuth endpoints automatically, so there's no JSON to edit and no API key to paste.
+
+**In Claude.ai (web):**
 
 <Steps>
 
-1. **Install Claude Desktop**
+1. **Open settings**
 
-   Download from [claude.ai/download](https://claude.ai/download) for macOS or Windows.
+   Go to [claude.ai](https://claude.ai), click your profile icon, then **Settings**.
 
-2. **Find the configuration file**
+2. **Add a custom connector**
 
-   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   Open **Connectors**, click **Add custom connector**, and enter the URL `https://mcp.tallyfy.com`.
 
-   Claude creates this file when you first edit the configuration.
+3. **Authorize with Tallyfy**
 
-3. **Create the Tallyfy MCP server**
+   Claude opens Tallyfy's sign-in page. Sign in and click **Authorize**. The connector then syncs across Claude web, Desktop, and mobile.
 
-   ```bash
-   mkdir ~/tallyfy-mcp-server
-   cd ~/tallyfy-mcp-server
-   npm init -y
-   npm install @modelcontextprotocol/sdk axios
-   ```
+4. **Verify the connection**
 
-4. **Write the server script**
-
-   Create `tallyfy-server.js`:
-
-   ```javascript
-   const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-   const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
-   const axios = require('axios');
-
-   const TALLYFY_API_KEY = process.env.TALLYFY_API_KEY;
-   const TALLYFY_API_URL = 'https://mcp.tallyfy.com';
-
-   const server = new Server({
-     name: 'tallyfy-mcp',
-     version: '1.0.0',
-   });
-
-   server.setRequestHandler('tools/call', async (request) => {
-     if (request.params.name === 'search_tasks') {
-       const { query, status } = request.params.arguments;
-
-       const response = await axios.get(`${TALLYFY_API_URL}/tasks`, {
-         headers: { 'Authorization': `Bearer ${TALLYFY_API_KEY}` },
-         params: { q: query, status }
-       });
-
-       return {
-         content: [{
-           type: 'text',
-           text: JSON.stringify(response.data, null, 2)
-         }]
-       };
-     }
-   });
-
-   server.setRequestHandler('tools/list', async () => {
-     return {
-       tools: [{
-         name: 'search_tasks',
-         description: 'Search for tasks in Tallyfy',
-         inputSchema: {
-           type: 'object',
-           properties: {
-             query: { type: 'string', description: 'Search query' },
-             status: { type: 'string', enum: ['open', 'completed', 'all'] }
-           }
-         }
-       }]
-     };
-   });
-
-   const transport = new StdioServerTransport();
-   server.connect(transport);
-   ```
-
-5. **Configure Claude Desktop**
-
-   **Option A: Desktop Extensions (recommended)**
-   - Go to Claude Desktop Settings, then Extensions
-   - Browse the directory or upload a .mcpb file
-   - Click "Install Extension" - done
-
-   **Option B: Manual configuration**
-   Edit `claude_desktop_config.json`:
-
-   ```json
-   {
-     "mcpServers": {
-       "tallyfy": {
-         "command": "node",
-         "args": ["/Users/username/tallyfy-mcp-server/tallyfy-server.js"],
-         "env": {
-           "TALLYFY_API_KEY": "your-tallyfy-api-key-here"
-         }
-       }
-     }
-   }
-   ```
-
-   Replace `/Users/username/` with your home directory and add your Tallyfy API key.
-
-6. **Restart Claude Desktop**
-
-   Fully quit (Cmd+Q on macOS) and relaunch.
-
-7. **Verify the connection**
-
-   Look for the hammer icon at the bottom of the chat. Click it to see your Tallyfy tools.
-
-   Test with:
-   ```
-   "Search for all open tasks in Tallyfy"
-   ```
+   Start a new chat, look for the Tallyfy tools under the hammer icon, and try "Search for all open tasks in Tallyfy".
 
 </Steps>
+
+**In Claude Desktop:**
+
+<Steps>
+
+1. **Update Claude Desktop**
+
+   Download the latest version from [claude.ai/download](https://claude.ai/download). Remote connectors with OAuth need a recent build.
+
+2. **Add the server**
+
+   Open **Settings**, go to **Connectors** (labelled **Integrations** in some versions), and add the URL `https://mcp.tallyfy.com`.
+
+3. **Authorize and restart**
+
+   Sign in to Tallyfy and click **Authorize**. The token is stored in your OS keychain (macOS Keychain or Windows Credential Manager), never in plain text. Then fully quit and relaunch Claude Desktop.
+
+4. **Verify the connection**
+
+   Click the hammer icon to see your Tallyfy tools, then try "Search for all open tasks in Tallyfy".
+
+</Steps>
+
+For the full step-by-step with screenshots, see [Claude integration](/products/pro/integrations/byo-ai/claude-integration/).
 
 ### Example prompts
 
@@ -468,18 +398,13 @@ Open the government compliance portal, navigate to the monthly report section, a
 
 ### Advanced configuration
 
-#### Multiple MCP servers
+#### Other MCP servers alongside Tallyfy
 
-Claude Desktop supports multiple simultaneous MCP connections:
+You add Tallyfy itself through the connector UI above (no config file needed). To run extra local servers next to it - for example, filesystem and GitHub - edit `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "tallyfy": {
-      "command": "node",
-      "args": ["~/tallyfy-mcp-server/server.js"],
-      "env": { "TALLYFY_API_KEY": "key-1" }
-    },
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"]
