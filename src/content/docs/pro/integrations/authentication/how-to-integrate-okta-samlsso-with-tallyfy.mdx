@@ -1,8 +1,9 @@
 ---
 about_tallyfy: true
-description: Tallyfy integrates with Okta through SAML 2.0 SSO. Create an Okta SAML
-  app and exchange configuration details with Tallyfy Support so users can authenticate
-  automatically and get accounts provisioned on first login.
+description: Tallyfy integrates with Okta through SAML 2.0 SSO that you set up yourself.
+  Create an Okta SAML app, then paste the Okta metadata into the self-serve SSO wizard
+  under Settings so users authenticate automatically. Add the Okta SCIM 2.0 app for full
+  directory sync.
 id: 996a06ec56a1508cbe41551052481a14
 lastUpdated: 2026-06-13
 sidebar:
@@ -19,21 +20,21 @@ import { Audience } from "~/components";
 
 Connect Okta with Tallyfy using SAML-based Single Sign-On (SSO) for automatic authentication and user provisioning. Takes about 30 minutes.
 
-:::caution[Coordination required]
-SSO setup requires exchanging config between your organization and Tallyfy. You can't do this alone - submit a support ticket to get started.
+:::note[You set this up yourself]
+SSO is self-serve. You configure both sides: build the SAML app in Okta, then paste the Okta metadata into Tallyfy under **Settings > Organization > Security > SSO**. No support ticket needed.
 :::
 
 ### Requirements
 
 - Okta administrator account
-- Tallyfy Professional or Enterprise plan
-- SAML configuration values from Tallyfy Support
+- A Tallyfy administrator account on any paid plan
+- The Tallyfy SP values from the SSO wizard (shown when you pick Okta)
 
 ### Setup overview
 
 1. Create an Okta SAML application
 2. Configure settings in both systems
-3. Turn on SSO and test it
+3. Test the connection in the Tallyfy wizard, then turn SSO on
 
 ### Phase 1: Create Okta SAML application
 
@@ -73,10 +74,9 @@ SSO setup requires exchanging config between your organization and Tallyfy. You 
 Grab Tallyfy's SAML values first - these tell Okta where to send login data:
 
 <Steps>
-1. Contact Tallyfy Support to access your organization's profile
-2. Go to the **Org Settings** tab
-3. Click **Add Configuration Details**
-4. Find the default SAML values section
+1. In Tallyfy, go to **Settings > Organization > Security > SSO**
+2. Start a new connection and pick **Okta** as the provider
+3. Copy the **SP ACS URL** and **SP Entity ID** shown on the first step of the wizard
 </Steps>
 
 #### Step 2: Enter SAML settings in Okta
@@ -131,21 +131,23 @@ Tell Okta which user info to send to Tallyfy:
 3. The page shows the identity provider's SAML config details
 </Steps>
 
-#### Step 2: Send details to Tallyfy Support
+Okta also gives you an **Identity Provider metadata** link on this page. Copy it if you'd rather use the metadata URL method.
+
+#### Step 2: Paste Okta details into the Tallyfy wizard
+
+Back in the Tallyfy SSO wizard (**Settings > Organization > Security > SSO**), move to the **Enter IdP details** step and pick a method:
 
 <Steps>
-1. Send the **Identity Provider Single Sign-On URL** to Tallyfy Support
-2. Send the **Identity Provider Issuer** to Tallyfy Support
-3. Send the **X.509 Certificate** to Tallyfy Support
-4. Tallyfy Support configures these values in your organization's SAML settings
+1. **Metadata URL** - paste the Okta **Identity Provider metadata** link. Tallyfy fetches and parses it. Easiest option.
+2. **XML paste** - paste the metadata XML if you downloaded it instead.
+3. **Manual entry** - enter the **Identity Provider Single Sign-On URL**, the **Identity Provider Issuer**, and the **X.509 Certificate**.
 </Steps>
 
-#### Step 3: Enable SAML authentication
-
-After Tallyfy Support confirms your settings are configured:
+#### Step 3: Test and enable
 
 <Steps>
-1. Toggle the SAML activation switch to enable SSO for your organization
+1. Run the wizard's **Test connection** step. It checks your metadata and certificate. Fix anything it flags.
+2. Once the test passes, click **Enable** to turn SSO on for your organization
 </Steps>
 
 ### User provisioning and access
@@ -153,13 +155,13 @@ After Tallyfy Support confirms your settings are configured:
 Once SSO is active:
 
 <Steps>
-1. Get the Tallyfy login URL from the SAML configuration modal (Tallyfy Support provides this)
+1. Get your org's SSO login URL from the SSO wizard (it's shown next to the connection)
 2. Share this URL with users who have access to the Okta application
 </Steps>
 
 Here's how it works for your users:
 - Already have a Tallyfy account? They'll log in automatically
-- No account yet? Tallyfy creates one on their first login
+- No account yet? If auto-join is on and their email is on a verified domain, Tallyfy creates an account on first login. Verify your domain under the **Domains** tab first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
 
 ### SSO authentication flow
 
@@ -168,17 +170,16 @@ The full authentication process from setup to user access:
 ```d2
 Admin: Admin
 Okta: Okta
-Support: Tallyfy Support
 Tallyfy: Tallyfy
 User: User
 
 # Setup Phase
-Admin -> Okta: 1. Create app
-Okta -> Admin: 2. Get metadata
-Admin -> Support: 3. Send metadata
-Support -> Tallyfy: 4. Configure SSO
-Support -> Admin: 5. Provide settings
-Admin -> Tallyfy: 6. Test connection
+Admin -> Tallyfy: 1. Open SSO wizard, copy SP values
+Admin -> Okta: 2. Create app, map attributes
+Okta -> Admin: 3. Get metadata
+Admin -> Tallyfy: 4. Paste metadata in wizard
+Admin -> Tallyfy: 5. Test connection
+Admin -> Tallyfy: 6. Enable SSO
 
 # Authentication Phase
 User -> Okta: 7. Click login
@@ -192,9 +193,23 @@ Tallyfy -> User: 14. Grant access
 ```
 
 **Key points:**
-- Steps 1-6 are the one-time setup between your Admin and Tallyfy Support
+- Steps 1-6 are the one-time self-serve setup you run yourself across Tallyfy and Okta
 - Steps 7-14 happen every time a user logs in
-- Tallyfy auto-creates accounts for new users (step 13) using the email and name attributes from Okta
+- Tallyfy auto-creates accounts for new users from a verified domain (step 13) using the email and name attributes from Okta
+
+### Set up SCIM provisioning (optional)
+
+SAML handles login. SCIM handles your user roster. With Okta's SCIM 2.0 provisioning on, Okta pushes assignments and deactivations to Tallyfy automatically, so accounts appear and disappear in step with Okta and you stop paying for people who've left.
+
+<Steps>
+1. In Tallyfy, go to **Settings > Organization > Security > SCIM** and turn SCIM on
+2. Copy the **Base URL** and the **bearer token** (the token shows once, so store it safely)
+3. In Okta, open your Tallyfy app and go to the **Provisioning** tab, then **Configure API Integration**
+4. Check **Enable API integration**, paste the Tallyfy **Base URL** into the **SCIM connector base URL** field, and paste the **bearer token** as the API token
+5. Click **Test API Credentials**, then save. Under **To App**, enable Create, Update, and Deactivate Users.
+</Steps>
+
+To map Okta groups to Tallyfy roles, push groups whose names match Tallyfy's reserved group names (for example `tallyfy-admins`). Full details are in [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/).
 
 ### Troubleshooting
 
