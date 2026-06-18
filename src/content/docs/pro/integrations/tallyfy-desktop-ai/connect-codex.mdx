@@ -1,0 +1,173 @@
+---
+about_tallyfy: true
+description: Install the OpenAI Codex CLI via npm and sign into your ChatGPT subscription so Tallyfy Desktop can drive it. The Install Wizard handles npm with explicit consent, or you can install manually with `npm install -g @openai/codex`.
+sidebar:
+  order: 3
+  label: Connect Codex
+title: Connect Codex to Tallyfy Desktop
+---
+
+import { Steps, CardGrid, LinkTitleCard } from "~/components";
+
+:::note[Subscription, not API key]
+Codex in Tallyfy Desktop uses OAuth via your ChatGPT account. The app never asks for an `OPENAI_API_KEY` and won't accept one. You need a ChatGPT Plus, Pro, Team, Enterprise, or Edu subscription. If you don't have one, sign up at [chatgpt.com](https://chatgpt.com)<a href="https://chatgpt.com" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a> first.
+:::
+
+## What gets installed
+
+Tallyfy Desktop drives Codex through OpenAI's official `codex` command-line tool (the `@openai/codex` npm package). On first launch, the desktop app checks whether `codex` is on your `PATH` and whether you've signed in. If either is missing, it offers to install or guide you.
+
+The install command per platform is baked into the desktop app source code:
+
+| Platform | Command |
+|---|---|
+| macOS | `npm install -g @openai/codex` |
+| Linux | `npm install -g @openai/codex` |
+| Windows | `npm install -g @openai/codex` |
+
+The binary lands in your global npm prefix (typically `/opt/homebrew/bin/codex` on macOS-arm64 with Homebrew, or `/usr/local/bin/codex` with classic npm). You'll need Node.js 18+ already installed.
+
+## Prerequisites
+
+- A Tallyfy account (you'll sign in to Tallyfy Desktop first)
+- A ChatGPT Plus, Pro, Team, Enterprise, or Edu subscription
+- Node.js 18 or higher with `npm` available on `PATH`
+- A modern web browser for the OAuth sign-in step
+
+## Option A: Install Wizard (recommended)
+
+<Steps>
+
+1. **Open the Codex tab**
+
+   In Tallyfy Desktop, click the **Codex** tab. If the CLI isn't installed, the Install Wizard appears.
+
+2. **Read the consent screen**
+
+   The wizard shows the exact npm command and its risks:
+   - Modifies your global npm prefix
+   - May require `sudo` if your npm prefix is system-owned (uncommon with Homebrew or nvm)
+   - After install, you must run `codex login` interactively before headless use; otherwise calls return HTTP 401
+
+3. **Hold Shift for three seconds**
+
+   The button activates only while you hold Shift. Release to cancel.
+
+4. **Watch the progress log**
+
+   The wizard streams `npm install` output. You'll see the package download, dependency resolution, and a "Installed Codex vX.Y.Z" verification line.
+
+5. **Sign in with ChatGPT**
+
+   After install, click **Sign in with ChatGPT**. The desktop app runs `codex login`, which opens OpenAI's OAuth flow in your default browser. Approve the connection and return to the desktop app.
+
+   The token is stored under `~/.codex/auth.json`. The desktop app reads it from there.
+
+6. **Test the connection**
+
+   Type `hi` in the Codex tab and press Enter. You should see Codex's streamed response within a few seconds.
+
+</Steps>
+
+## Option B: Manual install
+
+<Steps>
+
+1. **Install via npm**
+
+   ```bash
+   npm install -g @openai/codex
+   ```
+
+   If npm reports a permission error, your npm prefix is likely system-owned. Either reconfigure npm to use a user-owned prefix (recommended; see [npm docs](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally)<a href="https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>) or run with `sudo`. Tallyfy Desktop never uses `sudo`; the wizard fails cleanly in that case.
+
+2. **Sign in**
+
+   ```bash
+   codex login
+   ```
+
+   This opens OpenAI's OAuth flow in your browser. Approve and return to the terminal.
+
+3. **Restart Tallyfy Desktop**
+
+   Quit fully and reopen. The Codex tab will detect the binary and skip the wizard.
+
+</Steps>
+
+## First chat
+
+Once Codex is connected:
+
+1. Click the **Codex** tab.
+2. The model picker shows the default (GPT-5.5 in v2.0.0).
+3. Type your message and press Enter. Codex streams plain-text responses, so you'll see the text appear chunk by chunk.
+
+Codex doesn't support MCP in v1, so the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) isn't auto-injected as a tool. Instead, the desktop app prepends a system prompt that gives Codex your Tallyfy context (your org name, your role, links to your active processes). You can still trigger the [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) from Codex chats; the widget watches for intent in the text Codex generates.
+
+## Verifying the install yourself
+
+```bash
+# Is the binary on PATH?
+which codex
+
+# Does it run?
+codex --version
+
+# Are you signed in?
+test -f ~/.codex/auth.json && echo "signed in" || echo "not signed in"
+```
+
+The desktop app caches detection for 60 minutes. Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux) inside the Codex tab forces a re-detection.
+
+## Troubleshooting
+
+### `npm install` fails with EACCES
+
+Your npm prefix is system-owned. The two clean fixes are:
+
+1. **Switch to a user-owned prefix** (recommended): see [npm's official fix](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally)<a href="https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a>. After reconfiguring, re-run the wizard.
+2. **Use nvm** to manage Node.js: nvm puts npm in your home directory, sidestepping the issue. Install nvm from [nvm-sh/nvm](https://github.com/nvm-sh/nvm)<a href="https://github.com/nvm-sh/nvm" rel="nofollow noopener noreferrer" target="_blank"><sup>[4]</sup></a>, then reinstall Node.js via `nvm install 20`.
+
+Don't run the wizard with `sudo`; the desktop app won't do that for you and it creates permission problems later.
+
+### "HTTP 401 Unauthorized" in the chat
+
+You haven't run `codex login` yet, or the OAuth token expired. From a terminal:
+
+```bash
+codex login
+```
+
+Approve in the browser. Then go back to Tallyfy Desktop and press Cmd+Shift+R in the Codex tab to refresh detection.
+
+### Codex hangs and produces no output
+
+This is the classic stdin issue. Codex's CLI treats open stdin as input to append to the prompt; without proper stdin redirection it can wait forever. Tallyfy Desktop closes stdin correctly when it spawns Codex, so you shouldn't hit this from inside the app. If you do, the chat will time out after the default 5 minutes and emit an error event. Try the prompt again; the issue is usually transient.
+
+### "Codex tab shows installed but won't chat"
+
+Run `codex doctor` in a terminal. It reports the auth state, the model availability, and any account-level restrictions. If it says "authenticated, no model access," your ChatGPT plan doesn't include API access; upgrade to Plus, Pro, or higher.
+
+## What Codex covers in v1
+
+| Capability | Status |
+|---|---|
+| Streaming text responses | Yes (plain text per line) |
+| MCP tool use | No (Codex CLI doesn't support MCP in v1; planned for v2) |
+| Cost reporting | No (Codex charges against your ChatGPT subscription, no per-call cost is surfaced) |
+| Thinking events | No |
+| File attachments | No (v1) |
+| Browser automation | No |
+| Tallyfy context injection | Yes (via system-prompt prefix instead of MCP) |
+| Task Intent Widget | Yes (regex-based detection on Codex output) |
+
+If you need MCP tool use today, use Claude or Gemini instead; both have full MCP support in v1.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Overview</b>" href="/products/pro/integrations/tallyfy-desktop-ai/" > What Tallyfy Desktop is, the four AI tabs, the Task Intent Widget, and why every AI run becomes a Tallyfy task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Claude</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-claude/" > Install the Anthropic Claude CLI and sign in with your Claude.ai subscription. The most capable provider in v1. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Gemini</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-gemini/" > Install the Google Gemini CLI via npm and complete the OAuth flow. Full MCP support, no cost reporting in v1. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Task Intent Widget</b>" href="/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/" > The widget that turns AI chat into Tallyfy tasks, process launches, and template edits with one click. </LinkTitleCard>
+</CardGrid>
