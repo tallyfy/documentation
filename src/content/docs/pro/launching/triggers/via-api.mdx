@@ -5,15 +5,43 @@ description: Tallyfy's REST API lets you launch processes by sending a POST requ
   or form submissions can automatically kick off tracked workflows with custom names,
   assignments, and deadlines.
 id: 7588a4ef11c85dade45679011a90ef7c
-lastUpdated: 2026-03-22
+lastUpdated: 2026-06-16
 sidebar:
   order: 11
 title: Launch via API
 ---
 
-## Launching processes via API
+import { Audience } from "~/components";
 
-Send a `POST` request to Tallyfy's REST API to launch processes from code, triggered by events in other systems like CRM deals closing or form submissions.
+<Audience to="editor" />
+
+## Start a Tallyfy process automatically from another system
+
+You can have another system start a Tallyfy process for you, with nobody clicking a button. When a deal closes in your CRM, a customer onboarding process can kick off on its own. When someone submits a form, the matching workflow starts and tracks itself. Your developer sets this up once using Tallyfy's API[^1], and from then on it just runs.
+
+This is for teams that want their tools to talk to each other. If you'd rather start a process by hand, by email, or from a public form, see the other [trigger options](/products/pro/launching/triggers/).
+
+### What another system can set when it starts a process
+
+- Pre-fill your [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) with data it already has, like the customer's name, the deal value, or a start date
+- Give the process a clear name so it's easy to find later
+- Assign the right people, groups, and roles to each step
+- Set deadlines
+- Tag the process and drop it in the right folder
+
+### Common ways people use this
+
+- **CRM**: start onboarding the moment a deal closes
+- **Document management**: kick off an approval when a file is uploaded
+- **Sensors and devices (IoT)**: launch an inspection when a sensor raises an alert
+- **External forms**: create a process from a form filled out on another site
+- **Databases**: start a workflow when a record changes
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+To launch a process, send a `POST` request to Tallyfy's REST API. You trigger it from your own code, which runs when something happens in another system: a CRM deal closing, a form submission, a sensor alert, and so on.
 
 ### What you'll need
 
@@ -24,23 +52,12 @@ Send a `POST` request to Tallyfy's REST API to launch processes from code, trigg
 
 ### How to launch a process
 
-1. **Get your access token** - set up OAuth in Tallyfy and store your Bearer token securely
+1. **Get your access token** - set up OAuth in Tallyfy and store your Bearer token securely.
+2. **Find the template ID** - grab the `checklist_id` from the URL when you're viewing your [template](/products/pro/documenting/templates/), and note any [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that need data.
+3. **Send the POST request** - call `POST /organizations/{org_id}/runs` with a JSON body containing `checklist_id` and process details.
+4. **Handle the response** - you'll get a `201` response with the new process data, including its ID. Add error handling for failures.
 
-2. **Find the template ID** - grab the `checklist_id` from the URL when you're viewing your [template](/products/pro/documenting/templates/), and note any [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) that need data
-
-3. **Send the POST request** - call `POST /organizations/{org_id}/runs` with your JSON body containing `checklist_id` and process details
-
-4. **Handle the response** - you'll get a `201` response with the new process data including its ID. Add error handling for failures.
-
-See the [API process launch guide](/products/pro/integrations/open-api/code-samples/processes/launch-process) for full details.
-
-### What you can do via API
-
-- Start processes from events in other systems (CRM, forms, IoT sensors)
-- Pre-fill [kick-off form fields](/products/pro/launching/triggers/kick-off-forms/) with external data using the `prerun` object
-- Set custom process names, task assignments, and deadlines per step
-- Assign users, groups, and roles at launch time
-- Tag processes and place them in folders automatically
+Pass extra data through the `prerun` object to pre-fill kick-off form fields. You can also set the process name, per-step assignments (users, groups, and roles), and deadlines in the same request.
 
 ### Sample API request
 
@@ -62,20 +79,16 @@ X-Tallyfy-Client: APIClient
 }
 ```
 
-### Common use cases
+See the [API process launch guide](/products/pro/integrations/open-api/code-samples/processes/launch-process) for full details.
 
-- CRM integration - start onboarding when deals close
-- Document management - trigger approvals when files are uploaded
-- IoT devices - launch inspections when sensors fire alerts
-- External forms - create processes from third-party submissions
-- Database triggers - start workflows from data changes
+[^1]: A way for other software to talk to Tallyfy directly, sending and receiving data without anyone using the screen.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
+<LinkTitleCard header="<b>Launching > Triggers</b>" href="/products/pro/launching/triggers/" > Tallyfy offers seven ways to start a process, from manual clicks and form submissions to API... </LinkTitleCard>
 <LinkTitleCard header="<b>Processes > Launch process</b>" href="/products/pro/integrations/open-api/code-samples/processes/launch-process/" > Tallyfy's Launch Process API endpoint (POST to /organizations/[org_id]/runs) lets you start a... </LinkTitleCard>
 <LinkTitleCard header="<b>Postman > Working with templates and processes</b>" href="/products/pro/integrations/open-api/api-clients/postman/templates-processes/" > Tallyfy's API lets you launch processes from templates by posting to the runs endpoint with a... </LinkTitleCard>
-<LinkTitleCard header="<b>Launching > Triggers</b>" href="/products/pro/launching/triggers/" > Tallyfy offers seven ways to start a process, from manual clicks and form submissions to API... </LinkTitleCard>
 <LinkTitleCard header="<b>Workato > Launch Tallyfy processes from Workato</b>" href="/products/pro/integrations/middleware/workato/how-to-launch-tallyfy-processes-from-workato/" > Workato recipes can automatically launch Tallyfy processes from triggers in Salesforce, Zendesk... </LinkTitleCard>
 </CardGrid>

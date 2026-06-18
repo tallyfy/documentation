@@ -86,6 +86,65 @@ All new documentation articles must pass these checks before merge:
 - Description ends with period
 - Headings in sentence case
 - No empty alt text on images
+- Passes `scripts/simplicity-check.py` below the complexity threshold (business-reader simplicity)
+
+## ✍️ Write for business readers, not engineers (lowest common denominator)
+
+Tallyfy's docs are read by busy, non-technical business people: buyers, admins, and everyday users, many reading in a second language. NOT engineers. Write for the lowest common denominator. The most common failure in our docs is sounding like a spec sheet: leading with OAuth flows, RFC numbers, VRAM math, and benchmark scores that a business reader neither understands nor needs.
+
+**This rule sits alongside the humanization rules above. It doesn't replace them.** Keep the contractions, varied rhythm, sentence-case headings, and the em-dash ban. This adds one thing: simple enough for anyone.
+
+### The reading-level target
+
+- Aim for roughly an 8th-grade reading level (Flesch-Kincaid grade ≤ ~9, Reading Ease ≥ ~60).
+- Short sentences. One idea each. Plain everyday words over fancy ones ("use" not "utilize", "set up" not "provision").
+- A reader should understand the opening without Googling a single term.
+- End bullet items with a period when they're complete thoughts. It reads cleaner, and it stops readability tools from treating a run of period-less bullets as one giant run-on sentence.
+
+### Lead with the business answer
+
+The first 2-3 sentences after the H2 say what this does *for you*, in plain words, with zero jargon and zero spec. State the outcome, then the "how", then any detail. Our `byo-ai/use-cases/*` articles are the model: imitate them.
+
+- Good: "Sign in once with your normal company login, and every approved AI tool just works. No separate password per tool."
+- Bad: "Tallyfy's MCP server implements OAuth 2.1 with PKCE S256 and Dynamic Client Registration (RFC 7591)."
+
+### Demote technical detail. Never delete it. Never lose meaning.
+
+Real technical facts (OAuth/PKCE/RFC/JWT/VRAM/benchmarks/limits/setup specifics) are valuable to whoever actually does the integration. Don't strip them. Move them down, and keep every one:
+
+- **A single inline term** that has to stay in the flow goes to a footnote (`[^1]`, 50-150 chars, placed before the Related articles section).
+- **A block of specs** (the whole OAuth flow, VRAM tables, benchmark numbers, config snippets) goes to a clearly-labeled section near the bottom. **Pick the heading that fits who needs it:**
+  - `## For your IT team` for SSO, security, org/admin setup
+  - `## For developers` for API, code, MCP/webhook wiring
+  - `## Technical details` as the neutral default when it's neither
+
+  Start that section with: *"(Skip this unless you're setting up the technical side.)"*
+
+**Never lose essential meaning.** Before you simplify, list every essential point in the article (facts, steps, limits, supported options, gotchas). After, confirm each one still appears somewhere: body, footnote, or the technical section. Simplifying the language is required. Dropping a fact is a bug. Only true fluff (empty benefit statements) gets deleted.
+
+### Jargon discipline
+
+- **Never in business prose** (demote to a footnote or technical section, or cut): PKCE, RS256, JWT, jwks, RFC numbers, `mcp_resource`, stdio, SSE, VRAM, TFLOPs, quantization, MoE, FP8, tokens/second, DLP, WAF, VNet, load balancer.
+- **Explain on first use** (a one-line gloss or footnote the first time, then use it freely): OAuth, OIDC, SAML, SCIM, webhook, SSO, MFA, IAM, API, BPMN, RPA, MCP, inference, embeddings, SLM, LLM.
+- **Fine as-is** (our product vocabulary): templates, processes, tasks, steps, runs, blueprints, snippets, automations, kick-off form, job titles, guests, light users, tracker view.
+
+### Diagrams: simple or none
+
+A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not business readers. Keep each diagram to a single clear idea (an approval flow, a simple sequence). If a diagram needs a legend to follow, it's too complex. Cut it or move it to the technical section.
+
+### Reference docs are the exception
+
+Developer and API reference under `pro/integrations/open-api`, `pro/integrations/webhooks`, and `manufactory/` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
+
+### Enforce it
+
+Before committing any article, run:
+
+```bash
+python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
+```
+
+It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
@@ -237,6 +296,59 @@ A production-ready system exists at `/documentation/scripts/footnote-annotator.p
 - ~3% (technical/API docs) benefit from 3-5 footnotes
 - Average character count: 95 characters per footnote
 - Most valuable categories: Technical terms (30%), API parameters (25%), Performance metrics (20%), Tallyfy-specific terms (15%)
+
+## 🧭 Role-based navigation: "By role" section, RoleChooser widget, and Audience bylines
+
+Three connected pieces help readers find what applies to *them*. Both components are defined in **/support-docs** (the framework repo); the content and placement live here in /documentation.
+
+### "By role" landing pages (`pro/by-role/`)
+
+An additive, skippable navigation layer that points each role to EXISTING articles (no new article content, no content forking - it sits on top of the normal sidebar tree).
+
+- `pro/by-role/index.mdx` - the hub (the role widget at full size).
+- `pro/by-role/editor.mdx` - full-seat editors (build, launch, track, administer).
+- `pro/by-role/user.mdx` - light-seat members (complete your own work).
+- `pro/by-role/guest.mdx` - external guests (finish an emailed task).
+
+Each page is a curated, answer-first set of grouped question -> article links. Keep them breathable, not exhaustive. These curated pages are the source of truth - we deliberately do NOT tag every article with role frontmatter.
+
+### RoleChooser widget (reusable)
+
+`import { RoleChooser } from "~/components";` then drop it on any page:
+
+- `<RoleChooser variant="hero" />` - large, for the hub and the manual homepage.
+- `<RoleChooser variant="inline" />` - compact, for embedding near the top of a section index.
+- `<RoleChooser variant="inline" exclude="editor" heading="..." />` - drops the current role's card (used on the role pages themselves; `exclude` is `editor`, `member`, or `guest`).
+
+The widget is always skippable (the full tree stays in the sidebar). Defined at `support-docs/src/components/RoleChooser.astro`. Currently embedded on `pro/index.mdx` and the tutorials, documenting, tracking-and-tasks, and launching index pages - add it to more pages freely (it's just one import + one tag).
+
+### Audience byline (per-article "who is this for")
+
+When an article applies ONLY to a specific role, mark it with the byline as the FIRST body element (it renders just under the title):
+
+```mdx
+import { Audience } from "~/components";
+
+<Audience to="administrator" />
+```
+
+Values and when to use them (grounded in api-v2 permissions - do NOT over-label):
+
+- `administrator` - truly admin-gated features only (api-v2 `admin` middleware): billing, org settings, branding/SMTP, system log, member role-change/remove/permissions, SSO setup, permanent delete.
+- `editor` - full-seat authoring that `light_role_restrict` blocks for Light members: creating and editing templates, documents, automations, variables.
+- `guest` - genuinely guest-facing articles (what a guest reads), NOT the member-facing "managing guests" articles.
+- **No byline** = anyone can use it (Light members and guests included). Most articles get NO byline; absence is the signal.
+
+**De-dup rule:** if an article already had an inline "Admin only" callout that the byline now states, remove the callout. Never keep both.
+
+Defined at `support-docs/src/components/Audience.astro`. Bulk annotation uses `scripts/audience_byline.py` (idempotent - skips files already carrying an `<Audience>`, and preserves frontmatter + line endings byte-for-byte). It reads a simple `ROLE<TAB>path` manifest; re-derive the per-role file list by grepping existing bylines or from the classification rules above.
+
+### Author / entity attribution (publisher entity, NOT a personal byline)
+
+Docs are attributed to the **Tallyfy organization** (publisher), set globally in `support-docs/src/utils/structured-data.ts` (`ORGANIZATION_SCHEMA` + per-page `TechArticle`, with `founder` = Amit Kothari by `@id` to `https://tallyfy.com/authors/amit-kothari/`). This is deliberate: for non-YMYL help docs a personal author byline is not a Google ranking factor and implies an editorial process the auto-pipeline doesn't run (a Trust risk). So:
+
+- Do NOT add a visible personal author byline or per-article `Person` schema to docs.
+- Named-author E-E-A-T stays on the blog (website-astro), where readers expect it.
 
 ## D2 Diagrams Resources
 
@@ -1250,6 +1362,8 @@ git checkout staging
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status
+- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success` (`gh api 'accounts/<account_id>/pages/projects/support-docs/deployments?env=production&per_page=1'`).
+- **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
   - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`

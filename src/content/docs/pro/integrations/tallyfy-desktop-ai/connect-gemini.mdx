@@ -1,0 +1,182 @@
+---
+about_tallyfy: true
+description: Install the Google Gemini CLI via npm and sign into your Google account
+  so Tallyfy Desktop can drive it. The Install Wizard handles npm with explicit consent,
+  and the default model is `gemini-2.5-flash` to avoid subscription quota friction.
+id: e27346ccae57ab688c1c95340b1814d2
+sidebar:
+  label: Connect Gemini
+  order: 4
+title: Connect Gemini to Tallyfy Desktop
+---
+
+import { Steps, CardGrid, LinkTitleCard } from "~/components";
+
+:::note[Subscription, not API key]
+Gemini in Tallyfy Desktop uses OAuth via your Google account. The app never asks for a `GOOGLE_API_KEY` or `GEMINI_API_KEY` and won't accept either. A Google account is required (Workspace or personal Gmail both work); your usage counts against the free or paid Gemini quota tied to that account.
+:::
+
+## What gets installed
+
+Tallyfy Desktop drives Gemini through Google's official `gemini` command-line tool (the `@google/gemini-cli` npm package). On first launch, the desktop app checks whether `gemini` is on your `PATH` and whether you've signed in. If either is missing, it offers to install or guide you.
+
+The install command per platform is baked into the desktop app source code:
+
+| Platform | Command |
+|---|---|
+| macOS | `npm install -g @google/gemini-cli` |
+| Linux | `npm install -g @google/gemini-cli` |
+| Windows | `npm install -g @google/gemini-cli` |
+
+The binary lands in your global npm prefix. You'll need Node.js 18+ already installed.
+
+## Prerequisites
+
+- A Tallyfy account
+- A Google account (Workspace or personal Gmail)
+- Node.js 18 or higher with `npm` available on `PATH`
+- A modern web browser for the OAuth sign-in step
+
+## Option A: Install Wizard (recommended)
+
+<Steps>
+
+1. **Open the Gemini tab**
+
+   Click the **Gemini** tab in Tallyfy Desktop. If the CLI isn't installed, the Install Wizard appears.
+
+2. **Read the consent screen**
+
+   The wizard shows the npm command and the risks:
+   - Modifies your global npm prefix
+   - After install, run `gemini` once to complete the interactive OAuth flow
+   - Default model is `gemini-2.5-flash` (chosen to avoid subscription quota issues hit by `gemini-3-pro-preview`)
+
+3. **Hold Shift for three seconds**
+
+   The button activates while you hold Shift. Release to cancel.
+
+4. **Watch the progress log**
+
+   The wizard streams `npm install` output. You'll see the package install and a verification run of `gemini --version`.
+
+5. **Sign in with Google**
+
+   Click **Sign in with Google**. The desktop app runs `gemini` interactively for the first time, which kicks off Google's OAuth flow in your browser. Pick your account, approve the scopes, and return to the desktop app.
+
+   The token is stored under `~/.gemini/oauth_creds.json`. The desktop app reads it from there.
+
+6. **Test the connection**
+
+   Type `hi` in the Gemini tab and press Enter. You should see Gemini's streamed response within a few seconds.
+
+</Steps>
+
+## Option B: Manual install
+
+<Steps>
+
+1. **Install via npm**
+
+   ```bash
+   npm install -g @google/gemini-cli
+   ```
+
+2. **Run `gemini` once**
+
+   ```bash
+   gemini
+   ```
+
+   This triggers the OAuth flow in your browser. Pick your Google account, approve, and return to the terminal. The CLI saves credentials and exits.
+
+3. **Restart Tallyfy Desktop**
+
+   Quit fully and reopen. The Gemini tab will detect the binary and the credentials, then skip the wizard.
+
+</Steps>
+
+## First chat
+
+Once Gemini is connected:
+
+1. Click the **Gemini** tab.
+2. The model picker shows the default (`gemini-2.5-flash` in v2.0.0).
+3. Type your message and press Enter. Gemini streams NDJSON events, so you'll see the response appear chunk by chunk with token-count stats on completion.
+
+Because the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) is auto-injected, Gemini knows about your tasks, processes, templates, and team. Try:
+
+- "What templates do we have for new-hire onboarding?"
+- "Find all overdue tasks assigned to me"
+- "Launch the customer feedback survey for last month's signups"
+
+The [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) works the same way it does with Claude; intent is detected and the widget surfaces inline.
+
+## Why `gemini-2.5-flash` is the default
+
+The Gemini CLI's default model is `gemini-3-pro-preview`. In testing, that model hits "You have exhausted your capacity on this model" on most accounts after only a few prompts. Tallyfy Desktop ships with `gemini-2.5-flash` as the default to avoid that friction. You can switch to any other Gemini model from the model picker; if you hit the quota wall, switch back to `flash`.
+
+## Verifying the install yourself
+
+```bash
+# Is the binary on PATH?
+which gemini
+
+# Does it run?
+gemini --version
+
+# Are you signed in?
+test -f ~/.gemini/oauth_creds.json && echo "signed in" || echo "not signed in"
+```
+
+Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux) in the Gemini tab forces a re-detection.
+
+## Troubleshooting
+
+### "You have exhausted your capacity on this model"
+
+You're hitting Google's subscription quota. The CLI auto-retries with backoff (10s, 20s, 40s) up to five attempts. If the retries don't work:
+
+1. Switch to `gemini-2.5-flash` in the model picker; it has a higher free-tier limit
+2. Wait a few minutes for the quota to reset
+3. Upgrade your Google AI plan if you need higher throughput
+
+This is Google's limit, not Tallyfy's; the desktop app surfaces it cleanly but can't bypass it.
+
+### `npm install` fails with EACCES
+
+Same fix as Codex: switch to a user-owned npm prefix or use nvm. See the [Codex install troubleshooting](/products/pro/integrations/tallyfy-desktop-ai/connect-codex/) for the same fix steps. Don't run the wizard with `sudo`.
+
+### OAuth browser window opens to an error page
+
+Google sometimes blocks OAuth requests from new clients. The fix:
+
+1. Sign into your Google account in the same browser first
+2. Then click **Sign in with Google** in Tallyfy Desktop
+
+If the error persists, run `gemini` directly in a terminal; the CLI gives a more specific error message there.
+
+### "Tools unavailable" warning at the start of a chat
+
+Gemini supports MCP, but the CLI loads MCP servers from a config file at `~/.gemini/settings.json`. Tallyfy Desktop writes a temporary MCP config per run (with your Tallyfy session token) and passes it to Gemini via the standard mechanism. If you see "Tools unavailable," check that you're on `gemini-cli` 0.17 or later: `gemini --version`. Older versions had bugs in MCP loading; upgrade with `npm install -g @google/gemini-cli@latest`.
+
+## What Gemini covers in v1
+
+| Capability | Status |
+|---|---|
+| Streaming text responses | Yes (NDJSON, full streaming with deltas) |
+| MCP tool use | Yes |
+| Cost reporting | No (only token counts) |
+| Thinking events | No |
+| File attachments | Yes |
+| Browser automation | No |
+| Tallyfy context injection | Yes (via MCP, like Claude) |
+| Task Intent Widget | Yes |
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Overview</b>" href="/products/pro/integrations/tallyfy-desktop-ai/" > What Tallyfy Desktop is, the four AI tabs, the Task Intent Widget, and why every AI run becomes a Tallyfy task. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Claude</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-claude/" > Install the Anthropic Claude CLI and sign in with your Claude.ai subscription. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Codex</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-codex/" > Install the OpenAI Codex CLI via npm and sign in with your ChatGPT subscription. </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop AI > Connect Ollama</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-ollama/" > Install Ollama locally and run open-source models entirely on your machine. No subscription needed. </LinkTitleCard>
+</CardGrid>

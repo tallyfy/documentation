@@ -4,7 +4,7 @@ description: SSO integration with MCP servers removes repeated authentication ac
   AI tools. Users log in once with corporate credentials through providers like Azure
   AD or Okta, gaining access to all approved workflow integrations.
 id: 886f31f99a9a826905f2790c69b808fd
-lastUpdated: 2026-05-26
+lastUpdated: 2026-06-16
 sidebar:
   order: 25
 title: Using SSO with MCP servers
@@ -12,32 +12,61 @@ title: Using SSO with MCP servers
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-:::note[Advanced integration topic]
-This article covers authentication patterns for MCP servers using enterprise SSO systems. Most implementations require custom development and careful security planning.
-:::
+## Sign in once, use every AI tool
 
-## What SSO does for MCP servers
+If your company already uses single sign-on[^1] (SSO) - the "log in with your company account" button you see for email and other apps - your team can use that same login for Tallyfy's AI tools. Sign in once, and every approved tool just works. No separate password per tool. No secret keys to copy around.
 
-SSO integration with MCP servers solves **repeated authentication across multiple AI tools**. Instead of juggling separate credentials for each integration, your corporate credentials unlock access to all approved workflow tools in one step.
+Here's why that matters. Say someone uses Tallyfy alongside their email, calendar, and a couple of other connected tools. Without SSO, each one is its own login. With SSO, it's one login your IT team controls. And they can switch it off in one place the day someone leaves.
+
+This is an advanced setup. Your IT team turns it on, usually with a developer's help. The technical details are further down this page.
+
+### What you get
+
+- One company login across all approved AI tools (the same one people already use).
+- Central control for IT: approve tools, see who's connected, and cut off access when someone leaves.
+- Your existing security rules, like requiring a second step to log in, apply automatically.
+
+### Which logins Tallyfy works with
+
+Tallyfy's AI connection works with the major company-login providers:
+
+- **Microsoft Entra ID** (formerly Azure AD)
+- **Okta**
+- **Google Workspace**
+- **OneLogin** and most other providers that follow the usual sign-in standards
+
+Setup differs a little for each one. Your IT team will find the specifics in the technical section below.
+
+### A couple of honest limits
+
+- You'll sometimes still approve a tool the first time you connect it (one prompt per tool).
+- Logins from different providers don't always share a single sign-in behind the scenes, so some connections need their own setup.
+
+## For your IT team
+
+*(Skip this unless you're setting up the technical side.)*
+
+### What Tallyfy's MCP server already supports
 
 Tallyfy's MCP server already implements OAuth 2.1 with PKCE S256, Dynamic Client Registration (RFC 7591), and authorization server metadata discovery (RFC 8414). Tokens are RS256-signed JWTs with the public key at `/.well-known/jwks.json`. The well-known endpoint at `/.well-known/oauth-authorization-server` lets AI clients like ChatGPT and Claude Desktop discover OAuth endpoints automatically. Scopes use dot notation, for example `mcp.tasks.read`, `mcp.processes.write`, and `mcp.templates.read`. The server is listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`.
 
 **Token resource binding (`mcp_resource` claim)** - Access tokens carry a canonical `mcp_resource` claim that pins the token to a specific MCP resource URL (the server endpoint it was issued for). The server uses this claim to detect and reject tokens replayed against a different resource. For backwards compatibility with legacy Passport-issued tokens (which use `aud: 1`), the server also accepts tokens that lack `mcp_resource` but present the expected legacy audience, so existing integrations keep working while new clients get the stricter binding.
 
-## The authentication challenge in MCP
+### The authentication challenge in MCP
 
 MCP servers don't know who you are by default. They receive requests from AI agents with no identity or context. This creates gaps when accessing enterprise systems that need user credentials.
 
-**Common workarounds and their problems:**
+Common workarounds and their problems:
+
 - Embedding API keys as environment variables - doesn't scale
 - OAuth Device Authorization Flow for local servers - clunky UX
 - Manual token management per tool - shadow IT risk and compliance headaches
 
-## How SSO bridges the gap
+### How SSO bridges the gap
 
 SSO integration with MCP uses OAuth 2.1 flows that delegate authentication to enterprise identity providers.
 
-### Interactive delegation flow
+#### The login flow, step by step
 
 1. **User initiates connection** - AI agent requests access to a tool
 2. **SSO redirect** - MCP server redirects user to corporate identity provider
@@ -140,12 +169,13 @@ AI_Agent -> User: 13. Present results {
 }
 ```
 
-**What to notice:**
-- **Step 4-5**: The identity provider validates corporate credentials including MFA and conditional access policies before issuing tokens
-- **Step 8-9**: The MCP server handles token exchange automatically - users never see raw tokens
+What to notice:
+
+- **Steps 4-5**: The identity provider validates corporate credentials including MFA and conditional access policies before issuing tokens
+- **Steps 8-9**: The MCP server handles token exchange automatically - users never see raw tokens
 - **Steps 10-13**: Once authenticated, the MCP server can make multiple API calls on behalf of the user without further prompts
 
-### Bearer token acceptance
+#### Accepting existing SSO tokens
 
 Advanced implementations let MCP servers accept existing SSO tokens directly:
 
@@ -154,9 +184,9 @@ Advanced implementations let MCP servers accept existing SSO tokens directly:
 - Server performs token exchange to get service-specific API credentials
 - Already-authenticated users skip additional login prompts
 
-## Identity provider support
+### Which identity providers work, in detail
 
-### Microsoft Entra ID (Azure AD)
+#### Microsoft Entra ID (Azure AD)
 
 - Full OAuth 2.1 and OIDC support with PKCE
 - On-behalf-of (OBO) token exchange for Microsoft Graph APIs
@@ -165,7 +195,7 @@ Advanced implementations let MCP servers accept existing SSO tokens directly:
 
 **Limitations:** Tokens are designed primarily for Microsoft APIs. No native cross-provider token exchange. Each MCP server must be registered as an app manually.
 
-### Okta
+#### Okta
 
 - OAuth 2.0 with device flow support
 - Custom authorization servers for API-specific scopes
@@ -175,55 +205,55 @@ Advanced implementations let MCP servers accept existing SSO tokens directly:
 
 **Discovery:** Okta supports both `/.well-known/openid-configuration` and `/.well-known/oauth-authorization-server` (RFC 8414). The RFC 8414 endpoint is the standard for pure OAuth 2.0 flows.
 
-### Google Workspace Identity
+#### Google Workspace Identity
 
 - OAuth provider for Google services (Gmail, Drive, Calendar) and OIDC identity provider for third-party apps
 - Domain-wide delegation lets admins pre-authorize applications and service accounts
 - Admin-managed app whitelisting and Google Workspace Marketplace integration
 
-### OneLogin and other providers
+#### OneLogin and other providers
 
 Most enterprise identity providers offer SAML 2.0 and OIDC/OAuth 2.0 compatibility with similar token exchange limitations and marketplace integration options.
 
-## Current gaps and challenges
+### Current gaps and challenges
 
-### Repeated consent fatigue
+#### Repeated consent fatigue
 
 Users face multiple OAuth consent flows for each tool integration, even when using the same SSO credentials. An employee with email, calendar, Slack, GitHub, and Salesforce integrations hits five separate login prompts.
 
-### Shadow OAuth visibility
+#### Shadow OAuth visibility
 
-Token exchanges between AI applications and services often happen outside IT's oversight. There's no centralized view of which apps access which data for which users - making offboarding and access revocation difficult.
+Token exchanges between AI applications and services often happen outside IT's oversight. There's no centralized view of which apps access which data for which users, making offboarding and access revocation difficult.
 
-### Implementation complexity
+#### Implementation complexity
 
 Each MCP server developer must implement OAuth components (authorization endpoints, token management, client registration). Building secure OAuth flows requires specialized knowledge, and mistakes introduce vulnerabilities.
 
-### Token lifecycle management
+#### Token lifecycle management
 
 Coordinating token refresh, expiration, and revocation across multiple identity domains remains hard. There's no universal token exchange between providers, and revocation signals don't propagate consistently.
 
-## Solution approaches
+### Solution approaches
 
-### Centralized profile system
+#### Centralized profile system
 
-A cloud service acts as a universal integration broker - similar to [mcp.run's profile system](https://docs.mcp.run/blog/2025/05/14/mcp-sso/). Users connect tools once on a dashboard, group them into profiles, and AI applications request access to the whole profile through a single OAuth flow.
+A cloud service acts as a universal integration broker, similar to [mcp.run's profile system](https://docs.mcp.run/blog/2025/05/14/mcp-sso/). Users connect tools once on a dashboard, group them into profiles, and AI applications request access to the whole profile through a single OAuth flow.
 
 The bridge service becomes the OAuth Authorization Server, storing encrypted API credentials in a token vault, routing MCP requests to appropriate services, and providing centralized audit logging.
 
-### Enterprise IdP extensions
+#### Enterprise IdP extensions
 
-An add-on for existing identity providers handles inter-application authorization. When an AI application needs a Slack token, it asks the mediation service, which validates the user's identity with the corporate IdP, checks admin policies, and returns the token - all without user interaction.
+An add-on for existing identity providers handles inter-application authorization. When an AI application needs a Slack token, it asks the mediation service, which validates the user's identity with the corporate IdP, checks admin policies, and returns the token, all without user interaction.
 
 This gives admins a dashboard for approving or denying AI-to-app connections with centralized policy enforcement and audit trails.
 
-### Developer SDK approach
+#### Developer SDK approach
 
 Pre-built SDKs make OAuth manageable for MCP server developers by providing integrations for major identity providers, automatic token refresh, and consistent security patterns.
 
-## Implementation strategies
+### Implementation strategies
 
-### OAuth 2.1 standard compliance
+#### OAuth 2.1 standard compliance
 
 Tallyfy's MCP server already follows these OAuth 2.1 patterns. Here's what any MCP implementation needs:
 
@@ -247,7 +277,7 @@ Tallyfy's MCP server already follows these OAuth 2.1 patterns. Here's what any M
 
 </Steps>
 
-### Security considerations
+#### Security considerations
 
 **Token storage:** Use encrypted key vaults, short-lived access tokens with refresh mechanisms, and monitor for unusual API usage patterns.
 
@@ -255,44 +285,46 @@ Tallyfy's MCP server already follows these OAuth 2.1 patterns. Here's what any M
 
 **Access control:** Map SSO roles to MCP tool permissions using scopes like `mcp.tasks.read` and `mcp.processes.write`. Support conditional access policies from identity providers.
 
-## Best practices for enterprises
+### Best practices for enterprises
 
-### Governance and compliance
+#### Governance and compliance
 
 Define approved AI applications and integrations. Document data access requirements. Log all token exchanges and API access, and schedule regular permission audits.
 
-### User experience optimization
+#### User experience optimization
 
 Minimize authentication friction by using existing SSO sessions. Group related tools into logical profiles. Support different client types - web apps use authorization code flow, desktop apps use device authorization flow, and CLI tools use client credentials or device flow.
 
-### Technical architecture
+#### Technical architecture
 
 Cache tokens to reduce identity provider load. Implement circuit breakers for external API calls and design graceful degradation when identity services go down.
 
-## Integration with popular providers
+### Integration with popular providers
 
-### Microsoft identity providers
+#### Microsoft identity providers
 
 Register as an Enterprise Application in Azure AD Gallery. Use Entra ID authentication for Copilot Studio connectors - enterprise security controls apply automatically.
 
-### Okta Integration Network
+#### Okta Integration Network
 
 Submit through OIN: create an integration in Okta's developer org, implement OIDC flow, add SCIM provisioning if applicable, then submit for certification. Okta customers get one-click configuration.
 
-### Google Workspace Marketplace
+#### Google Workspace Marketplace
 
 Requires OAuth application verification, privacy policy documentation, and minimal scope usage. Domain-wide installation gives admins centralized permission management.
 
-## What's changing
+### What's changing
 
 The OpenID Foundation is developing cross-domain authorization chaining standards. OAuth 2.0 extensions will enable more flexible cross-provider token exchange. AI-specific authentication protocols are also in development.
 
 The trend is moving toward user-controlled integration profiles that travel between AI applications, zero-trust architecture integration, and stronger audit trails for regulatory compliance.
 
+[^1]: Single sign-on. One company login (Entra ID, Okta, Google Workspace) unlocks every approved app, so people don't manage a password per tool.
+
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Integrations > Authentication and SSO</b>" href="/products/pro/integrations/authentication/" > Tallyfy offers free SSO on all paid plans with support for Microsoft Entra ID, Google Workspace... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for SAML-based... </LinkTitleCard>
 <LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with Microsoft Copilot Studio</b>" href="/products/pro/integrations/mcp-server/microsoft-copilot-studio/" > Connect Tallyfy's MCP server to Microsoft Copilot Studio through Power Platform custom... </LinkTitleCard>
 <LinkTitleCard header="<b>Integrations > MCP server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server lets you control workflows through plain English in ChatGPT, Claude... </LinkTitleCard>
-<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for SAML-based... </LinkTitleCard>
 </CardGrid>

@@ -4,7 +4,7 @@ description: Tallyfy's planned Microsoft Outlook integration sends workflow emai
   from your Microsoft 365 or Outlook.com account using Graph API. It requires only
   the Mail.Send permission and respects your organization's conditional access policies.
 id: 2f6f4ec7aae5d0172145d5373d10add7
-lastUpdated: 2026-03-22
+lastUpdated: 2026-06-16
 sidebar:
   order: 3
 title: Microsoft Outlook email connection
@@ -13,19 +13,43 @@ title: Microsoft Outlook email connection
 import { Steps } from '@astrojs/starlight/components';
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## How will Microsoft Outlook integration work?
+## Send Tallyfy emails from your own Outlook address
 
-:::note[Planned Feature]
-This feature isn't available yet. The details below describe how it'll work when released.
+:::note[Planned feature]
+This isn't available yet. The details below describe how it'll work once it's released.
 :::
 
-**This planned feature connects your Microsoft 365 or Outlook.com account so Tallyfy sends workflow emails from your address.** It'll use Microsoft Graph API with only the `Mail.Send` permission - enough to send as you, without reading your inbox or calendar.
+When it's ready, Tallyfy will send its workflow emails from your own Microsoft 365 or Outlook.com address, so the notifications come from you, not a generic Tallyfy address. Tallyfy will only get permission to send email as you. It won't read your inbox, your calendar, or your contacts.
 
-Graph API replaces SMTP authentication (which Microsoft's phasing out). It uses OAuth tokens and respects your organization's security policies.
+### What you'll get
+
+- **Emails that come from you.** Notifications send from your real address, so they look right to the people who get them and land better in their inboxes.
+- **A copy in your Sent Items.** Every email Tallyfy sends shows up in your Outlook Sent Items, so it's searchable, backed up, and there for any records you need. Your normal replies, forwarding, and rules all still work.
+- **Your company's security, respected.** It follows whatever sign-in rules your company already has, so nothing is bypassed.
+
+### Will it work for your account?
+
+At launch it works with Microsoft 365 (Business or Enterprise) and personal Outlook.com accounts. On-premises Exchange and government clouds will come in a later release.
+
+Whether you can connect it yourself depends on your company's Microsoft settings. In many companies you'll just connect your own account in about a minute. In others, an IT admin approves Tallyfy once and then everyone can connect. Your IT team can find the setup steps under [For your IT team](#for-your-it-team).
+
+### Sending limits
+
+Microsoft caps how many emails an account can send per day, and those caps apply here. Workflow notifications rarely get close - sending 100 task notifications a day uses about 1% of a Business plan's daily limit. The exact numbers are under [For your IT team](#for-your-it-team).
+
+### Is it secure?
+
+Yes. Tallyfy only ever gets permission to send email as you, never to read your mail. You authorize it for your own account and can take that access away anytime. It honors your company's sign-in rules, including a second sign-in step (multi-factor) if your security team requires it, and it renews its access quietly in the background so you don't have to keep signing in. The integration is built to be GDPR, SOC 2, and HIPAA compatible. The full security and compliance detail is under [For your IT team](#for-your-it-team).
+
+## For your IT team
+
+*(Skip this unless you're setting up the technical side.)*
+
+This planned integration uses Microsoft Graph API with only the `Mail.Send` permission - enough to send as the user, without reading their inbox or calendar. Graph API replaces SMTP authentication (which Microsoft is phasing out). It uses OAuth tokens and respects your organization's security policies.
 
 ### App registration
 
-**Tallyfy will register as a verified Azure AD application** to establish trust with Microsoft's identity platform.
+Tallyfy will register as a verified Azure AD application to establish trust with Microsoft's identity platform.
 
 The registration covers:
 - **Publisher verification** - confirms Tallyfy's identity via a Microsoft Partner account
@@ -44,7 +68,7 @@ Tallyfy won't request `Mail.Read` or `Mail.ReadWrite`. Those restricted scopes r
 
 ### Delegated vs application permissions
 
-**Tallyfy will use delegated permissions - each user authorizes sending on their behalf.** This is safer than application permissions, which would let someone send as anyone in your organization.
+Tallyfy will use delegated permissions - each user authorizes sending on their behalf. This is safer than application permissions, which would let someone send as anyone in your organization.
 
 **Delegated (what Tallyfy uses)** - each user authorizes individually, sees what they're granting, and can revoke anytime.
 
@@ -52,7 +76,7 @@ Tallyfy won't request `Mail.Read` or `Mail.ReadWrite`. Those restricted scopes r
 
 ### Admin consent requirements
 
-**Whether you need admin approval depends on your Azure AD settings.**
+Whether you need admin approval depends on your Azure AD settings.
 
 | Scenario | What happens |
 |----------|-------------|
@@ -93,13 +117,13 @@ Tallyfy will detect your organization's settings and guide you through the right
 
 ### Conditional access policies
 
-**Tallyfy will respect all your conditional access policies** - MFA, trusted devices, location restrictions, session limits, and risk-based authentication.
+Tallyfy will respect all your conditional access policies - MFA, trusted devices, location restrictions, session limits, and risk-based authentication.
 
 Your security team can require MFA for Tallyfy, limit access to corporate devices, or force re-authentication on a schedule.
 
 ### Email sending limits
 
-**Microsoft 365 enforces daily sending limits that apply to Graph API sends.**
+Microsoft 365 enforces daily sending limits that apply to Graph API sends.
 
 | Plan | Recipients per day | Recipients per message | Rate limit |
 |------|-------------------|----------------------|------------|
@@ -110,15 +134,15 @@ Workflow notifications rarely approach these limits. 100 task notifications dail
 
 ### Exchange on-premises
 
-**The initial release supports cloud-based Microsoft 365 and Outlook.com only.** On-premises Exchange needs hybrid connectivity and special Graph API configuration. Future support may include Exchange Web Services (EWS) and hybrid modern authentication.
+The initial release supports cloud-based Microsoft 365 and Outlook.com only. On-premises Exchange needs hybrid connectivity and special Graph API configuration. Future support may include Exchange Web Services (EWS) and hybrid modern authentication.
 
 ### Sent items visibility
 
-**Every email sent through Graph API appears in your Sent Items folder.** It's searchable in Outlook, subject to retention policies, included in backups, and available for legal discovery. Replies, forwarding, categories, and rules all work normally.
+Every email sent through Graph API appears in your Sent Items folder. It's searchable in Outlook, subject to retention policies, included in backups, and available for legal discovery. Replies, forwarding, categories, and rules all work normally.
 
 ### Token refresh
 
-**Microsoft access tokens expire after 1 hour, but Tallyfy handles refresh automatically.** A refresh token (valid 90 days with activity) lets Tallyfy get new access tokens without your involvement. Each use extends the refresh token's life.
+Microsoft access tokens expire after 1 hour, but Tallyfy handles refresh automatically. A refresh token (valid 90 days with activity) lets Tallyfy get new access tokens without your involvement. Each use extends the refresh token's life.
 
 You'll only need to re-authenticate if you revoke access, 90 days pass without sends, your organization's policies force it, or Microsoft detects a security concern.
 
@@ -157,12 +181,12 @@ Emails pass through Microsoft's full security stack - Defender for Office 365 (o
 
 ### Government cloud support
 
-**GCC and GCC High support is planned for a later release.** Government clouds need separate app registration, FedRAMP compliance, and different Graph API endpoints. GCC High / DoD adds ITAR requirements.
+GCC and GCC High support is planned for a later release. Government clouds need separate app registration, FedRAMP compliance, and different Graph API endpoints. GCC High / DoD adds ITAR requirements.
 
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Email > Connect your email</b>" href="/products/pro/integrations/email/connect-your-email/" > Connect Your Email lets each user send Tallyfy workflow notifications from their personal Gmail... </LinkTitleCard>
 <LinkTitleCard header="<b>Connect Your Email > Google Workspace email connection</b>" href="/products/pro/integrations/email/connect-your-email/google-workspace/" > Tallyfy's planned Google Workspace integration sends workflow emails from your own Gmail address... </LinkTitleCard>
 <LinkTitleCard header="<b>Byo Ai > Microsoft Copilot integration</b>" href="/products/pro/integrations/byo-ai/microsoft-copilot-integration/" > Connect Microsoft 365 Copilot to Tallyfy through API plugins and Azure AD OAuth2. Copilot reads... </LinkTitleCard>
-<LinkTitleCard header="<b>Teams > Teams technical integration</b>" href="/products/pro/integrations/vendors/teams/technical/" > Connect Tallyfy with Microsoft Teams using Graph API, Adaptive Cards, Power Automate, incoming... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Email and SMTP</b>" href="/products/pro/integrations/email/" > Tallyfy connects with email through custom SMTP for branded notifications, a Gmail add-on for... </LinkTitleCard>
 </CardGrid>
