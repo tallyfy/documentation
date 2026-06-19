@@ -671,49 +671,24 @@ Include these details:
 - User roles and permissions
 - Hyperlinks to related documentation
 
-### Animated Arrows in D2 Diagrams
+### Do not animate D2 connections (accessibility)
 
-**Two Types of Animations Available:**
+**Connection animation is banned for accessibility reasons.** Do NOT use `style.animated: true`.
 
-1. **Multi-Board Animations** (Transitions between diagram states)
-   - Configured via `animateInterval` in astro.config.mjs
-   - Currently set to 1000ms in /support-docs
-   - Used for showing progressive changes or steps
-   - Requires multiple boards/states in the diagram
+D2 renders animated connections as an infinite "marching ants" loop (`animation: dashdraw ... infinite`). Our diagrams are embedded as isolated `<img>` SVGs, so the page cannot pause or stop that motion - and a reader's `prefers-reduced-motion` setting can't reach inside the image. That auto-playing, never-ending motion fails WCAG 2.2.2 (Pause, Stop, Hide).
 
-2. **Animated Connections** ("Marching Ants" effect)
-   - Creates moving dashed lines on arrows to show flow direction
-   - Requires `style.animated: true` on individual connections
-   - Works with both normal and sketch modes
-   - Best for showing data flow, critical paths, or active connections
+To keep diagrams accessible:
 
-**How to Add Animated Arrows:**
-```d2
-# Static arrow (default)
-Client -> API: Request
+- **Never add `style.animated: true`** to a connection. If you do, the `remarkD2NoAnimate` build plugin (in /support-docs) strips it at build time, so it has no effect anyway - it just leaves confusing dead markup. (Issue #85.)
+- Use a plain connection. The arrowhead already shows direction:
+  ```d2
+  Client -> API: Request
+  database -> api: data flow
+  api -> frontend: JSON response
+  ```
+- To emphasize a critical path, use a thicker or colored stroke (`style.stroke-width`, `style.stroke`), a label on the edge, or `direction:` - not motion.
 
-# Animated arrow (marching ants effect)
-Client -> API: Request {
-  style.animated: true
-}
-
-# Multiple animated connections
-database -> api: data flow {
-  style.animated: true
-}
-api -> frontend: JSON response {
-  style.animated: true
-}
-```
-
-**When to Use Animated Arrows:**
-- **Sparingly** - Too many animations can be distracting
-- **Critical Flows** - Highlight the most important data paths
-- **API Documentation** - Show request/response flow direction
-- **Process Workflows** - Indicate the active path through a process
-- **Event Propagation** - Visualize how events flow through the system
-
-**Current Status:** Animated arrows are properly configured but not currently used in diagrams. Consider selectively adding them to enhance understanding of flow direction.
+The same applies to `animateInterval` (multi-board transition cycling): it is deliberately not set in /support-docs, because it would auto-cycle forever with no stop control.
 
 ### Golden Nuggets for Specific Diagram Types
 
