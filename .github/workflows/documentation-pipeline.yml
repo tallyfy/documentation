@@ -113,8 +113,12 @@ jobs:
       upload-to-tallyfy-answers-completed: ${{ steps.upload-to-tallyfy-answers.outcome }}
 
   check-deleted-files:
+    # Runs on BOTH branches so the staging index is pruned too (previously main-only, which
+    # let the staging index accumulate removed docs). It deletes ONLY index objects whose
+    # source .mdx was removed in this commit (diff-filter=D), so it is safe on staging and
+    # cannot nuke valid docs. Targets the branch-correct Answers API via --base_url, exactly
+    # like upload-to-tallyfy-answers: staging branch -> staging Answers, main -> prod Answers.
     needs: upload-to-tallyfy-answers
-    if: ${{ github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -129,7 +133,11 @@ jobs:
           file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r ${{ github.sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
             python -m pip install --upgrade python-frontmatter requests
-            python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+            if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+              python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://answers.tallyfy.com
+            else
+              python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
+            fi
           else
             echo "No files were deleted. Skipping ..."
           fi

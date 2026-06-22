@@ -295,9 +295,50 @@ def process_mdx_file(file_path: str, root_directory: str) -> Optional[Dict[str, 
 		return None
 
 
+def invalidate_collection_cache(base_url: str, collection_name: str) -> None:
+	"""
+    Best-effort invalidation of cached AI overviews for a collection after a re-index.
+
+    The Answers service caches AI overviews per query for up to a day. After we push
+    fresh content, those cached overviews can be stale, so we clear them. This is the
+    no-auth endpoint DELETE /cache/collections/{collection_name} (see the Answers repo
+    app/routers/cache.py). It is intentionally best-effort: a failure here is logged but
+    NEVER fails the run, because the index itself uploaded fine and the cache will expire
+    on its own within a day even if this call doesn't land.
+
+    Args:
+        base_url: Base URL of the Answers API (staging vs prod, same one used for upload)
+        collection_name: Name of the collection whose cache to invalidate
+    """
+	cache_url = f"{base_url}/cache/collections/{collection_name}"
+	try:
+		response = requests.delete(cache_url, timeout=60)
+		if response.status_code == 200:
+			try:
+				detail = response.json()
+				logger.info(f"Cache invalidated at {base_url}: {detail.get('message', detail)}")
+			except Exception:
+				logger.info(f"Cache invalidated at {base_url} (status 200)")
+		else:
+			logger.warning(
+				f"Cache invalidation at {base_url} returned status {response.status_code}: {response.text[:200]} "
+				f"(continuing - cache will expire on its own within a day)"
+			)
+	except Exception as e:
+		logger.warning(
+			f"Cache invalidation at {base_url} failed: {e} "
+			f"(continuing - cache will expire on its own within a day)"
+		)
+
+
 def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: str, api_key: str, base_urls: List[str]) -> bool:
 	"""
     Upload content to Answers API(s).
+
+    Note: the /batch endpoint queues an ASYNC background task. A 200 here means the batch
+    was ACCEPTED, not that every object is already searchable - objects finish indexing in
+    the background shortly after. So a green upload step does not by itself prove the docs
+    are immediately searchable.
 
     Args:
         content_list: List of article data dictionaries
@@ -354,6 +395,9 @@ def upload_to_answers_api(content_list: List[Dict[str, Any]], collection_name: s
 
 				if response.status_code == 200:
 					logger.info(f"Upload to {base_url} successful!")
+					# Re-index succeeded for this endpoint: clear its stale AI-overview cache.
+					# Best-effort - never flips all_successful, never raises.
+					invalidate_collection_cache(base_url, collection_name)
 				else:
 					logger.error(f"Upload to {base_url} failed with status {response.status_code}")
 					try:
@@ -402,21 +446,40 @@ def main():
 	logger.info(f"Collection: {args.collection_name}")
 	logger.info(f"Target APIs: {', '.join(args.base_urls)}")
 
-	# Find MDX files
+	# Find MDX files. These two lists are DELIBERATE exclusions, not bugs:
+	#   - 404.mdx: the not-found page, never a real doc.
+	#   - pro/changelog/**: release notes are intentionally excluded from search. They are
+	#     also excluded upstream in generate-ids.yml (a path filter), so those files never
+	#     get an `id` and would be skipped here anyway as "missing id".
 	skip_list = ["404.mdx"]
 	skip_dirs = ["src/content/docs/pro/changelog"]
 
 	mdx_files = []
+	excluded_files = []  # (path, reason) - matched skip_list / skip_dirs
 	for path, subdirs, files in os.walk(args.dir):
 		# Skip if path contains any directory from skip_dirs
-		if not any(skip_dir in path for skip_dir in skip_dirs):
-			for file in files:
-				if file.endswith('.mdx') and file not in skip_list:
-					mdx_files.append(os.path.join(path, file))
+		in_skip_dir = any(skip_dir in path for skip_dir in skip_dirs)
+		for file in files:
+			if not file.endswith('.mdx'):
+				continue
+			full_path = os.path.join(path, file)
+			if in_skip_dir:
+				excluded_files.append((full_path, "in skip_dirs (excluded source)"))
+			elif file in skip_list:
+				excluded_files.append((full_path, "in skip_list"))
+			else:
+				mdx_files.append(full_path)
 
-	logger.info(f"Found {len(mdx_files)} MDX files to process")
+	logger.info(f"Found {len(mdx_files)} MDX files to process ({len(excluded_files)} excluded by skip rules)")
+	if excluded_files:
+		logger.info("Excluded by skip rules (deliberate, not indexed):")
+		for excluded_file, reason in excluded_files:
+			logger.info(f"  - SKIPPED [{reason}]: {excluded_file}")
 
-	# Process files
+	# Process files. process_mdx_file() returns None when a file can't be turned into a
+	# valid index object - it already logs the specific reason (missing title, missing id,
+	# bad frontmatter, failed validation). We collect those here so the end-of-run summary
+	# surfaces exactly which files did NOT get indexed and why, instead of failing silently.
 	processed_content = []
 	failed_files = []
 
@@ -427,11 +490,19 @@ def main():
 		else:
 			failed_files.append(file_path)
 
-	logger.info(f"Successfully processed {len(processed_content)} files")
+	# End-of-run indexing summary - prints to stdout so the GitHub Actions log makes it
+	# obvious what was indexed, what was skipped, and what failed (and why - see lines above).
+	logger.info("=" * 60)
+	logger.info("INDEXING SUMMARY")
+	logger.info(f"  Processed (will be uploaded): {len(processed_content)}")
+	logger.info(f"  Skipped by rules (404 / changelog): {len(excluded_files)}")
+	logger.info(f"  Failed validation (NOT indexed, see reasons above): {len(failed_files)}")
+	logger.info(f"  Total .mdx discovered: {len(mdx_files) + len(excluded_files)}")
+	logger.info("=" * 60)
 	if failed_files:
-		logger.warning(f"Failed to process {len(failed_files)} files:")
+		logger.warning(f"{len(failed_files)} file(s) failed processing and will NOT be indexed:")
 		for failed_file in failed_files:
-			logger.warning(f"  - {failed_file}")
+			logger.warning(f"  - FAILED: {failed_file}")
 
 	if not processed_content:
 		logger.error("No content was successfully processed")
