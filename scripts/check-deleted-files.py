@@ -12,7 +12,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 OWNER = 'tallyfy'
 REPO = 'documentation'
 GITHUB_API_BASE = f'https://api.github.com/repos/{OWNER}/{REPO}/'
-TALLYFY_ANSWERS_API_BASE = 'https://answers.tallyfy.com/collections/'
+# Default to prod for backward compatibility; the pipeline overrides this per-branch via
+# --base_url so staging deletions hit the staging index and main hits prod (mirrors the
+# upload-to-tallyfy-answers job). This script ONLY deletes index objects whose source .mdx
+# was removed in the commit (diff-filter=D), so running it on staging is safe.
+DEFAULT_ANSWERS_BASE_URL = 'https://answers.tallyfy.com'
 ANSWERS_API_KEY = None
 def delete_object(uid, tallyfy_answers_api):
 	"""
@@ -59,6 +63,8 @@ def main():
 	parser.add_argument('--collection_name', required=True, type=str, help='Tallyfy Answer collection name')
 	parser.add_argument('--github_token', required=True, type=str, help='GitHub Personal Access Token')
 	parser.add_argument('--answers_api_key', required=True, type=str, help='Tallyfy Answers API Key')
+	parser.add_argument('--base_url', type=str, default=DEFAULT_ANSWERS_BASE_URL,
+						help='Answers API base URL (e.g. https://staging.answers.tallyfy.com). Defaults to prod.')
 
 	args = parser.parse_args()
 
@@ -69,8 +75,10 @@ def main():
 	commit_sha = args.commit_sha
 	collection_name = args.collection_name
 	github_token = args.github_token
+	base_url = args.base_url.rstrip('/')
 
-	tallyfy_answers_api = f'{TALLYFY_ANSWERS_API_BASE}{collection_name}/objects/'
+	logging.info(f"Pruning deleted articles from Answers index at: {base_url}")
+	tallyfy_answers_api = f'{base_url}/collections/{collection_name}/objects/'
 	committed_files_url = f'{GITHUB_API_BASE}commits/{commit_sha}'
 
 	# Headers
