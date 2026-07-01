@@ -410,12 +410,12 @@ Content-Length: {file_size}
 
 ### Claude Vision API
 
-**Model**: `claude-sonnet-4-5-20250929` (Claude 3.5 Sonnet)
+**Model**: `claude-sonnet-5` (Claude Sonnet 5)
 
 **Request Format**:
 ```json
 {
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "claude-sonnet-5",
   "max_tokens": 512,
   "messages": [
     {
@@ -451,7 +451,7 @@ Content-Length: {file_size}
       "text": "Task assignment interface showing user selection dropdown menu with role-based options"
     }
   ],
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "claude-sonnet-5",
   "stop_reason": "end_turn",
   "usage": {
     "input_tokens": 2048,
