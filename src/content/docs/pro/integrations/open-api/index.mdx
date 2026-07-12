@@ -77,7 +77,21 @@ Tallyfy API responses follow standard conventions:
 
 ### Rate limits
 
-Tallyfy enforces rate limits per organization. If you're hitting limits regularly, implement caching or batching - and contact support for high-volume use cases.
+Tallyfy limits how fast you can call the API at two layers. When you cross a limit, the API returns HTTP 429 with a `Retry-After` header telling you how many seconds to wait before retrying.
+
+- **Burst protection**: rapid bursts of requests from one user or IP address get throttled for a few seconds at a time. Spread out bulk operations instead of firing them all at once.
+- **Hourly caps per organization**: actions that send email to people outside your organization have hourly caps. By default, guest invites (including mentions of new email addresses in comments) allow 30 per hour, and comment posting allows 120 per hour, per organization.
+
+Hourly-cap responses include `code: "RATE_LIMIT_EXCEEDED"` in the JSON body:
+
+```json
+{
+  "message": "You've reached the hourly limit for Guest Invite (30 per hour per organization). Please try again later.",
+  "code": "RATE_LIMIT_EXCEEDED"
+}
+```
+
+Wait the number of seconds given in `Retry-After`, then retry. If you're hitting limits regularly, implement caching or batching - and contact support for high-volume use cases.
 
 ### Getting started
 
