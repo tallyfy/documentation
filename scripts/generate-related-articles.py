@@ -204,6 +204,27 @@ for path, subdirs, files in os.walk(EN_CONTENT_PATH):
 				en_files_list.append(os.path.join(path, file))
 
 
+def related_link_resolves(products_url, base_dir):
+	"""
+	True if a "/products/..." related-article URL maps to an existing .mdx file.
+	Mirrors scripts/validate-internal-links.py:url_to_file_paths so the generator never
+	emits a card the link validator would flag as broken. Guards against stale objects
+	lingering in the Answers index (e.g. a deleted test page) whose recommend() results
+	would otherwise render as dead /products/... links.
+	"""
+	if products_url.startswith('/products/'):
+		path = products_url[len('/products/'):]
+	else:
+		path = products_url.lstrip('/')
+	path = path.rstrip('/')
+	if path == '':
+		return True
+	candidates = [
+		os.path.join(base_dir, path, 'index.mdx'),
+		os.path.join(base_dir, f"{path}.mdx"),
+	]
+	return any(os.path.isfile(x) for x in candidates)
+
 for file in en_files_list:
 	if file.endswith('.mdx'):
 		print(file)
@@ -218,6 +239,9 @@ for file in en_files_list:
 <CardGrid>
 """
 			for article in result:
+				if not related_link_resolves('/products' + article["url"], EN_CONTENT_PATH):
+					print("SKIP stale/broken related link (no matching .mdx): /products" + article["url"])
+					continue
 				data.content += '<LinkTitleCard header="<b>' + article["header"] + '</b>" href="/products' + article[
 					"url"] + '" > ' + \
 								article["description"] + ' </LinkTitleCard>' + "\r\n"
