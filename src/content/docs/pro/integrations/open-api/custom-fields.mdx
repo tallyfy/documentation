@@ -1,0 +1,195 @@
+---
+about_tallyfy: true
+description: Tallyfy custom fields let your organization attach labeled key/value metadata to records like processes, tasks, members, guests, folders, tags, templates, steps, form fields, and kick-off fields. Admins define the keys, and the REST API reads and writes values with PUT, PATCH, and DELETE.
+id: '00000000000000000000000000000000'
+sidebar:
+  order: 5
+title: Custom fields
+---
+
+## Store your own metadata on Tallyfy records
+
+Custom fields let your organization tag Tallyfy records with your own labeled data. Think of a cost center on a process, a region on a guest, or a risk rating on a template. You define the labels once as an admin, then read and write their values through the REST API.
+
+:::note[Custom fields are not form fields]
+Tallyfy has two similarly named things, and they do different jobs.
+
+- **Custom fields** (this page) are metadata *about* a record. They sit on the process, task, member, guest, folder, tag, template, step, form field, or kick-off field itself.
+- **[Form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)** (the API calls them `captures`) are the data people fill in *inside* a task or a kick-off form.
+
+Most other tools call their form inputs "custom fields", so when you migrate in, that data lands in Tallyfy form fields, not here. The [migration guide](/products/pro/tutorials/features/migrate-to-tallyfy/) shows how source data maps across.
+:::
+
+## What you can attach custom fields to
+
+Custom field values live on ten kinds of record. Each has its own endpoint under `/organizations/{org_id}`.
+
+| Record (app name) | Value endpoint | Single-key PATCH |
+|---|---|---|
+| Process | `/runs/{run_id}/custom-fields` | Yes |
+| Task | `/runs/{run_id}/tasks/{task_id}/custom-fields` | Yes |
+| Member | `/users/{user_id}/custom-fields` | Yes |
+| Guest | `/guests/{guest_code}/custom-fields` | Yes |
+| Folder | `/folders/{folder_id}/custom-fields` | Yes |
+| Tag | `/tags/{tag_id}/custom-fields` | Yes |
+| Template | `/checklists/{checklist_id}/custom-fields` | No |
+| Step | `/checklists/{checklist_id}/steps/{step_id}/custom-fields` | No |
+| Form field | `/checklists/{checklist_id}/steps/{step_id}/captures/{capture_id}/custom-fields` | No |
+| Kick-off field | `/checklists/{checklist_id}/preruns/{prerun_id}/custom-fields` | No |
+
+Template, step, form field, and kick-off field records sit on the template side. You save their values with a full PUT, and there's no single-key PATCH by design. A template freezes once processes launch from it, so a per-key patch would force a full copy of the template on every small edit. A full-replace PUT is the natural way to save the definition.
+
+## Field types
+
+A key holds one of eleven field types:
+
+`text`, `textarea`, `number`, `boolean`, `date`, `email`, `url`, `radio`, `dropdown`, `multiselect`, `table`.
+
+The type decides how Tallyfy validates and stores the value. Choice types (`radio`, `dropdown`, `multiselect`) and `table` need their options or columns defined on the key. The schema for those lives in the live [API reference](https://go.tallyfy.com/api/).
+
+## Keys and values
+
+There are two layers, and they carry different permissions.
+
+- **Keys** are the definitions: the name, the field type, which record type they apply to, and whether they're required. Only organization admins (and support staff masquerading as an admin) can create, edit, or delete keys.
+- **Values** are what each record holds for a given key. Who can set a value depends on the record:
+  - **Task**: an org admin or the task's assignee. Value changes are also written to the task's history.
+  - **Member**: the member themselves, or an admin.
+  - **Guest**: any member can read guest values; only an admin can write them.
+  - **Folder** and **tag**: any member can edit.
+
+Every record payload already carries its values. When you fetch a task, process, template, guest, and so on, the response includes a `custom_fields` object, so you don't need a separate call just to read values.
+
+### Required headers
+
+Every request needs these headers. Tallyfy rejects calls without `X-Tallyfy-Client`.
+
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+Accept: application/json
+X-Tallyfy-Client: APIClient
+```
+
+Add `Content-Type: application/json` on any POST, PUT, or PATCH that sends a body. Replace `{org_id}` with your [Organization ID](/products/pro/miscellaneous/how-to-find-your-tallyfy-ids/).
+
+## Define a key
+
+Admins create keys with a POST. This example defines a text key that applies to processes.
+
+```bash
+curl -X POST "https://go.tallyfy.com/api/organizations/{org_id}/custom-field-keys" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "cost_center",
+    "applies_to": "process",
+    "field_type": "text",
+    "is_required": false,
+    "is_active": true
+  }'
+```
+
+Set `applies_to` to the record type the key belongs to. The accepted values, plus the schema for choice types and table columns, are in the live [API reference](https://go.tallyfy.com/api/). The `key`, `applies_to`, `field_type`, and `key_type` of a key can't change after creation. An update touches only settings like `is_required` and `is_active`.
+
+## List keys
+
+```bash
+curl "https://go.tallyfy.com/api/organizations/{org_id}/custom-field-keys?applies_to=process&is_active=true&per_page=50" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient"
+```
+
+Filter and sort the list with these query parameters: `applies_to`, `key_type`, `field_type`, `is_required`, `is_active`, `q` (text search), `sort_by`, `sort_direction`, and `per_page`.
+
+## Set values
+
+A PUT replaces the whole set of values on a record. This example sets two values on a process.
+
+```bash
+curl -X PUT "https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/custom-fields" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "custom_fields": {
+      "cost_center": "CC-1042",
+      "priority": "High"
+    }
+  }'
+```
+
+A few rules apply to PUT:
+
+- It's a full replace. Any org key you leave out is cleared.
+- Required org keys must be present, or the call fails with `422`.
+- System key values are left untouched (see [System keys](#system-keys) below).
+- An unknown key, or an attempt to write a system key, is rejected with `422`.
+- Sending `{"custom_fields": {}}` clears every org value on the record.
+
+## Merge one value
+
+A PATCH sets a single value and leaves the rest alone. The key goes in the URL, and the body carries just its value. There's no required-key check, so it's the call to reach for when you want to change one value without re-sending everything.
+
+```bash
+curl -X PATCH "https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}/custom-fields/priority" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient" \
+  -H "Content-Type: application/json" \
+  -d '{ "value": "Low" }'
+```
+
+Template, step, form field, and kick-off field endpoints don't accept PATCH. Use PUT to save those.
+
+## Remove one value
+
+A DELETE removes a single value from a record. The key goes in the URL, and the request has no body.
+
+```bash
+curl -X DELETE "https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/custom-fields/priority" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient"
+```
+
+Deleting a system-managed key's value returns `403`.
+
+## How values are inherited
+
+When a record is created, it can pick up values from its parent:
+
+- A new process inherits its template's custom field values.
+- A new task inherits its step's custom field values.
+
+Inheritance runs once, at creation time, and only forward. Changing a template's custom fields later does not reach back into processes that are already running. If a process or task already has its own value for a key, that value wins over the inherited one.
+
+## System keys
+
+Some keys have a `key_type` of `system`. Tallyfy manages these itself for platform metadata. In this release they're seeded by Tallyfy only, there's no admin endpoint to create them, and the API never sets, edits, or deletes their values. You can still read them: they show up in the `custom_fields` object like any other value. A PUT preserves them, and a delete on a system key returns `403`.
+
+## Filter tasks by a custom field
+
+The organization task list accepts two custom field filters, `custom_field_key` and `custom_field_value`. Pass both to return only tasks whose value for that key matches.
+
+```bash
+curl "https://go.tallyfy.com/api/organizations/{org_id}/tasks?custom_field_key=priority&custom_field_value=High" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Accept: application/json" \
+  -H "X-Tallyfy-Client: APIClient"
+```
+
+This pairs with the other filters on the [list organization tasks](/products/pro/integrations/open-api/code-samples/tasks/list-org-tasks/) endpoint.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Open Api > API integration guide</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Tallyfy's REST API connects workflow features to external systems using OAuth 2.0 authentication, required headers, and API terminology mapping. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > List organization tasks</b>" href="/products/pro/integrations/open-api/code-samples/tasks/list-org-tasks/" > Retrieve and filter every task across your organization, including the custom field key and value filters. </LinkTitleCard>
+<LinkTitleCard header="<b>Miscellaneous > Glossary</b>" href="/products/pro/miscellaneous/glossary/" > A quick-reference glossary of Tallyfy terms, including how custom fields differ from form fields. </LinkTitleCard>
+<LinkTitleCard header="<b>Tutorials > Migration guide</b>" href="/products/pro/tutorials/features/migrate-to-tallyfy/" > Move data from other platforms into Tallyfy, and see how a source tool's custom fields map to Tallyfy form fields. </LinkTitleCard>
+</CardGrid>
