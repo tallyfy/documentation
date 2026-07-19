@@ -1,0 +1,85 @@
+---
+about_tallyfy: true
+description: Tallyfy blueprints export to clean JSON files you can keep in git, review like code, and import into other organizations. Build a promotion pipeline from a sandbox to production and schedule nightly template snapshots with the Tallyfy CLI.
+id: 00000000000000000000000000000000
+sidebar:
+  order: 3
+title: Workflows as code
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Treating Tallyfy templates like source code
+
+Export any blueprint to a JSON file, keep that file in version control, and review changes to your processes the same way your team reviews code. When a template is ready, import it into another organization. That's the whole promotion story: build in a sandbox organization, review the change in git, then ship the approved version to production.
+
+### Why teams do this
+
+- **History and accountability.** Every change to a [template](/products/pro/documenting/templates/) gets an author, a date, and a reason, and you can roll back to any earlier version.
+- **Review before it goes live.** A pull request on a template change catches mistakes before they reach the people running the process.
+- **Identical templates everywhere.** Franchises, regional subsidiaries, and client organizations can all run the exact same approved blueprint.
+- **Cheap insurance.** A folder of exported JSON files is a complete, restorable backup of your process designs.
+
+### The export, review, import loop
+
+Export writes a blueprint as git-committable JSON. Find the blueprint's ID with `tallyfy blueprint list`, then:
+
+```bash
+tallyfy blueprint export BLUEPRINT_ID > client-onboarding.json
+```
+
+Commit that file, open a pull request, and let a teammate review the change like any other code. Once it's approved, import it into the target organization. Do a dry run first:
+
+```bash
+tallyfy blueprint import client-onboarding.json --org PRODUCTION_ORG_ID --dry-run
+tallyfy blueprint import client-onboarding.json --org PRODUCTION_ORG_ID
+```
+
+`--dry-run` prints the API calls the CLI would make without executing any of them, so you can confirm exactly what's about to change. Nothing is written until you run the command again without the flag.
+
+:::note[Sandbox first]
+Keep a separate Tallyfy organization as your sandbox. Design and test there, export when it works, and only import reviewed files into the organization your team actually uses.
+:::
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+### Promote to many organizations
+
+The `--org` global flag targets any organization you belong to, so promoting one approved blueprint to a whole fleet is a shell loop:
+
+```bash
+for org in ORG_US ORG_UK ORG_APAC; do
+  tallyfy blueprint import client-onboarding.json --org "$org" --yes
+done
+```
+
+Add `--yes` in scripts so confirmation prompts don't stop the loop. Without it, the CLI refuses ask-level actions when no one's at the terminal.
+
+### Scheduled snapshots
+
+A nightly export gives you a versioned history of every template, even changes made in the web app. Keep the blueprint IDs you care about in a file and let your scheduler run:
+
+```bash
+while read -r id; do
+  tallyfy blueprint export "$id" > "backups/$id.json"
+done < blueprint-ids.txt
+```
+
+Commit the results and your git history becomes a daily changelog of your process designs. Use `tallyfy blueprint list --json` to build the ID list programmatically.
+
+### Good habits
+
+- Format and diff the JSON like any other code so reviews stay readable.
+- One blueprint per file, named after the template, so changes are easy to spot.
+- Run imports from CI with the `TALLYFY_API_TOKEN` environment variable, as covered in [authentication](/products/pro/integrations/cli/authentication/).
+- Preview every import with `--dry-run` before the real run.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > Install the official Tallyfy command line tool and run your first commands within five minutes. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Command reference</b>" href="/products/pro/integrations/cli/command-reference/" > Every resource and verb the Tallyfy CLI supports, including blueprint export and import. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > CI/CD approval gates</b>" href="/products/pro/integrations/cli/ci-cd-approval-gates/" > Hold a pipeline until a person completes a Tallyfy approval task, with headless-safe defaults. </LinkTitleCard>
+<LinkTitleCard header="<b>Documenting > Templates</b>" href="/products/pro/documenting/templates/" > What Tallyfy templates are and how procedure and document templates organize repeatable work. </LinkTitleCard>
+</CardGrid>

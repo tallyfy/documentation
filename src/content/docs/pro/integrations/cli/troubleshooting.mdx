@@ -1,0 +1,135 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI problems usually start with the doctor command, which checks your setup end to end. Exit codes then tell you exactly what failed, and this guide walks through fixes for expired tokens, permission blocks, wrong organizations, rate limits, and blocked hooks.
+id: 00000000000000000000000000000000
+sidebar:
+  order: 7
+title: Troubleshoot the CLI
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## When a CLI command misbehaves
+
+Something failed, and you want the fastest route back to a working setup. Start with the built-in doctor. It checks everything the Tallyfy CLI depends on, reports what's healthy and what isn't, and changes nothing on your machine or in your account. Most failures then come down to a handful of patterns, and each pattern has a quick fix further down this page.
+
+```bash
+tallyfy doctor
+```
+
+The doctor looks at your configuration files, the credential you're signed in with, whether Tallyfy's API is reachable, your active organization, the validity of your permission rules, and where your token is stored. Run it first whenever a command misbehaves, and run it again after editing settings files by hand.
+
+### Read the exit code
+
+Every command finishes with a number that says how things went. Zero means success. Anything else names the failure, which is what makes the CLI safe to script against. Here's the full table:
+
+| Code | Meaning | First thing to try |
+|---|---|---|
+| 0 | Success. | Nothing to fix. |
+| 1 | Generic error. | Rerun with `--verbose` to see what happened. |
+| 2 | Usage error. | Check the flags and arguments against `--help`. |
+| 3 | Authentication failed. | Sign in again with `tallyfy login`. |
+| 4 | Blocked by a permission rule. | Review your permission rules. |
+| 5 | Not found. | Confirm the ID and the active organization. |
+| 6 | Rate limited. | Wait, then retry. The CLI already paced itself. |
+| 7 | Validation error. | Fix the field the error message names. |
+| 8 | Blocked by a hook. | Check your hooks and workspace trust. |
+| 9 | Partial bulk failure. | Review which rows failed before rerunning. |
+
+### Signed in yesterday, failing today (exit code 3)
+
+Personal access tokens don't last forever. Logging out of Tallyfy in your browser invalidates your personal token, which quietly breaks the CLI and any script still holding it. Sign in again:
+
+```bash
+tallyfy login
+```
+
+If a fresh login doesn't help, run `tallyfy auth status`. It shows which credential the CLI is actually using - a stale `TALLYFY_API_TOKEN` environment variable or an `--api-key` flag baked into a script overrides your fresh keychain login, so update the token where it really lives. For automation that must not break when people sign out, switch to an application token as covered in [authentication](/products/pro/integrations/cli/authentication/).
+
+### The CLI refuses an action you're allowed to do (exit code 4)
+
+This one isn't Tallyfy saying no - it's your own guardrails. Permission rules mark each action as allow, ask, or deny, and deny always wins. In a script with no terminal, ask quietly becomes deny unless the command carries `--yes`. To find the rule and the file it came from:
+
+```bash
+tallyfy config list --show-sources
+```
+
+Loosen the rule in the right scope, or pass `--yes` for ask-level actions in scripts. One exception: rules set by your company's managed policy can't be overridden locally, so if the source says managed, talk to your IT team. The full rule syntax lives in [configuration and permissions](/products/pro/integrations/cli/configuration-and-permissions/).
+
+### It exists in the web app, but the CLI says not found (exit code 5)
+
+Nine times out of ten, you're pointed at the wrong organization. IDs belong to one organization, so a perfectly valid process ID comes back not-found while the CLI targets another org. Check and fix:
+
+```bash
+tallyfy org current
+tallyfy org list
+tallyfy org use CORRECT_ORG_ID
+```
+
+For a one-off command, the `--org` flag overrides the active organization without changing it. One caveat: a forceOrg policy managed by your company outranks both.
+
+### Big jobs slow down or stop (exit code 6)
+
+Tallyfy's API throttles bursts, and the CLI already handles the normal case: it paces itself and retries when the API asks it to wait, so large batches just take a little longer. Exit code 6 appears only when a limit genuinely can't be worked around - usually an hourly cap, like invites to new guests. Wait for the window to reset, then rerun. The limits themselves are described in the [API documentation](/products/pro/integrations/open-api/).
+
+### A hook stopped the command (exit code 8)
+
+Hooks are scripts you or your company attach around CLI commands, and a hook can veto a command outright. Exit code 8 means one did. Check which hooks your settings files define, and remember that project hooks only run in workspaces you've explicitly trusted - `tallyfy trust status` tells you where you stand. A hook enforced by managed policy is deliberate; ask whoever set it.
+
+### Keep the CLI updated
+
+Old versions miss fixes, so when something odd happens, confirm what you're running and whether a newer release exists:
+
+```bash
+tallyfy version
+tallyfy update --check
+tallyfy update
+```
+
+`--check` reports whether an update is available without installing anything. A plain `tallyfy update` downloads the new release, verifies it against the published checksums, and swaps it in atomically. Two notes:
+
+- If you installed through Homebrew, the CLI directs you to `brew upgrade` instead of self-updating
+- The `--channel` flag switches between the `stable` and `latest` release channels, and your default channel comes from settings
+
+### macOS quarantines a downloaded binary
+
+Version 0.1.0 binaries aren't code-signed yet, so when you download one directly (rather than through Homebrew, which handles this for you), macOS may refuse to run it. The one-line fix:
+
+```bash
+xattr -dr com.apple.quarantine ./tallyfy
+```
+
+### Where to report a problem
+
+Found a bug, or hit something this page doesn't cover? File an issue at [github.com/tallyfy/cli/issues](https://github.com/tallyfy/cli/issues)<a href="https://github.com/tallyfy/cli/issues" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>. Include the output of `tallyfy version` and the failing command run with `--verbose` - verbose logs redact your tokens, so they're safe to share.
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+Exit codes 0 through 9 are a stable contract, so scripts can branch on them:
+
+```bash
+tallyfy process launch --from-csv launches.csv
+case $? in
+  0) echo "all launched" ;;
+  6) echo "rate limited - retry later" ;;
+  9) echo "some rows failed - reconcile before rerunning" ;;
+  *) echo "launch failed" ;;
+esac
+```
+
+Debugging details worth knowing:
+
+- `--verbose` logs every request with tokens redacted.
+- `--dry-run` prints the API calls a command would make without executing them, which cleanly separates "wrong command" from "API problem".
+- With no terminal attached, the CLI turns on `--no-input` automatically and never sits waiting on a prompt. Ask-level actions are denied unless the command carries `--yes`.
+- Credentials resolve in a fixed order: the `--api-key` flag, then `TALLYFY_API_TOKEN`, then your `auth.apiKeyHelper` script, then the token saved by `tallyfy login`. `tallyfy auth status` names the source in use, which settles most wrong-identity mysteries.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > Install the official Tallyfy command line tool and run your first commands within five minutes. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Authenticate the CLI</b>" href="/products/pro/integrations/cli/authentication/" > How the CLI resolves credentials, and why application tokens keep unattended automation stable. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Configuration and permissions</b>" href="/products/pro/integrations/cli/configuration-and-permissions/" > Six settings scopes, permission rules, hooks, workspace trust, and the doctor command that checks them all. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > The REST API behind every CLI command, including the rate limits that bulk jobs need to respect. </LinkTitleCard>
+</CardGrid>

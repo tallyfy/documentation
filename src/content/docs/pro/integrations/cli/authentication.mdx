@@ -1,0 +1,81 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI authentication takes one paste of a personal access token, stored safely in your computer's keychain. Scripts and CI jobs authenticate with an environment variable instead, and application tokens keep long-running automation stable.
+id: 00000000000000000000000000000000
+sidebar:
+  order: 1
+title: Authenticate the CLI
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Signing in to Tallyfy from the command line
+
+Sign in once and the CLI remembers you. The login command opens your Tallyfy settings in a browser, you copy your personal access token, paste it into the terminal, and you're done. The token is checked against your account and then saved securely on your computer, so every command after that just works.
+
+It takes about a minute, and you only do it once per computer. Here's the command that starts the flow:
+
+```bash
+tallyfy login
+```
+
+Prefer not to have a browser pop up? Add `--no-browser` and the CLI prints the URL instead. Your token lives at **Settings** > **Integrations** > **REST API** inside Tallyfy.
+
+The CLI stores the token in your operating system's keychain[^1], not in a plain text file. To remove it later, run `tallyfy logout`.
+
+### Checking your identity
+
+Two commands tell you exactly who the CLI thinks you are:
+
+```bash
+tallyfy whoami
+tallyfy auth status
+```
+
+`whoami` shows the signed-in user and active organization. `auth status` also shows *where* the credential came from, which matters once scripts enter the picture.
+
+### How the CLI picks its credential
+
+You can hold credentials in more than one place. The CLI resolves them in this order, and the first match wins:
+
+1. The `--api-key` flag passed on the command itself.
+2. The `TALLYFY_API_TOKEN` environment variable.
+3. A token returned by your `auth.apiKeyHelper` script, a setting that runs a command of yours to fetch a token. Useful when secrets live in a vault.
+4. The token saved by `tallyfy login`.
+
+This layering means your saved login is the comfortable default, and automation can override it without touching your machine's keychain.
+
+### Authenticating in CI and scripts
+
+Don't run the interactive login in a pipeline. Set the environment variable from your CI system's secret store instead:
+
+```bash
+export TALLYFY_API_TOKEN="$YOUR_CI_SECRET"
+tallyfy process list
+```
+
+For unattended automation, use an **application token** rather than your personal one. Personal access tokens are invalidated when you log out of Tallyfy, which quietly breaks any pipeline still holding them. Application tokens are issued to your app, not to a person's session, so they keep working. See [third-party application API access](/products/pro/integrations/open-api/access-api-as-a-third-party-application-instead-of-a-user/) for how to get one.
+
+If you really need to save a token non-interactively, the login command reads from standard input:
+
+```bash
+echo "$TOKEN" | tallyfy login --stdin
+```
+
+### Headers are handled for you
+
+Tallyfy's API rejects requests that miss its required headers, and that's a common trip-up for people calling it raw. The CLI adds all of them automatically on every request, including the `X-Tallyfy-Client` header, so there's nothing to configure. Details on the raw requirements are in the [API documentation](/products/pro/integrations/open-api/).
+
+### What about OAuth?
+
+OAuth sign-in (the browser-approval standard where you never paste a token at all) is on the roadmap for a future release. Today the CLI authenticates with the tokens described above.
+
+[^1]: On systems without a keychain, the CLI falls back to an encrypted file using AES-256-GCM.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > Install the official Tallyfy command line tool and run your first commands within five minutes. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > CI/CD approval gates</b>" href="/products/pro/integrations/cli/ci-cd-approval-gates/" > Use a CLI one-liner to hold your pipeline until a person completes a Tallyfy approval task. </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > Third-party application API access</b>" href="/products/pro/integrations/open-api/access-api-as-a-third-party-application-instead-of-a-user/" > Get application-level credentials so automation keeps working independently of any one person's login session. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > The REST API behind the CLI, with authentication methods, required headers, and rate limits. </LinkTitleCard>
+</CardGrid>

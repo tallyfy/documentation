@@ -1,0 +1,66 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI launches hundreds of processes from one CSV file, previews every action with a dry run, paces itself around API rate limits, and reports partial failures with a distinct exit code so your scripts always know what happened.
+id: 00000000000000000000000000000000
+sidebar:
+  order: 4
+title: Bulk operations
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Launching many processes at once
+
+Launch two hundred processes with one command. You put one row per process in a spreadsheet, save it as a CSV file, and point the launch command at it. The Tallyfy CLI works through the list for you: it paces itself around rate limits, keeps going when a single row fails, and tells your script exactly how things went when it's done.
+
+### The CSV file
+
+Each row launches one [process](/products/pro/tracking-and-tasks/processes/). The header row names the inputs: the process name plus the kick-off form fields your blueprint expects. A file for a customer onboarding blueprint might look like this:
+
+```csv
+name,customer_email,priority
+Onboard ACME Corp,contact@acme.example,High
+Onboard Beta LLC,ops@beta.example,Normal
+```
+
+Run `tallyfy process launch --help` for the exact column reference for your version.
+
+### Preview first, launch second
+
+`--dry-run` prints the API calls the CLI would make for every row without executing any of them. Check the count and spot-check a few values, then run it for real:
+
+```bash
+tallyfy process launch --from-csv launches.csv --dry-run
+tallyfy process launch --from-csv launches.csv
+```
+
+The dry run costs nothing and catches the classic mistakes: a stale file, a missing column, or a header that doesn't match a kick-off field.
+
+### When some rows fail
+
+Big batches rarely fail all-or-nothing. If some rows launch and others don't, the CLI finishes the batch and exits with code 9, the dedicated partial-failure signal. Your script can branch on it: alert a person, log the run, and avoid blindly re-running the whole file, which would duplicate the processes that did launch. The full exit-code table is in [troubleshooting](/products/pro/integrations/cli/troubleshooting/), and [handling idempotency](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) explains duplicate-safety patterns in more depth.
+
+### Rate limits are handled for you
+
+Tallyfy's API throttles bursts, and a 200-row launch is exactly the kind of burst it throttles. The CLI paces itself automatically when the API asks it to slow down, so big batches simply take a little longer instead of crashing partway. If a limit truly can't be worked around, the command exits with code 6 so your script knows to retry later. The limits themselves are described in the [API documentation](/products/pro/integrations/open-api/).
+
+:::note[Why not ask an AI to do this?]
+Tallyfy's [MCP server](/products/pro/integrations/mcp-server/) deliberately refuses bulk changes touching more than 5 items in one request. That's by design: conversation is a great interface for small, reviewed changes and a poor one for a 200-row job. When the work is bulk, the CLI is the intended tool.
+:::
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+- Every list verb exports machine-readable output for reconciliation, for example `tallyfy process list -o csv > processes.csv` after a big launch.
+- Use `ndjson` output when you're streaming results into another tool one record at a time.
+- Unattended jobs should set the `TALLYFY_API_TOKEN` environment variable and pass `--yes` for any ask-level action, since the CLI never prompts without a terminal. See [CI/CD approval gates](/products/pro/integrations/cli/ci-cd-approval-gates/) for the headless rules.
+- `--quiet` trims the output down when you only care about the exit code.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > Install the official Tallyfy command line tool and run your first commands within five minutes. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Command reference</b>" href="/products/pro/integrations/cli/command-reference/" > Every resource and verb the Tallyfy CLI supports, plus output formats built for scripting. </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Troubleshoot the CLI</b>" href="/products/pro/integrations/cli/troubleshooting/" > Decode every exit code, including the partial-failure signal that bulk jobs rely on. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Handling idempotency</b>" href="/products/pro/integrations/handling-idempotency-in-webhooks-and-api/" > Duplicate-safety patterns for integrations, so re-runs never create the same record twice. </LinkTitleCard>
+</CardGrid>
