@@ -17,13 +17,17 @@ Launch two hundred processes with one command. You put one row per process in a 
 
 ### The CSV file
 
-Each row launches one [process](/products/pro/tracking-and-tasks/processes/). The header row names the inputs: the process name plus the kick-off form fields your blueprint expects. A file for a customer onboarding blueprint might look like this:
+Each row launches one [process](/products/pro/tracking-and-tasks/processes/). The header row names the inputs: a `name` column sets the process name, and every other column is a [kick-off form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). Name a field by its label (what you see on the form), by its alias, or by its field ID. A file for a customer onboarding blueprint might look like this:
 
 ```csv
-name,customer_email,priority
+name,Customer email,Priority
 Onboard ACME Corp,contact@acme.example,High
 Onboard Beta LLC,ops@beta.example,Normal
 ```
+
+Values follow the field's type. Text, date and email fields take the value as you'd write it. A dropdown or radio field takes the option's text, like `High`. A multi-select takes several option texts separated by commas. The CLI turns each one into the shape the API expects, so you don't have to.
+
+If a header doesn't match any kick-off field on that blueprint, the command stops before launching anything and prints the fields that do exist. That's deliberate. Fixing a column name takes a second, while discovering next week that two hundred processes launched with one column quietly missing does not.
 
 Run `tallyfy process launch --help` for the exact column reference for your version.
 
@@ -36,7 +40,7 @@ tallyfy process launch --from-csv launches.csv --dry-run
 tallyfy process launch --from-csv launches.csv
 ```
 
-The dry run costs nothing and catches the classic mistakes: a stale file, a missing column, or a header that doesn't match a kick-off field.
+The dry run resolves every header against the blueprint and prints the exact request it would send for each row. It costs nothing and catches the classic mistakes: a stale file, a missing column, a header that doesn't match a kick-off field, or a dropdown value that isn't one of the options.
 
 ### When some rows fail
 
