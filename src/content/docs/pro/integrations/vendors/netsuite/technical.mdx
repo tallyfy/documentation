@@ -27,9 +27,10 @@ const handleEmployeeHire = async (employeeData, orgId, checklistId) => {
     expand: ['department', 'location', 'subsidiary', 'supervisor']
   });
 
-  // 2. Launch a Tallyfy process (run) from a template (checklist)
+  // 2. Launch a Tallyfy process (run) from a template (checklist).
+  //    prerun keys are the kick-off fields' timeline IDs, not their labels.
   const run = await fetch(
-    `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}/runs`,
+    `https://go.tallyfy.com/api/organizations/${orgId}/runs`,
     {
       method: 'POST',
       headers: {
@@ -39,15 +40,16 @@ const handleEmployeeHire = async (employeeData, orgId, checklistId) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        checklist_id: checklistId,
         name: `Onboarding - ${employee.entityId}`,
         prerun: {
-          employee_id: employee.id,
-          full_name: `${employee.firstName} ${employee.lastName}`,
-          email: employee.email,
-          subsidiary: employee.subsidiary.name,
-          department: employee.department.name,
-          location: employee.location.name,
-          supervisor: employee.supervisor.name
+          'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6': employee.id,             // Employee ID
+          '3c9d1e7fa4b820516d8e2f7a9c0b4d15': `${employee.firstName} ${employee.lastName}`, // Full name
+          '9f2b7c1e4a6d8035b1c7e9d2f4a6b801': employee.email,          // Email
+          '6e4a2c80f19b3d75e0a8c246b93f157d': employee.subsidiary.name, // Subsidiary
+          '2d7f9a1c5e3b806478d0a2c4e6f81b39': employee.department.name, // Department
+          '5b8c0e2a7f4d1936a8e0c5b3d7f92146': employee.location.name,   // Location
+          '0a3e6b9d2c8f5174e9b2d6a0c4f83b57': employee.supervisor.name  // Supervisor
         }
       })
     }
@@ -56,6 +58,8 @@ const handleEmployeeHire = async (employeeData, orgId, checklistId) => {
   return run.json();
 };
 ```
+
+The `prerun` object is keyed by each kick-off field's timeline ID, a 32-character hex string. You'll find it as the `id` on each entry of the `prerun` array returned by `GET /organizations/{org_id}/checklists/{checklist_id}`. Don't use the `alias` sitting next to it - alias keys never match, and Tallyfy drops unmatched keys silently, so the process launches successfully with that field left blank.
 
 ### SuiteScript integration
 
@@ -74,7 +78,7 @@ define(['N/https', 'N/record'], function(https, record) {
       const checklistId = 'YOUR_CHECKLIST_ID';
 
       https.post({
-        url: `https://go.tallyfy.com/api/organizations/${orgId}/checklists/${checklistId}/runs`,
+        url: `https://go.tallyfy.com/api/organizations/${orgId}/runs`,
         headers: {
           'Authorization': 'Bearer YOUR_TALLYFY_TOKEN',
           'X-Tallyfy-Client': 'APIClient',
@@ -82,10 +86,11 @@ define(['N/https', 'N/record'], function(https, record) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          checklist_id: checklistId,
           name: `Onboarding - ${employee.getValue('entityid')}`,
           prerun: {
-            employee_id: employee.id,
-            name: employee.getValue('entityid')
+            'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6': employee.id,                  // Employee ID
+            '3c9d1e7fa4b820516d8e2f7a9c0b4d15': employee.getValue('entityid') // Employee number
           }
         })
       });
@@ -98,9 +103,9 @@ define(['N/https', 'N/record'], function(https, record) {
 
 ## Data mapping
 
-Common NetSuite fields you'll want to map to Tallyfy kick-off form fields:
+Common NetSuite fields you'll want to map to Tallyfy kick-off form fields. The Tallyfy column names the field you're aiming at - in the API payload you address it by its timeline ID, not by this name.
 
-| NetSuite field | Tallyfy form field | Description |
+| NetSuite field | Tallyfy kick-off field | Description |
 |----------------|-------------------|-------------|
 | `id` | `employee_id` | Internal record ID |
 | `entityId` | `entity_id` | Employee number |

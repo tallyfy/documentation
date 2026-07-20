@@ -143,6 +143,40 @@ If you want to verify, ask: "What's the status of the Acme Corp onboarding proce
 - [Create tasks from meeting notes](/products/pro/integrations/byo-ai/use-cases/create-tasks-from-meeting-notes/)
 - [Build a template through conversation](/products/pro/integrations/byo-ai/use-cases/build-a-template-through-conversation/)
 
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+Underneath, `launch_process` posts to `POST /organizations/{org_id}/runs`. The kick-off values travel in a `prerun` object keyed by each field's timeline ID, a 32-character hex string:
+
+```json
+{
+  "checklist_id": "f7e6d5c4b3a2918070615243342516f0",
+  "name": "Client Onboarding - Acme Corp",
+  "prerun": {
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6": "Acme Corp",
+    "3c9d1e7fa4b820516d8e2f7a9c0b4d15": { "id": 2, "text": "Enterprise" },
+    "9f2b7c1e4a6d8035b1c7e9d2f4a6b801": "jane@acme.com"
+  }
+}
+```
+
+That's why the `get_kickoff_fields` call in step 2 matters so much: it's where your AI picks up those IDs. A key that isn't a timeline ID matches no field, and Tallyfy drops it without raising an error. The process would launch looking perfectly healthy with the value quietly missing.
+
+The value format depends on the field type:
+
+| Field type | Value to send |
+|------------|---------------|
+| Short text, long text, email | A plain string |
+| Date | An ISO 8601 string, like `"2026-03-15T00:00:00.000Z"` |
+| Radio button | The option's text as a plain string |
+| Dropdown | An object with both keys: `{ "id": 2, "text": "Enterprise" }` |
+| Checklist (multi-select) | A list of those objects |
+| Table | A list with one entry per column |
+| Assignees | `{ "users": [], "guests": [], "groups": [] }` |
+
+Dropdown and radio look alike in the app but take different shapes here. A radio takes the bare text, a dropdown needs the `id` and `text` pair together. See [Launch process](/products/pro/integrations/open-api/code-samples/processes/launch-process/) for the full endpoint reference.
+
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Use Cases > Insert data into form fields from other systems</b>" href="/products/pro/integrations/byo-ai/use-cases/insert-data-into-form-fields-from-other-systems/" > Paste raw data from emails, spreadsheets, CRMs, or PDFs into your AI chat. It'll automatically... </LinkTitleCard>

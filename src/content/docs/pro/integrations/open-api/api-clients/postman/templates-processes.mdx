@@ -114,7 +114,8 @@ Response includes:
       "guidance": "Standard process for new hires",
       "prerun": [
         {
-          "id": "field_abc123",
+          "id": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+          "alias": "employee_name",
           "label": "Employee Name",
           "field_type": "text"
         }
@@ -174,14 +175,16 @@ Most templates have kick-off forms. Here's how to pre-fill them:
   "checklist_id": "{{CHECKLIST_ID}}",
   "name": "Purchase Request - MacBook Pro",
   "prerun": {
-    "field_abc123": "John Smith",
-    "field_def456": 2499.99,
-    "field_ghi789": "Engineering team needs upgraded hardware"
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6": "John Smith",
+    "3c9d1e7fa4b820516d8e2f7a9c0b4d15": "2499.99",
+    "9f2b7c1e4a6d8035b1c7e9d2f4a6b801": "Engineering team needs upgraded hardware"
   }
 }
 ```
 
 Note the field name is `prerun` (singular), not `preruns`.
+
+Every key inside `prerun` is a kick-off field's timeline ID, a 32-character hex string. Field labels and aliases like `requested_by` won't match anything, and Tallyfy discards unmatched keys without an error - the launch returns `201 Created` with that field left empty.
 
 ### Finding kick-off field IDs
 
@@ -197,7 +200,7 @@ Three ways to find kick-off form field IDs:
    ```
    GET {{TALLYFY_BASE_URL}}/organizations/{{TALLYFY_ORG_ID}}/checklists/{{CHECKLIST_ID}}
    ```
-   Look for `prerun` in the response - it contains an array of field objects with `id` and `label` properties.
+   Look for `prerun` in the response - it contains an array of field objects. The `id` on each one is the timeline ID you use as a key. The `alias` next to it looks tempting but won't match.
 
 3. **Form fields endpoint**:
    ```
@@ -276,10 +279,11 @@ employees.forEach((emp, index) => {
                 raw: JSON.stringify({
                     checklist_id: pm.environment.get("ONBOARDING_CHECKLIST_ID"),
                     name: `Onboarding - ${emp.name}`,
+                    // prerun keys are kick-off field timeline IDs, not field names
                     prerun: {
-                        field_name: emp.name,
-                        field_dept: emp.dept,
-                        field_start: emp.start
+                        'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6': emp.name,  // Employee name
+                        '3c9d1e7fa4b820516d8e2f7a9c0b4d15': emp.dept,  // Department
+                        '9f2b7c1e4a6d8035b1c7e9d2f4a6b801': emp.start  // Start date
                     }
                 })
             }
