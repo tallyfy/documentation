@@ -1,0 +1,72 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI launches hundreds of processes from one CSV file, previews
+  every action with a dry run, paces itself around API rate limits, and reports partial
+  failures with a distinct exit code so your scripts always know what happened.
+id: e9c9d4afe85bcdd3f431caeef9e69488
+sidebar:
+  order: 4
+title: Bulk operations
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Launching many processes at once
+
+Launch two hundred processes with one command. You put one row per process in a spreadsheet, save it as a CSV file, and point the launch command at it. The Tallyfy CLI works through the list for you: it paces itself around rate limits, keeps going when a single row fails, and tells your script exactly how things went when it's done.
+
+### The CSV file
+
+Each row launches one [process](/products/pro/tracking-and-tasks/processes/). The header row names the inputs: a `name` column sets the process name, and every other column is a [kick-off form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/). Name a field by its label (what you see on the form), by its alias, or by its field ID. A file for a customer onboarding blueprint might look like this:
+
+```csv
+name,Customer email,Priority
+Onboard ACME Corp,contact@acme.example,High
+Onboard Beta LLC,ops@beta.example,Normal
+```
+
+Values follow the field's type. Text, date and email fields take the value as you'd write it. A dropdown or radio field takes the option's text, like `High`. A multi-select takes several option texts separated by commas. The CLI turns each one into the shape the API expects, so you don't have to.
+
+If a header doesn't match any kick-off field on that blueprint, the command stops before launching anything and prints the fields that do exist. That's deliberate. Fixing a column name takes a second, while discovering next week that two hundred processes launched with one column quietly missing does not.
+
+Run `tallyfy process launch --help` for the exact column reference for your version.
+
+### Preview first, launch second
+
+`--dry-run` prints the API calls the CLI would make for every row without executing any of them. Check the count and spot-check a few values, then run it for real:
+
+```bash
+tallyfy process launch --from-csv launches.csv --dry-run
+tallyfy process launch --from-csv launches.csv
+```
+
+The dry run resolves every header against the blueprint and prints the exact request it would send for each row. It costs nothing and catches the classic mistakes: a stale file, a missing column, a header that doesn't match a kick-off field, or a dropdown value that isn't one of the options.
+
+### When some rows fail
+
+Big batches rarely fail all-or-nothing. If some rows launch and others don't, the CLI finishes the batch and exits with code 9, the dedicated partial-failure signal. Your script can branch on it: alert a person, log the run, and avoid blindly re-running the whole file, which would duplicate the processes that did launch. The full exit-code table is in [troubleshooting](/products/pro/integrations/cli/troubleshooting/), and [handling idempotency](/products/pro/integrations/handling-idempotency-in-webhooks-and-api/) explains duplicate-safety patterns in more depth.
+
+### Rate limits are handled for you
+
+Tallyfy's API throttles bursts, and a 200-row launch is exactly the kind of burst it throttles. The CLI paces itself automatically when the API asks it to slow down, so big batches simply take a little longer instead of crashing partway. If a limit truly can't be worked around, the command exits with code 6 so your script knows to retry later. The limits themselves are described in the [API documentation](/products/pro/integrations/open-api/).
+
+:::note[Why not ask an AI to do this?]
+Tallyfy's [MCP server](/products/pro/integrations/mcp-server/) deliberately refuses bulk changes touching more than 5 items in one request. That's by design: conversation is a great interface for small, reviewed changes and a poor one for a 200-row job. When the work is bulk, the CLI is the intended tool.
+:::
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+- Every list verb exports machine-readable output for reconciliation, for example `tallyfy process list -o csv > processes.csv` after a big launch.
+- Use `ndjson` output when you're streaming results into another tool one record at a time.
+- Unattended jobs should set the `TALLYFY_API_TOKEN` environment variable and pass `--yes` for any ask-level action, since the CLI never prompts without a terminal. See [CI/CD approval gates](/products/pro/integrations/cli/ci-cd-approval-gates/) for the headless rules.
+- `--quiet` trims the output down when you only care about the exit code.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Postman > Working with templates and processes</b>" href="/products/pro/integrations/open-api/api-clients/postman/templates-processes/" > Tallyfy's API lets you launch processes from templates by posting to the runs endpoint with a... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Command reference</b>" href="/products/pro/integrations/cli/command-reference/" > Tallyfy CLI commands follow one resource-plus-verb pattern with aliases matching both UI and API... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > The Tallyfy CLI brings scriptable workflow automation to any terminal or pipeline. Install it... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Troubleshoot the CLI</b>" href="/products/pro/integrations/cli/troubleshooting/" > Tallyfy CLI problems usually start with the doctor command, which checks your setup end to end... </LinkTitleCard>
+</CardGrid>

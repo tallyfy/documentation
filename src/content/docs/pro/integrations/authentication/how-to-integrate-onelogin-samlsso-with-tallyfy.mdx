@@ -1,11 +1,11 @@
 ---
 about_tallyfy: true
-description: Set up SAML-based Single Sign-On between OneLogin and Tallyfy. Create
-  a custom SAML connector in OneLogin, exchange configuration values with Tallyfy
-  Support, and enable team members to authenticate through a special SSO URL with
-  automatic provisioning.
+description: Set up SAML-based Single Sign-On between OneLogin and Tallyfy yourself.
+  Create a custom SAML connector in OneLogin, then paste its metadata into the self-serve
+  SSO wizard under Settings so your team authenticates through a special SSO URL.
+  Add OneLogin SCIM for directory sync.
 id: 7ecc86d912218dd4174d529cd9c8b9fb
-lastUpdated: 2026-06-13
+lastUpdated: 2026-06-18
 sidebar:
   order: 4
 title: Integrate OneLogin SSO
@@ -20,21 +20,21 @@ import { Audience } from "~/components";
 
 Let your team sign into Tallyfy with their OneLogin credentials using SAML-based Single Sign-On (SSO). The setup takes about 30 minutes.
 
-:::caution[Coordination required]
-SSO setup requires exchanging config between your organization and Tallyfy Support. You can't complete it independently - submit a support ticket to get started.
+:::note[You set this up yourself]
+SSO is self-serve. You configure both sides: build the SAML connector in OneLogin, then paste its metadata into Tallyfy under **Settings > Organization > Security > SSO**. No support ticket needed.
 :::
 
 ### Requirements
 
 - OneLogin administrator account
-- Tallyfy Pro or Enterprise plan
-- SAML configuration values from Tallyfy Support
+- A Tallyfy administrator account on any paid plan
+- The Tallyfy SP values from the SSO wizard (shown when you pick OneLogin)
 
 ### What you'll do
 
 1. Create a OneLogin SAML application connector
 2. Configure SAML settings in both systems
-3. Enable and test SSO
+3. Paste the OneLogin metadata into the Tallyfy wizard, test, and enable
 
 ## SAML integration flow
 
@@ -43,38 +43,32 @@ This diagram shows the OneLogin-Tallyfy SAML setup and authentication flow.
 ```d2
 Admin: Admin
 OneLogin: OneLogin
-TSupport: Tallyfy Support
 Tallyfy: Tallyfy
 User: User
 
 # Setup Phase
-Admin -> OneLogin: 1. Create app
-Admin -> OneLogin: 2. Configure SAML
-Admin -> TSupport: 3. Request config
-TSupport -> Admin: 4. Provide URLs
-Admin -> OneLogin: 5. Enter URLs
-Admin -> OneLogin: 6. Map attributes
-OneLogin -> Admin: 7. Get certificate
-Admin -> TSupport: 8. Send certificate
-TSupport -> Tallyfy: 9. Configure SSO
-TSupport -> Admin: 10. Send login URL
-Admin -> Tallyfy: 11. Test SSO
-Tallyfy -> Admin: 12. Confirm working
+Admin -> Tallyfy: 1. Open SSO wizard, copy SP values
+Admin -> OneLogin: 2. Create app, enter SP values
+Admin -> OneLogin: 3. Map attributes
+OneLogin -> Admin: 4. Get metadata
+Admin -> Tallyfy: 5. Paste metadata in wizard
+Admin -> Tallyfy: 6. Test connection
+Admin -> Tallyfy: 7. Enable SSO
 
 # User Authentication
-User -> Tallyfy: 13. Access SSO URL
-Tallyfy -> OneLogin: 14. Redirect to login
-User -> OneLogin: 15. Enter credentials
-OneLogin -> OneLogin: 16. Validate
-OneLogin -> Tallyfy: 17. Send SAML assertion
-Tallyfy -> User: 18. Grant access
+User -> Tallyfy: 8. Access SSO URL
+Tallyfy -> OneLogin: 9. Redirect to login
+User -> OneLogin: 10. Enter credentials
+OneLogin -> OneLogin: 11. Validate
+OneLogin -> Tallyfy: 12. Send SAML assertion
+Tallyfy -> User: 13. Grant access
 ```
 
 ### Key points
 
-- You'll exchange metadata between OneLogin and Tallyfy Support
+- You configure both OneLogin and Tallyfy yourself, no support hand-off
 - After setup, users access Tallyfy through a special SSO URL
-- New users are automatically provisioned on first login
+- New users from a verified domain are provisioned on first login when auto-join is on
 
 ### Phase 1: Create OneLogin SAML application
 
@@ -107,10 +101,9 @@ Tallyfy -> User: 18. Grant access
 You'll need Tallyfy's SAML values to configure OneLogin:
 
 <Steps>
-1. Contact Tallyfy Support to access your organization's profile
-2. Go to the **Org Settings** tab
-3. Click **Add Configuration Details**
-4. Find the default SAML values section
+1. In Tallyfy, go to **Settings > Organization > Security > SSO**
+2. Start a new connection and pick **OneLogin** as the provider
+3. Copy the **SP ACS URL** and **SP Entity ID** shown on the first step of the wizard
 
     ![Tallyfy organization settings tab](https://screenshots.tallyfy.com/onelogin-3.png)
     ![Tallyfy default SAML configuration values](https://screenshots.tallyfy.com/onelogin-4.png)
@@ -171,34 +164,27 @@ To add each parameter:
 
 #### Step 1: Get OneLogin SAML information
 
+OneLogin can hand you a metadata link, which is the easiest thing to paste into Tallyfy.
+
 <Steps>
 1. Go to the **SSO** tab in your OneLogin application
 
     ![OneLogin SSO tab with SAML endpoint details](https://screenshots.tallyfy.com/onelogin-10.png)
-2. Note the **SAML 2.0 Endpoint (HTTP)**
-3. Note the **Issuer URL**
-4. Note or download the **X.509 Certificate**
+2. Copy the **Issuer URL** value. OneLogin's metadata URL is usually the issuer with `/metadata` on the end.
+3. If you'd rather enter values by hand, note the **SAML 2.0 Endpoint (HTTP)**, the **Issuer URL**, and the **X.509 Certificate**.
 </Steps>
 
-#### Step 2: Send info to Tallyfy Support
+#### Step 2: Paste the metadata into Tallyfy and test
+
+Back in the Tallyfy SSO wizard (**Settings > Organization > Security > SSO**), move to the **Enter IdP details** step:
 
 <Steps>
-1. Send the **SAML 2.0 Endpoint (HTTP)** to Tallyfy Support
-2. Send the **Issuer URL** to Tallyfy Support
-3. Send the **X.509 Certificate** to Tallyfy Support
-4. Tallyfy Support will configure these in your organization's SAML settings
+1. **Metadata URL** - paste OneLogin's metadata link. Tallyfy fetches and parses it. Easiest option.
+2. **Manual entry** - enter the **SAML 2.0 Endpoint (HTTP)**, the **Issuer URL**, and the **X.509 Certificate** instead.
+3. Run the **Test connection** step and fix anything it flags.
+4. Once the test passes, **enable** the connection.
 
     ![Tallyfy SAML configuration settings with OneLogin values](https://screenshots.tallyfy.com/onelogin-11.png)
-</Steps>
-
-#### Step 3: Enable SAML authentication
-
-Once Tallyfy Support confirms your SAML settings are configured, flip the switch:
-
-<Steps>
-1. Toggle the SAML activation switch to enable SSO
-
-    ![Tallyfy SAML activation toggle switch](https://screenshots.tallyfy.com/onelogin-12.png)
 </Steps>
 
 ### User provisioning and access
@@ -206,7 +192,7 @@ Once Tallyfy Support confirms your SAML settings are configured, flip the switch
 After completing the setup:
 
 <Steps>
-1. Get the Tallyfy login URL from the SAML configuration modal (Tallyfy Support provides this)
+1. Get your org's SSO login URL from the SSO wizard (it's shown next to the connection)
 2. Share this URL with team members who have access to the OneLogin application
 
     ![Tallyfy SSO login URL in SAML configuration modal](https://screenshots.tallyfy.com/onelogin-13.png)
@@ -214,7 +200,7 @@ After completing the setup:
 
 When users access Tallyfy through this URL:
 - Existing Tallyfy users sign in automatically
-- New users get provisioned in Tallyfy on their first login. That's it.
+- New users from a verified domain get provisioned on first login when auto-join is on. Verify your domain under the **Domains** tab first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
 
 ### Troubleshooting
 
@@ -225,12 +211,26 @@ Running into auth issues? Check these common culprits:
 - Users are going to the regular Tallyfy login page instead of the SSO URL
 - Still stuck? Contact Tallyfy Support
 
+### Set up SCIM provisioning (optional)
+
+SAML signs people in. SCIM keeps your roster in sync. With OneLogin provisioning on, OneLogin pushes user adds and removals to Tallyfy automatically, so accounts track your directory and you stop paying for people who've left.
+
+<Steps>
+1. In Tallyfy, go to **Settings > Organization > Security > SCIM** and turn SCIM on
+2. Copy the **Base URL** and the **bearer token** (the token shows once, so store it safely)
+3. In OneLogin, open your Tallyfy app and go to the **Configuration** tab
+4. Paste the Tallyfy **Base URL** into the **SCIM Base URL** field and the **bearer token** into **SCIM Bearer Token**, then enable the API connection
+5. On the **Provisioning** tab, turn provisioning on and enable create, update, and delete actions
+</Steps>
+
+To map OneLogin roles to Tallyfy roles, provision groups whose names match Tallyfy's reserved group names (for example `tallyfy-admins`). Full details are in [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/).
+
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Authentication > Integrate Okta SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy/" > Tallyfy integrates with Okta through SAML 2.0 SSO. Create an Okta SAML app and exchange... </LinkTitleCard>
-<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for SAML-based... </LinkTitleCard>
-<LinkTitleCard header="<b>Authentication > Integrate JumpCloud SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-jumpcloud-samlsso-with-tallyfy/" > Set up SAML-based SSO between JumpCloud and Tallyfy by creating a custom SAML app and exchanging... </LinkTitleCard>
-<LinkTitleCard header="<b>Authentication > Integrate Google Workspace</b>" href="/products/pro/integrations/authentication/how-to-integrate-google-suite-samlsso-with-tallyfy/" > Connect Google Workspace with Tallyfy through SAML-based Single Sign-On by creating a custom... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Okta SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy/" > Tallyfy integrates with Okta through SAML 2.0 SSO that you set up yourself. Create an Okta SAML... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Authentication and SSO</b>" href="/products/pro/integrations/authentication/" > Tallyfy offers free, self-serve SSO and SCIM on any paid plan with support for Microsoft Entra... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for self-serve SAML... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate JumpCloud SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-jumpcloud-samlsso-with-tallyfy/" > Set up SAML-based SSO between JumpCloud and Tallyfy yourself by creating a custom SAML app, then... </LinkTitleCard>
 </CardGrid>

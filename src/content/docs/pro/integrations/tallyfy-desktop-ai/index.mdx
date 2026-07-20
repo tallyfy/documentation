@@ -1,0 +1,144 @@
+---
+about_tallyfy: true
+description: Tallyfy Desktop v2.0.0 is a multi-tab AI-first app that pairs four AI
+  assistants (Claude, Codex, Gemini, Ollama) with your Tallyfy workspace. Every AI
+  run becomes a tracked task, the Tallyfy MCP server is auto-injected, and an inline
+  widget turns chat into Tallyfy work.
+id: 059cbdef21d5e58fdfedad381da98585
+sidebar:
+  order: 1
+title: Tallyfy Desktop AI surface
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+:::note[What this section covers]
+End-user docs for the AI surface in Tallyfy Desktop v2.0.0. If you want to know what each tab does, how to connect Claude, Codex, Gemini, or Ollama, what the Task Intent Widget does, and how Terminal Jobs tracks every run, you're in the right place. Internal architecture references (the `AIProvider` contract, IPC channels, the SQLite schema) stay in the desktop repo under [`docs/AI-ARCHITECTURE.md`](https://github.com/tallyfy/desktop/blob/main/docs/AI-ARCHITECTURE.md)<a href="https://github.com/tallyfy/desktop/blob/main/docs/AI-ARCHITECTURE.md" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a> and [`docs/PROVIDER-MATRIX.md`](https://github.com/tallyfy/desktop/blob/main/docs/PROVIDER-MATRIX.md)<a href="https://github.com/tallyfy/desktop/blob/main/docs/PROVIDER-MATRIX.md" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>.
+:::
+
+## What Tallyfy Desktop is
+
+Tallyfy Desktop is a cross-platform Electron app for macOS, Windows, and Linux. v1 of the app was a thin shell around the Tallyfy web client. v2.0.0 is a different product: an AI-first surface that hosts four AI assistants side-by-side in a tabbed window, with your Tallyfy workspace as the system of record.
+
+Think of it as a single window where you can talk to Claude in one tab, Gemini in another, and keep an eye on a long-running Ollama job in a third, while every conversation you have can create a Tallyfy task, launch a process, or edit a template with one click.
+
+![Tallyfy Desktop showing four AI tabs and the Task Intent Widget inline in a chat bubble](https://screenshots.tallyfy.com/desktop-ai/overview-screenshot.png)
+
+## What v2.0.0 brought in
+
+The AI Surface Pivot landed seven user-visible changes. Each is documented in its own article in this section.
+
+### 1. Four provider tabs
+
+The window has a tab for each AI assistant Tallyfy Desktop supports:
+
+- **Claude** (Anthropic) - the most capable provider for tool use, thinking, and browser automation
+- **Codex** (OpenAI) - text streaming via the official `codex` CLI
+- **Gemini** (Google) - streaming chat with MCP support
+- **Ollama** (local) - your own models, running entirely on your machine
+
+Each tab is its own conversation. Switching tabs doesn't lose context. The tab strip shows which providers are installed and signed in, so you can tell at a glance which assistant is ready to use.
+
+Connect each one with its own short guide:
+
+- [Connect Claude](/products/pro/integrations/tallyfy-desktop-ai/connect-claude/)
+- [Connect Codex](/products/pro/integrations/tallyfy-desktop-ai/connect-codex/)
+- [Connect Gemini](/products/pro/integrations/tallyfy-desktop-ai/connect-gemini/)
+- [Connect Ollama](/products/pro/integrations/tallyfy-desktop-ai/connect-ollama/)
+
+### 2. The Task Intent Widget
+
+The Task Intent Widget is the feature that turns chat into Tallyfy work. As you type with an AI, the desktop app watches for phrases like "create a task for John" or "let's run the onboarding process." When it spots an intent, it shows a one-click widget inline in the chat bubble that creates the task, launches the process, or edits the template in your Tallyfy account.
+
+Read the full [Task Intent Widget guide](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) for details on the four states, the per-intent prefill shapes, and how the two-stage detector keeps false positives down.
+
+### 3. Mandatory Tallyfy sign-in
+
+You sign into your Tallyfy account before any AI tab is visible. The app shows a single "Sign in with Tallyfy" screen on first launch. After sign-in, the app stores your session token in the OS keychain (Keychain on macOS, Credential Manager on Windows, Secret Service on Linux when available).
+
+Why? Because everything else in the app, from MCP injection to task wrapping to the intent widget, needs your Tallyfy identity. Letting the AI surfaces run without a Tallyfy account would mean the AI doesn't know who you are, what org you're in, or where to put the tasks it creates.
+
+### 4. Tallyfy MCP auto-injection
+
+Every AI chat in the desktop app gets the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) auto-injected as its first MCP. You don't paste a URL into a config file. You don't run `claude mcp add`. The desktop app handles it behind the scenes using your Tallyfy session token.
+
+This means every AI tab knows about your tasks, processes, templates, members, and guests from the moment you open it. Ask Claude "what tasks do I have due this week?" and it answers without any setup.
+
+For Codex (no MCP support in v1) and Ollama (capability-degraded), the desktop app falls back to a system-prompt prefix that gives the AI the same Tallyfy context.
+
+### 5. System "AI Runs" checklist
+
+Every AI run becomes a Tallyfy task in a system checklist called "AI Runs." This is the v2.0.0 invariant: nothing the AI does is invisible. The task records the provider, the model, the prompt, the cost (where available), and the deep link back to the desktop app.
+
+If something goes wrong, the task stays. It's marked with the error code so you can see what happened from your Tallyfy account, days or weeks later, on any device. The desktop app stores the raw run events locally; the Tallyfy task is the cross-device authority of record.
+
+### 6. Local SQLite run history (Terminal Jobs tab)
+
+The Terminal Jobs tab is the desktop app's view of every AI run. It's a list, newest first, with status, duration, cost, and a button to view the full streamed output of any run. Read the [Terminal Jobs guide](/products/pro/integrations/tallyfy-desktop-ai/terminal-jobs/) for details.
+
+The data is stored in a local SQLite database on your machine. Run events never leave the device. The Tallyfy task row is the only cloud artifact, and it carries only the metadata you'd see in any other Tallyfy task.
+
+### 7. Auto-installer
+
+The first time you click on a provider tab whose CLI isn't installed, the desktop app shows an Install Wizard. It explains exactly what command will run, lists the risks (network egress, disk writes, service registration), and waits for you to hold the Shift key for three seconds before installing. After install, it verifies the binary works and reports back.
+
+The install commands are baked into the app source code (not fetched at runtime), so what you consent to is what runs. The exact commands per provider are listed in each provider's connect guide.
+
+## Subscription-only AI
+
+Tallyfy Desktop v2.0.0 does not accept API keys. You connect via your existing AI subscription:
+
+- **Claude** uses OAuth via your Claude.ai account (Pro, Max, Team, or Enterprise plan)
+- **Codex** uses OAuth via your ChatGPT account (Plus, Pro, Team, Enterprise, or Edu plan)
+- **Gemini** uses OAuth via your Google account
+- **Ollama** runs locally on your machine; no account, no subscription
+
+This is a deliberate design decision. API keys are long-lived secrets that easily leak; OAuth tokens are short-lived and scoped. The desktop app handles the OAuth flow for each provider through its official CLI, so you keep one billing relationship per provider and Tallyfy never sees your AI costs.
+
+## Privacy and data flow
+
+What the desktop app does with your data:
+
+1. Prompts you type go to the AI provider you selected. No interception. No copy.
+2. Streamed responses come back from the provider, render in the chat window, and are recorded in the local SQLite database.
+3. Run metadata (provider, model, prompt summary, cost, duration) is sent to Tallyfy as a task in the "AI Runs" checklist.
+4. Tallyfy state the AI reads or writes (tasks, processes, templates) goes through the Tallyfy MCP server and is logged in your existing Tallyfy audit trail.
+
+Ollama is the local case: everything stays on your machine. No prompts leave the device. The Tallyfy task is still created (because the run is still tracked), but the AI half of the conversation never touches a cloud.
+
+## First launch: OS security prompts (v2.0.0)
+
+v2.0.0 is not yet code-signed. The first time you open it, your operating system will warn you. This is expected. Here is what you will see and what to do.
+
+### macOS
+
+Double-clicking the app the first time shows: "Tallyfy cannot be opened because Apple cannot check it for malicious software." Click Cancel, then **right-click (or Control-click) the Tallyfy app and choose Open** from the menu. macOS shows a second prompt with an Open button. Click Open. After this one-time approval, you can launch normally. Apple Silicon Macs are stricter than Intel and always need this right-click path on first launch.
+
+### Windows
+
+Running the installer the first time shows: "Windows protected your PC. Microsoft Defender SmartScreen prevented an unrecognized app from starting." Click **More info** (the small link), then **Run anyway**. SmartScreen eases up after the binary builds reputation across enough machines.
+
+### Linux
+
+`.AppImage` and `.deb` install without OS security prompts. If the AppImage will not run, mark it executable: `chmod +x Tallyfy-2.0.0.AppImage`.
+
+Signed releases (which install silently) land in a future v2.0.x once we provision the certificate. Auto-update inside the app handles subsequent versions without prompts.
+
+## What's next in this section
+
+| Article | What it covers |
+|---|---|
+| [Connect Claude](/products/pro/integrations/tallyfy-desktop-ai/connect-claude/) | Install the Claude CLI, sign in with OAuth, verify the connection |
+| [Connect Codex](/products/pro/integrations/tallyfy-desktop-ai/connect-codex/) | Install Codex via npm, sign in with `codex login`, verify |
+| [Connect Gemini](/products/pro/integrations/tallyfy-desktop-ai/connect-gemini/) | Install the Gemini CLI via npm, complete the OAuth flow, verify |
+| [Connect Ollama](/products/pro/integrations/tallyfy-desktop-ai/connect-ollama/) | Install Ollama locally, pull a model, verify the daemon |
+| [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) | What the widget does, when it shows, how to use it |
+| [Terminal Jobs](/products/pro/integrations/tallyfy-desktop-ai/terminal-jobs/) | Track every AI run, view output, cancel running jobs |
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tallyfy Desktop Ai > Connect Claude to Tallyfy Desktop</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-claude/" > Install the Anthropic Claude CLI and sign into your Claude.ai subscription so Tallyfy Desktop... </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop Ai > Task Intent Widget</b>" href="/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/" > The Task Intent Widget turns AI chat into Tallyfy work with one click. As you talk to Claude... </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop Ai > Connect Gemini to Tallyfy Desktop</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-gemini/" > Install the Google Gemini CLI via npm and sign into your Google account so Tallyfy Desktop can... </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop Ai > Connect Codex to Tallyfy Desktop</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-codex/" > Install the OpenAI Codex CLI via npm and sign into your ChatGPT subscription so Tallyfy Desktop... </LinkTitleCard>
+</CardGrid>

@@ -1,0 +1,75 @@
+---
+about_tallyfy: true
+description: Tallyfy gives you four ways to get work done. People click in the web
+  app, your own software calls the REST API, AI assistants connect through the MCP
+  server, and scripts drive the CLI. This guide explains what each surface does best
+  and which one fits the job in front of you.
+id: e78835cc13a0b0c3a782b0455a08c0d6
+sidebar:
+  order: 8
+title: CLI vs API vs MCP
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Which Tallyfy surface should do the job?
+
+Every piece of work in Tallyfy goes through one of four doors. People use the web app. Software you build calls the REST API. AI assistants connect through the MCP server. Scripts, pipelines, and scheduled jobs drive the CLI. All four act on the same [processes](/products/pro/tracking-and-tasks/processes/), [tasks](/products/pro/tracking-and-tasks/tasks/), and [templates](/products/pro/documenting/templates/), under the same permissions, so the question is never which one is allowed - it's which one fits the job.
+
+The short version: a person doing the work belongs in the web app. Your own product or internal system belongs on the API. A plain-English request to an AI assistant goes through the MCP server. And anything repeatable, bulk, or unattended belongs to the CLI.
+
+### The four surfaces at a glance
+
+| Surface | Driven by | Best at | Watch out for |
+|---|---|---|---|
+| Web app | People clicking. | Daily work, tracking, building templates visually. | Manual repetition. Two hundred launches means two hundred rounds of clicking. |
+| [REST API](/products/pro/integrations/open-api/) | Code you write and maintain. | Custom product integrations with full control over every request. | You own the code, the credentials, and the error handling. |
+| [MCP server](/products/pro/integrations/mcp-server/) | AI assistants in conversation. | Plain-English questions, small reviewed changes, analysis. | Deliberately refuses bulk changes touching more than 5 items. |
+| [CLI](/products/pro/integrations/cli/) | Scripts and pipelines. | Repeatable jobs, bulk work, CI/CD gates, multi-org routines. | Built for automators, not for visual tracking. |
+
+### The web app: where people work
+
+The web app is Tallyfy's home for humans: launching a process now and then, completing tasks, tracking progress across the team, and building templates with a visual editor. If the work happens occasionally and a person is present, there's nothing to set up and nothing to script. The other three surfaces exist for the moments when clicking stops scaling.
+
+### The REST API: the raw surface underneath
+
+Tallyfy is API-first, so the [REST API](/products/pro/integrations/open-api/) offers the same capability that powers the web app - and the other three surfaces are all built on top of it. Choose it directly when you're building Tallyfy into your own product or internal system and need full control over requests, responses, and data flow. The trade-off is that you write and maintain that code yourself, including authentication and retries.
+
+### The MCP server: for AI assistants
+
+The [MCP server](/products/pro/integrations/mcp-server/) connects assistants like ChatGPT, Claude, Gemini, and Microsoft Copilot to your Tallyfy organization through MCP (Model Context Protocol), the open standard for wiring AI tools to business systems. It shines at conversation: ask which tasks are overdue, have a template analyzed, turn a flowchart into a draft process. It's tuned for interactive use with a person reviewing each change, which is why it deliberately refuses bulk changes touching more than 5 items in one request. That's a feature, not a gap - conversation is a great interface for judgment and a poor one for volume.
+
+### The CLI: for scripts and repeatable work
+
+The [Tallyfy CLI](/products/pro/integrations/cli/) is the door for work that runs the same way every time, with or without a person present. It covers the jobs the other surfaces handle poorly: launching hundreds of processes from a CSV file with [bulk operations](/products/pro/integrations/cli/bulk-operations/), holding a deployment until someone approves with [CI/CD gates](/products/pro/integrations/cli/ci-cd-approval-gates/), keeping templates in version control with [workflows as code](/products/pro/integrations/cli/workflows-as-code/), and repeating one change across many organizations from a single script. Predictable exit codes and machine-readable output make it dependable inside pipelines.
+
+### A quick decision guide
+
+- Launch 200 processes from a spreadsheet? The CLI, from a CSV file.
+- Pause a release until a person signs off? The CLI's task wait command in your pipeline.
+- Keep templates in git and promote them between organizations? The CLI's export and import.
+- Build Tallyfy features into your own product? The REST API.
+- Ask "which tasks are overdue for the sales team?" in plain English? The MCP server.
+- Turn a flowchart or policy document into a draft template? The MCP server, through your AI assistant.
+- Track work day to day and build templates visually? The web app.
+
+### They combine well
+
+Most teams end up using several doors at once, because the surfaces hand off to each other naturally. A pipeline launches processes through the CLI, people complete the resulting tasks in the web app, and an AI assistant summarizes how the week went through the MCP server. Nothing conflicts, because everything runs through the same API underneath. And if you'd rather connect apps without code at all, [middleware platforms](/products/pro/integrations/middleware/) like Zapier and Power Automate are one more path built on that same foundation.
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+- All four surfaces execute against the same REST API and the same permission model, so an action a user can't perform in the web app fails identically through the API, the MCP server, or the CLI.
+- Credentials differ by surface: the API and the CLI authenticate with Tallyfy API tokens, while MCP clients sign users in through the MCP server's own secure authorization flow. The CLI stores its token in the OS keychain and reads `TALLYFY_API_TOKEN` in pipelines, as covered in [authentication](/products/pro/integrations/cli/authentication/).
+- The CLI bridges the surfaces. `tallyfy api` calls any endpoint its built-in verbs don't wrap, with headers, authentication, and retries applied for you. `tallyfy mcp` manages the MCP server entries in a project's `.tallyfy/mcp.json` so AI clients can discover them, and prints ready-made config blocks per client.
+- Choosing between wrapped verbs and raw calls: prefer `tallyfy blueprint`, `tallyfy process`, and friends for readability and safety rails, and drop to `tallyfy api` for endpoints the [command reference](/products/pro/integrations/cli/command-reference/) doesn't list.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > MCP server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server lets you control workflows through plain English in ChatGPT, Claude... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > The Tallyfy CLI brings scriptable workflow automation to any terminal or pipeline. Install it... </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Integrations</b>" href="/products/pro/integrations/" > Tallyfy connects with your existing business software through many methods, from a full REST API... </LinkTitleCard>
+<LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with Claude (text chat)</b>" href="/products/pro/integrations/mcp-server/claude-anthropic/" > Connect Claude to Tallyfy's hosted MCP server to manage workflows in plain language. Add it as a... </LinkTitleCard>
+</CardGrid>

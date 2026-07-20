@@ -1,0 +1,90 @@
+---
+about_tallyfy: true
+description: Turn on SCIM 2.0 directory sync in Tallyfy so your identity provider
+  adds, updates, and deactivates members automatically. Generate and rotate the bearer
+  token, map IdP groups to Tallyfy roles with reserved group names, and free up seats
+  when people leave. Available on any paid plan.
+id: 1dc7a1b555d6b04fac0875a46aa59e77
+lastUpdated: 2026-06-10
+sidebar:
+  order: 6
+title: SCIM provisioning
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Keep your user list in sync automatically
+
+SCIM connects Tallyfy to your identity provider's directory so member accounts stay in sync without anyone clicking around. When someone is added to the right group in Okta, Microsoft Entra ID, or OneLogin, they get a Tallyfy account. When they leave, their access is removed and the seat frees up. You turn it on under **Settings > Organization > Security > SCIM**, on any paid plan.
+
+SCIM (System for Cross-domain Identity Management)[^1] is the standard most identity providers use to push directory changes to apps. SAML signs people in. SCIM manages who exists. They do different jobs, and for larger teams you'll usually want both.
+
+### What you get
+
+- **Hands-off onboarding** - new hires land in Tallyfy as soon as your IdP assigns them, before they ever log in.
+- **Automatic deprovisioning** - when HR offboards someone in your directory, their Tallyfy access is cut and the seat is returned. This is the big one for cost control: you stop paying for ex-employees. One enterprise customer flagged exactly this problem, paying for seats of people who'd already left because removal was manual.
+- **Role mapping** - IdP group membership can decide each person's Tallyfy role, so admins stay admins and the rest stay standard or light.
+
+### Turn on SCIM and get your credentials
+
+Each organization gets its own SCIM Base URL and a bearer token. The token authenticates your IdP to Tallyfy, so treat it like a password.
+
+<Steps>
+1. Go to **Settings > Organization > Security > SCIM** and switch SCIM on.
+2. Copy the **Base URL**. You'll paste this into your IdP's SCIM connector.
+3. Generate the **bearer token**. Tallyfy shows it once, right after you generate it, so copy it now and store it in a safe place. You can't view it again later.
+4. In your identity provider, open the Tallyfy provisioning settings and paste the **Base URL** and the **bearer token**. Per-IdP steps live in the [Okta](/products/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy/), [Microsoft Entra ID](/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/), and [OneLogin](/products/pro/integrations/authentication/how-to-integrate-onelogin-samlsso-with-tallyfy/) guides.
+5. Test the connection from your IdP, then assign users or groups to start syncing.
+</Steps>
+
+### Rotate or revoke the token
+
+If a token is exposed, or an admin who set it up leaves, regenerate it. Regenerating immediately revokes the old token, so any IdP still using the old one stops syncing until you paste the new one in.
+
+<Steps>
+1. On the SCIM panel, click **Regenerate token**. Tallyfy asks you to re-enter your password first (a step-up check).
+2. Copy the new token (shown once) and update it in your identity provider's SCIM settings.
+3. Confirm the next sync from your IdP succeeds with the new token.
+</Steps>
+
+### Map IdP groups to Tallyfy roles
+
+You can drive each member's Tallyfy role from their group in your identity provider. Tallyfy reads reserved group names: provision a group whose name matches the reserved name for a role, and members of that group get that role.
+
+| Reserved group name | Tallyfy role |
+|---------------------|--------------|
+| `tallyfy-admins` | Administrator |
+| `tallyfy-standard` | Standard |
+| `tallyfy-light` | Light |
+
+Name the groups in your IdP to match, then provision them through SCIM. People who aren't in any mapped group get your connection's default role. If you change someone's group in your IdP, their Tallyfy role updates on the next sync.
+
+:::caution[Don't combine SCIM with JIT auto-create]
+When SCIM is on, it's the source of truth for who's in your org. Leave just-in-time auto-join (the verified-domain "create account on first login" behavior) off while SCIM runs. Running both at once can double-provision people and double-count seats, because two systems try to create the same member. Pick SCIM for full directory control, or JIT auto-join for lightweight self-service, not both.
+:::
+
+### How deactivation works
+
+When your IdP sends a deactivation (the user is set inactive or unassigned), Tallyfy disables that member and releases their seat back into your pool. The account isn't deleted, so their task history stays intact for the record. If the same person is reactivated in your directory later, the next sync re-enables them.
+
+### Troubleshooting
+
+Sync not working as expected? Check these:
+
+- The **bearer token** in your IdP matches the current Tallyfy token. If you regenerated it, the old one no longer works.
+- The **Base URL** is the exact one from your org's SCIM panel.
+- The user or group is actually assigned to the Tallyfy app in your IdP.
+- For role mapping, the IdP group name matches a reserved name exactly, including the `tallyfy-` prefix.
+- Your IdP's provisioning logs show what it sent. Most providers expose a per-user provisioning status that names the failing attribute.
+
+[^1]: SCIM is an open standard (RFC 7644) for automating user provisioning and deprovisioning between identity providers and apps.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Authentication and SSO</b>" href="/products/pro/integrations/authentication/" > Tallyfy offers free, self-serve SSO and SCIM on any paid plan with support for Microsoft Entra... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Okta SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-okta-samlsso-with-tallyfy/" > Tallyfy integrates with Okta through SAML 2.0 SSO that you set up yourself. Create an Okta SAML... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for self-serve SAML... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate OneLogin SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-onelogin-samlsso-with-tallyfy/" > Set up SAML-based Single Sign-On between OneLogin and Tallyfy yourself. Create a custom SAML... </LinkTitleCard>
+</CardGrid>

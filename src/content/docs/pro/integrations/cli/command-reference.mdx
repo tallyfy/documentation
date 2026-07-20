@@ -1,0 +1,133 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI commands follow one resource-plus-verb pattern with aliases
+  matching both UI and API vocabulary. Choose table, JSON, CSV, or NDJSON output,
+  save repeatable commands for your team, and call any API endpoint directly when
+  you need to.
+id: 0a8244f51a6b7fbc6efefe87df8b3185
+sidebar:
+  order: 2
+title: Command reference
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## How Tallyfy CLI commands work
+
+Every command follows the same shape: the tool name, then a resource, then a verb. Typing the resource first and the action second gets you almost everywhere: blueprint list shows your templates, task complete marks a task done, process launch starts a new process. Once that pattern clicks, you can guess most commands without reading a manual, and built-in help fills the gaps whenever you're unsure.
+
+### Two vocabularies, both accepted
+
+Tallyfy's web app and Tallyfy's API use different words for the same things. The app says "blueprint" and "process"; the API says "checklist" and "run". The CLI leads with the app words and quietly accepts the API words as aliases, so people coming from either side feel at home.
+
+| CLI command | Accepted aliases |
+|---|---|
+| `blueprint` | `checklist` |
+| `process` | `runs` |
+| `user` | `member`, `members`, `users` |
+| `guest` | `guests` |
+| `group` | `groups` |
+| `folder` | `folders` |
+| `tag` | `tags` |
+| `config` | `settings` |
+
+### Getting help
+
+Add `--help` to anything. `tallyfy --help` lists every command, `tallyfy task --help` lists the task verbs, and `tallyfy task wait --help` explains one verb in full. When something misbehaves, run `tallyfy doctor` first; it checks your setup end to end.
+
+### Output for people and output for scripts
+
+Every command can print its results four ways with the `-o` flag: `table` for humans, `json` for programs, `csv` for spreadsheets, and `ndjson` (one JSON record per line) for streaming. The `--json` flag is a handy shorthand for `-o json`, and it pairs naturally with jq:
+
+```bash
+tallyfy blueprint list --json | jq '.'
+tallyfy task list -o csv > my-tasks.csv
+```
+
+### Saved commands for your team
+
+Long commands you run often can be saved by name in your project's `.tallyfy/commands` folder and shared through version control. Anyone on the team then runs them by name, passing values as parameters:
+
+```bash
+tallyfy run weekly-report --param week=29
+```
+
+That keeps the tricky flags written down once, instead of living in one person's shell history.
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+### Resources and verbs
+
+| Resource | Verbs |
+|---|---|
+| `blueprint` | `list`, `get`, `create`, `update`, `delete`, `clone`, `publish`, `steps`, `export`, `import`, `automation` |
+| `process` | `list`, `get`, `launch`, `update`, `archive`, `reactivate`, `export` |
+| `task` | `list`, `get`, `complete`, `reopen`, `reassign`, `comment`, `wait` |
+| `user` | `list`, `invite`, `role`, `disable`, `enable` |
+| `guest` | `list`, `get`, `create`, `update` |
+| `group` | `list`, `create`, `update`, `delete` |
+| `folder` | `list`, `create`, `delete` |
+| `tag` | `list`, `create`, `update`, `delete` |
+| `org` | `list`, `current`, `use` |
+
+Standalone commands round out the surface: `login`, `logout`, `whoami`, `auth` (login, logout, status), `config`, `doctor`, `api`, `run`, `mcp`, `trust`, `update`, `version`, and `completion`.
+
+### Global flags
+
+These work on every command:
+
+| Flag | What it does |
+|---|---|
+| `--org` | Target a specific organization ID, overriding the active org. |
+| `-o, --output` | Output format: `table`, `json`, `csv`, or `ndjson`. |
+| `--json` | Shorthand for `-o json`. |
+| `--dry-run` | Print the API calls a command would make without executing them. |
+| `-y, --yes` | Assume yes for prompts; required for destructive or ask-level actions in scripts. |
+| `--no-input` | Never prompt; fail instead. Turned on automatically when there's no terminal. |
+| `-q, --quiet` | Suppress non-essential output. |
+| `--no-color` | Disable color output. |
+| `--verbose` | Verbose request logging, with tokens redacted. |
+| `--api-key` | Pass an API token directly. Prefer the `TALLYFY_API_TOKEN` environment variable in scripts. |
+| `--base-url` | Change the API base URL from the default `https://api.tallyfy.com`. |
+| `--settings` | Extra settings: a path to a JSON file, or an inline JSON object. |
+
+### Raw API access
+
+When a workflow needs an endpoint the built-in verbs don't wrap, `tallyfy api` calls any Tallyfy API path directly with the standard headers, authentication, and retry policy applied for you:
+
+```bash
+tallyfy api GET  me
+tallyfy api GET  organizations/YOUR_ORG_ID/checklists
+tallyfy api GET  organizations/YOUR_ORG_ID/runs --query status=active --query per_page=100
+tallyfy api POST organizations/YOUR_ORG_ID/tags --input tag.json
+```
+
+Details worth knowing:
+
+- The path is relative to the API base URL, and no leading slash is needed.
+- `--query` adds a query parameter as key=value and repeats as many times as you like.
+- `--input` takes a file path for the request body, or `-` to read from standard input.
+- The response body is written to standard output verbatim. Non-2xx responses still print the body and map to the usual exit codes, like 5 for not-found and 7 for validation.
+
+### Shell completion
+
+Tab completion is available for bash, zsh, fish, and PowerShell:
+
+```bash
+source <(tallyfy completion bash)
+tallyfy completion zsh > "${fpath[1]}/_tallyfy"
+```
+
+### Exit codes
+
+Every command finishes with a predictable exit code so scripts can branch on the outcome. The full table, from 0 for success through 9 for a partial bulk failure, lives in the [troubleshooting guide](/products/pro/integrations/cli/troubleshooting/).
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Troubleshoot the CLI</b>" href="/products/pro/integrations/cli/troubleshooting/" > Tallyfy CLI problems usually start with the doctor command, which checks your setup end to end... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > The Tallyfy CLI brings scriptable workflow automation to any terminal or pipeline. Install it... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Configuration and permissions</b>" href="/products/pro/integrations/cli/configuration-and-permissions/" > Tallyfy CLI settings merge across six scopes, from built-in defaults to company-managed policy... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Open API</b>" href="/products/pro/integrations/open-api/" > Tallyfy's REST API gives developers full programmatic access to the same platform features that... </LinkTitleCard>
+</CardGrid>

@@ -1,0 +1,148 @@
+---
+about_tallyfy: true
+description: The Task Intent Widget turns AI chat into Tallyfy work with one click.
+  As you talk to Claude, Codex, Gemini, or Ollama, the widget watches for task, process,
+  and template intent and surfaces an inline affordance to create them in Tallyfy.
+id: 02326be90a20d942cd0bba4147e9e4f2
+sidebar:
+  label: Task Intent Widget
+  order: 7
+title: Task Intent Widget
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## What the widget does
+
+You're chatting with Claude about next quarter's hiring plan. You say "let's create a task for me to review the candidate pipeline on Friday." Without the Task Intent Widget, that's where it ends. You'd switch to Tallyfy in another browser tab, click "new task," fill in a form, copy details over.
+
+With the Task Intent Widget, a small box appears at the bottom of Claude's chat bubble. It shows the proposed task title and a "Create task" button. Click it. Done. The task is in Tallyfy, assigned to you, due Friday, with a deep link back to the conversation.
+
+![Task Intent Widget showing inline at the bottom of an AI chat bubble](https://screenshots.tallyfy.com/desktop-ai/task-intent-widget.png)
+
+This is the feature that makes Tallyfy Desktop different from any other AI chat app. Other chat apps end at the response. The Task Intent Widget closes the loop: AI suggests work, you confirm, Tallyfy tracks it.
+
+## Three kinds of intent
+
+The widget recognises three kinds of intent and shows a different prefill for each:
+
+| Intent | When it fires | What the widget creates |
+|---|---|---|
+| **Create task** | The AI suggests a single piece of work ("create a task to...", "remind me to...", "let's add a todo for...") | A new task in Tallyfy with title, optional assignee, optional deadline, optional priority |
+| **Launch process** | The AI suggests starting a workflow ("let's launch the customer onboarding process", "run the audit template for Q3", "kick off the review workflow") | A new process from an existing template, with the kickoff form pre-filled if the AI provided enough detail |
+| **Edit template** | The AI suggests modifying a workflow ("we should add a step for legal review", "let's update the onboarding template to include training") | A template edit (add step, remove step, edit step), opened in a side panel for confirmation |
+
+For each kind, the widget validates the intent against your Tallyfy permissions. If you can't edit templates, the "Edit template" widget never appears. If a process name resolves to a template you don't have access to, the widget shows an error and offers to ping the template owner.
+
+## Four widget states
+
+The widget transitions through four UI states based on what you do with it:
+
+1. **Collapsed** - the default state. Shows a one-line summary ("Create task: Review candidate pipeline Friday") and a primary button ("Create task"). About 40 pixels tall, so it doesn't dominate the chat bubble.
+
+2. **Expanded** - click the chevron or "edit" on the collapsed widget. Shows all the prefilled fields (title, description, assignee, deadline, priority for tasks; template, name, kickoff fields for processes; step change details for templates). You can tweak any field inline before confirming.
+
+3. **Modal** - if the prefill is complex (e.g., a process with five kickoff fields) or ambiguous (e.g., three templates match the AI's suggestion), the widget opens a full form modal. Same fields as expanded, but with more room and the ability to pick from a dropdown when there are multiple candidates.
+
+4. **Confirmation** - after you click the create button and Tallyfy responds with a 201. The widget replaces itself with a green check, the title of what got created, and a "View in Tallyfy" link that opens the new task or process.
+
+## How detection works
+
+The widget uses a two-stage pipeline so it's both fast and accurate.
+
+### Stage 1: regex (always on)
+
+As the AI streams text into the chat, a regex pattern matcher runs on each chunk. It looks for phrases that strongly suggest intent: "create a task", "add a todo", "let's launch", "we should add a step", and so on. Stage 1 is cheap, runs locally, and produces a confidence score of 0.7 for any hit.
+
+False positives are acceptable at this stage. If the widget shows up when you weren't asking for a task, click the X to dismiss it. The dismiss is sticky for that chat bubble; the widget won't reappear for the same span of text.
+
+### Stage 2: LLM extraction (Claude only, opt-in)
+
+For Claude conversations specifically, stage 2 fires after the AI finishes its message (debounced 500ms after the last text chunk). It asks Claude itself to look at the message and extract structured intent into a JSON envelope. This catches intent that regex misses ("we ought to look at..." doesn't match a regex but obviously means "create a task to look at...").
+
+Stage 2 runs only if:
+
+1. The provider supports tool use (Claude in v1)
+2. Stage 1 produced at least one hit on the message (to avoid LLM cost on chit-chat)
+3. You haven't disabled it in settings (default on for Claude, off for everything else)
+
+When stage 1 and stage 2 disagree, stage 2 wins (it's the more accurate signal). The widget updates in place; no flicker.
+
+For Codex, Gemini, and Ollama, only stage 1 runs. Stage 2 will arrive in v2 when those providers stabilise their tool-use semantics.
+
+## Privacy
+
+Stage 1 runs entirely on your machine. The regex patterns are baked into the desktop app source code; no remote calls.
+
+Stage 2 (Claude only) uses the same provider you're already chatting with. The extraction call is one extra prompt to Claude per message, charged to your Claude subscription (typically less than a cent per call because the extraction prompt is short). The call uses the same API session as your chat; no new authentication, no new endpoint.
+
+Tallyfy itself sees only the final action: a `POST /api/tasks`, a `POST /api/checklists/<id>/runs`, or a `PATCH /api/checklists/<id>/steps/<stepId>`. The widget doesn't send your prompt text to Tallyfy. The widget doesn't log to a third-party telemetry endpoint.
+
+## Resolving ambiguous intent
+
+A common case: you say "launch the onboarding process" and you have three templates whose names contain "onboarding" (customer, employee, vendor). The widget can't pick blindly.
+
+Here's what happens:
+
+1. The widget detects the intent and tries to resolve the template name with a fuzzy substring search against your accessible templates
+2. If zero templates match, the widget shows an error: "No template matches 'onboarding'. Pick one from the list?"
+3. If one template matches with high confidence, the widget uses it and shows the name in the prefill
+4. If multiple templates match (2-5), the widget escalates to the modal state and shows them all with the best match pre-selected
+5. If too many match (>5), the modal shows a search box
+
+The same pattern applies to assignees ("create a task for John" with two Johns in your org) and templates for edits.
+
+## What happens after you click "Create"
+
+The widget calls Tallyfy's API behind the scenes. The exact endpoint depends on the intent:
+
+| Intent | Endpoint |
+|---|---|
+| Create task | `POST /api/tasks` |
+| Launch process | `POST /api/checklists/<templateId>/runs` (with `templateId` resolved from the template name, if needed) |
+| Edit template | `PATCH /api/checklists/<templateId>/steps/<stepId>` |
+
+The Tallyfy task or process is tagged with metadata that identifies the source: provider id, model name, run id (so you can trace it back to the Terminal Jobs entry), and a flag `source: 'desktop-intent-widget'`. This makes it easy to audit AI-generated work later: filter the Tasks view by that source tag.
+
+On success (HTTP 201), the widget transitions to the confirmation state. The deep link goes to the new item; you can pick whether it opens in the desktop app (`tallyfy://desktop-task/<id>`) or in your browser (`https://go.tallyfy.com/...`).
+
+On failure (HTTP 4xx or 5xx), the widget shows an error state with the API error message and a "Retry" button. It does *not* collapse back; you already committed to creating something, so the widget stays visible until you either succeed or dismiss.
+
+## Disabling the widget
+
+Some users don't want the widget to fire. You can disable it:
+
+- **Globally**: Settings, Task Intent Widget, "Enabled" toggle off. The widget never appears in any provider's chat.
+- **Per provider**: Settings, Task Intent Widget, Per-provider, toggle Claude / Codex / Gemini / Ollama independently. Useful if you want it for Claude but find it noisy on Ollama.
+- **Per chat bubble**: click the X on a widget instance. The dismiss is sticky for that specific bubble. Other widgets in other bubbles still appear.
+
+The detection cost when disabled is zero. The regex isn't even run.
+
+## Tuning detection accuracy
+
+The widget is calibrated against a corpus of 100 example messages (30+ of which are negative examples like sarcasm, hypotheticals, or chit-chat that shouldn't trigger). The current calibration aims for precision >= 0.85 and recall >= 0.75 on that corpus.
+
+If you find the widget firing too often or too rarely on your messages, file an issue on the [desktop repo](https://github.com/tallyfy/desktop/issues)<a href="https://github.com/tallyfy/desktop/issues" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a> with the prompt text and what you expected. Real-world miscalibrations feed back into the test corpus.
+
+## What it looks like in each provider
+
+The widget UI is identical across providers; what changes is the detection signal:
+
+- **Claude** - both stages run; the highest accuracy. Tool-use events from Claude's MCP calls can also trigger the widget (e.g., if Claude calls the Tallyfy `create_task` MCP tool, the widget reflects what was created).
+- **Gemini** - stage 1 only in v1. Detection accuracy is lower than Claude.
+- **Codex** - stage 1 only. Plain text stream means the widget watches Codex's response chunks for patterns.
+- **Ollama** - stage 1 only. Works the same as Codex; quality depends on how clearly the local model articulates intent.
+
+## When the widget is the moat
+
+If you're evaluating Tallyfy Desktop against other AI clients, the widget is the differentiator. Plenty of apps let you chat with Claude. Almost none of them let you turn that chat into structured work in a workflow system with one click.
+
+The widget is also the answer to "why use Tallyfy Desktop instead of the web client." The web client doesn't have any AI providers at all. The desktop app does, and the widget binds them to Tallyfy.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Tallyfy Desktop AI surface</b>" href="/products/pro/integrations/tallyfy-desktop-ai/" > Tallyfy Desktop v2.0.0 is a multi-tab AI-first app that pairs four AI assistants (Claude, Codex... </LinkTitleCard>
+<LinkTitleCard header="<b>Byo Ai > Claude integration</b>" href="/products/pro/integrations/byo-ai/claude-integration/" > Claude connects to Tallyfy's MCP server at mcp.tallyfy.com using OAuth 2.1 with PKCE. Manage... </LinkTitleCard>
+<LinkTitleCard header="<b>Byo Ai > Use cases</b>" href="/products/pro/integrations/byo-ai/use-cases/" > Connect any major AI platform to Tallyfy through MCP to manage tasks, check process status... </LinkTitleCard>
+<LinkTitleCard header="<b>Tallyfy Desktop Ai > Connect Claude to Tallyfy Desktop</b>" href="/products/pro/integrations/tallyfy-desktop-ai/connect-claude/" > Install the Anthropic Claude CLI and sign into your Claude.ai subscription so Tallyfy Desktop... </LinkTitleCard>
+</CardGrid>

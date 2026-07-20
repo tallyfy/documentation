@@ -1,0 +1,100 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI settings merge across six scopes, from built-in defaults
+  to company-managed policy. Permission rules decide which commands run, ask, or get
+  blocked, workspace trust keeps cloned repositories from running hooks, and one doctor
+  command checks it all.
+id: 462676bfd099839dc5c641fb1183b4c7
+sidebar:
+  order: 6
+title: Configuration and permissions
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Controlling what the Tallyfy CLI can do
+
+You can run the CLI with zero configuration and it behaves sensibly. But when a team shares it, or automation runs unattended, you'll want control: which organization commands target, which actions run freely, which ones ask first, and which are blocked outright. Settings and permission rules give you that control, and one command shows you exactly where every value came from.
+
+### Six places settings can come from
+
+Settings merge across six scopes. Later scopes win for single values, so the list runs from weakest to strongest:
+
+1. **Defaults** built into the CLI.
+2. **User**: your personal settings, applied everywhere you use the CLI.
+3. **Project**: settings in a workspace's `.tallyfy` folder, committed and shared with teammates.
+4. **Local**: your personal overrides for one workspace, kept out of version control.
+5. **Flags**: whatever you pass on the command line, including `--settings` with a JSON file or inline JSON.
+6. **Managed**: policy your company sets centrally. It outranks everything.
+
+Two merge behaviors matter. Single values (like the default output format) simply get overridden by the stronger scope. List values (permissions, hooks, and MCP servers) merge across scopes instead, so a project can add rules without erasing yours.
+
+When a setting isn't doing what you expect, ask the CLI to show its work:
+
+```bash
+tallyfy config list --show-sources
+```
+
+That lists every effective setting and which file set it. `tallyfy config get` prints one resolved value, and `tallyfy config set` writes a value into a chosen scope's settings file.
+
+### Permission rules: allow, ask, or deny
+
+Every rule names a resource and a verb, like Task(complete) or Blueprint(delete), and assigns one of three answers:
+
+- **Allow**: the action runs without fuss. Read verbs like `list` and `get` are allowed by default.
+- **Ask**: the CLI asks you to confirm at the terminal. In a script with no terminal, ask becomes deny unless the command carries `--yes`.
+- **Deny**: the action is blocked. Deny always wins, no matter what another scope allows.
+
+This is how you give a shared automation account a narrow job: allow the two verbs it needs, deny the rest, and sleep fine. A ready-made read-only example lives in the [CI/CD approval gates](/products/pro/integrations/cli/ci-cd-approval-gates/) guide.
+
+### Managed policy for IT teams
+
+The managed scope is for company-wide policy: it can force which organization the CLI targets and lock permission rules so individual users can't loosen them. Because managed sits above every other scope, a laptop's local settings can never override it.
+
+### Hooks and workspace trust
+
+Hooks are your own scripts that run around CLI commands, and they can block a command from running at all. A blocked command exits with code 8, so automation notices.
+
+Because project hooks execute code on your machine, they're gated behind trust. Hooks defined in a workspace's `.tallyfy/settings.json` run only after you've explicitly trusted that workspace:
+
+```bash
+tallyfy trust           # trust the current workspace
+tallyfy trust status    # is it trusted?
+tallyfy trust remove    # revoke trust
+```
+
+The point: cloning a stranger's repository must never be enough to run commands on your computer just because you used the CLI inside it.
+
+### Check the whole setup in one go
+
+`tallyfy doctor` runs read-only checks across configuration, credential source, API reachability, the active organization, permission-rule validity, and the credential backend, then reports what's healthy and what isn't. It's the first command to run when anything misbehaves.
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+A permissions block in a settings file looks like this, with rules merged across scopes and deny winning every conflict:
+
+```json
+{
+  "permissions": {
+    "allow": ["Task(list)", "Task(get)", "Task(complete)"],
+    "ask": ["Process(launch)"],
+    "deny": ["Blueprint(delete)"]
+  }
+}
+```
+
+Useful details:
+
+- The active organization is stored in the CLI's state file (state.json). Resolution order for org targeting: the `--org` flag, then an org setting, then the org chosen with `tallyfy org use`. A managed forceOrg policy overrides them all.
+- `--settings` accepts either a path to a JSON file or an inline JSON object, which is handy for one-off runs and CI jobs.
+- `tallyfy doctor` validates your permission rules, so run it after editing settings files by hand.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Cli > Troubleshoot the CLI</b>" href="/products/pro/integrations/cli/troubleshooting/" > Tallyfy CLI problems usually start with the doctor command, which checks your setup end to end... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Command reference</b>" href="/products/pro/integrations/cli/command-reference/" > Tallyfy CLI commands follow one resource-plus-verb pattern with aliases matching both UI and API... </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > The Tallyfy CLI brings scriptable workflow automation to any terminal or pipeline. Install it... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Authenticate the CLI</b>" href="/products/pro/integrations/cli/authentication/" > Tallyfy CLI authentication takes one paste of a personal access token, stored safely in your... </LinkTitleCard>
+</CardGrid>

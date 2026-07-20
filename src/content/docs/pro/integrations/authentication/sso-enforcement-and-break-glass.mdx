@@ -1,0 +1,92 @@
+---
+about_tallyfy: true
+description: Require SSO for your whole organization so members can only sign in through
+  your identity provider. Enforcement needs a verified domain first, asks for step-up
+  re-auth, and emails all admins. Org owners and admins keep a password fallback as
+  a break-glass so a broken IdP can't lock you out.
+id: 15505911856170f8aa92bd53961a4d11
+lastUpdated: 2026-06-10
+sidebar:
+  order: 7
+title: SSO enforcement and break-glass
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Make SSO the only way in
+
+Enforcement locks your organization down so members sign in only through your identity provider. Email and password logins are turned off for regular members, and manual invites are blocked, so everyone comes through SSO. You turn it on with the **Require SSO** switch under **Settings > Organization > Security > SSO**, on any paid plan.
+
+Here's the part that keeps this safe: org owners and admins always keep their password login, even under enforcement. That's the break-glass. If your identity provider goes down or a config change breaks SSO, an admin can still sign in with a password and fix it. You can't accidentally lock your whole org out.
+
+### What enforcement changes
+
+When **Require SSO** is on:
+
+- Email and password logins are turned off for regular members
+- Manual member invites are blocked, so all new members arrive through your IdP
+- Anyone who hits the regular login page is redirected to your SAML sign-in
+- Owners and admins keep password login as the break-glass fallback
+
+### You need a verified domain first
+
+The **Require SSO** switch stays disabled until you have a verified domain. That's deliberate. Enforcing SSO without proof that you own your email domain is risky, so Tallyfy gates it behind verification. If the switch is greyed out, go verify a domain first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
+
+### Turn on enforcement
+
+Before you flip the switch, confirm SSO actually works: run the connection test in the wizard and do a real test login. Enforcement is a safety-sensitive change, so Tallyfy adds a couple of guardrails when you turn it on.
+
+<Steps>
+1. Go to **Settings > Organization > Security > SSO** and make sure your connection is enabled and tested.
+2. Turn on the **Require SSO** switch.
+3. Re-enter your password when prompted. This step-up check confirms it's really you making a high-impact change.
+4. Read the confirmation dialog. It restates the break-glass guarantee: owners and admins keep password login. Confirm.
+5. Tallyfy emails every org admin that enforcement changed, so the change is never silent.
+</Steps>
+
+Turning enforcement on doesn't kill people's active sessions mid-work. New sign-ins go through SSO from that point on.
+
+### The break-glass guarantee
+
+Enforcement is meant to tighten security, not to be a trap. The break-glass rule is simple:
+
+- **Regular members** can only sign in through SSO once enforcement is on.
+- **Owners and admins** can always fall back to password login.
+
+So if your IdP has an outage, a certificate expires, or a misconfiguration breaks the SAML flow, an admin signs in with a password, fixes the connection or turns enforcement off, and the rest of the team is back in. This is the same pattern teams expect from tools like Notion and Linear.
+
+:::note[Keep at least one admin password reachable]
+Make sure at least one owner or admin knows their Tallyfy password (or can reset it through their email) and isn't dependent on SSO themselves. That account is your recovery path if SSO ever breaks.
+:::
+
+### Recover from a broken IdP
+
+If SSO stops working while enforcement is on:
+
+<Steps>
+1. An owner or admin signs in at the normal Tallyfy login with their email and password (the break-glass path stays open for them).
+2. Go to **Settings > Organization > Security > SSO** and check the connection. Re-run the test to see the specific error.
+3. Fix the cause. A common one is an expired IdP signing certificate, which you re-upload or re-import via the metadata URL.
+4. If you need to let the whole team back in immediately, turn **Require SSO** off, sort out the IdP, then turn it back on.
+</Steps>
+
+### Turn enforcement off
+
+You can lift enforcement at any time from the same switch. It also asks for step-up re-auth and emails the admins. With enforcement off, members can use password login again, and the change is logged in the security activity feed like every other SSO change.
+
+### Troubleshooting
+
+- **The Require SSO switch is disabled** - you don't have a verified domain yet. Verify one under the **Domains** tab.
+- **A member is stuck at login** - confirm they're assigned to the app in your IdP and they're using the SSO URL. Regular members can't use password login under enforcement.
+- **You think you're locked out** - you're not, if you're an owner or admin. Use the normal login page with your password. If you've forgotten it, reset it through your email.
+- **Changes you didn't expect** - the security **Activity** tab shows who changed enforcement and when, so you can see exactly what happened.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Authentication and SSO</b>" href="/products/pro/integrations/authentication/" > Tallyfy offers free, self-serve SSO and SCIM on any paid plan with support for Microsoft Entra... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Domain verification</b>" href="/products/pro/integrations/authentication/domain-verification/" > Verify ownership of your organization's email domains in Tallyfy by adding a DNS TXT record. A... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate OneLogin SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-onelogin-samlsso-with-tallyfy/" > Set up SAML-based Single Sign-On between OneLogin and Tallyfy yourself. Create a custom SAML... </LinkTitleCard>
+<LinkTitleCard header="<b>Authentication > Integrate Microsoft Entra ID SSO</b>" href="/products/pro/integrations/authentication/how-to-integrate-azure-ad-samlsso-with-tallyfy/" > Tallyfy integrates with Microsoft Entra ID (formerly Azure Active Directory) for self-serve SAML... </LinkTitleCard>
+</CardGrid>

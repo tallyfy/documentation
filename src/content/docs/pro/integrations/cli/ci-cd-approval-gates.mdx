@@ -1,0 +1,87 @@
+---
+about_tallyfy: true
+description: Tallyfy CLI turns human sign-off into a pipeline step. One command blocks
+  your CI job until a named task is completed, so releases, deployments, and migrations
+  wait for approval without anyone watching a dashboard or writing polling code.
+id: 2addc4d634160eab51dbcabe15faa17f
+sidebar:
+  order: 5
+title: CI/CD approval gates
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Making your pipeline wait for a person
+
+A deployment shouldn't go out just because the tests passed. Sometimes a person needs to say yes first: a release manager, a compliance officer, a customer. The Tallyfy CLI turns that sign-off into an ordinary pipeline step: one command that waits until a named Tallyfy task is completed, then lets the pipeline continue. The approver just completes a task, the same way they complete any other work.
+
+### The one-line gate
+
+```bash
+tallyfy task wait TASK_ID
+```
+
+The command blocks until that [task](/products/pro/tracking-and-tasks/tasks/) is marked complete, then exits successfully so the next pipeline step runs. If the wait can't succeed, the exit code says why, and your pipeline fails loudly instead of deploying quietly.
+
+### What the approver sees
+
+Nothing new. The approval task lives in a normal Tallyfy process, so the approver finds it in their task list and email like everything else, with the full context your blueprint provides: form fields, links, comments, and history. They review, they complete the task, and your pipeline moves. There's a permanent record of who approved what, and when.
+
+### Where the task ID comes from
+
+Two common patterns:
+
+- **Launch, then wait.** An earlier pipeline step launches your release process with `tallyfy process launch` and captures the approval task's ID from its output.
+- **A standing gate.** For recurring jobs, look up the right task at runtime with `tallyfy task list` and wait on it.
+
+## For developers
+
+*(Skip this unless you're setting up the technical side.)*
+
+### A GitHub Actions example
+
+```yaml
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for release sign-off
+        run: tallyfy task wait "$APPROVAL_TASK_ID"
+        env:
+          TALLYFY_API_TOKEN: ${{ secrets.TALLYFY_API_TOKEN }}
+      - name: Deploy to production
+        run: ./deploy.sh
+```
+
+Store the token as a CI secret, and prefer an application token over a personal one so the gate doesn't break when someone logs out. Details are in [authentication](/products/pro/integrations/cli/authentication/).
+
+### Headless behavior
+
+Pipelines have no terminal, and the CLI is built for that:
+
+- With no terminal attached, the CLI turns on `--no-input` automatically. It never sits waiting on a prompt; it fails with a clear exit code instead.
+- Read verbs like `list`, `get`, and status checks are allowed by default, so a valid token is all a monitoring job needs.
+- Actions your permission rules mark as "ask" are denied in headless runs unless the command carries `--yes`. That's deliberate: a script must state its intent to do anything destructive.
+
+### A read-only profile for CI
+
+A pipeline that only needs to watch shouldn't hold the power to change things. Permission rules use a Resource(verb) pattern with allow, ask, and deny lists, and deny always wins. A CI profile like this can observe tasks and processes but touch nothing:
+
+```json
+{
+  "permissions": {
+    "allow": ["Task(list)", "Task(get)", "Process(list)", "Process(get)"],
+    "deny": ["Blueprint(delete)", "Process(archive)", "User(disable)"]
+  }
+}
+```
+
+The full rule syntax, the six settings scopes, and centrally managed policy are covered in [configuration and permissions](/products/pro/integrations/cli/configuration-and-permissions/).
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Tallyfy CLI</b>" href="/products/pro/integrations/cli/" > The Tallyfy CLI brings scriptable workflow automation to any terminal or pipeline. Install it... </LinkTitleCard>
+<LinkTitleCard header="<b>How To > Complex approval workflows</b>" href="/products/pro/tutorials/how-to/track-and-run-complex-approval-workflows/" > Tallyfy turns multi-level approval processes into visible, trackable workflows. Use kick-off... </LinkTitleCard>
+<LinkTitleCard header="<b>Power Automate > Building approval workflows with Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate/" > Power Automate's formal approval actions can wrap around Tallyfy processes to handle conditional... </LinkTitleCard>
+<LinkTitleCard header="<b>Cli > Configuration and permissions</b>" href="/products/pro/integrations/cli/configuration-and-permissions/" > Tallyfy CLI settings merge across six scopes, from built-in defaults to company-managed policy... </LinkTitleCard>
+</CardGrid>

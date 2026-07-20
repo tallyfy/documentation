@@ -5,7 +5,7 @@ description: Tallyfy's REST API gives developers full programmatic access to the
   template control, and data export with three authentication methods, standard JSON
   responses, and required headers.
 id: 256fa31154eb2d6af8bf7b80f5e2f8bd
-lastUpdated: 2026-04-25
+lastUpdated: 2026-07-19
 sidebar:
   order: 3
 title: Open API
@@ -77,7 +77,21 @@ Tallyfy API responses follow standard conventions:
 
 ### Rate limits
 
-Tallyfy enforces rate limits per organization. If you're hitting limits regularly, implement caching or batching - and contact support for high-volume use cases.
+Tallyfy limits how fast you can call the API at two layers. When you cross a limit, the API returns HTTP 429 with a `Retry-After` header telling you how many seconds to wait before retrying.
+
+- **Burst protection**: rapid bursts of requests from one user or IP address get throttled for a few seconds at a time. Spread out bulk operations instead of firing them all at once.
+- **Hourly caps per organization**: actions that send email to people outside your organization have hourly caps. By default, guest invites (including mentions of new email addresses in comments) allow 30 per hour, and comment posting allows 120 per hour, per organization.
+
+Hourly-cap responses include `code: "RATE_LIMIT_EXCEEDED"` in the JSON body:
+
+```json
+{
+  "message": "You've reached the hourly limit for Guest Invite (30 per hour per organization). Please try again later.",
+  "code": "RATE_LIMIT_EXCEEDED"
+}
+```
+
+Wait the number of seconds given in `Retry-After`, then retry. If you're hitting limits regularly, implement caching or batching - and contact support for high-volume use cases.
 
 ### Getting started
 
@@ -87,6 +101,10 @@ Tallyfy enforces rate limits per organization. If you're hitting limits regularl
 
 :::note[Testing API calls]
 Use tools like Postman, Insomnia, or `curl` to test API requests.
+:::
+
+:::tip[Want a ready-made command line tool?]
+The [Tallyfy CLI](/products/pro/integrations/cli/) wraps this API for you - authentication, required headers, and retries are handled automatically. Launch processes, export templates, and script bulk jobs without writing any HTTP code.
 :::
 
 
@@ -107,5 +125,5 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <LinkTitleCard header="<b>Open Api > API integration guide</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Tallyfy's REST API lets you connect workflow features to external systems using OAuth 2.0... </LinkTitleCard>
 <LinkTitleCard header="<b>Open Api > Third-party application API access</b>" href="/products/pro/integrations/open-api/access-api-as-a-third-party-application-instead-of-a-user/" > Third-party apps can access Tallyfy's API through OAuth 2.0 client credentials. Your app gets an... </LinkTitleCard>
 <LinkTitleCard header="<b>Api Clients > Getting started with Postman API testing</b>" href="/products/pro/integrations/open-api/api-clients/postman/" > Test Tallyfy's REST API in Postman without writing code. Authenticate with the password grant... </LinkTitleCard>
-<LinkTitleCard header="<b>Code Samples > Authentication methods</b>" href="/products/pro/integrations/open-api/code-samples/authentication/" > Tallyfy API authentication uses either a personal access token (lasting 6 months from Settings)... </LinkTitleCard>
+<LinkTitleCard header="<b>Open Api > API code samples</b>" href="/products/pro/integrations/open-api/code-samples/" > Tallyfy's REST API code samples are organized by resource category with working examples in six... </LinkTitleCard>
 </CardGrid>

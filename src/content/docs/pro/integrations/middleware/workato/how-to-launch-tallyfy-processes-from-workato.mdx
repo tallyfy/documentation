@@ -85,7 +85,7 @@ W -> W: "8. Log success\nor handle error" {
 
 **Key points:**
 - Authentication (step 4) needs a Bearer token and the `X-Tallyfy-Client` header - missing either causes a 401 error
-- Workato maps your trigger data into the `prerun` object, which populates kick-off form fields automatically (step 2)
+- Workato maps your trigger data into the `prerun` object, keyed by each kick-off field's timeline ID, which populates those fields automatically (step 2)
 - Error handling (step 8) catches authentication failures, bad template IDs, or data format issues
 
 ### Prerequisites
@@ -96,6 +96,7 @@ You'll need:
 - Your Tallyfy API token from **Settings > Integrations > REST API**
 - Your organization ID (found in **Settings > Organization**)
 - The template ID for the process you want to launch
+- The timeline ID of each kick-off form field you want to pre-fill (see Step 4)
 
 ### Step 1 - Create the HTTP connection in Workato
 
@@ -140,13 +141,15 @@ Add this JSON to the **Request body** field:
   "name": "Process name from trigger data",
   "owner_id": "USER_ID",
   "prerun": {
-    "field1_name": "value from trigger",
-    "field2_name": "another value"
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6": "value from trigger",
+    "3c9d1e7fa4b820516d8e2f7a9c0b4d15": "another value"
   }
 }
 ```
 
 The `checklist_id` is the template's timeline ID (what the API calls a "blueprint" internally). The `name` field sets the process title. The `owner_id` is optional - if omitted, the authenticated user becomes the owner.
+
+The keys inside `prerun` are the timeline IDs of your kick-off form fields, each a 32-character hex string. They are not the field labels or aliases. Step 4 shows how to find them.
 
 #### Mapping dynamic data
 
@@ -161,20 +164,40 @@ Instead of hardcoding values, use Workato's Formula mode:
   "name": "Order " + trigger["order_number"] + " - " + trigger["customer_name"],
   "owner_id": "user456",
   "prerun": {
-    "customer_name": trigger["customer_name"],
-    "order_value": trigger["total_amount"],
-    "priority": trigger["priority"]
+    # Customer name field
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6": trigger["customer_name"],
+    # Order value field
+    "3c9d1e7fa4b820516d8e2f7a9c0b4d15": trigger["total_amount"],
+    # Priority field
+    "9f2b7c1e4a6d8035b1c7e9d2f4a6b801": trigger["priority"]
   }
 }
 ```
+
+Keep a comment next to each ID so the recipe stays readable. Nothing in the payload tells you which field an ID belongs to.
 
 ### Step 4 - Handle kick-off form fields
 
 If your template has a [kick-off form](/products/pro/launching/triggers/kick-off-forms/), populate those fields through the `prerun` object:
 
 1. Check which kick-off form fields are required in your template
-2. Map each field in the `prerun` section
-3. Match data types (text, number, date, etc.)
+2. Get each field's timeline ID by calling `GET https://go.tallyfy.com/api/organizations/YOUR_ORG_ID/checklists/YOUR_TEMPLATE_ID` and reading the `id` on each entry of the `prerun` array in the response. Ignore the `alias` next to it - alias keys don't work
+3. Use those IDs as the keys in your `prerun` object
+4. Match the value format to the field type (see the table below)
+
+The value format depends on what kind of field it is:
+
+| Field type | Value to send |
+|------------|---------------|
+| Short text, long text, email | A plain string: `"John Smith"` |
+| Date | An ISO 8601 string: `"2026-03-15T00:00:00.000Z"` |
+| Radio button | The option's text as a plain string: `"Full-time"` |
+| Dropdown | An object with both keys: `{ "id": 2, "text": "Engineering" }` |
+| Checklist (multi-select) | A list of those objects: `[{ "id": 1, "text": "Laptop" }]` |
+| Table | A list with one entry per column |
+| Assignees | `{ "users": [], "guests": [], "groups": [] }` |
+
+Dropdown and radio look alike in the app but take different shapes here. A radio takes the bare text, a dropdown needs the `id` and `text` pair.
 
 Here's an example with different field types:
 ```json
@@ -183,14 +206,16 @@ Here's an example with different field types:
   "name": "New Employee: John Smith",
   "owner_id": "hr_manager_id",
   "prerun": {
-    "employee_name": "John Smith",
-    "start_date": "2026-03-15",
-    "department": "Engineering",
-    "salary": 75000,
-    "remote_worker": true
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6": "John Smith",
+    "3c9d1e7fa4b820516d8e2f7a9c0b4d15": "2026-03-15T00:00:00.000Z",
+    "9f2b7c1e4a6d8035b1c7e9d2f4a6b801": { "id": 2, "text": "Engineering" },
+    "6e4a2c80f19b3d75e0a8c246b93f157d": "75000",
+    "2d7f9a1c5e3b806478d0a2c4e6f81b39": "Full-time"
   }
 }
 ```
+
+Reading top to bottom, that's a text field, a date, a dropdown, a text field holding a number, and a radio button.
 
 ### Step 5 - Use the Tallyfy response
 
@@ -251,8 +276,8 @@ Run recurring processes on a schedule:
 
 #### Kick-off form data not appearing?
 
-- Field names in `prerun` must match exactly (they're case-sensitive)
-- Data types need to match field expectations
+- Each key in `prerun` must be a kick-off field's timeline ID, not the field's label or alias. A key that matches no field is discarded silently, so the launch still succeeds with that field empty
+- Value formats need to match the field type (see the table in Step 4). A dropdown sent as bare text is rejected
 - Required fields can't be empty
 
 #### Getting 422 validation errors?

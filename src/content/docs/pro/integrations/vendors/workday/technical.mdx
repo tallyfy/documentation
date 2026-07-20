@@ -28,16 +28,17 @@ Use Workday's native integration platform for scheduled data sync:
   </source>
   <transformation>
     <map-to-tallyfy>
-      <field source="Employee_ID" target="employee_id"/>
-      <field source="Legal_Name" target="full_name"/>
-      <field source="Job_Profile" target="position"/>
-      <field source="Supervisory_Organization" target="department"/>
+      <!-- each target is the kick-off field's timeline ID -->
+      <field source="Employee_ID" target="a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"/>
+      <field source="Legal_Name" target="3c9d1e7fa4b820516d8e2f7a9c0b4d15"/>
+      <field source="Job_Profile" target="9f2b7c1e4a6d8035b1c7e9d2f4a6b801"/>
+      <field source="Supervisory_Organization" target="6e4a2c80f19b3d75e0a8c246b93f157d"/>
     </map-to-tallyfy>
   </transformation>
   <target>
     <tallyfy-api>
       <endpoint>https://go.tallyfy.com/api/organizations/{org_id}/runs</endpoint>
-      <template>enterprise_onboarding</template>
+      <template>f7e6d5c4b3a2918070615243342516f0</template>
     </tallyfy-api>
   </target>
 </integration>
@@ -63,15 +64,16 @@ const processWorkdayEvent = async (event) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          checklist_id: 'enterprise_onboarding',
+          checklist_id: 'f7e6d5c4b3a2918070615243342516f0',
+          // prerun keys are the kick-off fields' timeline IDs, not their labels
           prerun: {
-            employee_id: worker.employeeID,
-            name: worker.legalName,
-            email: worker.workEmail,
-            cost_center: worker.costCenter,
-            location: worker.primaryWorkLocation,
-            job_profile: worker.jobProfile,
-            manager: worker.manager
+            'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6': worker.employeeID,         // Employee ID
+            '3c9d1e7fa4b820516d8e2f7a9c0b4d15': worker.legalName,          // Full name
+            '9f2b7c1e4a6d8035b1c7e9d2f4a6b801': worker.workEmail,          // Email
+            '6e4a2c80f19b3d75e0a8c246b93f157d': worker.costCenter,         // Cost center
+            '2d7f9a1c5e3b806478d0a2c4e6f81b39': worker.primaryWorkLocation, // Location
+            '5b8c0e2a7f4d1936a8e0c5b3d7f92146': worker.jobProfile,         // Job title
+            '0a3e6b9d2c8f5174e9b2d6a0c4f83b57': worker.manager             // Manager
           }
         })
       }
@@ -82,11 +84,13 @@ const processWorkdayEvent = async (event) => {
 };
 ```
 
+The `prerun` object is keyed by each kick-off field's timeline ID, a 32-character hex string. You'll find it as the `id` on each entry of the `prerun` array returned by `GET /organizations/{org_id}/checklists/{checklist_id}`. Don't use the `alias` sitting next to it - alias keys never match, and Tallyfy drops unmatched keys silently, so the process launches successfully with that field left blank.
+
 ## Data mapping
 
-Here's how common Workday fields map to Tallyfy process variables:
+Here's how common Workday fields map to Tallyfy kick-off form fields. The Tallyfy column names the field you're aiming at - in the API payload you address it by its timeline ID, not by this name.
 
-| Workday Field | Tallyfy Variable | Description |
+| Workday Field | Tallyfy kick-off field | Description |
 |---------------|------------------|-------------|
 | `employeeID` | `employee_id` | Unique employee identifier |
 | `legalName` | `full_name` | Employee full name |
