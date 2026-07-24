@@ -52,15 +52,32 @@ For one-off tasks, `title`, `deadline`, and `owners` are **required** in every u
 
 ### Updating form fields with `taskdata`
 
-Include a `taskdata` object in the request body. Keys are **Form Field IDs (Capture IDs)**, and values depend on the field type:
+Include a `taskdata` object in the request body. Keys are **form field timeline IDs**, and values depend on the field type.
 
--   **Text/Textarea:** `{ "taskdata": { "field_id_abc": "New text value" } }`
--   **Date:** `{ "taskdata": { "field_id_def": "2025-12-31T23:59:59Z" } }`
--   **Radio Button:** `{ "taskdata": { "field_id_ghi": "Selected Value Text" } }`
--   **Dropdown:** `{ "taskdata": { "field_id_jkl": { "id": 3, "text": "Chosen Option Text", "value": null } } }` (Provide the selected option object)
--   **Multi-select Checkboxes:** `{ "taskdata": { "field_id_mno": [ { "id": 1, ..., "selected": true }, { "id": 2, ..., "selected": false }, { "id": 3, ..., "selected": true } ] } }` (Provide the full array of options with their selected status)
--   **File/Image:** See [Attach files using the API](https://tallyfy.com/products/pro/integrations/open-api/code-samples/files/upload-attach-file/) sample. Files must be uploaded first.
--   **Table:** Table fields may need specific formatting - check Swagger or contact Tallyfy support.
+`taskdata` and the `prerun` object used when [launching a process](/products/pro/integrations/open-api/code-samples/processes/launch-process/) run through the same validator, so the value shapes below are identical on both surfaces.
+
+| Field type | Value to send |
+|------------|---------------|
+| Short text | A plain string, max 200 characters |
+| Long text (textarea) | A plain string, max 30,000 characters |
+| Email | A plain string |
+| Date | An ISO 8601 string: `"2025-12-31T23:59:59Z"` |
+| Radio button | The option's text as a bare string: `"Full-time"` |
+| Dropdown | One object with both keys: `{ "id": 3, "text": "Office 365", "value": null }` |
+| Checklist (multi-select) | A list of those objects, each with `"selected"`: `[{ "id": 1, "text": "Slack", "selected": true }]` |
+| Table | A flat list with one entry per column, in column order: `["Widget", "3"]` |
+| Assignees | `{ "users": [12345], "guests": ["guest@example.com"], "groups": ["group_id"] }` |
+| File/Image | A list of file objects. See [Attach files using the API](/products/pro/integrations/open-api/code-samples/files/upload-attach-file/) - files must be uploaded first. |
+
+Three shapes catch people out:
+
+-   **Radio and dropdown look identical in the app but differ here.** A radio takes the bare option text. A dropdown needs the `id` and `text` pair together, and the `text` has to match the option exactly.
+-   **Every chosen multi-select option needs `"selected": true`.** Without it the value still saves and you still get a `200`, but the field renders as empty text wherever it's used as a `{{variable}}`. A blank multi-select in a task description or an email is nearly always a missing `selected` flag.
+-   **A table takes one entry per column, not per row.** Send a different number of entries and the request fails with `Number of columns does not match required columns`.
+
+:::caution[An unknown key fails silently]
+Tallyfy matches every `taskdata` key against the task's form field timeline IDs. A key that matches nothing is dropped without an error, so the request still returns `200 OK` with that field unchanged. If a value doesn't stick, check your keys before anything else.
+:::
 
 #### Multiple field types in one call
 
