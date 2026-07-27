@@ -1,9 +1,10 @@
 ---
 about_tallyfy: true
 description: Every Tallyfy middleware connector (Zapier, Power Automate, Workato,
-  Celigo, Make.com, and n8n) now covers the same core action set across ten categories
-  plus four polling triggers. This page maps what each connector can do and links
-  to every setup guide.
+  Celigo, Make.com, and n8n) now covers the same core action set across ten categories,
+  plus polling triggers that work everywhere today and instant (webhook) triggers that
+  push events in real time. This page maps what each connector can do and links to
+  every setup guide.
 id: b8c6289cdad4e4a6868d247eb8560e6b
 lastUpdated: 2026-07-27
 sidebar:
@@ -40,29 +41,51 @@ The shared set spans ten action categories. Each maps to real Tallyfy REST API c
 Three capability areas are a later (Tier 2) follow-up and are not part of this expansion: automation rules (if-this-then-that rules built on a template), step-level template edits (adding, deleting, cloning, reordering, or reassigning individual steps), and the optional raw API passthrough action. Until then, use the [Open API](/products/pro/integrations/open-api/) directly for those.
 :::
 
-### Four polling triggers
+### Two kinds of triggers
 
-Every connector now offers the same four triggers:
+Every connector offers the same triggers in two flavors. Polling triggers work everywhere today. Instant (webhook) triggers push events the moment they happen: they are live in Zapier and n8n, built into the Workato and Power Automate connectors, and part of the prepared Celigo and Make sets.
+
+**Polling triggers** check Tallyfy on a schedule (typically every few minutes) and de-duplicate by record id, so you never see the same item twice. That is near real time, not instant. The shared polling set:
 
 1. **New process launched** - fires when a process starts, optionally scoped to one template.
 2. **Task completed** - fires when a task is marked complete.
 3. **Task assigned to you (new task)** - fires when a new task lands in your queue.
 4. **Comment or issue added** - fires when a comment or a reported issue appears on a watched task or process.
 
-Tallyfy does not offer a webhook subscription API, so every trigger works by polling. The connector checks Tallyfy on a schedule (typically every few minutes) and de-duplicates by record id so you never see the same item twice. In practice that means near real time, not instant.
+Workato adds a fifth polling trigger, **Process completed**, which fires when a whole process reaches completed status.
+
+#### Instant (webhook) triggers
+
+Instant triggers skip the wait. Tallyfy pushes each event to your connector the moment it happens, so a Zap, recipe, or flow starts in real time instead of on the next poll. The connector registers one organization-wide webhook subscription through Tallyfy's watcher API, and Tallyfy posts every event to it.
+
+Two things to know before you rely on them:
+
+- **They need an organization admin connection.** Registering an organization webhook requires an admin account. Connect as a non-admin and Tallyfy returns a permission error, so use the matching polling trigger instead.
+- **They depend on Tallyfy's organization-webhook backend, which is rolling out.** The triggers ship in the connectors, but the backend that delivers the events is still reaching every production organization. Until yours has it enabled, an instant trigger may not fire. Use the polling trigger meanwhile, then switch once it is on.
+
+The events fire on the same moments across connectors: a process is launched or completed, a task is completed or assigned, and a comment or issue is added or resolved. What each connector calls them:
+
+| Connector | Instant (webhook) triggers |
+|---|---|
+| Zapier | New Process Launched, Process Completed, New Task Assigned, Task Completed, New Comment or Issue on a Task (5 triggers, live) |
+| n8n | One Tallyfy Trigger node in Instant (Webhook) mode, covering 7 events: process launched, process completed, task completed, task assigned, comment added, issue raised, issue resolved (live) |
+| Workato | New process launched, Process completed, Task completed, New task assigned, New comment or issue (5 triggers, built) |
+| Power Automate | Process launched, Process completed, Task completed, Task assigned, Comment or issue (5 triggers built, awaiting Microsoft certification) |
+| Celigo | Process launched, process completed, task assigned, task completed, comment or issue (5 webhook flows) |
+| Make.com | New Process Launched, Process Completed, Task Completed, New Task Assigned, New Comment or Issue (5 triggers) |
 
 ## Coverage by connector
 
-The counts below are each platform's own native operation unit for the prepared set. One Tallyfy action can appear as several native operations (or the reverse), so the raw numbers are not identical across platforms. What matters is that every connector is being brought to the same capability categories and the same four triggers listed above. Zapier and n8n already expose their full prepared set. Power Automate is live too, but only with its original certified set (13 actions, no triggers); its expanded set below is built and waiting on Microsoft certification, so it is not in the published connector yet.
+The counts below are each platform's own native operation unit for the prepared set. One Tallyfy action can appear as several native operations (or the reverse), so the raw numbers are not identical across platforms. What matters is that every connector is being brought to the same capability categories and the same core triggers listed above. Zapier and n8n already expose their full prepared set. Power Automate is live too, but only with its original certified set (13 actions, no triggers); its expanded set below is built and waiting on Microsoft certification, so it is not in the published connector yet.
 
 | Connector | Status | Prepared actions | Triggers | Authentication | Setup guide |
 |---|---|---|---|---|---|
-| n8n | Live | 96 operations across 12 resources | 4 | OAuth 2.0 | [n8n guide](/products/pro/integrations/middleware/n8n/) |
-| Zapier | Live | 52 create plus 28 search actions | 4 polling | OAuth 2.0 | [Zapier guide](/products/pro/integrations/middleware/zapier/) |
-| Power Automate | Live (original set) | 83 built, 13 live today | 4 built, 0 live yet | OAuth 2.0 | [Power Automate guide](/products/pro/integrations/middleware/power-automate/) |
-| Workato | In development | 82 actions | 5 (the 4 core plus process completed) | OAuth 2.0 | [Workato guide](/products/pro/integrations/middleware/workato/) |
-| Celigo | Live (Celigo-maintained); expansion proposed | 86 flows prepared; live set is smaller | 4 (scheduled delta-poll) | API token or OAuth 2.0 | [Celigo guide](/products/pro/integrations/middleware/celigo/) |
-| Make.com | Live (Make-maintained); expansion proposed | 85 modules prepared (81 actions plus 4 triggers); live set is smaller | 4 | Tallyfy API token | [Make guide](/products/pro/integrations/middleware/make/) |
+| n8n | Live | 96 operations across 12 resources | 4 polling + instant (7 events) | OAuth 2.0 | [n8n guide](/products/pro/integrations/middleware/n8n/) |
+| Zapier | Live | 52 create plus 28 search actions | 4 polling + 5 instant | OAuth 2.0 | [Zapier guide](/products/pro/integrations/middleware/zapier/) |
+| Power Automate | Live (original set) | 83 built, 13 live today | 4 polling + 5 webhook built, 0 live yet | OAuth 2.0 | [Power Automate guide](/products/pro/integrations/middleware/power-automate/) |
+| Workato | In development | 82 actions | 5 polling + 5 instant | OAuth 2.0 | [Workato guide](/products/pro/integrations/middleware/workato/) |
+| Celigo | Live (Celigo-maintained); expansion proposed | 86 flows prepared; live set is smaller | 4 polling + 5 instant | API token or OAuth 2.0 | [Celigo guide](/products/pro/integrations/middleware/celigo/) |
+| Make.com | Live (Make-maintained); expansion proposed | 90 modules prepared (81 actions plus 4 polling and 5 instant triggers); live set is smaller | 4 polling + 5 instant | Tallyfy API token | [Make guide](/products/pro/integrations/middleware/make/) |
 
 Make's and Celigo's official connectors are built and maintained by those vendors, not by Tallyfy, and are live today; the fuller module sets in the table above are a proposed expansion Tallyfy would coordinate with each vendor, not a self-serve publish. Once Workato is published too, all six will cover the same core actions, so you can pick the platform that best fits the rest of your stack rather than choosing on Tallyfy coverage alone. If you need something that works today, Zapier, n8n, Make, and Celigo already give you a working connector, and Power Automate ships its original certified actions. For help deciding, see [why use an integration platform](/products/pro/integrations/middleware/why-should-i-use-an-integration-platform-with-tallyfy/).
 
