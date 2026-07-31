@@ -2,9 +2,10 @@
 about_tallyfy: false
 description: The n8n community node for Tallyfy grew from 55 operations to 96 across
   users, tasks, processes, templates, form fields, comments, tags, folders, groups,
-  and search, plus a new Tallyfy Trigger node with four polling triggers, all authenticated
-  with a personal access token.
+  and search, plus a new Tallyfy Trigger node with polling and instant (webhook) modes,
+  all authenticated with a personal access token.
 id: 8cfe64ac1784acf76cb13492823e946d
+lastUpdated: 2026-07-27
 sidebar:
   order: 2
 title: n8n actions and triggers
@@ -12,10 +13,10 @@ title: n8n actions and triggers
 
 ## What the n8n node now covers
 
-The Tallyfy community node for n8n (`n8n-nodes-tallyfy`) already had the broadest coverage of any Tallyfy connector, and it grew again. It went from 55 operations to 96, covering the same ten action categories as Tallyfy's other connectors, and it gained something it never had before: a Tallyfy Trigger node with four triggers.
+The Tallyfy community node for n8n (`n8n-nodes-tallyfy`) already had the broadest coverage of any Tallyfy connector, and it grew again. It went from 55 operations to 96, covering the same ten action categories as Tallyfy's other connectors, and it gained something it never had before: a Tallyfy Trigger node that runs in two modes, polling and instant webhooks.
 
-:::note[Rollout in progress]
-This expanded set is prepared and in review. It is not yet published to npm, so the version you get from `npm install n8n-nodes-tallyfy` may still be the older, smaller set until the package is updated.
+:::note[Available now on npm]
+The expanded operation set (96 operations) and the new Tallyfy Trigger node are published on npm in version 1.1.1, so `npm install n8n-nodes-tallyfy` gives you the full set today. Version 1.1.1 also includes the fix for encoding choice-field values (dropdown, multiselect, and radio) when you pass them into a kickoff form on launch.
 :::
 
 ### Actions by category
@@ -41,7 +42,7 @@ Automation rules, step-level template edits (adding, cloning, reordering, or rea
 
 ### Triggers (polling)
 
-n8n went from zero triggers to four, in a dedicated Tallyfy Trigger node. Each trigger polls: it checks Tallyfy on the schedule you set, picks up new items, and de-duplicates by record id so nothing repeats.
+The Tallyfy Trigger node runs in two modes, chosen with the **Mode** dropdown when you add it: **Polling** (works everywhere today) and **Instant (Webhook)** (real time, covered below). In Polling mode it checks Tallyfy on the schedule you set, picks up new items, and de-duplicates by record id so nothing repeats. The four polling triggers:
 
 1. **New process launched** - a process starts, optionally scoped to one template.
 2. **Task completed** - a task is marked complete.
@@ -49,6 +50,24 @@ n8n went from zero triggers to four, in a dedicated Tallyfy Trigger node. Each t
 4. **Comment or issue added** - a comment or reported issue appears on a watched process (a single process, or every process from one template).
 
 Set the poll frequency on the trigger node's schedule. More frequent polling means fresher data and more API calls. The first poll after you activate a workflow takes a snapshot, so the trigger only fires for items that show up after that. It won't replay your history.
+
+### Triggers (instant, webhook-based)
+
+Switch the node's **Mode** to **Instant (Webhook)** and Tallyfy pushes events to n8n the moment they happen, so the workflow runs in real time instead of on the next poll. One node covers seven events, and you tick the ones you want in the **Events** list:
+
+1. **Process launched** (`process.launched`) - a process is launched from a template.
+2. **Process completed** (`process.completed`) - a whole process reaches completed status.
+3. **Task completed** (`task.completed`) - a task is marked complete.
+4. **Task assigned** (`task.assigned`) - a task is assigned to someone.
+5. **Comment added** (`task.comment_added`) - a comment is posted on a task.
+6. **Issue raised** (`task.issue_raised`) - an issue is reported on a task.
+7. **Issue resolved** (`task.issue_resolved`) - a reported issue is resolved.
+
+When you activate the workflow, the node registers one organization-wide webhook with Tallyfy and removes it when you deactivate. Tallyfy then posts every selected event to that single webhook.
+
+:::note[Instant mode needs an org admin, and the backend is rolling out]
+Registering an organization webhook requires an organization admin token. A non-admin token gets a permission error on activation, so either connect an admin account or switch the node back to Polling mode. Tallyfy's organization-webhook backend is also still rolling out to production, so until your organization has it enabled an instant trigger may not fire. Use Polling mode meanwhile, then switch to Instant once your organization has it.
+:::
 
 ### Authentication (personal access token)
 
@@ -75,7 +94,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>N8N > Connecting n8n</b>" href="/products/pro/integrations/middleware/n8n/connecting-n8n-to-tallyfy/" > n8n connects to Tallyfy in about five minutes using either a community-built Tallyfy node or... </LinkTitleCard>
+<LinkTitleCard header="<b>Middleware > n8n</b>" href="/products/pro/integrations/middleware/n8n/" > n8n is a developer-friendly automation platform with a dedicated Tallyfy connector. It offers 96... </LinkTitleCard>
 <LinkTitleCard header="<b>Workato > Workato actions and triggers</b>" href="/products/pro/integrations/middleware/workato/workato-actions-and-triggers/" > The Workato connector for Tallyfy grew from five actions and three triggers to a full set... </LinkTitleCard>
 <LinkTitleCard header="<b>Middleware > Connector capability matrix</b>" href="/products/pro/integrations/middleware/connector-capability-matrix/" > Every Tallyfy middleware connector (Zapier, Power Automate, Workato, Celigo, Make.com, and n8n)... </LinkTitleCard>
-<LinkTitleCard header="<b>Zapier > Zapier actions and triggers</b>" href="/products/pro/integrations/middleware/zapier/zapier-actions-and-triggers/" > The Zapier integration for Tallyfy grew from a small set of actions to a full set covering... </LinkTitleCard>
 </CardGrid>

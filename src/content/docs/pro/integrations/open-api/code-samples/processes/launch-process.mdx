@@ -5,7 +5,7 @@ description: Tallyfy's Launch Process API endpoint (POST to /organizations/{org_
   parameters like name, pre-filled kick-off form fields, and per-step assignee or
   deadline overrides.
 id: 7e35b807303d1848d2e47f8cc272d466
-lastUpdated: 2026-03-22
+lastUpdated: 2026-07-24
 sidebar:
   order: 1
 title: Launch process
@@ -70,7 +70,30 @@ The `prerun` object is keyed by **kick-off field timeline ID**. The value format
 - **Radio button:** `{ "field_id_ghi": "Selected Option Value" }`
 - **Dropdown:** `{ "field_id_jkl": { "id": 2, "text": "Option Text", "value": null } }`
 - **Checklist (multi-select):** `{ "field_id_mno": [{ "id": 1, "text": "Option 1", "value": null, "selected": true }] }`
+- **Table:** `{ "field_id_stu": ["Widget", "3"] }` (one entry per column, in the order the columns are defined)
+- **Assignees:** `{ "field_id_vwx": { "users": [12345], "guests": ["guest@example.com"], "groups": ["group_id"] } }`
 - **File/Image:** `{ "field_id_pqr": [{ "id": "asset_id", "filename": "report.pdf", "version": 1, "url": "...", "uploaded_from": "ko_field", "subject": { "id": "template_id", "type": "Checklist" } }] }` (requires pre-uploading the file first)
+
+:::caution[Multi-select needs `selected: true` on every chosen option]
+An option without `"selected": true` passes validation and gets stored, so the request still returns `201 Created`. But anywhere that field is used as a `{{variable}}`, the value renders as empty text. If a multi-select value shows up blank in a task description or an email, this is almost always why.
+:::
+
+#### Sending a table value
+
+A table value is a flat list with exactly one entry per column, in the order the columns are defined on the field. Send a different number of entries and the API rejects the whole request with `Number of columns does not match required columns`.
+
+For a table field with two columns, **Item** and **Qty**:
+
+```json
+{
+    "checklist_id": "template123",
+    "prerun": {
+        "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4": ["Widget", "3"]
+    }
+}
+```
+
+The first entry lands in the first column, the second in the second, and so on. To check the column order, call `GET /organizations/{org_id}/checklists/{checklist_id}` and read the `columns` array on that field inside the response's `prerun` array. That's the same response you use to look up the field's timeline ID.
 
 ### Overriding task properties with `tasks`
 
@@ -587,5 +610,5 @@ A successful request returns a `201 Created` status code and a JSON object with 
 <LinkTitleCard header="<b>Postman > Working with templates and processes</b>" href="/products/pro/integrations/open-api/api-clients/postman/templates-processes/" > Tallyfy's API lets you launch processes from templates by posting to the runs endpoint with a... </LinkTitleCard>
 <LinkTitleCard header="<b>Triggers > Launch via API</b>" href="/products/pro/launching/triggers/via-api/" > Tallyfy's REST API lets you launch processes by sending a POST request with a template ID and... </LinkTitleCard>
 <LinkTitleCard header="<b>Templates > Create a template</b>" href="/products/pro/integrations/open-api/code-samples/templates/create-template/" > Tallyfy's API lets you create a new process template by sending a POST request to the checklists... </LinkTitleCard>
-<LinkTitleCard header="<b>Pro > Launching</b>" href="/products/pro/launching/" > Tallyfy lets you launch reusable templates into independent trackable processes, each with its... </LinkTitleCard>
+<LinkTitleCard header="<b>Workato > Launch Tallyfy processes from Workato</b>" href="/products/pro/integrations/middleware/workato/how-to-launch-tallyfy-processes-from-workato/" > Workato recipes can automatically launch Tallyfy processes from triggers in Salesforce, Zendesk... </LinkTitleCard>
 </CardGrid>

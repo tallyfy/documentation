@@ -1,11 +1,11 @@
 ---
 about_tallyfy: true
-description: Tallyfy's Workato connector uses OAuth 2.0 and Workato's Ruby SDK to
-  start processes, complete tasks, and track assignments across enterprise systems.
-  It provides five actions and three polling triggers that dynamically map kick-off
-  form fields from your templates.
+description: Tallyfy's Workato connector, built on Workato's Ruby SDK with OAuth 2.0,
+  starts processes, completes tasks, and tracks assignments across enterprise systems.
+  It is in development and not yet in Workato's library, so contact Tallyfy support
+  for early access.
 id: fffe905571a5b8ee8d84e1967c5c2a74
-lastUpdated: 2026-03-22
+lastUpdated: 2026-07-27
 sidebar:
   order: 5
 snippet: Tallyfy's Workato connector automates process launches, task completions,
@@ -18,13 +18,15 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Workato connector for Tallyfy
 
-Tallyfy has a Workato connector built on Workato's Ruby SDK. It connects Tallyfy to enterprise systems through Workato's recipe-based automation - so you can launch processes, complete tasks, and track assignments across your tech stack without switching tools.
+Tallyfy has built a Workato connector on Workato's Ruby SDK. It connects Tallyfy to enterprise systems through Workato's recipe-based automation, so once it's available you'll be able to launch processes, complete tasks, and track assignments across your tech stack without switching tools.
 
-Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) for access to the connector or guidance on getting started.
+:::note[Not yet available to install]
+This dedicated connector is built but not yet published to Workato's community library, so you can't add it from inside Workato today. [Contact Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) for early access. You can still connect Workato to Tallyfy right now using Workato's HTTP connector with [Tallyfy's REST API](/products/pro/integrations/open-api/). The how-to guides below use exactly that approach.
+:::
 
 ### What the connector does
 
-The connector supports five actions and three polling triggers that cover the most common integration patterns.
+The connector now covers a full set - 82 actions and 10 triggers (5 polling and 5 instant webhook) - detailed in [Workato actions and triggers](/products/pro/integrations/middleware/workato/workato-actions-and-triggers/). The core actions and triggers below cover the most common integration patterns.
 
 **Actions:**
 
@@ -79,15 +81,16 @@ This means your recipes can pass data directly into Tallyfy's kick-off forms wit
 
 ### Key API endpoints used
 
-The connector talks to Tallyfy's v2 API at `app.tallyfy.com`:
+The connector talks to Tallyfy's REST API at `https://go.tallyfy.com/api`. Every call is scoped to your organization, so `{org}` below is your Organization ID:
 
-- `POST /api/v2/runs` - start a new process from a template
-- `PUT /api/v2/runs/{process_id}/tasks/{task_id}` - complete or update a task
-- `POST /api/v2/runs/{process_id}/tasks/{task_id}/comments` - add a comment to a task
-- `GET /api/v2/runs/{process_id}` - get process details
-- `GET /api/v2/tasks` - list tasks (used by the assignment trigger)
-- `GET /api/v2/runs` - list processes (used by the process triggers)
-- `GET /api/v2/blueprints` - list active templates for dropdown pick lists
+- `POST /organizations/{org}/runs` - start a new process from a template (the template is the `checklist_id` in the request body)
+- `POST /organizations/{org}/completed-tasks` - complete a task
+- `PUT /organizations/{org}/runs/{run}/tasks/{task}` - update a task
+- `POST /organizations/{org}/tasks/{task}/comment` - add a comment to a task
+- `GET /organizations/{org}/runs/{run}` - get process details
+- `GET /organizations/{org}/tasks` - list tasks (used by the assignment trigger)
+- `GET /organizations/{org}/runs` - list processes (used by the process triggers)
+- `GET /organizations/{org}/checklists` - list templates for dropdown pick lists
 
 ### API terminology mapping
 
@@ -110,14 +113,16 @@ The connector returns clear error messages for common failures:
 - **422** - validation errors with field-level details
 - **429** - rate limit exceeded
 
-### Getting started
+### Getting early access
 
-To use the Tallyfy-Workato connector:
+The dedicated connector isn't in Workato's library yet, so you can't self-install it. To join the early-access group:
 
-1. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to get OAuth credentials
-2. Set up the connection in Workato with your Client ID, Client Secret, and Organization ID
-3. Build recipes using the connector's actions and triggers
-4. Test with a sandbox template before going live
+1. Contact [Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) to request the connector and OAuth credentials.
+2. Once support provides them, set up the connection in Workato with your Client ID, Client Secret, and Organization ID.
+3. Build recipes using the connector's actions and triggers.
+4. Test with a sandbox template before going live.
+
+Prefer not to wait? Use Workato's HTTP connector with [Tallyfy's REST API](/products/pro/integrations/open-api/) today, following the how-to guides below.
 
 import PageTree from '@/components/PageTree.astro';
 
@@ -127,6 +132,6 @@ import PageTree from '@/components/PageTree.astro';
 <CardGrid>
 <LinkTitleCard header="<b>Workato > Workato actions and triggers</b>" href="/products/pro/integrations/middleware/workato/workato-actions-and-triggers/" > The Workato connector for Tallyfy grew from five actions and three triggers to a full set... </LinkTitleCard>
 <LinkTitleCard header="<b>Workato > Launch Tallyfy processes from Workato</b>" href="/products/pro/integrations/middleware/workato/how-to-launch-tallyfy-processes-from-workato/" > Workato recipes can automatically launch Tallyfy processes from triggers in Salesforce, Zendesk... </LinkTitleCard>
-<LinkTitleCard header="<b>Celigo > Celigo actions and triggers</b>" href="/products/pro/integrations/middleware/celigo/celigo-actions-and-triggers/" > The Celigo connector for Tallyfy grew from a handful of flows to a full set covering users... </LinkTitleCard>
 <LinkTitleCard header="<b>Middleware > Connector capability matrix</b>" href="/products/pro/integrations/middleware/connector-capability-matrix/" > Every Tallyfy middleware connector (Zapier, Power Automate, Workato, Celigo, Make.com, and n8n)... </LinkTitleCard>
+<LinkTitleCard header="<b>Celigo > Celigo actions and triggers</b>" href="/products/pro/integrations/middleware/celigo/celigo-actions-and-triggers/" > The Celigo connector for Tallyfy grew from a handful of flows to a full set covering users... </LinkTitleCard>
 </CardGrid>
