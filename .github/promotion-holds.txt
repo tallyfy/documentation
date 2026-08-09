@@ -1,0 +1,70 @@
+# Promotion hold list
+#
+# WHAT THIS IS
+# Paths listed here must NOT reach production. Production is the `main` branch, and
+# `main` is reached only by a deliberate `staging` -> `main` merge (a "promotion").
+# While a path is held, any promotion whose tree contains a file matching it FAILS.
+#
+# WHY IT EXISTS
+# Nine pages telling customers to configure SSO at Settings > Organization > Security > SSO
+# went live on 2026-06-18 and stayed live for seven weeks while that screen did not exist in
+# production. There was supposed to be a gate. The gate was a sentence in a GitHub issue, and
+# a sentence in an issue cannot stop a merge. See tallyfy/documentation#88 and #118.
+#
+# HOW A HOLD IS EVALUATED
+# The check is PRESENCE-based, not diff-based: it fails if the promoted tree CONTAINS a
+# matching file, regardless of whether this particular promotion changed it. This is
+# deliberate. Promotions here are fast-forwards (`main` is an ancestor of `staging`), and the
+# `workflow_run` event that drives the pipeline carries no "previous main tip", so a
+# diff-based check would have no reliable base and would fail toward green - passing when it
+# could not compute an answer. Presence fails closed.
+#
+# FORMAT - one hold per line, three whitespace-separated fields:
+#
+#   <id>  <glob>  <reason, free text to end of line>
+#
+#   id      lowercase letters, digits and hyphens. Names the hold so an override must be
+#           specific. Must be unique in this file.
+#   glob    a repo-relative path pattern, fnmatch style. `*` matches ANY character INCLUDING
+#           `/`, so `src/content/docs/pro/*sso*` matches at any depth. `?` matches one
+#           character, `[abc]` a set.
+#   reason  why this is held and what lifts it. Required, and it must be a real sentence -
+#           the checker rejects a reason under 10 characters.
+#
+# A line that does not parse is a HARD FAILURE, not a skipped line. A hold that silently
+# fails to parse is exactly the gate-that-cannot-fire this file exists to prevent.
+# A missing or unreadable file is also a hard failure, so the mechanism cannot be removed
+# quietly.
+#
+# RELEASING A HOLD
+# 1. NORMAL - delete its line here and promote. That is a reviewable diff with an author and
+#    a date, which is the whole point of holding the list as data rather than as prose.
+# 2. ONE PROMOTION ONLY - put `[release-hold: <id>]` in the promotion's head commit message.
+#    It names one id, so it cannot blanket-release the file, it applies to that promotion
+#    alone, and it stays in `main`'s history forever. A plain `git merge staging` FAST-
+#    FORWARDS and carries no message of yours, so this needs an explicit merge commit:
+#
+#      git checkout main && git pull
+#      git merge --no-ff staging -m "Promote staging to main [release-hold: sso-screens] <why>"
+#      git push origin main
+#
+# WHAT THIS GATE DOES NOT COVER
+# The pipeline is triggered by `generate-ids.yml`, whose `paths:` filter excludes
+# `src/content/docs/pro/changelog/**`. A promotion touching only changelog paths starts no
+# pipeline, so a hold on a changelog path would never be evaluated. It would also publish
+# nothing, because the `sync` job that copies content to support-docs would not run either.
+# Do not put a changelog path on hold and expect it to be enforced.
+#
+# Checker: scripts/promotion-hold-check.py (run it locally with --self-test).
+#
+# ---------------------------------------------------------------------------------------
+# ACTIVE HOLDS - none.
+#
+# Deliberately empty. The nine SSO pages are NOT seeded here: an owner decision on
+# 2026-08-08 accepted the published state and re-scoped rather than unpublishing them, and
+# that decision is not being reopened by building this control (#118).
+#
+# Example of what an entry looks like, kept commented out so the file is never ambiguous
+# about whether something is held:
+#
+# sso-screens  src/content/docs/pro/*sso*  Screen not in production yet. Lift when Settings > Organization > Security > SSO ships.

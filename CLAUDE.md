@@ -804,6 +804,7 @@ The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but aut
 |---|---|---|---|---|
 | `generate-ids.yml` | staging only (new files arrive via merge to main) | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
 | `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
+| `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" below |
 | `generate-snippets` | **staging only** | New files only (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
 | `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search) | Nothing in files (uploads to Answers API) | N/A |
 | `check-deleted-files` | main only | Every push (cleans deleted articles from prod Answers) | Nothing in files | N/A |
@@ -1357,6 +1358,28 @@ git push origin main
 # 6. Return to staging
 git checkout staging
 ```
+
+**Holding a path back from production (`.github/promotion-holds.txt`):**
+
+Sometimes content is ready to write but not ready to publish, usually because the screen it
+describes isn't in production yet. Put the path on hold instead of relying on someone
+remembering. Nine SSO pages went live on 2026-06-18 and stayed live for seven weeks against a
+screen that didn't exist, because the only thing holding them back was a sentence in a GitHub
+issue (#88, #118).
+
+- Add a line to `.github/promotion-holds.txt`: `<id>  <glob>  <reason>`. The `promotion-hold-gate`
+  job then fails any promotion whose tree contains a matching file, before `sync` can copy
+  anything to support-docs.
+- The check is presence-based, not diff-based - it fails if the promoted tree *contains* the
+  path, whether or not this promotion changed it. Promotions here fast-forward and the
+  `workflow_run` event carries no previous-main SHA, so a diff-based check would have no base
+  and would pass when it couldn't compute an answer.
+- Release a hold by deleting its line (a reviewable diff), or for one promotion only by naming
+  it in the merge commit: `git merge --no-ff staging -m "Promote staging to main [release-hold: <id>] <why>"`.
+  A plain `git merge` fast-forwards and carries no message of yours, so the marker needs `--no-ff`.
+- Check it locally before pushing: `python3 scripts/promotion-hold-check.py --self-test`. The
+  same self-test runs in CI on every promotion, so the gate proves it can go red rather than
+  only ever being seen passing.
 
 **Verifying deployment:**
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`

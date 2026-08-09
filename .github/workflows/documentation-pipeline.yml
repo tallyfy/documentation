@@ -18,6 +18,51 @@ on:
 
 
 jobs:
+  # Blocks a staging -> main promotion that carries a path on hold (see #118, successor to
+  # #88). A root job on purpose: nothing upstream can skip it. It is listed in the `needs` of
+  # every job that can publish, because a red gate that does not stop the publish is
+  # decoration - that wiring is itself asserted by the --check-wiring step below.
+  #
+  # NOTE on SHAs: on a workflow_run event `github.sha` is the head of the DEFAULT branch
+  # (staging), not the commit that triggered the run. Measured on two real promotions:
+  # run 30914229312 reported sha=92156c924 for a push of 0c8011844 to main, and run
+  # 30619407542 reported c25ac48ea for a push of 44fbbdbe5. So the promoted commit is
+  # workflow_run.head_sha, and the job re-verifies it is on origin/main before trusting it.
+  promotion-hold-gate:
+    # Deliberately NO `if:` and NO `needs:`, so this job can never be skipped.
+    # Measured on run 27840821129: when the triggering run does not succeed, every
+    # `if: conclusion == 'success'` job skips, and `sync` STILL RUNS - its
+    # `if: !failure() && !cancelled()` is a status-function conditional, which overrides the
+    # default "skip when a needed job was skipped". A gate carrying that same `if:` would
+    # therefore be skipped on exactly the runs where `sync` publishes unchecked. A gate that
+    # can be skipped is not a gate, so this one always runs.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0   # merge-base --is-ancestor needs real history
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Prove the gate can fail (red and green control)
+        run: python scripts/promotion-hold-check.py --self-test
+        shell: bash
+      - name: Prove the gate is still wired to the publishing jobs
+        run: |
+          python -m pip install --upgrade pyyaml
+          python scripts/promotion-hold-check.py --check-wiring
+        shell: bash
+      - name: Check the promotion against the hold list
+        # Values go through env, never straight into the shell line: workflow_run is a
+        # privileged trigger and its payload is attacker-influenced input.
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"
+        shell: bash
+
   validate-markdown:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
@@ -57,7 +102,7 @@ jobs:
             echo "Skipping snippet generation on main — staging owns auto-regen (see #56). Files inherit from staging via merge."
             exit 0
           fi
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
             git pull
             python -m pip install --upgrade python-frontmatter requests
@@ -69,7 +114,7 @@ jobs:
       - name: Commit and push articles with snippets
         if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
+          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
@@ -88,7 +133,9 @@ jobs:
       generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
 
   upload-to-tallyfy-answers:
-    needs: generate-snippets
+    # promotion-hold-gate: on main this uploads to the PRODUCTION Answers index, so held
+    # content must not reach it either.
+    needs: [generate-snippets, promotion-hold-gate]
 #    needs: validate-markdown
     runs-on: ubuntu-latest
     steps:
@@ -124,19 +171,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          ref: ${{ github.event.workflow_run.head_branch }}
+          # The exact promoted commit, not the branch tip: this job diffs that commit, and a
+          # commit missing from a depth-2 checkout makes `git diff-tree` fail, which the
+          # `|| true` below would otherwise launder into "nothing was deleted".
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Check deleted files
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r ${{ github.sha }} | grep '\.mdx$' || true )
+          # Split the two exit codes apart. `git diff-tree` failing means we do not know what
+          # was deleted, and must not proceed as though nothing was; `grep` finding no .mdx
+          # legitimately means nothing was deleted. One `|| true` over the whole pipeline
+          # cannot tell those apart, and answers "nothing" to both.
+          deleted=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r "$HEAD_SHA")
+          file_changes=$(printf '%s\n' "$deleted" | grep '\.mdx$' || true )
           if [[ -n "$file_changes" ]]; then
             python -m pip install --upgrade python-frontmatter requests
             if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-              python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://answers.tallyfy.com
+              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://answers.tallyfy.com
             else
-              python scripts/check-deleted-files.py --commit_sha=${{ github.sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
+              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
             fi
           else
             echo "No files were deleted. Skipping ..."
@@ -215,8 +272,16 @@ jobs:
           fi
 
   sync:
-    needs: [ validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
-    if: ${{ !failure() && !cancelled() }}
+    # promotion-hold-gate is load-bearing here: this job is what actually publishes, by
+    # rsyncing into support-docs `production`. `if: !failure()` only considers jobs in
+    # `needs`, so a gate left out of this list would go red while the content shipped anyway.
+    needs: [ promotion-hold-gate, validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
+    # The `conclusion == 'success'` term is load-bearing and is asserted by --check-wiring.
+    # `!failure() && !cancelled()` alone is a status-function conditional, which replaces the
+    # default "skip when a needed job was skipped". Neither term is true when the needs were
+    # merely SKIPPED, so this job used to publish on runs where every validation job skipped.
+    # Measured on run 27840821129: all six other jobs `skipped`, sync `success`. See #122.
+    if: ${{ !failure() && !cancelled() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source repository (tallyfy/documentation)
