@@ -18,21 +18,43 @@ GITHUB_API_BASE = f'https://api.github.com/repos/{OWNER}/{REPO}/'
 # was removed in the commit (diff-filter=D), so running it on staging is safe.
 DEFAULT_ANSWERS_BASE_URL = 'https://answers.tallyfy.com'
 ANSWERS_API_KEY = None
+# Every delete that did not succeed. A non-empty list fails the run - see the note in
+# delete_object() for why this is not merely tidiness.
+FAILED_DELETES = []
+
+
 def delete_object(uid, tallyfy_answers_api):
 	"""
     Delete an object from the Tallyfy Answers API by its UID.
+
+    The header is the RAW key, not `Bearer <key>`. Measured against the production API on
+    2026-08-09 with a control, using a uid that does not exist so the probe changed nothing:
+    `Authorization: Bearer <key>` -> 403, `Authorization: <key>` -> 200, no header -> 403.
+    The no-header 403 is what makes the Bearer 403 mean "credential rejected" rather than
+    "endpoint ignores auth". This matches scripts/answers-connector.py, which had it right.
+    See tallyfy/documentation#124: this script sent Bearer, logged the 403, and exited 0, so
+    it had never deleted anything.
+
+    A failure is RECORDED and fails the run. Logging an error and carrying on is what hid the
+    bug above for as long as it existed: the job went green while doing nothing at all.
     """
 	headers = {
-		"Authorization": f"Bearer {ANSWERS_API_KEY}"
+		"Authorization": ANSWERS_API_KEY
 	}
 	try:
 		response = requests.delete(f'{tallyfy_answers_api}{uid}', headers=headers)
 		if response.status_code == 200:
 			logging.info(f"Successfully deleted object with UID: {uid}")
-		else:
-			logging.error(f"Failed to delete object with UID: {uid}. Status Code: {response.status_code}. Response: {response.json()}")
+			return
+		try:
+			body = response.json()
+		except Exception:
+			body = response.text[:300]
+		logging.error(f"Failed to delete object with UID: {uid}. Status Code: {response.status_code}. Response: {body}")
+		FAILED_DELETES.append((uid, f"HTTP {response.status_code}"))
 	except Exception as e:
 		logging.exception(f"An error occurred while deleting object with UID: {uid}: {e}")
+		FAILED_DELETES.append((uid, f"{type(e).__name__}: {e}"))
 
 def fetch_github_data(url, headers):
 	"""
@@ -126,6 +148,15 @@ def main():
 					logging.error(f"No content found in removed file: {file['filename']}")
 			except Exception as e:
 				logging.error(f"Error retrieving content for deleted file {file['filename']}: {e}")
+
+	# Fail the run if any delete did not land. An index entry for an article that no longer
+	# exists is a search result pointing at a page we removed, so "we tried" is not an
+	# acceptable outcome to pass over silently.
+	if FAILED_DELETES:
+		logging.error(f"{len(FAILED_DELETES)} delete(s) did not succeed:")
+		for uid, why in FAILED_DELETES:
+			logging.error(f"  {uid}: {why}")
+		sys.exit(1)
 
 if __name__ == '__main__':
 	main()
