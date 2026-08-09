@@ -396,6 +396,8 @@ def _error_kind(fn, *args):
 
 
 GATE_JOB = "promotion-hold-gate"
+PUBLISH_JOB = "sync"
+UPSTREAM_SUCCESS_TERM = "github.event.workflow_run.conclusion == 'success'"
 # Jobs that may legitimately run without waiting for the gate, each with the reason it is
 # harmless. Anything NOT listed here must depend on the gate, so adding a job forces a
 # decision instead of silently escaping the gate. Derived from the workflow file itself, so
@@ -443,6 +445,22 @@ def check_wiring(workflow_path):
         return GATE_JOB in needs_of(name)
 
     problems = []
+
+    # `sync` is the job that actually publishes, and it guards itself with a status-function
+    # conditional (`!failure() && !cancelled()`), which replaces the default "skip when a
+    # needed job was skipped". Without an explicit upstream-success term it therefore
+    # publishes on runs where every validation job skipped - measured on run 27840821129,
+    # where all six other jobs read `skipped` and `sync` read `success` (#122). That term
+    # cannot be observed locally, because it needs a real failed upstream run, so it is
+    # asserted statically here instead and this assertion has a control in both directions.
+    sync_if = str((jobs.get(PUBLISH_JOB) or {}).get("if", ""))
+    if PUBLISH_JOB in jobs and UPSTREAM_SUCCESS_TERM not in sync_if.replace('"', "'"):
+        problems.append(
+            f"job {PUBLISH_JOB!r} does not require {UPSTREAM_SUCCESS_TERM!r} in its `if`, so "
+            f"it will publish on runs where every validation job was skipped (see #122). "
+            f"Its condition is currently: {sync_if!r}"
+        )
+
     for name in jobs:
         if name in WIRING_EXEMPT:
             continue
