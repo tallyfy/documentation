@@ -7,49 +7,91 @@ This file provides a comprehensive overview of the documentation organization to
 
 ```
 /src/content/docs/
-├── answers/         (16 files)  - Tallyfy Answers AI search documentation
-├── denizen/         (2 files)   - Tallyfy Denizen localization documentation  
+├── 404.mdx          (1 file)    - the not-found page
+├── answers/         (17 files)  - Tallyfy Answers AI search documentation
+├── changelog/       (6 files)   - product changelog
+├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
 ├── manufactory/     (45 files)  - Tallyfy Manufactory observability documentation
-└── pro/             (512 files) - Tallyfy Pro main product documentation (89% of all content)
+└── pro/             (671 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 585 .mdx files across 99 directories
+**Total**: 742 .mdx files across 156 directories
+
+> Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
+> `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
+> `find src/content/docs -name '*.mdx' -type f | wc -l`
 
 ## 🎯 Tallyfy Pro Structure (Primary Focus)
 
 ### Core Feature Categories
 
+Ordered by size, largest first, so the biggest areas are the ones you see.
+
 ```
-pro/
-├── documenting/           (155 files) - Creating and managing content
-│   ├── templates/         (84 files)  - Process templates and blueprints
-│   ├── members/           (19 files)  - User management and permissions
-│   ├── guests/            (17 files)  - External user management
-│   └── documents/         (8 files)   - Document templates
+pro/                                   (671 files)
+├── integrations/          (277 files) - Third-party connections
+│   ├── open-api/          (75 files)  - REST API documentation
+│   ├── vendors/           (46 files)  - Per-vendor integration guides
+│   ├── middleware/        (43 files)  - Zapier, Make, Power Automate, Workato, Celigo
+│   ├── analytics/         (20 files)  - Analytics and reporting tools
+│   ├── byo-ai/            (19 files)  - Bring-your-own-AI guides
+│   ├── authentication/    (9 files)   - SSO and identity providers
+│   ├── cli/               (9 files)   - The Tallyfy CLI
+│   ├── computer-ai-agents/ (9 files)  - Claude, ChatGPT, agent tooling
+│   ├── mcp-server/        (7 files)   - MCP server
+│   ├── tallyfy-desktop-ai/ (7 files)  - Desktop AI
+│   ├── document-management/ (6 files) - Document systems
+│   ├── email/             (6 files)   - Email integrations
+│   ├── robotics/          (6 files)   - RPA and robotics
+│   ├── webhooks/          (5 files)   - Webhook integrations
+│   ├── azure-translation/ (4 files)   - Azure translation
+│   ├── business-systems/  (2 files)   - Business system connections
+│   ├── interactive-email-actions/ (1 file)
+│   └── (3 files sit directly in integrations/)
 │
-├── tracking-and-tasks/    (65 files)  - Process execution and monitoring
-│   ├── processes/         (15 files)  - Launched process management
-│   ├── tasks/             (25 files)  - Individual task management
-│   ├── tasks-view/        (12 files)  - Task dashboard and filtering
-│   └── tracker-view/      (13 files)  - Process tracking dashboard
+├── changelog/             (128 files) - Release notes (date-organized)
 │
-├── integrations/          (149 files) - Third-party connections
-│   ├── analytics/         (35 files)  - Analytics and reporting tools
-│   ├── zapier/            (23 files)  - Zapier automation platform
-│   ├── open-api/          (27 files)  - REST API documentation
-│   ├── middleware/        (25 files)  - Integration middleware
-│   └── webhooks/          (9 files)   - Webhook integrations
+├── documenting/           (79 files)  - Creating and managing content
+│   ├── templates/         (54 files)  - Process templates and blueprints
+│   ├── members/           (9 files)   - User management and permissions
+│   ├── guests/            (7 files)   - External user management
+│   ├── documents/         (6 files)   - Document templates
+│   ├── groups/            (2 files)   - User groups
+│   └── (1 file sits directly in documenting/)
 │
-├── settings/              (25 files)  - Configuration and preferences
-│   ├── personal-settings/ (12 files)  - Individual user settings
-│   └── org-settings/      (8 files)   - Organization-wide settings
+├── tracking-and-tasks/    (50 files)  - Process execution and monitoring
+│   ├── tasks/             (22 files)  - Individual task management
+│   ├── processes/         (12 files)  - Launched process management
+│   ├── tracker-view/      (9 files)   - Process tracking dashboard
+│   ├── tasks-view/        (3 files)   - Task dashboard and filtering
+│   └── (4 files sit directly in tracking-and-tasks/)
 │
-├── launching/             (11 files)  - Process initiation
-├── miscellaneous/         (46 files)  - Support, troubleshooting, general topics
-├── compliance/            (9 files)   - Security and compliance
-├── pricing/               (6 files)   - Plans and billing
-└── changelog/             (136 files) - Release notes (date-organized)
+├── tutorials/             (50 files)  - Guided walkthroughs
+├── miscellaneous/         (32 files)  - Support, troubleshooting, general topics
+│
+├── settings/              (29 files)  - Configuration and preferences
+│   ├── billing/           (10 files)  - Plans, invoices, payment
+│   ├── org-settings/      (10 files)  - Organization-wide settings
+│   ├── personal-settings/ (8 files)   - Individual user settings
+│   └── (1 file sits directly in settings/)
+│
+├── launching/             (14 files)  - Process initiation
+├── by-role/               (4 files)   - Role-based navigation hub
+├── compliance/            (3 files)   - Security and compliance
+├── pricing/               (3 files)   - Plans and billing
+├── lists/                 (1 file)    - Lists
+└── index.mdx              (1 file)    - Pro product landing page
 ```
+
+> Measured **2026-08-11**, and the whole tree above was rewritten in that pass because every
+> single count in it was wrong. Three directories were missing outright (`tutorials/` at 50 files,
+> `by-role/`, `lists/`), and `integrations/zapier/` had not existed for some time: it now lives at
+> `integrations/middleware/zapier/`. The worst individual drift was `integrations/`, listed at 149
+> against an actual 277.
+>
+> The top-level figures add up to the 671 stated for `pro/`, and each parent equals the sum of its
+> children plus its own loose files. If you change these, keep that reconciliation true, because it
+> is the only thing that catches a partial update.
 
 ## 🔍 Finding Documentation - Search Strategies
 
@@ -106,11 +148,12 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 ## 🎯 Quick Navigation Map
 
 ### Most Commonly Updated Areas
-1. **Templates & Workflows**: `pro/documenting/templates/` (84 files)
-2. **Task Management**: `pro/tracking-and-tasks/tasks/` (25 files)  
-3. **Process Management**: `pro/tracking-and-tasks/processes/` (15 files)
-4. **Integrations**: `pro/integrations/[vendor]/` (149 total files)
-5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (36 files)
+1. **Templates & Workflows**: `pro/documenting/templates/` (54 files)
+2. **Task Management**: `pro/tracking-and-tasks/tasks/` (22 files)
+3. **Process Management**: `pro/tracking-and-tasks/processes/` (12 files)
+4. **Integrations**: `pro/integrations/` (277 total files; per-vendor guides live under
+   `pro/integrations/vendors/` and `pro/integrations/middleware/[vendor]/`, not `pro/integrations/[vendor]/`)
+5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (16 files)
 
 ### Essential Index Pages
 - `/pro/index.mdx` - Main product overview

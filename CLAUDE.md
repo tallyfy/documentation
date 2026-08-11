@@ -385,14 +385,23 @@ You are working with Tallyfy's comprehensive product documentation. Your role is
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
-**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 585 .mdx files across 99 directories, search strategies, and file patterns.
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 742 .mdx files across 156 directories, search strategies, and file patterns.
+
+> **Counts in this file go stale. Re-derive, do not trust.** The two figures above read 585 and 99
+> until 2026-08-06, when they were measured at 742 and 156 - a 27% undercount that had been sitting
+> here long enough to mis-scope work. Every count below was measured on **2026-08-06** and re-verified
+> unchanged on **2026-08-11**; treat any of them older than a few weeks as indicative only:
+> ```bash
+> find src/content/docs -name '*.mdx' -type f | wc -l                          # total files
+> find src/content/docs -name '*.mdx' -type f -exec dirname {} \; | sort -u | wc -l   # directories
+> ```
 
 ### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
-  - Location: `/src/content/docs/pro/` (512 files - 89% of all documentation)
-  - Core areas: documenting/ (155 files), tracking-and-tasks/ (65 files), integrations/ (149 files)
+  - Location: `/src/content/docs/pro/` (671 files - 90% of all documentation)
+  - Core areas: documenting/ (79 files), tracking-and-tasks/ (50 files), integrations/ (277 files)
 - **Tallyfy Answers**: Vector-based search engine
-  - Location: `/src/content/docs/answers/` (16 files)
+  - Location: `/src/content/docs/answers/` (17 files)
 - **Tallyfy Denizen**: Localized images based on user location
   - Location: `/src/content/docs/denizen/` (2 files)
 - **Tallyfy Manufactory**: Events ingestion and lifecycle engine
@@ -554,10 +563,10 @@ When identifying where to update documentation, use this search hierarchy:
 ### Quick File Location Commands
 ```bash
 # Most common documentation areas (from documentation directory)
-ls src/content/docs/pro/documenting/templates/     # 84 files - Template creation
-ls src/content/docs/pro/tracking-and-tasks/tasks/ # 25 files - Task management  
-ls src/content/docs/pro/integrations/             # 149 files - All integrations
-ls src/content/docs/pro/documenting/members/      # 19 files - User management
+ls src/content/docs/pro/documenting/templates/     # 24 entries (54 .mdx recursively) - Template creation
+ls src/content/docs/pro/tracking-and-tasks/tasks/ # 19 entries (22 .mdx recursively) - Task management
+ls src/content/docs/pro/integrations/             # 20 entries (277 .mdx recursively) - All integrations
+ls src/content/docs/pro/documenting/members/      # 9 entries (9 .mdx recursively) - User management
 
 # Find specific topics (from documentation directory)
 grep -l "how to assign" src/content/docs/pro/**/*.mdx
@@ -571,6 +580,31 @@ grep -l "template\|blueprint" src/content/docs/pro/**/*.mdx
 
 ### Maintaining Documentation Structure Map
 **CRITICAL**: When adding/removing/moving documentation files, update the structure map:
+
+> ⚠️ **Do this by hand for now. Both automations below are broken, and both fail silently in the
+> "nothing to do" direction, which is why the counts drifted 27% before anyone noticed.**
+> Measured 2026-08-11, tracked in tallyfy/documentation#126:
+>
+> - `scripts/update-documentation-structure.py` sets `DOCS_DIR = "~/GitHub/..."` as a literal
+>   string and never calls `os.path.expanduser`. Python's `glob` does not expand `~`, so it
+>   matches **0 files** where the expanded path matches 742. Its `STRUCTURE_FILE` and
+>   `CLAUDE_FILE` constants have the same defect, so `os.path.exists` is False for both and the
+>   script returns early and writes nothing at all. It prints a failure line, but a session that
+>   only reads its exit status sees success.
+> - The inline snippet just below `cd`s to `/documentation/vimeo_transcripts` and then opens
+>   `DOCUMENTATION_STRUCTURE.md` relatively, so it cannot find the file either.
+> - Even repaired, the script only rewrites **top-level** counts (`├── name/  (N files)`) and the
+>   `**Total**` line. The nested entries, the "Quick Navigation Map", and this file's own
+>   per-area figures are not covered by any regex in it and stay stale.
+>
+> Until that is fixed, re-derive counts directly and edit both files by hand:
+> ```bash
+> cd src/content/docs
+> find . -name '*.mdx' -type f | wc -l                       # total
+> for d in */; do echo "$d $(find "$d" -name '*.mdx' | wc -l)"; done
+> ```
+> Keep the reconciliation true: each parent equals its children plus its own loose files, and the
+> top level sums to the total. That is the only check that catches a partial update.
 
 ```bash
 # Regenerate documentation structure map after any file changes
@@ -620,7 +654,7 @@ python scripts/generate-snippets.py --files [files] --dir [directory] --token [a
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [directory]
-python scripts/update-documentation-structure.py     # Update structure map after file changes
+python scripts/update-documentation-structure.py     # BROKEN, writes nothing - see "Maintaining Documentation Structure Map" above (documentation#126)
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
 
