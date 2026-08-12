@@ -579,68 +579,41 @@ grep -l "template\|blueprint" src/content/docs/pro/**/*.mdx
 - **Reference DOCUMENTATION_STRUCTURE.md**: For complete context before making changes
 
 ### Maintaining Documentation Structure Map
-**CRITICAL**: When adding/removing/moving documentation files, update the structure map:
-
-> ⚠️ **Do this by hand for now. Both automations below are broken, and both fail silently in the
-> "nothing to do" direction, which is why the counts drifted 27% before anyone noticed.**
-> Measured 2026-08-11, tracked in tallyfy/documentation#126:
->
-> - `scripts/update-documentation-structure.py` sets `DOCS_DIR = "~/GitHub/..."` as a literal
->   string and never calls `os.path.expanduser`. Python's `glob` does not expand `~`, so it
->   matches **0 files** where the expanded path matches 742. Its `STRUCTURE_FILE` and
->   `CLAUDE_FILE` constants have the same defect, so `os.path.exists` is False for both and the
->   script returns early and writes nothing at all. It prints a failure line, but a session that
->   only reads its exit status sees success.
-> - The inline snippet just below `cd`s to `/documentation/vimeo_transcripts` and then opens
->   `DOCUMENTATION_STRUCTURE.md` relatively, so it cannot find the file either.
-> - Even repaired, the script only rewrites **top-level** counts (`├── name/  (N files)`) and the
->   `**Total**` line. The nested entries, the "Quick Navigation Map", and this file's own
->   per-area figures are not covered by any regex in it and stay stale.
->
-> Until that is fixed, re-derive counts directly and edit both files by hand:
-> ```bash
-> cd src/content/docs
-> find . -name '*.mdx' -type f | wc -l                       # total
-> for d in */; do echo "$d $(find "$d" -name '*.mdx' | wc -l)"; done
-> ```
-> Keep the reconciliation true: each parent equals its children plus its own loose files, and the
-> top level sums to the total. That is the only check that catches a partial update.
+**CRITICAL**: When adding, removing or moving documentation files, run the structure script:
 
 ```bash
-# Regenerate documentation structure map after any file changes
-cd /documentation/vimeo_transcripts
-python3 -c "
-import os, glob
-from pathlib import Path
-
-# Count all .mdx files and update DOCUMENTATION_STRUCTURE.md
-docs_dir = 'src/content/docs'
-all_files = glob.glob(os.path.join(docs_dir, '**/*.mdx'), recursive=True)
-total_files = len(all_files)
-
-# Update the file count in DOCUMENTATION_STRUCTURE.md
-structure_file = 'DOCUMENTATION_STRUCTURE.md'
-with open(structure_file, 'r') as f:
-    content = f.read()
-
-# Replace the total file count
-import re
-content = re.sub(r'\*\*Total\*\*: \d+ \.mdx files', f'**Total**: {total_files} .mdx files', content)
-
-with open(structure_file, 'w') as f:
-    f.write(content)
-
-print(f'Updated DOCUMENTATION_STRUCTURE.md with {total_files} total files')
-"
-
-# Also update CLAUDE.md references if the count changed significantly
-# (Manual step - update the "576 .mdx files" references in CLAUDE.md if needed)
+python3 scripts/update-documentation-structure.py           # rewrite both files
+python3 scripts/update-documentation-structure.py --check   # report only, non-zero if stale
 ```
 
-**Workflow Integration**: 
-- Run structure update after creating new articles
-- Update file counts in CLAUDE.md if they change by >5%
-- Regenerate complete structure map monthly or after major reorganizations
+It resolves its own paths from the script location, so it works from any working directory and
+on either machine. It rewrites the tree rows, the loose-file rows, the `**Total**` line, the
+Quick Navigation Map, and this file's own per-area figures, then prints any count-shaped figure
+it could not attribute to a real directory so the gap is visible rather than assumed.
+
+Three refusals are deliberate, and each exists because its absence caused a real defect
+(tallyfy/documentation#126):
+
+- It exits non-zero and writes nothing when it counts zero files. The previous version silently
+  matched nothing for months, and a repair that fixed only some of its paths would have written a
+  zero total over a correct number.
+- It exits non-zero when a target file is missing, rather than returning early and reporting
+  success.
+- It refuses to write when the arithmetic does not reconcile: each parent must equal the sum of
+  its children plus its own loose files, and the top-level rows must sum to the stated total.
+  That reconciliation is the only check that catches a partial update.
+
+To re-derive the headline counts by hand, for example to confirm the script:
+
+```bash
+cd src/content/docs
+find . -name '*.mdx' -type f | wc -l                                  # total files
+find . -name '*.mdx' -type f -exec dirname {} \; | sort -u | wc -l    # directories
+```
+
+**Workflow Integration**:
+- Run the script after creating or deleting articles, and commit the result with them.
+- Use `--check` in review to confirm a branch has not left the counts stale.
 
 ## DEVELOPMENT COMMANDS
 
@@ -654,7 +627,7 @@ python scripts/generate-snippets.py --files [files] --dir [directory] --token [a
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [directory]
-python scripts/update-documentation-structure.py     # BROKEN, writes nothing - see "Maintaining Documentation Structure Map" above (documentation#126)
+python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
 
