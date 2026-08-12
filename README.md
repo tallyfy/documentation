@@ -476,7 +476,12 @@ Docs are attributed to the Tallyfy organization (a publisher entity in `support-
 
 This documentation uses D2 (Declarative Diagramming) to create visual representations of workflows, integrations, and system architectures. **These diagrams are generated at build time and served as external SVG files from our CDN**.
 
-**Total Diagrams**: 63 diagrams across 49 documentation pages
+**Total Diagrams**: re-derive rather than trust a number here. Measured 2026-08-12: 57 diagrams
+across 50 documentation pages, after the 4 Manufactory ones went with their pages in #127.
+
+```bash
+grep -rc '```d2' --include='*.mdx' src/content/docs | awk -F: '{s+=$2} END{print s}'
+```
 
 ### Production URL Access
 
@@ -551,10 +556,6 @@ High-level system design and data flows
 - **Launching**: 2 diagrams in process launching documentation
 - **Documenting**: 3 diagrams in template documentation
 - **Tutorials**: 3 diagrams in tutorial pages
-
-#### Manufactory Documentation (4 diagrams)
-- **Best Practices**: 3 diagrams in best practices guides
-- **Collector/WebSocket**: 1 diagram in WebSocket documentation
 
 ### Accessing D2 Diagrams
 

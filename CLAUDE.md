@@ -134,7 +134,7 @@ A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not 
 
 ### Reference docs are the exception
 
-Developer and API reference under `pro/integrations/open-api`, `pro/integrations/webhooks`, and `manufactory/` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
+Developer and API reference under `pro/integrations/open-api` and `pro/integrations/webhooks` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
 
 ### Enforce it
 
@@ -352,7 +352,7 @@ Docs are attributed to the **Tallyfy organization** (publisher), set globally in
 
 ## D2 Diagrams Resources
 
-**Production-Ready Diagram Assets**: 63 D2 diagrams are available as external SVG files for reuse across all platforms. See the **D2 Diagrams Inventory** section in `/README.md` for complete details.
+**Production-Ready Diagram Assets**: D2 diagrams are rendered to external SVG files for reuse across all platforms. See the **D2 Diagrams Inventory** section in `/README.md` for complete details.
 
 ### Quick Access Information:
 - **Base URL**: `https://tallyfy.com/products/d2-diagrams/docs/`
@@ -360,14 +360,24 @@ Docs are attributed to the **Tallyfy organization** (publisher), set globally in
 - **Important**: Note the `/docs/` prefix after `/d2-diagrams/` - this is required
 - **Full Metadata**: Available in `/temporary/d2_inventory.json`
 
-### Available Categories (63 Total):
-- **API Integration Flows** (32 diagrams - 50.8%): Zapier, Power Automate, n8n, Make.com workflows
-- **Computer AI Agents** (13 diagrams - 20.6%): Claude, ChatGPT, Skyvern, local agents
-- **Authentication & SSO** (4 diagrams - 6.3%): Azure AD, Okta, OneLogin, Auth0
-- **Process Workflows** (5 diagrams - 7.9%): Multi-level approvals, process launching
-- **Webhook Integrations** (4 diagrams - 6.3%): Event triggers, external integrations
-- **System Architecture** (2 diagrams - 3.2%): Distributed tracing, WebSocket connections
-- **Manufactory** (4 diagrams): Event lifecycle, collectors
+### Available Categories
+
+- **API Integration Flows**: Zapier, Power Automate, n8n, Make.com workflows
+- **Computer AI Agents**: Claude, ChatGPT, Skyvern, local agents
+- **Authentication & SSO**: Azure AD, Okta, OneLogin, Auth0
+- **Process Workflows**: Multi-level approvals, process launching
+- **Webhook Integrations**: Event triggers, external integrations
+- **System Architecture**: Distributed tracing, WebSocket connections
+
+> **The per-category counts and percentages were removed rather than re-derived.** They were
+> already wrong: the seven categories summed to 64 against a stated total of 63, and nobody
+> noticed because a percentage looks authoritative. Re-derive the live figure instead of
+> trusting any number written here:
+> ```bash
+> grep -rc '```d2' --include='*.mdx' src/content/docs | awk -F: '{s+=$2} END{print s}'
+> ```
+> Measured 2026-08-12: **57 diagrams across 50 files**, after the 4 Manufactory ones went with
+> their pages in tallyfy/documentation#127.
 
 ### Example Working URLs:
 - Zapier Integration: `https://tallyfy.com/products/d2-diagrams/docs/pro/integrations/middleware/zapier/how-to-automate-tasks-in-tallyfy-using-zaps-0.svg`
@@ -385,7 +395,7 @@ You are working with Tallyfy's comprehensive product documentation. Your role is
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
-**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 742 .mdx files across 156 directories, search strategies, and file patterns.
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 697 .mdx files across 145 directories, search strategies, and file patterns.
 
 > **Counts in this file go stale. Re-derive, do not trust.** The two figures above read 585 and 99
 > until 2026-08-06, when they were measured at 742 and 156 - a 27% undercount that had been sitting
@@ -404,12 +414,17 @@ This is a **documentation website** for Tallyfy's suite of products built with *
   - Location: `/src/content/docs/answers/` (17 files)
 - **Tallyfy Denizen**: Localized images based on user location
   - Location: `/src/content/docs/denizen/` (2 files)
-- **Tallyfy Manufactory**: Events ingestion and lifecycle engine
-  - Location: `/src/content/docs/manufactory/` (45 files)
+
+> **Manufactory is gone and its 45 pages were removed on 2026-08-12** (tallyfy/documentation#127).
+> The product was dismantled: its Argo tunnel was deleted 2025-11-11, its DNS record and fronting
+> Worker on 2026-08-11. The pages told readers to send events to `collector.tallyfy.com`, which
+> returns HTTP 530, and real browser traffic was still following them. The old URLs now 301 to
+> `/products/pro/` via `public/_redirects` in support-docs. Do not restore these pages or write
+> new ones; if Manufactory ever returns it needs a fresh decision, not this content.
 
 ### Product Name Capitalization
 **CRITICAL**: When referring to our products, always capitalize product names properly:
-- Use "Pro", "Answers", "Changelog", "Manufactory", "Denizen" (capitalized)
+- Use "Pro", "Answers", "Changelog", "Denizen" (capitalized)
 - Never use lowercase versions like "pro", "answers", "changelog", etc.
 - Examples:
   - ✅ CORRECT: "Tallyfy Pro provides workflow automation"
@@ -533,8 +548,8 @@ Path: documentation/src/content/docs/pro/tracking-and-tasks/tasks/index.mdx
   → `documentation/src/content/docs/pro/integrations/extract-tasks-from-meetings.mdx`
 - `https://tallyfy.com/products/pro/documenting/templates/`
   → `documentation/src/content/docs/pro/documenting/templates/index.mdx`
-- `https://staging.tallyfy.com/products/manufactory/overview/`
-  → `documentation/src/content/docs/manufactory/overview.mdx` or `overview/index.mdx`
+- `https://staging.tallyfy.com/products/answers/`
+  → `documentation/src/content/docs/answers/index.mdx`
 
 ### Documentation Discovery Strategies
 When identifying where to update documentation, use this search hierarchy:
