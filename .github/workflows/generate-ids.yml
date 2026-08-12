@@ -8,6 +8,14 @@ on:
       - staging
     paths:
       - src/content/docs/**
+      # documentation_assets.csv supplies the alt text for every documentation image, and the
+      # sync job in documentation-pipeline.yml copies it to support-docs. This workflow is the
+      # head of that chain (the pipeline runs on its workflow_run), so a path missing here is a
+      # change that never syncs. Captioning is the main thing that edits this file and it edits
+      # nothing else, which made this the one path that mattered most.
+      # Measured before the fix: a CSV-only commit produced 0 workflow runs, against 2 for a
+      # commit touching a workflow. See tallyfy/documentation#116.
+      - documentation_assets.csv
       - .github/workflows/documentation-pipeline.yml
       - .github/workflows/publish.yml
       - .github/workflows/generate-ids.yml
