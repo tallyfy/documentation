@@ -5,8 +5,13 @@ Asset Management Orchestrator - Main CLI interface.
 Coordinates the complete workflow:
   upload → caption generation → inventory update
 
+Captioning is deliberately TWO PHASE. `upload` puts the image on R2 and inventories it; it
+does not caption. `caption` writes caption text, and only works inside a Claude Code session,
+which is what can actually read the image. Neither command pretends to have done the other's
+job, which they both used to do (tallyfy/documentation#117).
+
 Usage examples:
-  # Upload new screenshot with captions
+  # Upload a new screenshot (inventoried, NOT captioned)
   python orchestrator.py upload \\
     --file screenshot.png \\
     --key "tallyfy/pro/feature-name.png" \\
@@ -34,6 +39,25 @@ from typing import Optional
 
 # Maximum dimension for images (Claude API limit for multi-image requests)
 MAX_IMAGE_DIMENSION = 2000
+
+# image_captioner.generate_captions() returns alt_text/descriptive/seo. The CSV columns are
+# ai_caption_*. asset_inventory writes with extrasaction='ignore', so handing the generator's
+# keys straight to it drops all three SILENTLY and the caller sees success. This map is the
+# single place that translation happens; keep it in step with both sides.
+CAPTION_COLUMNS = {
+    'alt_text': 'ai_caption_alt',
+    'descriptive': 'ai_caption_descriptive',
+    'seo': 'ai_caption_seo',
+}
+
+# image_captioner._generate_single_caption is a documented stub that returns this shape when
+# it is called outside a Claude Code session. Treat it as "no caption", never as text.
+PLACEHOLDER_RE = re.compile(r'^\s*\[CAPTION NEEDED\b', re.IGNORECASE)
+
+
+def is_placeholder(value: str) -> bool:
+    """True when a caption is the stub's placeholder rather than real text."""
+    return bool(PLACEHOLDER_RE.match(value or ''))
 
 try:
     from r2_uploader import R2Uploader
@@ -157,21 +181,25 @@ class AssetOrchestrator:
         print(f"   ✅ Uploaded: {upload_result['url']}")
         print(f"   Size: {upload_result['size']:,} bytes")
 
-        # Step 2: Generate captions (if not skipped)
+        # Step 2: Captions.
+        #
+        # This step does NOT generate captions and never has. Captioning is a two-phase
+        # workflow: this script inventories the image, then a Claude Code session reads it
+        # with native vision and writes the text back. That design is fine. What was not fine
+        # is that this block used to write three EMPTY strings into the caption columns while
+        # printing "Generating AI captions...", so a replace of an already-captioned asset
+        # silently blanked its captions, and the caller was told captions had been generated.
+        # See tallyfy/documentation#117.
         captions = {}
+        captions_pending = False
         if not skip_captions:
-            print("\n[2/3] Generating AI captions...")
-            print("   ⚠️  This requires Claude Code vision capabilities")
-            print("   ⚠️  Captions will need to be generated separately if not in Claude Code session")
-
-            # This would be filled in by Claude Code when executing
-            captions = {
-                'ai_caption_alt': '',
-                'ai_caption_descriptive': '',
-                'ai_caption_seo': ''
-            }
+            captions_pending = True
+            print("\n[2/3] Captions: NOT generated here.")
+            print("   This command inventories the image. It does not caption it.")
+            print("   Caption it in a Claude Code session, which has the vision capability:")
+            print(f"     python3 orchestrator.py caption --url {upload_result['url']}")
         else:
-            print("\n[2/3] Skipping caption generation (--skip-captions)")
+            print("\n[2/3] Skipping captions (--skip-captions)")
 
         # Step 3: Update inventory
         print("\n[3/3] Updating inventory...")
@@ -201,12 +229,20 @@ class AssetOrchestrator:
 
         print(f"   ✅ Inventory updated")
 
+        if captions_pending:
+            print("   ⚠️  This asset has NO captions yet. Its alt text will be empty until you")
+            print("      run the caption command above.")
+
         return {
             'success': True,
             'url': upload_result['url'],
             'r2_key': r2_key,
             'size': upload_result['size'],
-            'captions_generated': not skip_captions
+            # Always False: this method does not generate captions. It reported
+            # `not skip_captions` here for as long as it existed, which is how an
+            # uncaptioned upload read as a captioned one.
+            'captions_generated': False,
+            'captions_pending': captions_pending,
         }
 
     def replace_asset(
@@ -270,17 +306,50 @@ class AssetOrchestrator:
 
         print(f"   Found in inventory: {asset['filename']}")
 
-        # Generate captions (placeholder - needs Claude Code)
         captions = self.captioner.generate_captions(url)
 
-        # Update inventory with captions
-        self.inventory.update_asset(r2_key, captions)
+        # The generator returns alt_text/descriptive/seo; the CSV columns are
+        # ai_caption_alt/ai_caption_descriptive/ai_caption_seo. asset_inventory writes with
+        # extrasaction='ignore', so passing the generator's keys straight through wrote
+        # NOTHING and reported success. Translate explicitly (tallyfy/documentation#117).
+        row = {
+            CAPTION_COLUMNS[key]: value
+            for key, value in captions.items()
+            if key in CAPTION_COLUMNS
+        }
 
-        print("   ✅ Captions generated and inventory updated")
+        unmapped = sorted(set(captions) - set(CAPTION_COLUMNS))
+        if unmapped:
+            return {
+                'success': False,
+                'error': (f"captioner returned unknown key(s) {unmapped}; refusing to write. "
+                          f"Expected any of {sorted(CAPTION_COLUMNS)}.")
+            }
+
+        # A stub or a failed generation yields placeholders or blanks. Writing those over a
+        # real caption is worse than doing nothing, and reporting success for it is how the
+        # gap stayed invisible.
+        usable = {k: v for k, v in row.items() if v and not is_placeholder(v)}
+        if not usable:
+            return {
+                'success': False,
+                'error': ("no usable captions were produced. This command only works inside a "
+                          "Claude Code session, where the image can be read with native vision. "
+                          "Nothing was written to the inventory.")
+            }
+
+        self.inventory.update_asset(r2_key, usable)
+
+        written = ', '.join(sorted(usable))
+        skipped = sorted(set(row) - set(usable))
+        print(f"   ✅ Wrote {len(usable)} caption(s) to the inventory: {written}")
+        if skipped:
+            print(f"   ⚠️  Left unchanged (empty or placeholder): {', '.join(skipped)}")
 
         return {
             'success': True,
-            'captions': captions
+            'captions': usable,
+            'skipped': skipped,
         }
 
     def show_stats(self) -> dict:
