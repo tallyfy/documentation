@@ -30,7 +30,7 @@ Once it's connected, you talk to a Copilot Studio agent and it handles Tallyfy f
 ### What you need
 
 - A Microsoft Copilot Studio license (trial or paid).
-- Your Tallyfy API key, from your organization settings.
+- A Tallyfy credential: either your Tallyfy API key from your organization settings, or a Tallyfy account to authorize through OAuth. The steps below use the API key, because it is the quicker of the two to wire up.
 - Access to Power Apps or Power Automate, to build the connector.
 - Generative Orchestration turned on in your Copilot Studio agent.
 - An environment in a region where this is available.
@@ -44,7 +44,9 @@ Once it's connected, you talk to a Copilot Studio agent and it handles Tallyfy f
 
 ### Is it secure?
 
-Yes. It runs on Microsoft's own security. You sign in with your normal Microsoft account through OAuth[^1], and your IT team can add the same protections they use for other Microsoft apps: keeping traffic on a private network, blocking sensitive data from leaving, requiring a second sign-in step, and keeping full audit logs. Admins can see every connected agent in the Microsoft 365 admin center. The exact settings are under [For developers](#for-developers).
+Yes. Two separate sign-ins are involved, and it helps to keep them apart. You get into Copilot Studio with your normal Microsoft account, and your IT team can add the same protections they use for any other Microsoft app: keeping traffic on a private network, blocking sensitive data from leaving, requiring a second sign-in step, and keeping full audit logs. Admins can see every connected agent in the Microsoft 365 admin center.
+
+The connector then authenticates to Tallyfy separately, with a **Tallyfy** credential. Your Microsoft account does not sign you in to Tallyfy. You can use either a Tallyfy API key or OAuth 2.1[^1]; see [Which credential to use](#which-credential-to-use) for the difference. The exact settings are under [For developers](#for-developers).
 
 ## For developers
 
@@ -52,7 +54,7 @@ Yes. It runs on Microsoft's own security. You sign in with your normal Microsoft
 
 ### Server endpoint and support status
 
-The MCP server is hosted at `https://mcp.tallyfy.com/` and exposes 109 tools across 14 categories. It's listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. Copilot Studio connects via streamable HTTP with OAuth 2.1.
+The MCP server is hosted at `https://mcp.tallyfy.com/` and exposes 109 tools across 14 categories. It's listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. Copilot Studio connects to it over streamable HTTP.
 
 Tallyfy is already a Microsoft Verified Publisher with a [Power Automate connector](https://learn.microsoft.com/en-us/connectors/tallyfy/) that's been live for years, so the MCP path is the natural next step for AI-driven workflow ops on the Microsoft stack. Direct MCP support inside Copilot Studio (skipping the custom-connector wrapper) is under active investigation with Microsoft.
 
@@ -66,12 +68,28 @@ MCP server support is generally available in Copilot Studio as of early 2026:
 - **Prebuilt connectors**: GitHub, Asana, Jira, Dataverse, Dynamics 365, Microsoft Fabric
 - **Governance**: MCP governed by Agentic AI Foundation under Linux Foundation (December 2025); Microsoft is a founding member
 
-The server uses OAuth 2.1 with PKCE for authentication. Discovery starts at `/.well-known/oauth-authorization-server` (per RFC 8414), and scopes use dot notation like `mcp.tasks.read`, `mcp.processes.write`, and so on.
+### Which credential to use
+
+The server accepts **two** credentials, and both work today. Pick one and keep the whole connector consistent with it.
+
+| | Tallyfy API key | OAuth 2.1 |
+|---|---|---|
+| How it travels | `Authorization: Bearer <your Tallyfy API key>` | `Authorization: Bearer <OAuth access token>` |
+| Connector security scheme | `apiKey`, header `Authorization`, prefix `Bearer ` | `oauth2`, authorization code flow with PKCE |
+| Setup effort | Low. Paste one value and test. | Higher. Register the connector against the authorization server first. |
+| Per-user identity | No. Every agent call acts as whoever owns the key. | Yes. Each person authorizes with their own Tallyfy account. |
+| Scoped permissions | No. The key carries the owner's full access. | Yes. Twelve scopes, in dot notation like `mcp.tasks.read` and `mcp.processes.write`. |
+| Revocation | Rotate the key in organization settings. | Revoke that user's grant. |
+| Best for | Getting a connector working, and single-owner automation. | Shared agents, and anywhere per-user audit trails or least privilege matter. |
+
+The steps below build the API key version, because it is the shortest path to a working connector. If you need per-user identity or scoped permissions, use OAuth instead. Discovery starts at `/.well-known/oauth-authorization-server` (per RFC 8414), which advertises `https://mcp.tallyfy.com/mcp/oauth/authorize` and `https://mcp.tallyfy.com/mcp/oauth/token`, with PKCE `S256`.
+
+Whichever you choose, an unauthenticated or invalid request is rejected with `401 invalid_token`. There is no anonymous access.
 
 ### Prerequisites
 
 - Microsoft Copilot Studio license (trial or paid)
-- Tallyfy API key from your organization settings
+- A Tallyfy API key from your organization settings, if you are following the steps below. For the OAuth route, a Tallyfy account to authorize with instead.
 - Power Apps or Power Automate access (for custom connectors)
 - Generative Orchestration enabled in your Copilot Studio agent
 - Environment in a supported region (check Microsoft docs for availability)
@@ -84,7 +102,7 @@ The server uses OAuth 2.1 with PKCE for authentication. Discovery starts at `/.w
 
    Tallyfy provides a hosted MCP server at `https://mcp.tallyfy.com` that exposes 109 tools across 14 categories for managing tasks, processes, templates, users, form fields, kickoff fields, automation, and more. You don't need to build your own MCP server - instead, you'll create a connector that points to Tallyfy's existing server.
 
-   The server uses OAuth 2.1 with PKCE for authentication. Discovery starts at `/.well-known/oauth-authorization-server` (per RFC 8414), and scopes use dot notation like `mcp.tasks.read`, `mcp.processes.write`, etc.
+   These steps build the API key version of the connector. See [Which credential to use](#which-credential-to-use) if you need OAuth instead.
 
 2. **Create an OpenAPI specification**
 
@@ -136,6 +154,10 @@ The server uses OAuth 2.1 with PKCE for authentication. Discovery starts at `/.w
    - Configure the header name as `Authorization`
    - Set the prefix to `Bearer `
    - Test the connection with your Tallyfy API key
+
+   A successful test returns the server's tool list. A wrong or missing credential returns `401 invalid_token`, so a green test really does mean the credential was accepted.
+
+   For OAuth instead, set the security scheme to `oauth2` with the authorization code flow, point it at the two endpoints listed under [Which credential to use](#which-credential-to-use), and request the scopes your agent needs. Tallyfy also publishes an authored Power Platform connector using OAuth, which is a useful reference if you go this route.
 
 5. **Add the MCP connector to your agent**
    
