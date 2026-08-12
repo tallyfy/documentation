@@ -121,7 +121,10 @@ python3 orchestrator.py stats
 
 - **R2 Cloud Storage**: Automatic upload to Cloudflare R2 with CDN delivery
 - **AI Caption Generation**: Three caption types (alt text, descriptive, SEO)
-- **Inventory Management**: 812 assets tracked in `documentation_assets.csv`
+- **Inventory Management**: assets tracked in `documentation_assets.csv`. This line read **812**
+  until 2026-08-12; the real figure was **873**, so re-derive rather than quoting either:
+  `echo $(( $(wc -l < documentation_assets.csv) - 1 ))`. The file is synced to `support-docs` by the
+  pipeline as of documentation#116, so edit the copy in this repository only.
 - **Build Integration**: AI captions automatically injected at build time
 
 For complete documentation, see:
