@@ -1,4 +1,4 @@
-<!-- Last updated: 2025-07-15 17:19:50 -->
+<!-- Last updated: 2026-08-12 17:56:43 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,11 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (17 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-├── manufactory/     (45 files)  - Tallyfy Manufactory observability documentation
 └── pro/             (671 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 742 .mdx files across 156 directories
+**Total**: 697 .mdx files across 145 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:

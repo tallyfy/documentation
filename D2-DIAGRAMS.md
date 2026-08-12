@@ -250,11 +250,6 @@ Connection: {
    - SSO setup → sequence showing both user and admin actions
    - Data sync → bidirectional arrows in sequence
 
-6. **Manufactory Documentation** (`/manufactory/`)
-   - Event pipeline → graph diagram
-   - WebSocket connections → state diagram
-   - Collector architecture → graph with subgraphs
-
 ## Terminology Guidelines for Diagrams
 
 **IMPORTANT**: Choose terminology based on your audience:

@@ -124,7 +124,6 @@ BLACKLIST = [
 REFERENCE_PREFIXES = (
     "pro/integrations/open-api",
     "pro/integrations/webhooks",
-    "manufactory",
 )
 
 TECH_SECTION_RE = re.compile(
