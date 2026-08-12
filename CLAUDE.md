@@ -1698,7 +1698,7 @@ for feature in features:
 
 ### Overview
 
-All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` automates the complete workflow for uploading, captioning, and inventory management. AI-generated captions are automatically injected into documentation images at build time.
+All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` handles uploading and inventory automatically, and captioning as a separate, human-run second phase. Captions that exist in the inventory are injected into documentation images as alt text at build time.
 
 **🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
 
@@ -1749,19 +1749,34 @@ The asset management scripts in `scripts/asset_management/` provide automated wo
 
 #### Upload New Screenshot
 
+Captioning is **two phase, on purpose**. `upload` puts the file on R2 and inventories it. It does
+NOT caption. `caption` writes the caption text, and it only works inside a Claude Code session,
+because that is what can actually read the image. Run both, in order:
+
 ```bash
-# Automatic workflow: upload + AI captions + inventory update
+# Phase 1: upload + inventory (no captions)
 cd /documentation/scripts/asset_management
 python3 orchestrator.py upload \
   --file /path/to/screenshot.png \
   --key "tallyfy/pro/desktop-light-new-feature.png" \
   --articles "pro-feature-guide,pro-getting-started"
+
+# Phase 2: caption it, in a Claude Code session, using the URL phase 1 printed
+python3 orchestrator.py caption \
+  --url "https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-new-feature.png"
 ```
 
-**Returns**:
+**`upload` returns**:
 - Public URL: `https://screenshots.tallyfy.com/tallyfy/pro/desktop-light-new-feature.png`
-- AI-generated alt text, descriptive, and SEO captions
-- Automatic inventory CSV update
+- An inventory row, with the three caption columns left **empty**
+- A reminder that the image is uncaptioned until you run phase 2
+
+An image that never gets phase 2 ships with empty alt text, so treat the pair as one task. Until
+2026-08-12 `upload` printed "Generating AI captions..." and wrote three empty strings, and
+`caption` printed a success tick while writing nothing at all, because it handed the generator's
+`alt_text`/`descriptive`/`seo` keys to a CSV writer whose columns are `ai_caption_*` and which
+drops unknown keys silently. Both now report what actually happened, and `caption` exits non-zero
+when it produced nothing. See tallyfy/documentation#117.
 
 #### Replace Existing Screenshot
 
@@ -1785,7 +1800,10 @@ python3 orchestrator.py upload \
 
 ### AI-Generated Captions
 
-The skill automatically generates three types of captions using Claude Vision:
+The `caption` command writes three types of caption, and it only works inside a Claude Code
+session, where the image can be read with native vision. Nothing generates these automatically:
+an uploaded image has empty captions until someone runs that command. If it produces no usable
+text it writes nothing and exits non-zero, rather than reporting success.
 
 1. **Alt Text** (Accessibility):
    - Concise, 1-2 sentences
