@@ -299,7 +299,25 @@ jobs:
 
       - name: Sync files
         run: |
+          set -euo pipefail
           rsync -av --delete src/content/docs/ target-repo/src/content/docs/
+
+          # documentation_assets.csv carries the alt text for every documentation image.
+          # support-docs reads it at build time (src/plugins/remark/inject-alt-text.ts and
+          # src/utils/structured-data.ts), but nothing ever synced it, so the copy over there
+          # only stayed correct because both files happened to be identical. The first image
+          # added after they diverged would have shipped with empty alt text and nothing would
+          # have reported it. See tallyfy/documentation#116.
+          test -f documentation_assets.csv || { echo "::error::documentation_assets.csv missing from source checkout"; exit 1; }
+          cp documentation_assets.csv target-repo/documentation_assets.csv
+
+          # Assert the copy landed and is non-trivial, so a truncated or empty file cannot be
+          # committed silently. A header-only CSV is 1 line, so anything under 2 is broken.
+          rows=$(wc -l < target-repo/documentation_assets.csv | tr -d '[:space:]')
+          echo "documentation_assets.csv synced: $rows line(s)"
+          [ "$rows" -ge 2 ] || { echo "::error::documentation_assets.csv looks empty ($rows lines)"; exit 1; }
+          cmp -s documentation_assets.csv target-repo/documentation_assets.csv \
+            || { echo "::error::documentation_assets.csv differs after copy"; exit 1; }
 
       - name: Commit and push changes
         run: |
@@ -307,7 +325,7 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
           git config pull.rebase false
-          git add src/content/docs
+          git add src/content/docs documentation_assets.csv
           TARGET_BRANCH=${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
           if git diff --staged --quiet; then
             echo "No changes to commit"
