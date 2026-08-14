@@ -373,6 +373,36 @@ def self_test():
             ),
         )
 
+    # The effective hold list handed to support-docs. Both directions matter: a hold that is
+    # still active must survive the trip, and one released for this promotion must not, or the
+    # other side's build fails on content this side deliberately shipped.
+    def _emit_and_parse(commit_message):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, sha, holds = _build_fixture(
+                tmp, [HELD_PAGE, OTHER_PAGE], [FIXTURE_HOLD], commit_message=commit_message
+            )
+            out = os.path.join(tmp, "emitted.txt")
+            emit_effective_holds(repo, sha, holds, out)
+            # Parsed with the same parser, so a malformed emission is caught here rather than
+            # in a Cloudflare build log where nobody is watching.
+            return [h.id for h in parse_holds(out)]
+
+    case(
+        "EMIT - an active hold survives into the effective list",
+        ["sso-screens"],
+        lambda: _emit_and_parse("Promote staging to main"),
+    )
+    case(
+        "EMIT - a hold released by this promotion is dropped from it",
+        [],
+        lambda: _emit_and_parse("Promote staging to main [release-hold: sso-screens] shipping"),
+    )
+    case(
+        "EMIT - releasing a DIFFERENT hold drops nothing",
+        ["sso-screens"],
+        lambda: _emit_and_parse("Promote staging to main [release-hold: some-other-hold]"),
+    )
+
     failed = [c for c in cases if not c[3]]
     log("")
     if failed:
@@ -389,6 +419,69 @@ def _error_kind(fn, *args):
     except CheckerError:
         return "CheckerError"
     return "no error"
+
+
+# --------------------------------------------------------------------------------------
+# effective hold list, for the OTHER road into production
+
+
+def emit_effective_holds(repo, commit, holds_path, out_path):
+    """Write the hold list as it stands AFTER this promotion's release markers are applied.
+
+    support-docs enforces holds at build time, because publishing that site is the Cloudflare
+    Pages git integration and a merge of its `staging` into `production` never touches this
+    pipeline (tallyfy/documentation#135). Its gate needs the hold list, and the `sync` job is
+    what puts it there.
+
+    It must be the EFFECTIVE list, not this file verbatim. A hold released for one promotion
+    only, via `[release-hold: <id>]`, stays on its line in this file by design - the release is
+    scoped to the promotion, not to the list. Copying the raw file would therefore hand
+    support-docs a hold that this repo's own gate has already allowed past, and its production
+    build would fail on content we deliberately shipped. Resolving the marker here keeps one
+    source of truth for what "held" means and leaves the other side a plain list to match.
+    """
+    holds = parse_holds(holds_path)
+    # Resolve to a real SHA. Recording the literal "HEAD" would make the provenance line
+    # unusable for anyone trying to work out which promotion produced this list.
+    resolved = git(repo, "rev-parse", commit).strip()
+    message = git(repo, "log", "-1", "--format=%B", resolved)
+    released = released_ids(message)
+    effective = [h for h in holds if h.id not in released]
+    dropped = [h.id for h in holds if h.id in released]
+
+    lines = [
+        "# GENERATED - do not edit here.",
+        "#",
+        "# Written by the `sync` job in tallyfy/documentation's documentation-pipeline.yml,",
+        "# from .github/promotion-holds.txt in that repo. Edit it there; an edit here is",
+        "# overwritten by the next sync.",
+        "#",
+        "# Enforced by scripts/promotion-hold-build-gate.mjs, chained into `npm run build`, so",
+        "# a held path cannot reach production down the support-docs road either (#135).",
+        f"# Source commit: {resolved}",
+    ]
+    if dropped:
+        lines.append(
+            "# Released for this promotion by its commit message: " + ", ".join(sorted(dropped))
+        )
+    lines.append("#")
+    if effective:
+        for hold in effective:
+            lines.append(f"{hold.id}  {hold.glob}  {hold.reason}")
+    else:
+        lines.append("# ACTIVE HOLDS - none.")
+
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    if out_dir and not os.path.isdir(out_dir):
+        raise CheckerError(f"cannot write effective hold list, no such directory: {out_dir}")
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+    log(
+        f"Effective hold list written to {out_path}: {len(effective)} hold(s)"
+        + (f", {len(dropped)} released by this promotion" if dropped else "")
+    )
+    return 0
 
 
 # --------------------------------------------------------------------------------------
@@ -504,6 +597,13 @@ def main(argv=None):
     parser.add_argument("--workflow", default=".github/workflows/documentation-pipeline.yml")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--check-wiring", action="store_true")
+    parser.add_argument(
+        "--emit-effective-holds",
+        default="",
+        metavar="PATH",
+        help="write the hold list with this promotion's release markers applied, for the "
+        "support-docs build gate to enforce (#135)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -512,6 +612,13 @@ def main(argv=None):
             return self_test()
         if args.check_wiring:
             return check_wiring(os.path.join(args.repo, args.workflow))
+        if args.emit_effective_holds:
+            holds_path = args.holds
+            if not os.path.isabs(holds_path):
+                holds_path = os.path.join(args.repo, holds_path)
+            return emit_effective_holds(
+                args.repo, args.commit, holds_path, args.emit_effective_holds
+            )
         if not args.branch:
             raise CheckerError("--branch is required for the check")
         holds_path = args.holds

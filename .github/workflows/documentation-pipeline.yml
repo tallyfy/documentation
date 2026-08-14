@@ -297,6 +297,14 @@ jobs:
           path: target-repo
           ref: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
 
+      # This job had no Python step because it never needed one until the hold list started
+      # being emitted here. Every other job in this file that runs `python` sets it up first,
+      # and relying on a bare `python` existing on the runner image is the kind of assumption
+      # that fails on an image update, in the one job that publishes.
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
       - name: Sync files
         run: |
           set -euo pipefail
@@ -319,13 +327,42 @@ jobs:
           cmp -s documentation_assets.csv target-repo/documentation_assets.csv \
             || { echo "::error::documentation_assets.csv differs after copy"; exit 1; }
 
+          # The hold list, for the OTHER road into production. promotion-hold-gate only sees
+          # promotions in THIS repo; support-docs `staging` can be merged into its `production`
+          # directly, and Cloudflare Pages builds that branch on push, so that road publishes
+          # this repo's content with the gate never invoked (tallyfy/documentation#135).
+          # support-docs enforces holds inside `npm run build`, which is the one step Pages
+          # will not publish past, and this is what supplies the list it enforces.
+          #
+          # --emit-effective-holds, NOT a plain cp: a hold released for this promotion only via
+          # `[release-hold: <id>]` stays on its line in the source file by design, so copying
+          # it verbatim would hand support-docs a hold we have already, deliberately, allowed
+          # past - and its production build would fail on content we meant to ship.
+          #
+          # HEAD, not workflow_run.head_sha: this job checks out the branch at the default
+          # fetch-depth of 1, so head_sha is often not an object this checkout has and
+          # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
+          # tip here, which is the commit whose message carries any release marker.
+          python scripts/promotion-hold-check.py \
+            --commit HEAD \
+            --emit-effective-holds target-repo/promotion-holds.txt
+          test -s target-repo/promotion-holds.txt \
+            || { echo "::error::effective hold list is missing or empty after emit"; exit 1; }
+          # Prove the emitted file parses as a hold list, so a malformed emission is caught
+          # here and not in a Cloudflare build log where nobody is watching. --branch staging
+          # makes this a parse-only assertion: check() parses before it looks at any branch.
+          python scripts/promotion-hold-check.py \
+            --holds target-repo/promotion-holds.txt --branch staging --commit HEAD \
+            || { echo "::error::emitted hold list does not parse"; exit 1; }
+          echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
+
       - name: Commit and push changes
         run: |
           cd target-repo
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
           git config pull.rebase false
-          git add src/content/docs documentation_assets.csv
+          git add src/content/docs documentation_assets.csv promotion-holds.txt
           TARGET_BRANCH=${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
           if git diff --staged --quiet; then
             echo "No changes to commit"
