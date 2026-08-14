@@ -19,6 +19,10 @@
 # diff-based check would have no reliable base and would fail toward green - passing when it
 # could not compute an answer. Presence fails closed.
 #
+# That choice has one consequence that is exactly backwards from what you would assume when
+# you reach for a hold: A HOLD CANNOT BLOCK A DELETION. See limit 1 below before relying on
+# one to keep a page published.
+#
 # FORMAT - one hold per line, three whitespace-separated fields:
 #
 #   <id>  <glob>  <reason, free text to end of line>
@@ -49,11 +53,52 @@
 #      git push origin main
 #
 # WHAT THIS GATE DOES NOT COVER
-# The pipeline is triggered by `generate-ids.yml`, whose `paths:` filter excludes
-# `src/content/docs/pro/changelog/**`. A promotion touching only changelog paths starts no
-# pipeline, so a hold on a changelog path would never be evaluated. It would also publish
-# nothing, because the `sync` job that copies content to support-docs would not run either.
-# Do not put a changelog path on hold and expect it to be enforced.
+#
+# 1. A HOLD CANNOT BLOCK A DELETION, ONLY A PUBLICATION.
+#    A hold matches against the paths the promoted tree CONTAINS (`git ls-tree` of the
+#    promoted commit, promotion-hold-check.py:176, matched at :131). A file being DELETED is
+#    by definition absent from that tree, so it matches no glob, `hits` stays empty, and the
+#    gate passes GREEN while the deletion ships.
+#
+#    Measured 2026-08-13 with the checker's own fixture builder, both directions on one
+#    invocation: identical hold list, identical branch, held path PRESENT -> rc=1 (blocked),
+#    held path ABSENT -> rc=0 (ships). Evidence on tallyfy/documentation#135.
+#
+#    So holding `src/content/docs/pro/*sso*` stops those pages GOING LIVE. It does nothing at
+#    all to stop them being UNPUBLISHED, and deleting a published page is at least as
+#    irreversible as publishing one. If you need to stop a deletion, there is no mechanism
+#    here: read the promotion's diff by hand, or do not promote.
+#
+#    This is a consequence of the presence-based design above, not a bug to patch casually.
+#    Making holds cover deletions means finding a previous-main base to diff against, which
+#    is the exact thing that design avoided because no reliable base exists on this event.
+#
+# 2. THE OTHER ROAD INTO PRODUCTION IS GATED SEPARATELY, AND NOT BY THIS JOB.
+#    This gate lives in this repository's pipeline, so it only sees this repository's road.
+#    Production content can also be published by merging `support-docs` `staging` into
+#    `support-docs` `production` - a merge in another repository this pipeline never observes,
+#    from a branch that already holds an rsynced copy of this repo's `staging` content.
+#    Measured: support-docs#227, merged 2026-08-12, carried 74 files that way (#135).
+#
+#    Since 2026-08-13 that road has its own gate, fed from THIS file. The `sync` job emits the
+#    effective hold list to `support-docs/promotion-holds.txt`, and
+#    `scripts/promotion-hold-build-gate.mjs` there fails the `production` build when a held
+#    path is present. It is a build step because Cloudflare Pages builds that repo on push via
+#    its git integration: a workflow reacting to the push would go red only after publication,
+#    and Pages does not publish a failed build.
+#
+#    Two consequences for anyone editing THIS file. First, a hold you add here reaches that
+#    gate on the next sync, which is why `.github/promotion-holds.txt` is in generate-ids.yml's
+#    `paths:` filter - remove it and holds stop propagating. Second, the two gates must agree
+#    on glob semantics: `*` spans `/` in both. Their agreement is measured, not assumed
+#    (8 globs x 704 real content paths, identical matches, 2026-08-13).
+#
+# 3. A CHANGELOG-ONLY PROMOTION STARTS NO PIPELINE.
+#    The pipeline is triggered by `generate-ids.yml`, whose `paths:` filter excludes
+#    `src/content/docs/pro/changelog/**`. A promotion touching only changelog paths starts no
+#    pipeline, so a hold on a changelog path would never be evaluated. It would also publish
+#    nothing, because the `sync` job that copies content to support-docs would not run either.
+#    Do not put a changelog path on hold and expect it to be enforced.
 #
 # Checker: scripts/promotion-hold-check.py (run it locally with --self-test).
 #

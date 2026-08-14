@@ -1396,6 +1396,36 @@ issue (#88, #118).
   path, whether or not this promotion changed it. Promotions here fast-forward and the
   `workflow_run` event carries no previous-main SHA, so a diff-based check would have no base
   and would pass when it couldn't compute an answer.
+- ⚠️ **A hold blocks a PUBLICATION and cannot block a DELETION.** This follows from the line
+  above and is exactly backwards from what most people assume when they reach for a hold. The
+  candidate set is `git ls-tree` of the promoted commit (`promotion-hold-check.py:176`, matched
+  at `:131`), and a file being deleted is absent from that tree, so it matches no glob and the
+  gate passes green while the deletion ships. Measured 2026-08-13 with the checker's own
+  fixture builder, both directions on one invocation: same hold list, same branch, held path
+  present → `rc=1` blocked, held path absent → `rc=0` ships (tallyfy/documentation#135). There
+  is no mechanism here for holding a deletion back: read the promotion's diff by hand, or do
+  not promote. Covering deletions would need a previous-`main` base to diff against, which is
+  the thing the presence-based design deliberately avoided.
+- ⚠️ **The hold only guards the road through this repo.** Production content can also be
+  published by merging `support-docs` `staging` into `support-docs` `production`. That is a
+  merge in another repository which this pipeline never observes, `support-docs` `staging`
+  already carries an rsynced copy of this repo's `staging` content, and Cloudflare Pages builds
+  that branch on push. So that road publishes this repo's unpromoted content with the gate
+  never invoked, and it is a road in routine use (`support-docs#227`, merged 2026-08-12,
+  carried 74 files under `src/content/docs`). **Never use the `support-docs` promotion to ship
+  content ahead of this repo's `main`.** Promote here first, let the pipeline sync, and keep
+  the `support-docs` merge for framework changes. Tracked as tallyfy/documentation#135.
+- ✅ **That second road is now gated too, as of 2026-08-13.** The `sync` job emits the hold
+  list into `support-docs/promotion-holds.txt` (via `--emit-effective-holds`, so a hold
+  released by a `[release-hold:]` marker does not fail a build over there), and
+  `support-docs/scripts/promotion-hold-build-gate.mjs` is chained first into that repo's
+  `npm run build`, failing the build on the `production` branch when a held path is present.
+  It is a build step and not a workflow on purpose: Cloudflare Pages builds that repo on push
+  through its git integration, so a workflow reacting to the push would go red **after**
+  publication. Pages will not publish a failed build, which is what makes the build the only
+  real gate on that road. The two gates share glob semantics deliberately, and that agreement
+  is measured rather than assumed: `fnmatch.fnmatchcase` and the JS translation returned
+  identical matches over 8 globs x 704 real content paths on 2026-08-13.
 - Release a hold by deleting its line (a reviewable diff), or for one promotion only by naming
   it in the merge commit: `git merge --no-ff staging -m "Promote staging to main [release-hold: <id>] <why>"`.
   A plain `git merge` fast-forwards and carries no message of yours, so the marker needs `--no-ff`.
