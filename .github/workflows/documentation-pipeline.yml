@@ -297,6 +297,14 @@ jobs:
           path: target-repo
           ref: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
 
+      # This job had no Python step because it never needed one until the hold list started
+      # being emitted here. Every other job in this file that runs `python` sets it up first,
+      # and relying on a bare `python` existing on the runner image is the kind of assumption
+      # that fails on an image update, in the one job that publishes.
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
       - name: Sync files
         run: |
           set -euo pipefail
