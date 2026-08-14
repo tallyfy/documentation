@@ -1437,7 +1437,19 @@ issue (#88, #118).
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status
-- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success` (`gh api 'accounts/<account_id>/pages/projects/support-docs/deployments?env=production&per_page=1'`).
+- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success`.
+
+  ⚠️ **Step 2 cannot be done with `gh`, and the failure looks exactly like a failed deploy.** `gh` only ever talks to GitHub, so it routes a Cloudflare path there and answers `Not Found (HTTP 404)` with a `documentation_url` of `docs.github.com`. That reads as "the deployment isn't there", and the natural response is to re-run a publish that already succeeded. This file prescribed `gh api 'accounts/<account_id>/pages/...'` until 2026-08-14; it never worked (tallyfy/documentation#139). Use `curl`:
+
+  ```bash
+  AID=$(jq -r .account_id ../cloudflare_credentials.json)
+  TOK=$(jq -r .api_token   ../cloudflare_credentials.json)
+  curl -s -H "Authorization: Bearer $TOK" \
+    "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=1" \
+    | jq -r '.result[] | "\(.short_id) \(.latest_stage.name)/\(.latest_stage.status) skipped=\(.is_skipped) \(.created_on)"'
+  ```
+
+  Read `is_skipped` as well as the stage. A skipped build (commit message carrying `[skip ci]` or a sibling marker) still appears in the deployments list with a `github:push` trigger and looks like a real build, but its stages never start. Two controls, both cheap: `?env=preview` must return *different* rows (the `staging` ones), and a fabricated project name must return `success: false` rather than an empty-looking pass.
 - **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
