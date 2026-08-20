@@ -395,7 +395,7 @@ You are working with Tallyfy's comprehensive product documentation. Your role is
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
-**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 697 .mdx files across 145 directories, search strategies, and file patterns.
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 708 .mdx files across 146 directories, search strategies, and file patterns.
 
 > **Counts in this file go stale. Re-derive, do not trust.** The two figures above read 585 and 99
 > until 2026-08-06, when they were measured at 742 and 156 - a 27% undercount that had been sitting
@@ -408,8 +408,8 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 
 ### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
-  - Location: `/src/content/docs/pro/` (671 files - 90% of all documentation)
-  - Core areas: documenting/ (79 files), tracking-and-tasks/ (50 files), integrations/ (277 files)
+  - Location: `/src/content/docs/pro/` (682 files - 90% of all documentation)
+  - Core areas: documenting/ (79 files), tracking-and-tasks/ (50 files), integrations/ (288 files)
 - **Tallyfy Answers**: Vector-based search engine
   - Location: `/src/content/docs/answers/` (17 files)
 - **Tallyfy Denizen**: Localized images based on user location

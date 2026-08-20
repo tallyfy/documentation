@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-12 17:56:43 -->
+<!-- Last updated: 2026-08-19 22:21:23 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,10 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (17 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-└── pro/             (671 files) - Tallyfy Pro main product documentation (90% of all content)
+└── pro/             (682 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 697 .mdx files across 145 directories
+**Total**: 708 .mdx files across 146 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
@@ -27,8 +27,8 @@ This file provides a comprehensive overview of the documentation organization to
 Ordered by size, largest first, so the biggest areas are the ones you see.
 
 ```
-pro/                                   (671 files)
-├── integrations/          (277 files) - Third-party connections
+pro/                                   (682 files)
+├── integrations/          (288 files) - Third-party connections
 │   ├── open-api/          (75 files)  - REST API documentation
 │   ├── vendors/           (46 files)  - Per-vendor integration guides
 │   ├── middleware/        (43 files)  - Zapier, Make, Power Automate, Workato, Celigo
@@ -40,7 +40,7 @@ pro/                                   (671 files)
 │   ├── mcp-server/        (7 files)   - MCP server
 │   ├── tallyfy-desktop-ai/ (7 files)  - Desktop AI
 │   ├── document-management/ (6 files) - Document systems
-│   ├── email/             (6 files)   - Email integrations
+│   ├── email/             (17 files)   - Email integrations
 │   ├── robotics/          (6 files)   - RPA and robotics
 │   ├── webhooks/          (5 files)   - Webhook integrations
 │   ├── azure-translation/ (4 files)   - Azure translation
@@ -150,7 +150,7 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 1. **Templates & Workflows**: `pro/documenting/templates/` (54 files)
 2. **Task Management**: `pro/tracking-and-tasks/tasks/` (22 files)
 3. **Process Management**: `pro/tracking-and-tasks/processes/` (12 files)
-4. **Integrations**: `pro/integrations/` (277 total files; per-vendor guides live under
+4. **Integrations**: `pro/integrations/` (288 total files; per-vendor guides live under
    `pro/integrations/vendors/` and `pro/integrations/middleware/[vendor]/`, not `pro/integrations/[vendor]/`)
 5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (16 files)
 
