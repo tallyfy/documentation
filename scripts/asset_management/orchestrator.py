@@ -32,8 +32,10 @@ Usage examples:
 
 import sys
 import argparse
+import shutil
 import subprocess
 import re
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -81,17 +83,25 @@ class AssetOrchestrator:
 
     def ensure_max_dimension(self, file_path: Path, max_dim: int = MAX_IMAGE_DIMENSION) -> Path:
         """
-        Resize image if any dimension exceeds max_dim.
+        Return a path whose image fits inside max_dim on both sides.
 
-        This prevents Claude API errors when processing multiple images,
-        which enforces a 2000px maximum dimension limit.
+        The cap exists for the caption phase: Claude enforces 2000px on a
+        multi-image request. It is not an R2 or a rendering limit.
+
+        This used to hand `sips` the caller's own file. `sips` rewrites in
+        place, so uploading a tall screenshot silently destroyed the local
+        original, and there was then nothing left to re-upload at full size.
+        A 1000x3419 email capture came back as 585x2000 and its text was no
+        longer readable. Resize a COPY instead, and leave the caller's file
+        exactly as it was found.
 
         Args:
             file_path: Path to the image file
             max_dim: Maximum allowed dimension (default: 2000)
 
         Returns:
-            Path: Original path (file is modified in place if resized)
+            Path: the original path when no resize was needed, otherwise a
+            path to a resized temporary copy. The original is never touched.
         """
         # Only process image files
         if file_path.suffix.lower() not in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
@@ -116,21 +126,27 @@ class AssetOrchestrator:
 
             if width > max_dim or height > max_dim:
                 print(f"   ⚠️  Image exceeds {max_dim}px limit: {width}x{height}")
-                print(f"   🔄 Auto-resizing to max {max_dim}px...")
+                print(f"   🔄 Auto-resizing a COPY to max {max_dim}px (original untouched)...")
+
+                # sips rewrites in place, so give it a throwaway copy.
+                scratch = Path(tempfile.mkdtemp(prefix='asset-resize-')) / file_path.name
+                shutil.copy2(file_path, scratch)
 
                 # Use sips (macOS) to resize
                 subprocess.run(
-                    ['sips', '--resampleHeightWidthMax', str(max_dim), str(file_path)],
+                    ['sips', '--resampleHeightWidthMax', str(max_dim), str(scratch)],
                     capture_output=True,
                     timeout=30
                 )
 
                 # Verify new dimensions
-                result2 = subprocess.run(['file', str(file_path)], capture_output=True, text=True)
+                result2 = subprocess.run(['file', str(scratch)], capture_output=True, text=True)
                 match2 = re.search(r'(\d+)\s*x\s*(\d+)', result2.stdout)
                 if match2:
                     new_w, new_h = int(match2.group(1)), int(match2.group(2))
-                    print(f"   ✅ Resized to: {new_w}x{new_h}")
+                    print(f"   ✅ Resized copy: {new_w}x{new_h}")
+
+                return scratch
 
         except subprocess.TimeoutExpired:
             print(f"   ⚠️  Timeout checking image dimensions")
@@ -145,7 +161,8 @@ class AssetOrchestrator:
         r2_key: str,
         article_ids: Optional[str] = None,
         skip_captions: bool = False,
-        overwrite: bool = True
+        overwrite: bool = True,
+        resize: bool = True
     ) -> dict:
         """
         Complete upload workflow: upload → caption → inventory.
@@ -156,6 +173,9 @@ class AssetOrchestrator:
             article_ids: Comma-separated article IDs
             skip_captions: Skip AI caption generation
             overwrite: Allow overwriting existing files
+            resize: Shrink an over-2000px image before upload. Pass False for
+                    an image whose full height is the point, such as a tall
+                    email render, where the shrink makes the text unreadable.
 
         Returns:
             dict: Result with success status and details
@@ -163,13 +183,15 @@ class AssetOrchestrator:
         print(f"📤 Starting upload workflow for: {Path(file_path).name}")
         print(f"   R2 key: {r2_key}")
 
-        # Step 0: Auto-resize if needed (prevents Claude API 2000px limit errors)
+        # Step 0: Auto-resize if needed (prevents Claude API 2000px limit errors).
+        # ensure_max_dimension returns a temp copy when it resizes, so upload what
+        # it hands back rather than the caller's path.
         file_path_obj = Path(file_path)
-        self.ensure_max_dimension(file_path_obj)
+        upload_path = self.ensure_max_dimension(file_path_obj) if resize else file_path_obj
 
         # Step 1: Upload to R2
         print("\n[1/3] Uploading to R2...")
-        upload_result = self.uploader.upload_file(file_path, r2_key, overwrite=overwrite)
+        upload_result = self.uploader.upload_file(upload_path, r2_key, overwrite=overwrite)
 
         if not upload_result['success']:
             return {
@@ -249,7 +271,8 @@ class AssetOrchestrator:
         self,
         file_path: str | Path,
         r2_key: str,
-        regenerate_captions: bool = True
+        regenerate_captions: bool = True,
+        resize: bool = True
     ) -> dict:
         """
         Replace an existing asset.
@@ -277,7 +300,8 @@ class AssetOrchestrator:
             r2_key,
             article_ids=article_ids,
             skip_captions=not regenerate_captions,
-            overwrite=True
+            overwrite=True,
+            resize=resize
         )
 
     def generate_captions_only(self, url: str) -> dict:
@@ -424,12 +448,16 @@ Examples:
     upload_parser.add_argument('--articles', help='Comma-separated article IDs')
     upload_parser.add_argument('--skip-captions', action='store_true', help='Skip caption generation')
     upload_parser.add_argument('--no-overwrite', action='store_true', help='Fail if file exists')
+    upload_parser.add_argument('--no-resize', action='store_true',
+                               help='Upload at full size even above 2000px (tall email renders)')
 
     # Replace command
     replace_parser = subparsers.add_parser('replace', help='Replace existing asset')
     replace_parser.add_argument('--file', required=True, help='New file to upload')
     replace_parser.add_argument('--key', required=True, help='Existing R2 key')
     replace_parser.add_argument('--no-captions', action='store_true', help='Skip caption regeneration')
+    replace_parser.add_argument('--no-resize', action='store_true',
+                                help='Upload at full size even above 2000px (tall email renders)')
 
     # Caption command
     caption_parser = subparsers.add_parser('caption', help='Generate captions for existing image')
@@ -510,7 +538,8 @@ Examples:
                 args.key,
                 article_ids=args.articles,
                 skip_captions=args.skip_captions,
-                overwrite=not args.no_overwrite
+                overwrite=not args.no_overwrite,
+                resize=not args.no_resize
             )
 
             if result['success']:
@@ -525,7 +554,8 @@ Examples:
             result = orchestrator.replace_asset(
                 args.file,
                 args.key,
-                regenerate_captions=not args.no_captions
+                regenerate_captions=not args.no_captions,
+                resize=not args.no_resize
             )
 
             if result['success']:
