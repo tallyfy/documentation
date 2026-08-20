@@ -67,7 +67,12 @@ class AssetInventory:
         fd, tmp = tempfile.mkstemp(dir=dir_, prefix='.inv-', suffix='.csv.tmp')
         try:
             with os.fdopen(fd, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=self.COLUMNS, extrasaction='ignore')
+                # lineterminator is explicit because csv defaults to CRLF. The
+                # committed file is LF, so the default rewrote every one of its
+                # ~874 lines on any write and buried a handful of real new rows
+                # in a whole-file diff nobody could review.
+                writer = csv.DictWriter(f, fieldnames=self.COLUMNS,
+                                        extrasaction='ignore', lineterminator='\n')
                 writer.writeheader()
                 writer.writerows(assets)
                 f.flush()

@@ -11,19 +11,50 @@ import hashlib
 import requests
 from pathlib import Path
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import config
 
 
 class R2Uploader:
-    """Cloudflare R2 storage uploader."""
+    """Cloudflare R2 storage uploader.
+
+    Every request goes to the Cloudflare REST API, NOT to the S3-compatible endpoint
+    (`<account>.r2.cloudflarestorage.com`). That is deliberate and it is not a style choice:
+
+        R2's S3 endpoint requires AWS SigV4. Measured 2026-08-16, a Bearer API token against
+        it walks a three-step staircase of 400s and never succeeds -
+          no extra headers          -> InvalidRequest "Missing x-amz-content-sha256"
+          + x-amz-content-sha256    -> InvalidArgument "No date provided in x-amz-date nor date header"
+          + x-amz-date              -> InvalidRequest  "Please use AWS4-HMAC-SHA256"
+        There is no header you can add to finish that climb, because the credential we hold is
+        an API token and not an access-key/secret pair. Every upload through this class had
+        been failing with the first of those three for as long as it took someone to notice.
+
+    The REST object API takes the same Bearer token we already have:
+        PUT/GET/HEAD/DELETE https://api.cloudflare.com/client/v4/accounts/{acct}/r2/buckets/{bucket}/objects/{key}
+
+    Two traps live in that API, both measured, both of which make a probe answer confidently
+    about the wrong thing:
+
+      1. GET and HEAD on an object are EDGE-CACHED. A deleted object keeps answering 200 with
+         `cf-cache-status: HIT` for minutes. `file_exists` therefore asks the LIST endpoint and
+         compares the returned key to the one requested, which is uncached and was correct
+         immediately after a delete (control: a live key matches, a fabricated key does not).
+      2. The key goes in as PATH SEGMENTS, unencoded. URL-encoding it (`%2F`) addresses a
+         literally-different object and returns "The specified key does not exist", and a
+         cache-busting query parameter is read as part of the key, so a KNOWN-LIVE asset 404s.
+    """
+
+    API_ROOT = 'https://api.cloudflare.com/client/v4'
 
     def __init__(self):
         """Initialize R2 uploader with configuration."""
         self.account_id = config.account_id
         self.r2_token = config.r2_token
         self.bucket = config.r2_bucket
+        # Kept for callers/diagnostics that still reference it. Nothing in this class talks to
+        # it any more - see the class docstring for why it cannot work with a Bearer token.
         self.endpoint = config.r2_endpoint
         self.public_url = config.r2_public_url
 
@@ -31,6 +62,19 @@ class R2Uploader:
         is_valid, missing = config.validate()
         if not is_valid:
             raise ValueError(f"Invalid configuration. Missing: {', '.join(missing)}")
+
+    @property
+    def _objects_url(self) -> str:
+        """Base URL for object operations on this bucket."""
+        return f'{self.API_ROOT}/accounts/{self.account_id}/r2/buckets/{self.bucket}/objects'
+
+    def _object_url(self, r2_key: str) -> str:
+        """URL for one object. The key is appended raw - see trap 2 in the class docstring."""
+        return f'{self._objects_url}/{r2_key}'
+
+    @property
+    def _auth_headers(self) -> Dict[str, str]:
+        return {'Authorization': f'Bearer {self.r2_token}'}
 
     def upload_file(
         self,
@@ -91,43 +135,44 @@ class R2Uploader:
                     'url': f'{self.public_url}/{r2_key}'
                 }
 
-        # Build upload URL
-        upload_url = f'{self.endpoint}/{self.bucket}/{r2_key}'
-
-        # Headers
-        headers = {
-            'Authorization': f'Bearer {self.r2_token}',
-            'Content-Type': content_type,
-            'Content-Length': str(file_size)
-        }
+        headers = dict(self._auth_headers)
+        headers['Content-Type'] = content_type
 
         try:
-            # Upload to R2
             response = requests.put(
-                upload_url,
+                self._object_url(r2_key),
                 headers=headers,
                 data=file_data,
                 timeout=60
             )
 
-            if response.status_code in [200, 201]:
-                # Extract metadata from response headers
-                etag = response.headers.get('ETag', '').strip('"')
-                last_modified = response.headers.get('Last-Modified', datetime.utcnow().isoformat())
+            # The REST API answers HTTP 200 with a JSON envelope carrying its own `success`
+            # flag. A failure can arrive as HTTP 200 + success:false (that is how a bad key
+            # reports itself), so the status code alone is not the verdict.
+            payload = {}
+            try:
+                payload = response.json()
+            except ValueError:
+                pass
 
+            if response.status_code in (200, 201) and payload.get('success') is True:
+                result = payload.get('result') or {}
+                etag = str(result.get('etag', '')).strip('"')
                 return {
                     'success': True,
                     'url': f'{self.public_url}/{r2_key}',
                     'r2_key': r2_key,
                     'etag': etag,
+                    # `size` comes back as a string; trust the bytes we actually sent.
                     'size': file_size,
-                    'last_modified': last_modified,
+                    'last_modified': datetime.now(timezone.utc).isoformat(),
                     'content_type': content_type
                 }
             else:
+                detail = payload.get('errors') or response.text
                 return {
                     'success': False,
-                    'error': f'Upload failed: HTTP {response.status_code} - {response.text}',
+                    'error': f'Upload failed: HTTP {response.status_code} - {detail}',
                     'r2_key': r2_key,
                     'status_code': response.status_code
                 }
@@ -143,22 +188,32 @@ class R2Uploader:
         """
         Check if a file exists in R2.
 
+        Asks the LIST endpoint rather than HEAD-ing the object, because object reads are
+        edge-cached and a deleted object keeps answering 200 (`cf-cache-status: HIT`). LIST
+        answered correctly the instant a delete landed. The exact-key comparison matters: a
+        prefix query is a prefix, so `foo.png` would otherwise be reported present by
+        `foo.png.bak`.
+
         Args:
             r2_key: R2 object key to check
 
         Returns:
             bool: True if file exists, False otherwise
         """
-        head_url = f'{self.endpoint}/{self.bucket}/{r2_key}'
-
-        headers = {
-            'Authorization': f'Bearer {self.r2_token}'
-        }
-
         try:
-            response = requests.head(head_url, headers=headers, timeout=10)
-            return response.status_code == 200
-        except requests.exceptions.RequestException:
+            response = requests.get(
+                self._objects_url,
+                headers=self._auth_headers,
+                params={'prefix': r2_key, 'per_page': 10},
+                timeout=15
+            )
+            if response.status_code != 200:
+                return False
+            payload = response.json()
+            if payload.get('success') is not True:
+                return False
+            return any(obj.get('key') == r2_key for obj in (payload.get('result') or []))
+        except (requests.exceptions.RequestException, ValueError):
             return False
 
     def delete_file(self, r2_key: str) -> Dict[str, Any]:
@@ -171,23 +226,28 @@ class R2Uploader:
         Returns:
             dict: Result with success status and error if any
         """
-        delete_url = f'{self.endpoint}/{self.bucket}/{r2_key}'
-
-        headers = {
-            'Authorization': f'Bearer {self.r2_token}'
-        }
-
         try:
-            response = requests.delete(delete_url, headers=headers, timeout=30)
+            response = requests.delete(
+                self._object_url(r2_key),
+                headers=self._auth_headers,
+                timeout=30
+            )
 
-            if response.status_code in [200, 204]:
+            payload = {}
+            try:
+                payload = response.json()
+            except ValueError:
+                pass
+
+            if response.status_code == 200 and payload.get('success') is True:
                 return {'success': True, 'r2_key': r2_key}
-            else:
-                return {
-                    'success': False,
-                    'error': f'Delete failed: HTTP {response.status_code}',
-                    'r2_key': r2_key
-                }
+
+            detail = payload.get('errors') or response.text
+            return {
+                'success': False,
+                'error': f'Delete failed: HTTP {response.status_code} - {detail}',
+                'r2_key': r2_key
+            }
 
         except requests.exceptions.RequestException as e:
             return {
@@ -215,15 +275,23 @@ class R2Uploader:
                 'r2_key': r2_key
             }
 
-        # Get file metadata
-        head_url = f'{self.endpoint}/{self.bucket}/{r2_key}'
-        headers = {'Authorization': f'Bearer {self.r2_token}'}
-
+        # Get file metadata from the LIST entry (same reason as file_exists: object HEAD/GET
+        # are edge-cached and can describe a version that is no longer there).
         try:
-            response = requests.head(head_url, headers=headers, timeout=10)
-            etag = response.headers.get('ETag', '').strip('"')
-            size = int(response.headers.get('Content-Length', 0))
-            last_modified = response.headers.get('Last-Modified')
+            response = requests.get(
+                self._objects_url,
+                headers=self._auth_headers,
+                params={'prefix': r2_key, 'per_page': 10},
+                timeout=15
+            )
+            entry = next(
+                (o for o in ((response.json().get('result') or []) if response.status_code == 200 else [])
+                 if o.get('key') == r2_key),
+                {}
+            )
+            etag = str(entry.get('etag', '')).strip('"')
+            size = int(entry.get('size', 0) or 0)
+            last_modified = entry.get('last_modified')
 
             result = {
                 'verified': True,
@@ -243,7 +311,7 @@ class R2Uploader:
 
             return result
 
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             return {
                 'verified': False,
                 'error': f'Verification failed: {str(e)}',
