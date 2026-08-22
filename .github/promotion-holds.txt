@@ -14,10 +14,19 @@
 # HOW A HOLD IS EVALUATED
 # The check is PRESENCE-based, not diff-based: it fails if the promoted tree CONTAINS a
 # matching file, regardless of whether this particular promotion changed it. This is
-# deliberate. Promotions here are fast-forwards (`main` is an ancestor of `staging`), and the
-# `workflow_run` event that drives the pipeline carries no "previous main tip", so a
-# diff-based check would have no reliable base and would fail toward green - passing when it
-# could not compute an answer. Presence fails closed.
+# deliberate. The `workflow_run` event that drives the pipeline carries no "previous main
+# tip", so a diff-based check would have no reliable base and would fail toward green -
+# passing when it could not compute an answer. Presence fails closed.
+#
+# A PROMOTION CARRIES EVERYTHING ON `staging`, NOT ONLY THE CHANGE YOU HAVE IN MIND.
+# A promotion is a PR merge from `staging` into `main`, so it ships every commit sitting on
+# `staging` at that moment, including work someone else landed minutes earlier and any change
+# you have never read. Read the whole `main..staging` range before promoting:
+#
+#   git fetch origin && git log --oneline origin/main..origin/staging
+#
+# Presence-based holds are the right shape for exactly this reason: the thing being promoted
+# is a whole tree, not a diff you chose.
 #
 # That choice has one consequence that is exactly backwards from what you would assume when
 # you reach for a hold: A HOLD CANNOT BLOCK A DELETION. See limit 1 below before relying on
@@ -45,12 +54,23 @@
 #    a date, which is the whole point of holding the list as data rather than as prose.
 # 2. ONE PROMOTION ONLY - put `[release-hold: <id>]` in the promotion's head commit message.
 #    It names one id, so it cannot blanket-release the file, it applies to that promotion
-#    alone, and it stays in `main`'s history forever. A plain `git merge staging` FAST-
-#    FORWARDS and carries no message of yours, so this needs an explicit merge commit:
+#    alone, and it stays in `main`'s history forever. The message has to be one you WRITE, so
+#    the merge cannot be left to a default. The house style is a promotion PR, and its merge
+#    commit message is the head commit message the checker reads:
+#
+#      gh pr create --base main --head staging \
+#        --title "Promote staging to main [release-hold: sso-screens] <why>" --body "<why>"
+#
+#    By hand, the same thing with an explicit merge commit:
 #
 #      git checkout main && git pull
 #      git merge --no-ff staging -m "Promote staging to main [release-hold: sso-screens] <why>"
 #      git push origin main
+#
+#    `--no-ff` is belt and braces rather than the load-bearing part. `main` is NOT an ancestor
+#    of `staging` here, so a fast-forward is not available anyway and git would make a merge
+#    commit regardless. Keep the flag: it means the command still does the right thing if the
+#    branches are ever realigned.
 #
 # WHAT THIS GATE DOES NOT COVER
 #
