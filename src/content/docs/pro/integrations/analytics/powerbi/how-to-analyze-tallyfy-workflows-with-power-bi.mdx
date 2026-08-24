@@ -5,7 +5,7 @@ description: Connect Power BI to your Tallyfy workflow data through Amazon Athen
   files and member tables using Access Key authentication (not IAM credentials) in
   us-west-2.
 id: a67ebe9971ccbf4268f741283f751f9b
-lastUpdated: 2026-06-18
+lastUpdated: 2026-08-24
 sidebar:
   order: 1
 title: Connect Power BI
@@ -87,13 +87,14 @@ IAM credentials trigger the error "The security token included in the request is
 
 - Power BI Desktop installed
 - Tallyfy Analytics subscription activated
-- Amazon Athena ODBC driver installed
+- Amazon Athena ODBC driver **version 2** installed (64-bit)
 - Access Key credentials provided by Tallyfy
+- Outbound **port 444** open on your firewall - Athena uses it to stream query results back to the driver
 
 ### Step 1: Install the Amazon Athena ODBC driver
 
 <Steps>
-1. Download the Amazon Athena ODBC driver from the [AWS documentation page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-odbc.html/)
+1. Download the Amazon Athena ODBC driver **version 2** from the [AWS ODBC 2.x driver page](https://docs.aws.amazon.com/athena/latest/ug/odbc-v2-driver.html). Version 1 is the older Simba-branded driver; version 2 is the current one
 2. Run the installer and follow the on-screen instructions
 3. Complete the installation before proceeding
 </Steps>
@@ -115,7 +116,7 @@ IAM credentials trigger the error "The security token included in the request is
 | Description | Tallyfy workflow data |
 | AWS Region | us-west-2 |
 | S3 Output Location | As provided by Tallyfy |
-| Authentication Option | IAM Profile |
+| Authentication Option | IAM Credentials |
 | Access Key | Your Tallyfy-provided Access Key |
 | Secret Key | Your Tallyfy-provided Secret Access Key |
 | Workgroup | Your organization ID (as provided by Tallyfy) |
@@ -234,13 +235,38 @@ AVERAGEX (
 - Use Direct Query mode[^2] for datasets over 1GB
 - Set up refresh scheduling if you need reports updated automatically
 
+## Scheduled refresh and the on-premises data gateway
+
+Power BI Desktop connects to Athena with nothing more than the ODBC driver and your DSN. Publishing is where it changes.
+
+Once you publish a report to the Power BI Service and want it to refresh on a schedule, you need an **on-premises data gateway**. The Service has no Athena driver of its own, so the gateway machine does the querying on its behalf. Download it from https://powerbi.microsoft.com/en-us/gateway/
+
+Install the same Amazon Athena ODBC driver on the gateway machine, and create a DSN there with **exactly the same name** as the one on your desktop.
+
+:::caution[Use a System DSN, not a User DSN]
+On the gateway machine the DSN must be created on the **System DSN** tab. A User DSN produces the error "Data source name not found and no default driver specified" when the gateway tries to connect.
+
+The reason is that User DSNs live in the `HKEY_CURRENT_USER` registry hive, and the gateway runs as a Windows service under an account that never loads that hive. This is a Windows limitation rather than anything specific to Athena.
+:::
+
+Personal mode is fine for testing. Use standard mode for anything a team depends on.
+
+## Import or DirectQuery, and what it costs
+
+Athena bills per terabyte of data scanned, and that includes queries that fail or get cancelled. Which connectivity mode you pick therefore has a direct cost consequence.
+
+**Import with scheduled refresh** scans your data once per refresh. **DirectQuery** fires a fresh Athena query every time somebody interacts with a visual, so an actively used dashboard can scan the same data hundreds of times a day.
+
+Prefer Import unless your dataset is genuinely too large to hold in memory. Either way, open **Transform Data** and remove the columns you do not need before loading. Tallyfy stores your data as Parquet, which only reads the columns a query touches, so dropping unused columns cuts both refresh time and cost. Selecting the table in the Navigator and clicking Load pulls all 49 columns and gives that advantage away.
+
 ## Video tutorial
 
 <lite-vimeo videoid="359564159"></lite-vimeo>
 
 ## Troubleshooting
 
-- Verify you're using the **Access Key and Secret Access Key** - not IAM credentials
+- Verify you're using the **Access Key and Secret Access Key**, with the authentication type set to **IAM Credentials**. The IAM user name and console password are for the AWS web console only and will not work here
+- If you get "The security token included in the request is invalid", check the workgroup first. Left on `primary` it throws this error even when your keys are correct
 - The ODBC driver must be the **64-bit** version (32-bit won't work with Power BI Desktop)
 - Confirm the region is **us-west-2**
 - Check that your Tallyfy Analytics subscription is active
