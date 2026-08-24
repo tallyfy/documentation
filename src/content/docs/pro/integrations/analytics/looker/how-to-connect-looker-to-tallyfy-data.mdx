@@ -5,7 +5,7 @@ description: Looker connects to Tallyfy's workflow analytics data through Amazon
   an Athena connection with AWS Access Key credentials, and query Parquet-formatted
   process and task data stored in S3 to build LookML models and dashboards.
 id: 2ae471ffb4ba0a7fac0a5b00d0f5155d
-lastUpdated: 2026-08-16
+lastUpdated: 2026-08-24
 sidebar:
   order: 1
 title: Connecting Looker to analytics data
@@ -55,7 +55,7 @@ Use the Access Keys for Looker. Token-based auth avoids "security token invalid"
 Using Looker Cloud? Skip ahead - Google pre-installs the Athena drivers. For self-hosted instances:
 
 <Steps>
-1. Download the **Simba Athena JDBC Driver** from the [AWS Athena JDBC documentation page](http://docs.aws.amazon.com/athena/latest/ug/connect-with-jdbc.html/).
+1. Download the **Simba Athena JDBC Driver** from the [AWS Athena JDBC documentation page](https://docs.aws.amazon.com/athena/latest/ug/connect-with-jdbc.html).
 2. Place the driver in your Looker JDBC directory (typically `/usr/local/looker/looker/lib/custom/`)
 3. Restart Looker to load the new driver
 </Steps>
@@ -73,14 +73,14 @@ AWS provides 2.x and 3.x JDBC drivers. The 3.x driver handles large result sets 
 4. Select **Amazon Athena** as the dialect
 5. Fill in the connection parameters:
    - **Name**: Something descriptive (e.g., "Tallyfy Analytics")
-   - **Host**: `athena.us-east-1.amazonaws.com` (Tallyfy's default AWS region is us-east-1)
+   - **Host**: `athena.us-west-2.amazonaws.com` (every Tallyfy Analytics account lives in us-west-2, Oregon)
    - **Port**: `443`
-   - **Database**: Your assigned database name (typically your organization name)
+   - **Database**: `tallyfy-analytics-database` (your organization ID is the table prefix, not the database name)
    - **Username**: Your Access Key ID from Tallyfy
    - **Password**: Your Secret Access Key from Tallyfy
 6. In **Additional Params**, add:
    ```text
-   s3_staging_dir=s3://your-staging-bucket/looker-results/
+   s3_staging_dir=s3://aws-athena-query-results-570841547480-us-west-2/<your-orgID>/
    ```
 7. Click **Test** to verify the connection
 8. If the test passes, click **Connect**
@@ -115,7 +115,7 @@ Persistent Derived Tables (PDTs)[^1] cache complex calculations so dashboards lo
 
 <Steps>
 1. In your connection settings, find **Temp Database**
-2. Enter the S3 directory path: `tallyfy-athena-results/looker-pdts/`
+2. Enter the S3 directory path: `s3://aws-athena-query-results-570841547480-us-west-2/<your-orgID>/`
 3. Looker stores pre-calculated tables here for reuse
 4. Save the settings
 </Steps>
@@ -124,10 +124,14 @@ Persistent Derived Tables (PDTs)[^1] cache complex calculations so dashboards lo
 
 ### Available data
 
-Tallyfy Analytics exports two categories of data to S3 as Parquet files:
+Tallyfy Analytics exports your process and task data to S3 as Parquet files, and your
+Athena table covers exactly that:
 
 - **Run analytics** - per-process data including process metadata (blueprint name, status, owner), task details (assignments, completion dates, due dates), form field values (questions and answers), comments, and issue tracking
-- **Members** - user activity and profile data (email, name, role, login history, status)
+
+Member, blueprint and guest records live in separate folders that your Analytics
+credentials cannot read, so they do not appear in Looker. Task rows already name who
+was assigned and who completed the work, which covers most people-based reporting.
 
 These are organized per-organization in S3, and Athena tables may present this data across views for processes, steps, form fields, and users.
 
@@ -194,7 +198,7 @@ Connection not working? Check these in order:
 - Double-check your Access Key and Secret Access Key - one wrong character breaks the connection
 - Verify the S3 staging directory path is correct and your credentials have write access
 - Confirm the JDBC driver is installed properly (self-hosted only)
-- Test that Looker can reach `athena.us-east-1.amazonaws.com` on port 443
+- Test that Looker can reach `athena.us-west-2.amazonaws.com` on port 443
 - Verify your Tallyfy Analytics subscription is active
 - Enable debug logging by adding `;LogLevel=DEBUG;LogPath=/tmp/athena_debug.log` to **Additional Params**, then check `/tmp/athena_debug.log` for details
 
