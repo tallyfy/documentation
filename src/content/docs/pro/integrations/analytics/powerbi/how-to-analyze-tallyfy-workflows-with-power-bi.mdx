@@ -2,8 +2,8 @@
 about_tallyfy: true
 description: Connect Power BI to your Tallyfy workflow data through Amazon Athena
   using an ODBC driver in about 15 minutes. Build dashboards from per-process Parquet
-  files and member tables using Access Key authentication (not IAM credentials) in
-  us-west-2.
+  files using your Access Key and Secret Key in us-west-2. Set the driver's Authentication
+  Option to IAM Credentials, which is the option that accepts a typed key.
 id: a67ebe9971ccbf4268f741283f751f9b
 lastUpdated: 2026-08-24
 sidebar:
@@ -65,7 +65,7 @@ Athena -> Data {
 ```
 
 **What to notice:**
-- Use Access Key/Secret authentication - IAM credentials cause errors
+- Authenticate with your Access Key and Secret Key, never your AWS console sign-in
 - All connections must use the **us-west-2** region
 
 ## Authentication methods
@@ -74,11 +74,17 @@ When Tallyfy activates your Analytics subscription, you receive two credential s
 
 | Authentication Method | Description | Use for |
 |----------------------|-------------|---------|
-| IAM Username/Password | Web console credentials | AWS web console only |
-| Access Key/Secret | Token-based authentication | Power BI (recommended) |
+| IAM username and password | Signing in to the AWS website | The AWS console only, never the driver |
+| Access Key and Secret Key | A typed key pair the driver sends with each query | Power BI, and every other BI tool |
 
-:::caution[Use Access Key authentication]
-IAM credentials trigger the error "The security token included in the request is invalid" when used with Power BI. Always use your Access Key and Secret Access Key instead.
+:::caution[The dropdown named "IAM Credentials" is the right one]
+This is the one genuinely confusing part of the setup. The Athena ODBC driver has an Authentication Option called **IAM Credentials**, and that is the option you want, because it is the one that accepts a typed Access Key and Secret Key. It has nothing to do with the username and password you use to sign in to the AWS console, which the driver cannot use at all.
+
+Do not pick **IAM Profile**. That option reads credentials from an instance profile or a local AWS config file, so there is nowhere to type your key and the connection will fail.
+:::
+
+:::note[If you see "The security token included in the request is invalid"]
+Check your **Workgroup** setting first. Left at the default `primary`, the driver produces exactly this message even though your key is correct. Set it to your organization ID and try again. If the message persists, confirm you pasted the Access Key and Secret Key rather than your console username and password.
 :::
 
 ## Connection setup
@@ -115,7 +121,7 @@ IAM credentials trigger the error "The security token included in the request is
 | Data Source Name | Tallyfy Analytics |
 | Description | Tallyfy workflow data |
 | AWS Region | us-west-2 |
-| S3 Output Location | As provided by Tallyfy |
+| S3 Output Location | `s3://aws-athena-query-results-570841547480-us-west-2/<your-orgID>/` |
 | Authentication Option | IAM Credentials |
 | Access Key | Your Tallyfy-provided Access Key |
 | Secret Key | Your Tallyfy-provided Secret Access Key |
