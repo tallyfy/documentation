@@ -173,7 +173,8 @@ CRITICAL WRITING RULES - Follow these exactly:
    "coordinate" not "orchestrate", "modern" not "cutting-edge"
 
 4. STYLE: Write direct, conversational descriptions. Start with what Tallyfy does,
-   not meta-commentary. Use active voice. Keep descriptions 200-350 characters.
+   not meta-commentary. Use active voice. Keep descriptions 200-350 characters,
+   the range set under "Article Structure Rules" in CLAUDE.md.
 
 5. NO FLUFF: Every word must add value. No empty benefit statements or vague promises.
 """
@@ -239,11 +240,22 @@ class ClaudeClient:
 def post_process_description(text: str) -> str:
 	"""Enforce description quality rules deterministically after AI generation.
 
-	Rules:
-	- Must end with a period
-	- 150-350 characters (truncate or pad if needed)
-	- Maximum 2 sentences
-	- Strip leading/trailing whitespace and quotes
+	What this function actually does:
+	- Strips leading/trailing whitespace and surrounding quotes
+	- Caps at 2 sentences
+	- Ensures the text ends with a period
+	- Truncates at 350 characters, at a word boundary where it can
+
+	What it does NOT do, said explicitly because the docstring used to claim
+	otherwise: there is no minimum length check and no padding. The 200 floor in
+	CLAUDE.md is ADVISORY and is asked for in the generation prompt above; nothing
+	enforces it here or anywhere else. `scripts/markdown-lint.py` never looks at
+	`description`. The 350 ceiling is the only half that is enforced, and this
+	truncation is where it happens.
+
+	The range itself is stated in CLAUDE.md under "Article Structure Rules" and is
+	deliberately not repeated here as a number, because two copies of it are how
+	that file came to state two different ones (tallyfy/documentation#178).
 	"""
 	if not text:
 		return text

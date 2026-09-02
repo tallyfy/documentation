@@ -1,0 +1,59 @@
+name: PR validation
+
+# Why this is a SEPARATE file rather than a `pull_request` trigger added to
+# documentation-pipeline.yml (tallyfy/documentation#181).
+#
+# That pipeline's jobs include `sync`, which rsyncs src/content/docs/ into
+# tallyfy/support-docs and is what actually publishes. Adding `pull_request` to
+# that file would run `sync` from a pull request, so an unmerged branch would
+# publish. Its other jobs also read `github.event.workflow_run.*`, which is empty
+# on a pull_request event, so they would not behave as written either.
+#
+# So this file deliberately contains ONLY read-only validation. It mirrors the
+# `validate-markdown` job in that pipeline, which is the job `sync` already
+# depends on, and it adds nothing new to maintain.
+#
+# This check is ADVISORY. `staging` has no branch protection, so nothing here can
+# block a merge; it exists so a pull request author sees a result BEFORE merging
+# rather than finding out from a red pipeline on the default branch afterwards.
+# Making it required is a separate decision and needs branch protection first.
+
+on:
+  pull_request:
+
+# Least privilege, and it is load bearing rather than decorative: with only
+# `contents: read` this workflow structurally cannot write to the repository,
+# open a pull request, or push, whatever a future edit to it says.
+permissions:
+  contents: read
+
+concurrency:
+  # github.event_name is in the KEY on purpose. A group shared between a
+  # pull_request run and a push run lets one cancel the other, and a cancelled
+  # run reports as `cancelled` having started zero jobs, which reads as
+  # deliberate. This workflow only fires on pull_request today, and the key keeps
+  # that true if a trigger is ever added.
+  group: pr-validate-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Byte for byte the same two commands the pipeline's validate-markdown job
+      # runs, so a pull request cannot pass here and fail there.
+      - name: Markdown lint
+        run: |
+          python -m pip install --upgrade pyyaml
+          python scripts/markdown-lint.py --dir=$PWD
+        shell: bash
+
+      - name: Accessibility lint (headings 1.3.1, alt text 1.1.1, D2 animation 2.2.2)
+        run: python scripts/a11y-lint.py --dir=$PWD
+        shell: bash
