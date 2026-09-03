@@ -281,10 +281,10 @@ Before adding ANY footnote, verify:
 - **tracker view** → Process-level overview vs. task-level view
 - **light users** → Limited permissions, view-only access
 - **kick-off form** → Data collection before process starts
-- **deadline rules** → Automatic due date calculations
+- **deadline automations** → Automatic due date calculations
 - **public forms** → External data collection without login
 - **runs** → Individual process instances from same template
-- **automations** → If-this-then-that workflow rules
+- **automations** → If-this-then-that logic that adapts a running process
 
 **Remember**: Only add footnotes when the term appears in a context where ~30% of users might need clarification. Never footnote basic UI terms or actions.
 
@@ -458,12 +458,12 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 - **Org Chart**: Hierarchical structure for approval routing
 
 #### Content & Automation
-- **Automations**: "If this then that" rules that trigger actions
+- **Automations**: conditions (the If side) paired with actions (the Then side)
 - **Snippets**: Reusable content blocks that update everywhere when edited
 - **Variables**: Dynamic placeholders that get filled with actual data
 - **Form Fields**: Input elements that collect data during task completion
 - **Kick-off Form**: Initial data collection before process launch
-- **Deadline Rules**: Automatic due date calculations based on business rules
+- **Deadline Automations**: Automatic due date calculations based on conditions you set
 
 #### Views & Navigation
 - **Tasks View**: Individual tasks assigned across all processes
@@ -564,7 +564,7 @@ When identifying where to update documentation, use this search hierarchy:
    
    # Search by keywords (from documentation directory)
    grep -r "assignment\|assign" src/content/docs/pro --include="*.mdx"
-   grep -r "automation\|rule" src/content/docs/pro --include="*.mdx"
+   grep -ri "automation\|rule" src/content/docs/pro --include="*.mdx"
    ```
 
 2. **Use the comprehensive structure map**: `DOCUMENTATION_STRUCTURE.md` contains complete file inventory
@@ -575,7 +575,7 @@ When identifying where to update documentation, use this search hierarchy:
    - Template creation → `pro/documenting/templates/edit-templates/`
    - Process launching → `pro/launching/` or `pro/tracking-and-tasks/processes/`
    - Integration setup → `pro/integrations/[vendor]/`
-   - Automation rules → `pro/documenting/templates/automations/`
+   - Automations → `pro/documenting/templates/automations/`
 
 ### Quick File Location Commands
 ```bash
@@ -909,7 +909,7 @@ All AI-generated technical documentation must appear natural, human-written, and
 
 **Conversational Elements**:
 - **Strategic fragments**: Use sparingly (1-2 per article) for emphasis
-  - "Want to automate task assignments? Simple. Just configure the automation rules."
+  - "Want to automate task assignments? Simple. Just configure the automations."
   - "The result? Significant reduction in process completion time."
 - **Conversational asides in parentheses**: Add brief, helpful context
   - "(yes, it's that straightforward)"
@@ -1178,7 +1178,7 @@ These patterns are effective when used intentionally with substance:
   - **Important**: Always use regular hyphens with spaces ( - ) not em-dashes (—) or en-dashes (–)
   - Format: `space hyphen space` like "this - not this—or this–"
 - **Strategic fragments for emphasis**: Occasionally use sentence fragments for impact (use EXTREMELY sparingly)
-  - Good: "Want to automate task assignments? Simple. Just configure the automation rules in your template."
+  - Good: "Want to automate task assignments? Simple. Just configure the automations in your template."
   - Good: "The result? A 40% reduction in process completion time."
   - Only use 1-2 fragments per article maximum, and only when it genuinely adds emphasis
 - **Conversational asides with parentheses**: Add brief, helpful context in a natural voice
@@ -1537,7 +1537,7 @@ Learn more at [Google Analytics](https://analytics.google.com)<a href="https://a
 
 1. **Navigate to Templates**: Click the **Templates** tab in the main menu
 2. **Create New Template**: Select **Create New** button
-3. **Configure Settings**: Add your process steps and automation rules
+3. **Configure Settings**: Add your process steps and automations
 ```
 
 **FAQ Content Pattern**:
@@ -1580,7 +1580,7 @@ The tracker view provides real-time visibility. Navigate to **Tracker** to see a
 
 **Citation-Worthy Content Structure**:
 - **Claim + Evidence**: "Tallyfy automates task assignment based on workload and availability"
-- **Problem + Solution**: "If tasks are getting stuck, enable automatic reassignment in the automation rules"
+- **Problem + Solution**: "If tasks are getting stuck, enable automatic reassignment with an automation"
 - **Question + Direct Answer**: Use H2/H3 headings as questions when appropriate
 
 **Entity Reinforcement**:
@@ -1607,7 +1607,7 @@ When discussing any feature, include ALL related concepts:
 *Template Discussion Must Include*:
 - Creation and configuration process
 - Step/task setup
-- Assignment rules and logic
+- Assignment and routing logic
 - Automation options
 - Launch procedures
 - Version control and updates

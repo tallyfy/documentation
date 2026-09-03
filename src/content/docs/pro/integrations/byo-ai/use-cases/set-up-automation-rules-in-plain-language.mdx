@@ -1,27 +1,27 @@
 ---
 about_tallyfy: true
-description: Describe automation rules in plain language to your connected AI instead
+description: Describe an automation in plain language to your connected AI instead
   of using the automation builder. Your AI reads the template, checks for conflicts,
-  and creates if-then rules for step visibility, assignments, and deadlines.
+  and builds the conditions and actions for step visibility, assignments, and deadlines.
 id: 1551c447bde9ffe747fea387b90a6f48
 lastUpdated: 2026-03-22
 sidebar:
   order: 14
-title: Set up automation rules in plain language
+title: Set up automations in plain language
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Describe the rule - your AI builds the automation
+## Describe what you want - your AI builds the automation
 
-Tallyfy automations use if-then logic to route tasks, skip steps, change assignments, and trigger actions based on data in your processes. Instead of configuring these rules through the automation builder, just describe what you want in plain language. Your AI translates the business logic and creates the rules directly in your template.
+Tallyfy automations use if-then logic to route tasks, skip steps, change assignments, and trigger actions based on data in your processes. Instead of clicking through the automation builder, just describe what you want in plain language. Your AI translates the business logic and builds the automations directly in your template.
 
 No menu hunting. No figuring out which condition type maps to which field. Just say what should happen and when.
 
 ### What you'll accomplish
 
-- Create automation rules by describing business logic in plain language
+- Create automations by describing business logic in plain language
 - Set up conditional step visibility, assignment changes, and deadline adjustments
 - Skip the automation builder entirely
 
@@ -38,7 +38,7 @@ No menu hunting. No figuring out which condition type maps to which field. Just 
 On the Sales Pipeline template: if the deal value field is under $10,000, skip the Legal Review step. If the deal value is over $50,000, add the VP of Sales as an approver on the Final Approval step.
 ```
 
-**What happens**: Claude calls `get_template` and `get_template_steps` to read the template structure and find the exact step IDs and form field IDs it needs. Then it calls `analyze_template_automations` to check whether any existing rules might conflict with what you've described. Finally, it calls `create_automation_rule` twice - once for each condition you described - translating "skip the Legal Review step" into a hide-step automation and "add the VP of Sales as an approver" into an assignment automation. Claude confirms what was created so you can verify before testing.
+**What happens**: Claude calls `get_template` and `get_template_steps` to read the template structure and find the exact step IDs and form field IDs it needs. Then it calls `analyze_template_automations` to check whether any existing automations might conflict with what you've described. Finally, it calls `create_automation_rule` twice - once for each condition you described - translating "skip the Legal Review step" into a hide-step automation and "add the VP of Sales as an approver" into an assignment automation. Claude confirms what was created so you can verify before testing.
 
   </TabItem>
   <TabItem label="ChatGPT">
@@ -48,14 +48,14 @@ On the Sales Pipeline template: if the deal value field is under $10,000, skip t
 **Prompt to try**:
 
 ```text
-Set up these automation rules on the Employee Onboarding template in Tallyfy:
+Set up these automations on the Employee Onboarding template in Tallyfy:
 
 1. If the department is Engineering, show the "Dev Environment Setup" step. Otherwise hide it.
 2. If the employee type is Contractor, skip the "Benefits Enrollment" step.
 3. If the start date is less than 7 days away, set all deadlines to 1 business day instead of 3.
 ```
 
-**What happens**: ChatGPT reads the template structure to locate each step and form field mentioned. It then creates each rule in sequence, showing you the tool calls as they happen - useful for tracking exactly which condition maps to which action. For the department rule, it creates a show-step automation tied to the department dropdown field. For the contractor rule, it creates a hide-step automation. For the deadline rule, it sets up a deadline adjustment automation scoped to the start date field. You'll see a summary of all three rules once they're created in Tallyfy.
+**What happens**: ChatGPT reads the template structure to locate each step and form field mentioned. It then creates each automation in sequence, showing you the tool calls as they happen - useful for tracking exactly which condition maps to which action. For the department condition, it creates a show-step automation tied to the department dropdown field. For the contractor condition, it creates a hide-step automation. For the deadline condition, it sets up a deadline adjustment scoped to the start date field. You'll see a summary of all three once they're created in Tallyfy.
 
   </TabItem>
   <TabItem label="Copilot">
@@ -65,13 +65,13 @@ Set up these automation rules on the Employee Onboarding template in Tallyfy:
 **Prompt to try**:
 
 ```text
-I need automation rules on the Support Ticket template:
+I need automations on the Support Ticket template:
 - Priority High → assign to senior support team and set deadline to 4 hours
 - Priority Medium → assign to general support and set deadline to 1 business day
 - Priority Low → assign to self-service queue and set deadline to 3 business days
 ```
 
-**What happens**: Copilot reads the template to find the priority field and existing step assignments, then creates three separate automation rules - one per priority level. Each rule combines an assignment change and a deadline adjustment in the same action set. Because Copilot lives inside Microsoft 365, you can describe rules directly from emails, Teams conversations, or documents that already contain your support routing logic - copy the relevant section and paste it straight in rather than retyping.
+**What happens**: Copilot reads the template to find the priority field and existing step assignments, then creates three separate automations, one per priority level. Each one combines an assignment change and a deadline adjustment in the same action set. Because Copilot lives inside Microsoft 365, you can describe automations directly from emails, Teams conversations, or documents that already contain your support routing logic - copy the relevant section and paste it straight in rather than retyping.
 
   </TabItem>
   <TabItem label="Gemini">
@@ -81,20 +81,20 @@ I need automation rules on the Support Ticket template:
 **Prompt to try**:
 
 ```text
-Add these rules to the Purchase Order template:
+Add these automations to the Purchase Order template:
 - If amount is over $5,000, add the Finance Manager as an approver
 - If amount is over $25,000, add the CFO as a second approver
 - If the vendor is flagged as "new vendor", show the Vendor Verification step
 ```
 
-**What happens**: Gemini typically presents a structured plan of the rules it identified before executing - so you get a preview of what it's about to create, with the chance to correct anything before changes land in Tallyfy. Once confirmed, it reads the template to find the amount field, vendor field, and step IDs, then calls `create_automation_rule` for each condition. The overlapping dollar thresholds (over $5,000 AND over $25,000) both apply when a PO exceeds $25,000, so both approvers get added. Gemini handles that layering correctly and will confirm the logic with you if it detects potential overlap.
+**What happens**: Gemini typically presents a structured plan of the automations it identified before executing - so you get a preview of what it's about to create, with the chance to correct anything before changes land in Tallyfy. Once confirmed, it reads the template to find the amount field, vendor field, and step IDs, then calls `create_automation_rule` for each condition. The overlapping dollar thresholds (over $5,000 AND over $25,000) both apply when a PO exceeds $25,000, so both approvers get added. Gemini handles that layering correctly and will confirm the logic with you if it detects potential overlap.
 
   </TabItem>
 </Tabs>
 
 ### How it works behind the scenes
 
-Your AI works through a predictable sequence every time you describe an automation rule. Understanding the steps helps you write better prompts.
+Your AI works through a predictable sequence every time you describe an automation. Understanding the steps helps you write better prompts.
 
 **Step 1: Read the template structure**
 
@@ -102,13 +102,13 @@ Before creating anything, the AI calls `get_template` and `get_template_steps` t
 
 **Step 2: Check for conflicts**
 
-The AI calls `analyze_template_automations` to scan existing rules. If a rule already hides the Legal Review step under a different condition, the AI flags it before creating a potentially contradictory rule. That's where describing your intent matters - "skip Legal Review for small deals" tells the AI something different than "always show Legal Review for enterprise customers," even if both involve the same step.
+The AI calls `analyze_template_automations` to scan existing automations. If one already hides the Legal Review step under a different condition, the AI flags it before creating a contradictory one. That's where describing your intent matters - "skip Legal Review for small deals" tells the AI something different than "always show Legal Review for enterprise customers," even if both involve the same step.
 
-**Step 3: Create each rule**
+**Step 3: Create each automation**
 
-The AI calls `create_automation_rule` for each condition you described. Each rule has two parts:
+The AI calls `create_automation_rule` for each condition you described. Each automation has two parts:
 
-- **Trigger condition**: which field value or event starts the rule (a dropdown selection, a number threshold, a date comparison, a checkbox state)
+- **Trigger condition**: which field value or event starts it (a dropdown selection, a number threshold, a date comparison, a checkbox state)
 - **Action**: what happens when the condition is true (hide a step, show a step, change an assignee, adjust a deadline)
 
 The AI maps your natural language to Tallyfy's automation types:
@@ -120,7 +120,7 @@ The AI maps your natural language to Tallyfy's automation types:
 
 **Step 4: Confirm what was created**
 
-Once the rules are created, the AI summarizes them in plain language so you can verify the logic before testing. Something like: "I created two rules. Rule 1 hides the Legal Review step when deal value is less than $10,000. Rule 2 adds VP of Sales as an approver on Final Approval when deal value is greater than $50,000."
+Once the automations are created, the AI summarizes them in plain language so you can verify the logic before testing. Something like: "I created two automations. The first hides the Legal Review step when deal value is less than $10,000. The second adds VP of Sales as an approver on Final Approval when deal value is greater than $50,000."
 
 That confirmation is worth reading carefully - it's the fastest way to catch a misread condition before it affects live processes.
 
@@ -162,7 +162,7 @@ Tighten or extend deadlines based on priority, urgency, or other criteria. The t
 - "If the renewal date is within 30 days, set the Contract Review deadline to 1 business day"
 - "If the deal size is over $500,000, extend the Due Diligence deadline to 10 business days"
 
-**Multi-condition rules**
+**Multi-condition automations**
 
 "If [condition A] AND [condition B], then [action]"
 
@@ -171,7 +171,7 @@ Combine conditions when a single field value isn't enough to trigger the right b
 - "If department is Sales AND deal size is over $50,000, add the Revenue Operations team to the Forecast Review step"
 - "If vendor type is New AND contract value is over $10,000, show the Extended Vetting step"
 
-The AI handles AND logic naturally when you describe it that way. If you need OR logic - where either condition alone should trigger the action - say "or" explicitly and the AI will create separate rules or ask how you want it structured.
+The AI handles AND logic naturally when you describe it that way. If you need OR logic - where either condition alone should trigger the action - say "or" explicitly and the AI will create separate automations or ask how you want it structured.
 
 ### Tips for better results
 
@@ -179,11 +179,11 @@ The AI handles AND logic naturally when you describe it that way. If you need OR
 
 **Be explicit about thresholds.** "Greater than $50,000" and "at least $50,000" are different conditions. "Less than" and "up to" have edge cases at the boundary. State the exact threshold and whether the boundary value is included.
 
-**Ask the AI to check for conflicts.** Before creating new rules on a template that already has automations, say: "Check for any existing rules that might contradict this before creating it." The AI calls `analyze_template_automations` and flags anything worth reviewing.
+**Ask the AI to check for conflicts.** Before creating new automations on a template that already has some, say: "Check for any existing automations that might contradict this before creating it." The AI calls `analyze_template_automations` and flags anything worth reviewing.
 
-**Describe one logical group at a time.** If you have five unrelated rules, describe them in one prompt and let the AI work through them. But if you're setting up a complex routing system with overlapping conditions, take it one rule at a time and verify each one before adding the next.
+**Describe one logical group at a time.** If you have five unrelated automations, describe them in one prompt and let the AI work through them. But if you're setting up a complex routing system with overlapping conditions, take it one automation at a time and verify each one before adding the next.
 
-**Test the logic before going live.** After creating rules, ask: "What would happen if someone selected Engineering in the department field and filled in a start date 3 days from now?" The AI walks through which rules would fire and what the resulting step visibility and assignments would look like - without actually launching a process.
+**Test the logic before going live.** After creating automations, ask: "What would happen if someone selected Engineering in the department field and filled in a start date 3 days from now?" The AI walks through which automations would fire and what the resulting step visibility and assignments would look like - without actually launching a process.
 
 **Specify the field value format your template uses.** If your priority dropdown uses "High / Medium / Low" but you say "urgent" in your prompt, the AI will either ask for clarification or try to map it. Save time by matching the exact option text from your form field.
 
