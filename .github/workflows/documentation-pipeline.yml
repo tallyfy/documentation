@@ -63,6 +63,40 @@ jobs:
           python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"
         shell: bash
 
+  # Blocks content carrying AI rhetorical tells - a sentence that promises significance and
+  # defers the fact ("Here's the catch", "the hard part", "what nobody knew"). See
+  # tallyfy/documentation#191. The 26 word blacklist in CLAUDE.md could not catch any of those,
+  # because none of them contains a banned word: the objection is to a MOVE, not a vocabulary
+  # item.
+  #
+  # A root job for the same reason promotion-hold-gate is one, and it is the same measurement:
+  # on run 27840821129 every `if:`-guarded job skipped and `sync` STILL RAN, because its
+  # `if: !failure() && !cancelled()` is a status-function conditional that replaces the default
+  # "skip when a needed job was skipped". A gate carrying that same `if:` would be skipped on
+  # exactly the runs where `sync` publishes unchecked. So: no `needs:`, no `if:`.
+  ai-tell-gate:
+    # Deliberately NO `if:` and NO `needs:`. --check-wiring asserts both, so a later edit that
+    # adds either one fails the gate rather than quietly disarming it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Prove the gate can fail (red and green control, per rule)
+        run: python scripts/ai-tell-check.py --self-test
+        shell: bash
+      - name: Prove the gate is still wired to the publishing job
+        run: |
+          python -m pip install --upgrade pyyaml
+          python scripts/ai-tell-check.py --check-wiring
+        shell: bash
+      - name: Check every article for AI rhetorical tells
+        run: python scripts/ai-tell-check.py --dir src/content/docs
+        shell: bash
+
   validate-markdown:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
@@ -275,7 +309,10 @@ jobs:
     # promotion-hold-gate is load-bearing here: this job is what actually publishes, by
     # rsyncing into support-docs `production`. `if: !failure()` only considers jobs in
     # `needs`, so a gate left out of this list would go red while the content shipped anyway.
-    needs: [ promotion-hold-gate, validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
+    # ai-tell-gate is load-bearing here for the same reason promotion-hold-gate is: this job is
+    # what publishes, and `if: !failure()` only considers jobs in `needs`, so a gate left out of
+    # this list would go red while the content shipped anyway. Asserted by --check-wiring.
+    needs: [ promotion-hold-gate, ai-tell-gate, validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
     # The `conclusion == 'success'` term is load-bearing and is asserted by --check-wiring.
     # `!failure() && !cancelled()` alone is a status-function conditional, which replaces the
     # default "skip when a needed job was skipped". Neither term is true when the needs were
