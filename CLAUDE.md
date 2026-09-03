@@ -89,6 +89,32 @@ All new documentation articles must pass these checks before merge:
 - Headings in sentence case
 - No empty alt text on images
 - Passes `scripts/simplicity-check.py` below the complexity threshold (business-reader simplicity)
+- Passes `scripts/ai-tell-check.py` (AI rhetorical tells - see below)
+
+⚠️ **The blacklist above is fully satisfied and catches almost nothing.** Measured across all
+505 eligible articles on 2026-09-03: 25 of the 26 zero-tolerance words appear **zero** times and
+the 26th ("stakeholder") appears once. So a green result against that list says nothing about
+whether an article reads as machine-written.
+
+What the owner actually objects to is a **move, not a vocabulary item**: a sentence that promises
+significance and defers the fact. He named three, and none of them contains a banned word, so no
+word list could ever have found them: *"This is the part worth knowing before you build"*,
+*"the hard part"*, *"what nobody knew"*.
+
+**The standard is [`DOCS-VOICE.md`](DOCS-VOICE.md)**, enforced by `scripts/ai-tell-check.py` from
+the rules in `.github/ai-tells.txt`, as the `ai-tell-gate` job that blocks `sync` in the
+pipeline. It checks eleven shapes rather than words, and it **blocks rather than rewrites** -
+deliberately unlike `scripts/generate-related-articles.py`, which silently maps `comprehensive`
+to `complete`. A silent rewrite is right for the card text that script generates and wrong for an
+article body, because the author never finds out and the next article repeats it.
+
+```bash
+python3 scripts/ai-tell-check.py --files src/content/docs/path/to/article.mdx --strict
+```
+
+Exit 0 clean, 1 findings, **2 the checker itself could not run** - never read a 2 as clean.
+`## Related articles` and every `<CardGrid>` are excluded, because they regenerate from the
+Answers API on each pipeline run and a finding inside one is a finding a human cannot fix.
 
 ## ✍️ Write for business readers, not engineers (lowest common denominator)
 
