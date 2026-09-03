@@ -463,7 +463,7 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 - **Variables**: Dynamic placeholders that get filled with actual data
 - **Form Fields**: Input elements that collect data during task completion
 - **Kick-off Form**: Initial data collection before process launch
-- **Deadline automations**: Automatic due date calculations based on conditions you set
+- **Deadline Automations**: Automatic due date calculations based on conditions you set
 
 #### Views & Navigation
 - **Tasks View**: Individual tasks assigned across all processes
@@ -564,7 +564,7 @@ When identifying where to update documentation, use this search hierarchy:
    
    # Search by keywords (from documentation directory)
    grep -r "assignment\|assign" src/content/docs/pro --include="*.mdx"
-   grep -r "automation" src/content/docs/pro --include="*.mdx"
+   grep -ri "automation\|rule" src/content/docs/pro --include="*.mdx"
    ```
 
 2. **Use the comprehensive structure map**: `DOCUMENTATION_STRUCTURE.md` contains complete file inventory
