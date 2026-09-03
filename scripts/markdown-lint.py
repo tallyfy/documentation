@@ -24,6 +24,9 @@ SUPPORTED_LANGUAGES = {
     'dockerfile', 'docker', 'nginx', 'apache', 'makefile', 'cmake',
     # Specialized
     'd2', 'mermaid', 'http', 'diff', 'git-commit', 'git-rebase',
+    # Tallyfy-specific. Rendered by support-docs/src/components/Automation.astro
+    # via the remark plugin, never by Shiki. See tallyfy/support-docs#245.
+    'automation',
     # Fallback/plain
     'text', 'txt', 'plain', 'ansi',
 }
