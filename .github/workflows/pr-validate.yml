@@ -57,3 +57,35 @@ jobs:
       - name: Accessibility lint (headings 1.3.1, alt text 1.1.1, D2 animation 2.2.2)
         run: python scripts/a11y-lint.py --dir=$PWD
         shell: bash
+
+      # D2 is pinned to the SAME version the site build downloads
+      # (tallyfy/support-docs scripts/install-d2.sh, D2_VERSION="v0.7.0").
+      # A validator running a different D2 than the build can pass what the
+      # build fails, which is the whole reason the previous validator was
+      # useless: it also validated at --dark-theme=200 while the build uses 8.
+      #
+      # No `|| true` and no soft mode anywhere in these two steps. A gate that
+      # cannot fail is what tallyfy/documentation#192 is about.
+      - name: Install D2 (pinned to the site build's version)
+        run: |
+          set -euo pipefail
+          D2_VERSION="v0.7.0"
+          curl -fsSL "https://github.com/terrastruct/d2/releases/download/${D2_VERSION}/d2-${D2_VERSION}-linux-amd64.tar.gz" -o /tmp/d2.tar.gz
+          tar -xzf /tmp/d2.tar.gz -C /tmp
+          echo "/tmp/d2-${D2_VERSION}/bin" >> "$GITHUB_PATH"
+        shell: bash
+
+      # Every D2 fence must compile with the build's own flags, and every colour
+      # it emits must be in the house palette. The palette half matters because
+      # an off-palette diagram compiles perfectly and renders correctly in light
+      # mode, then goes invisible or off-brand once support-docs recolours
+      # diagrams for dark mode - with nothing going red.
+      #
+      # Exit codes: 0 clean, 1 findings, 2 the gate could not run (no d2, no
+      # python3, or zero fences discovered). Exit 2 is a failure on purpose: a
+      # sweep that finds nothing satisfies every assertion made about it.
+      - name: D2 diagram validation (compiles + house palette)
+        run: |
+          d2 --version
+          bash scripts/validate-d2.sh
+        shell: bash
