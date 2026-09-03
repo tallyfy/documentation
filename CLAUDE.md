@@ -91,10 +91,12 @@ All new documentation articles must pass these checks before merge:
 - Passes `scripts/simplicity-check.py` below the complexity threshold (business-reader simplicity)
 - Passes `scripts/ai-tell-check.py` (AI rhetorical tells - see below)
 
-⚠️ **The blacklist above is fully satisfied and catches almost nothing.** Measured across all
-505 eligible articles on 2026-09-03: 25 of the 26 zero-tolerance words appear **zero** times and
-the 26th ("stakeholder") appears once. So a green result against that list says nothing about
-whether an article reads as machine-written.
+⚠️ **The blacklist above is fully satisfied and catches nothing.** Measured across all 505
+eligible articles on 2026-09-03: **all 26** zero-tolerance entries appear **zero** times in the
+prose a reader sees. (One raw file carries "stakeholders", inside a fenced example block.)
+Control on the same sweep: 258 files contain "template", so the probe was not blind. A green
+result against that list therefore says nothing about whether an article reads as
+machine-written.
 
 What the owner actually objects to is a **move, not a vocabulary item**: a sentence that promises
 significance and defers the fact. He named three, and none of them contains a banned word, so no

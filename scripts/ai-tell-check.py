@@ -4,8 +4,10 @@
 WHY THIS EXISTS (tallyfy/documentation#191)
 
 The only voice rule this repo had was a 26 word blacklist in CLAUDE.md. Measured across all
-505 eligible articles on 2026-09-03, 25 of those 26 words appear ZERO times and the 26th
-("stakeholder") appears once. The rule was fully satisfied and could catch almost nothing.
+505 eligible articles on 2026-09-03, ALL 26 measure ZERO in the prose a reader sees. (One raw
+file carries "stakeholders", inside a fenced example block that no reader-facing check reads.)
+The rule was fully satisfied and could catch nothing at all. Control on the same sweep: 258
+files contain "template", so the probe was not blind.
 
 Meanwhile the owner named three phrasings he never wants to read: "This is the part worth
 knowing before you build", "the hard part", "what nobody knew". None of them contains a banned

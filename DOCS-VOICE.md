@@ -9,8 +9,8 @@ This file is the standard. `scripts/ai-tell-check.py` enforces it, from the rule
 ## Why a word list was not enough
 
 CLAUDE.md carries a 26 word blacklist. Measured across all 505 eligible articles on 2026-09-03,
-25 of those words appear **zero** times and the 26th appears once. The rule was fully satisfied
-and caught almost nothing.
+**all 26 appear zero times** in the prose a reader sees. (One raw file carries "stakeholders",
+inside a fenced example block.) The rule was fully satisfied and caught nothing.
 
 The owner then named three phrasings he never wants to read, and **none of them contains a
 banned word**, so no word list could ever have found them. What he objects to is a move, not a
