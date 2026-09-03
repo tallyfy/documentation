@@ -201,7 +201,10 @@ new_baseline="${WORK_DIR}/new_baseline.txt"
 # word-split on whitespace.
 while IFS= read -r -d '' file; do
     # Cheap skip for files with no diagrams.
-    if ! /usr/bin/grep -q '^```d2[[:space:]]*$' "$file"; then
+    # `[[:space:]]|$` not `[[:space:]]*$`: astro-d2 matches on node.lang === 'd2'
+    # and parses node.meta separately, so ```d2 layout="dagre" IS built. A regex
+    # requiring a bare fence would let such a diagram ship unvalidated.
+    if ! /usr/bin/grep -qE '^```d2([[:space:]]|$)' "$file"; then
         continue
     fi
 
@@ -213,7 +216,7 @@ while IFS= read -r -d '' file; do
     manifest="${WORK_DIR}/manifest.tsv"
     : > "$manifest"
     awk -v outdir="$WORK_DIR" -v manifest="$manifest" '
-        /^```d2[[:space:]]*$/ && !inblock {
+        /^```d2([[:space:]]|$)/ && !inblock {
             inblock = 1; n++; startline = NR + 1
             out = sprintf("%s/fence_%03d.d2", outdir, n)
             printf "" > out
@@ -226,7 +229,19 @@ while IFS= read -r -d '' file; do
             next
         }
         inblock { print >> out }
+        # An UNCLOSED fence is never written to the manifest, so it would be
+        # silently skipped while the real build runs it to end of file and fails.
+        # markdown-lint.py cannot catch this either: it validates the language
+        # token, never fence balance. Report it so the gate can refuse.
+        END { if (inblock) printf "UNCLOSED\t%d\n", startline >> manifest }
     ' "$file"
+
+    if /usr/bin/grep -q "^UNCLOSED" "$manifest"; then
+        unclosed_line="$(/usr/bin/grep "^UNCLOSED" "$manifest" | head -1 | cut -f2)"
+        echo "GATE BROKEN: unclosed d2 fence in ${rel}, opened at line ${unclosed_line}" >&2
+        echo "The build would run that fence to end of file. Close it, then re-run." >&2
+        exit 2
+    fi
 
     # Process substitution, NOT a pipe: the counters below must survive.
     while IFS=$'\t' read -r fence_num start_line fence_path; do
@@ -253,7 +268,21 @@ while IFS= read -r -d '' file; do
         fi
 
         # Compiled fine. Now the check compilation cannot make.
-        bad="$(python3 "$PALETTE_PY" "$svg_out" "$PALETTE" 2>/dev/null)"
+        #
+        # NO `2>/dev/null` HERE, DELIBERATELY. An earlier version had one, and a
+        # crashing checker then produced an EMPTY `bad`, which the next line reads
+        # as "no findings". Measured: crash the checker and the gate printed
+        # "No new findings" at rc 0 on a diagram the healthy gate flags at rc 1.
+        # That is the fails-toward-clean class this whole script exists to remove.
+        # A checker that could not answer is exit 2, never exit 0.
+        bad="$(python3 "$PALETTE_PY" "$svg_out" "$PALETTE" 2>"${WORK_DIR}/palette.err")"
+        palette_rc=$?
+        if [ "$palette_rc" -ne 0 ]; then
+            echo "GATE BROKEN: the palette checker failed on ${rel} fence #${fence_num}" >&2
+            sed 's/^/    /' "${WORK_DIR}/palette.err" >&2
+            echo "Refusing to report clean, because a check that could not run is not a pass." >&2
+            exit 2
+        fi
         [ -n "$bad" ] || continue
 
         key="${rel}"$'\t'"${fence_num}"
