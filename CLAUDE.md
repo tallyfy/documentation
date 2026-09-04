@@ -89,6 +89,34 @@ All new documentation articles must pass these checks before merge:
 - Headings in sentence case
 - No empty alt text on images
 - Passes `scripts/simplicity-check.py` below the complexity threshold (business-reader simplicity)
+- Passes `scripts/ai-tell-check.py` (AI rhetorical tells - see below)
+
+⚠️ **The blacklist above is fully satisfied and catches nothing.** Measured across all 505
+eligible articles on 2026-09-03: **all 26** zero-tolerance entries appear **zero** times in the
+prose a reader sees. (One raw file carries "stakeholders", inside a fenced example block.)
+Control on the same sweep: 258 files contain "template", so the probe was not blind. A green
+result against that list therefore says nothing about whether an article reads as
+machine-written.
+
+What the owner actually objects to is a **move, not a vocabulary item**: a sentence that promises
+significance and defers the fact. He named three, and none of them contains a banned word, so no
+word list could ever have found them: *"This is the part worth knowing before you build"*,
+*"the hard part"*, *"what nobody knew"*.
+
+**The standard is [`DOCS-VOICE.md`](DOCS-VOICE.md)**, enforced by `scripts/ai-tell-check.py` from
+the rules in `.github/ai-tells.txt`, as the `ai-tell-gate` job that blocks `sync` in the
+pipeline. It checks eleven shapes rather than words, and it **blocks rather than rewrites** -
+deliberately unlike `scripts/generate-related-articles.py`, which silently maps `comprehensive`
+to `complete`. A silent rewrite is right for the card text that script generates and wrong for an
+article body, because the author never finds out and the next article repeats it.
+
+```bash
+python3 scripts/ai-tell-check.py --files src/content/docs/path/to/article.mdx --strict
+```
+
+Exit 0 clean, 1 findings, **2 the checker itself could not run** - never read a 2 as clean.
+`## Related articles` and every `<CardGrid>` are excluded, because they regenerate from the
+Answers API on each pipeline run and a finding inside one is a finding a human cannot fix.
 
 ## ✍️ Write for business readers, not engineers (lowest common denominator)
 
@@ -281,10 +309,10 @@ Before adding ANY footnote, verify:
 - **tracker view** → Process-level overview vs. task-level view
 - **light users** → Limited permissions, view-only access
 - **kick-off form** → Data collection before process starts
-- **deadline rules** → Automatic due date calculations
+- **deadline automations** → Automatic due date calculations
 - **public forms** → External data collection without login
 - **runs** → Individual process instances from same template
-- **automations** → If-this-then-that workflow rules
+- **automations** → If-this-then-that logic that adapts a running process
 
 **Remember**: Only add footnotes when the term appears in a context where ~30% of users might need clarification. Never footnote basic UI terms or actions.
 
@@ -458,12 +486,12 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 - **Org Chart**: Hierarchical structure for approval routing
 
 #### Content & Automation
-- **Automations**: "If this then that" rules that trigger actions
+- **Automations**: conditions (the If side) paired with actions (the Then side)
 - **Snippets**: Reusable content blocks that update everywhere when edited
 - **Variables**: Dynamic placeholders that get filled with actual data
 - **Form Fields**: Input elements that collect data during task completion
 - **Kick-off Form**: Initial data collection before process launch
-- **Deadline Rules**: Automatic due date calculations based on business rules
+- **Deadline Automations**: Automatic due date calculations based on conditions you set
 
 #### Views & Navigation
 - **Tasks View**: Individual tasks assigned across all processes
@@ -564,7 +592,7 @@ When identifying where to update documentation, use this search hierarchy:
    
    # Search by keywords (from documentation directory)
    grep -r "assignment\|assign" src/content/docs/pro --include="*.mdx"
-   grep -r "automation\|rule" src/content/docs/pro --include="*.mdx"
+   grep -ri "automation\|rule" src/content/docs/pro --include="*.mdx"
    ```
 
 2. **Use the comprehensive structure map**: `DOCUMENTATION_STRUCTURE.md` contains complete file inventory
@@ -575,7 +603,7 @@ When identifying where to update documentation, use this search hierarchy:
    - Template creation → `pro/documenting/templates/edit-templates/`
    - Process launching → `pro/launching/` or `pro/tracking-and-tasks/processes/`
    - Integration setup → `pro/integrations/[vendor]/`
-   - Automation rules → `pro/documenting/templates/automations/`
+   - Automations → `pro/documenting/templates/automations/`
 
 ### Quick File Location Commands
 ```bash
@@ -909,7 +937,7 @@ All AI-generated technical documentation must appear natural, human-written, and
 
 **Conversational Elements**:
 - **Strategic fragments**: Use sparingly (1-2 per article) for emphasis
-  - "Want to automate task assignments? Simple. Just configure the automation rules."
+  - "Want to automate task assignments? Simple. Just configure the automations."
   - "The result? Significant reduction in process completion time."
 - **Conversational asides in parentheses**: Add brief, helpful context
   - "(yes, it's that straightforward)"
@@ -1178,7 +1206,7 @@ These patterns are effective when used intentionally with substance:
   - **Important**: Always use regular hyphens with spaces ( - ) not em-dashes (—) or en-dashes (–)
   - Format: `space hyphen space` like "this - not this—or this–"
 - **Strategic fragments for emphasis**: Occasionally use sentence fragments for impact (use EXTREMELY sparingly)
-  - Good: "Want to automate task assignments? Simple. Just configure the automation rules in your template."
+  - Good: "Want to automate task assignments? Simple. Just configure the automations in your template."
   - Good: "The result? A 40% reduction in process completion time."
   - Only use 1-2 fragments per article maximum, and only when it genuinely adds emphasis
 - **Conversational asides with parentheses**: Add brief, helpful context in a natural voice
@@ -1537,7 +1565,7 @@ Learn more at [Google Analytics](https://analytics.google.com)<a href="https://a
 
 1. **Navigate to Templates**: Click the **Templates** tab in the main menu
 2. **Create New Template**: Select **Create New** button
-3. **Configure Settings**: Add your process steps and automation rules
+3. **Configure Settings**: Add your process steps and automations
 ```
 
 **FAQ Content Pattern**:
@@ -1580,7 +1608,7 @@ The tracker view provides real-time visibility. Navigate to **Tracker** to see a
 
 **Citation-Worthy Content Structure**:
 - **Claim + Evidence**: "Tallyfy automates task assignment based on workload and availability"
-- **Problem + Solution**: "If tasks are getting stuck, enable automatic reassignment in the automation rules"
+- **Problem + Solution**: "If tasks are getting stuck, enable automatic reassignment with an automation"
 - **Question + Direct Answer**: Use H2/H3 headings as questions when appropriate
 
 **Entity Reinforcement**:
@@ -1607,7 +1635,7 @@ When discussing any feature, include ALL related concepts:
 *Template Discussion Must Include*:
 - Creation and configuration process
 - Step/task setup
-- Assignment rules and logic
+- Assignment and routing logic
 - Automation options
 - Launch procedures
 - Version control and updates

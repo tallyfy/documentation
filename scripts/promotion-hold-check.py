@@ -497,6 +497,10 @@ UPSTREAM_SUCCESS_TERM = "github.event.workflow_run.conclusion == 'success'"
 # it grows with the file rather than freezing at today's job list.
 WIRING_EXEMPT = {
     GATE_JOB: "the gate itself",
+    "ai-tell-gate": "the other root gate (tallyfy/documentation#191); read-only, publishes "
+                    "nothing, and it must stay a ROOT job - giving it `needs` here would let a "
+                    "failure elsewhere SKIP it, which is the exact defect both gates exist to "
+                    "avoid",
     "validate-markdown": "read-only lint, publishes nothing",
     "generate-snippets": "early-exits on main; writes only to staging",
     "update-last-modified": "early-exits on main; writes only to staging",

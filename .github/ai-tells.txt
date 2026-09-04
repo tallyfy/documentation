@@ -1,0 +1,153 @@
+# AI rhetorical tells - the rule list
+#
+# WHAT THIS IS
+# One rule per line, enforced by scripts/ai-tell-check.py, which runs as the `ai-tell-gate` job
+# in .github/workflows/documentation-pipeline.yml and blocks `sync` - the job that puts an
+# article in front of a reader.
+#
+# WHY IT IS DATA AND NOT CODE
+# So a rule can be argued with in a diff. Adding, demoting or deleting one is then a reviewable
+# change with an author and a date, instead of a line buried in a script.
+#
+# FORMAT - six pipe-separated fields:
+#
+#   id | class | severity | scope | pattern | name
+#
+#   id        lowercase letters, digits and hyphens. Unique. Named in every report and in
+#             REQUIRED_RULE_IDS, so removing one is a deliberate code change and not a quiet edit.
+#   class     one of the taxonomy classes in DOCS-VOICE.md. A class this checker does not know
+#             is a HARD failure, so a typo cannot create a category nobody reviews.
+#   severity  ERROR blocks the publish. WARN is printed and does not block.
+#   scope     prose | description | both. `description` is the frontmatter description value,
+#             which ships to search results and to Tallyfy Answers, so it is prose a reader sees.
+#   pattern   a Python regex, matched case-insensitively, OR `builtin:<name>` for a shape a
+#             single regex cannot express. A builtin with no implementation is a HARD failure.
+#   name      what the move IS, in words, for the report line. At least 12 characters.
+#
+# A line that does not parse is a HARD FAILURE, never a skipped line. A missing file is fatal
+# too, so the mechanism cannot be removed quietly. Every rule must also have a fixture in
+# FIXTURES inside the checker, or it is a hard failure - a rule nothing proves can fire is
+# indistinguishable from one that has quietly stopped matching.
+#
+# TUNING IS THE WHOLE JOB, AND THESE ARE MEASURED ON THE REAL 505 ARTICLES
+# A gate firing on a large share of the corpus gets switched off in a week, so every rule here
+# was widened from the owner's complaint and then narrowed until it separated. Measured
+# 2026-09-03 on all 505 eligible articles. The four that needed it most:
+#
+#   naive rule           raw file   prose only   tuned rule fires in
+#   any "Here's"         130 files  130 files    1 file
+#   any ", <word>ing"    292 files  221 files    6 files
+#   any "?"              327 files  305 files    8 files
+#   any "not just"        61 files   61 files    6 files
+#
+# TWO COLUMNS BECAUSE THE ANSWER DEPENDS ON WHERE YOU LOOK, and the difference is the point.
+# "raw file" counts the whole .mdx; "prose only" counts what this checker actually reads, after
+# the generated `## Related articles` and <CardGrid> blocks are excluded. Those blocks alone
+# account for 106 of the 327 files carrying a question mark, and a finding in one of them is a
+# finding a human cannot fix.
+#
+# "Here's how to fix it" and "Here's where to click" are GOOD documentation sentences. The
+# discriminator is the abstract significance noun after the definite article, never the word
+# "here's". A question in an H2 is legitimate documentation structure; a question in body prose
+# that the next sentence answers is the banned move.
+#
+# The participle rule is an ALLOWLIST for the same reason. `,\s+\w+ing` matches 432 times across
+# 221 files here, and the top of that list is "including" (30), "pricing" (10), "nothing" (6),
+# "billing" (5), "onboarding" (5) and "during" (4) - four of which are not even verbs. That is
+# syncing-scripts#583 exactly, where the same spelling flagged billing, pricing and onboarding
+# in 288 files while catching 0 of the 7 phrases it was written for.
+#
+# Run it before you push:
+#   python3 scripts/ai-tell-check.py --self-test
+#   python3 scripts/ai-tell-check.py --files src/content/docs/pro/.../index.mdx --strict
+#
+# ---------------------------------------------------------------------------------------
+# MANUFACTURED REVELATION
+# A sentence that promises significance and defers the fact. The owner named two of these by
+# name: "This is the part worth knowing before you build" and "what nobody knew".
+
+revelation-heres-the | manufactured-revelation | ERROR | both | \bhere(?:'s|’s|\s+is)\s+(?:the|where)\s+(?:real\s+|actual\s+|whole\s+|interesting\s+|clever\s+)?(?:catch|thing|trick|secret|kicker|twist|rub|magic|gotcha|surprise|payoff|nuance|subtlety|beauty|wrinkle|snag)\b | promises a revelation and defers the fact
+revelation-part-worth | manufactured-revelation | ERROR | both | \bthe\s+(?:part|bit|piece|detail)\s+(?:worth|that)\s+(?:knowing|noting|noticing|matters|counts|understanding|remembering) | the part worth knowing, with the fact deferred
+revelation-what-nobody | manufactured-revelation | ERROR | both | \bwhat\s+(?:nobody|no\s+one|almost\s+nobody|hardly\s+anyone|few\s+people|most\s+people)\s+(?:knew|knows|know|realis|realiz|understand|notice|tell) | claims hidden knowledge instead of stating the fact
+revelation-turns-out | manufactured-revelation | WARN | prose | \bit\s+turns\s+out\s+(?:that\s+)?\b | stages a discovery the reader did not make
+
+# ---------------------------------------------------------------------------------------
+# DIFFICULTY FRAMING
+# Telling the reader something is hard, in place of telling them what it is. "the hard part" is
+# the owner's third named phrasing, and it was live in this corpus when the gate was written.
+
+difficulty-hard-part | difficulty-framing | ERROR | both | \bthe\s+(?:hard|tricky|difficult|tough|messy|painful|awkward|fiddly)\s+part\b | frames difficulty instead of stating the fact
+difficulty-where-it-gets | difficulty-framing | ERROR | both | \b(?:this\s+is\s+)?where\s+(?:it|this|things|life)\s+gets?\s+(?:hard|tricky|interesting|messy|complicated|difficult|weird|ugly) | announces difficulty ahead instead of explaining
+
+# ---------------------------------------------------------------------------------------
+# MANUFACTURED EXCLUSIVITY
+# Flattering the reader for knowing what the article is about to tell them.
+
+exclusivity-most-people-dont | manufactured-exclusivity | ERROR | both | \bmost\s+(?:people|teams|companies|users|admins|organi[sz]ations)\s+(?:never|don't|do\s+not|fail\s+to|miss|get\s+this\s+wrong) | flatters the reader instead of informing them
+exclusivity-what-they-dont-tell | manufactured-exclusivity | ERROR | both | \bwhat\s+(?:they|vendors|competitors|nobody|no\s+one)\s+(?:don't|do\s+not|won't|will\s+not|never)\s+tell\s+you | insinuates a secret rather than stating a fact
+exclusivity-few-realize | manufactured-exclusivity | ERROR | both | \b(?:few|hardly\s+any|almost\s+no)\s+(?:people|teams|users|admins)\s+(?:realis|realiz|know|understand|appreciate) | claims rare knowledge instead of teaching
+
+# ---------------------------------------------------------------------------------------
+# SELF-ANSWERED QUESTIONS
+# A question the writer asks himself purely to answer in the next breath. Headings are exempt:
+# this repo teaches through question headings and that is correct documentation structure.
+
+question-self-answered | self-answered-question | ERROR | prose | builtin:self-answered-question | rhetorical question the writer answers himself
+
+# ---------------------------------------------------------------------------------------
+# FALSE CONTRAST
+# Setting up a straw alternative so the real subject looks larger. Demoted to WARN: "not just"
+# has an ordinary sense and hits 62 of 505 files unmodified, which is exactly the level at
+# which people switch a gate off.
+
+contrast-not-just-but | false-contrast | WARN | prose | \bnot\s+just\s+[^.!?\n\x00]{2,60}?[,\s]\s*but\b | straw contrast that inflates the real subject
+contrast-isnt-about | false-contrast | WARN | prose | \b(?:it|this|that)(?:'s|’s|\s+is)\s+not\s+(?:really\s+)?about\b | denies a straw purpose to imply a bigger one
+
+# ---------------------------------------------------------------------------------------
+# FALSE INTIMACY
+# Performing a conversation with the reader that is not happening.
+
+intimacy-lets-verb | false-intimacy | ERROR | prose | \blet(?:'s|’s|\s+us)\s+(?:dive|unpack|explore|dig|break\s+(?:this|it|that)\s+down|be\s+(?:honest|clear|real)|face\s+it|take\s+a\s+look) | performs a conversation that is not happening
+intimacy-sound-familiar | false-intimacy | ERROR | prose | \bsounds?\s+familiar\b | invites recognition instead of giving information
+intimacy-you-might-think | false-intimacy | WARN | prose | \byou(?:'d|’d)?\s+(?:might|may|probably|would)\s+(?:be\s+)?(?:think|assume|expect|imagine|guess)\w* | tells the reader what they were thinking
+
+# ---------------------------------------------------------------------------------------
+# CONCLUSION SIGNPOSTING
+# Announcing a summary in place of writing one.
+
+conclusion-signpost | conclusion-signposting | ERROR | both | (?:^|[.!?:]\s+|[\n\x00][ \t]*(?:[-*+][ \t]+|\d+[.)][ \t]+)?|["'“‘*(]\s*)((?:in\s+conclusion|to\s+summari[sz]e|to\s+sum\s+up|to\s+wrap\s+up|all\s+in\s+all|at\s+the\s+end\s+of\s+the\s+day|in\s+summary)\s*[,:]|the\s+bottom\s+line\s+is\b) | signposts a summary instead of writing one
+conclusion-key-takeaway | conclusion-signposting | ERROR | both | \bthe\s+key\s+(?:takeaway|insight|thing\s+to\s+remember)\b | labels a point important rather than making it
+
+# ---------------------------------------------------------------------------------------
+# INFLATION VERBS
+# Marketing verbs where a plain one would do. Split by how certain the tell is: the hard list
+# has no ordinary documentation sense, the soft list does and is a WARN.
+
+inflation-verb-hard | inflation-verb | ERROR | both | \b(?:supercharge|turbocharge|revolutioni[sz]|unleash|usher\s+in|spearhead|demystif|skyrocket|game[- ]chang)\w* | marketing verb where a plain one would do
+inflation-verb-soft | inflation-verb | WARN | both | \b(?:empower|harness|illuminate|reimagin|unlock\s+the|transform\s+(?:how|the\s+way))\w*|\belevate\s+(?:your|their|the)\s+(?:workflow|process|team|business|operation|game|experience) | inflated verb, usually replaceable with a plain one
+
+# ---------------------------------------------------------------------------------------
+# VAGUE ATTRIBUTION
+# Borrowing authority from a source that is never named.
+
+vague-attribution | vague-attribution | ERROR | both | \b(?:studies\s+show|research\s+(?:shows|suggests|indicates)|experts\s+(?:agree|say)|it(?:'s|’s|\s+is)\s+widely\s+(?:known|believed|accepted)|many\s+(?:people\s+)?(?:believe|argue)|some\s+would\s+say) | borrows authority from a source never named
+
+# ---------------------------------------------------------------------------------------
+# PARTICIPIAL TAILS
+# A finished sentence with a decorative "..., ensuring X" clause bolted on. An ALLOWLIST of tell
+# participles inside the checker, never a bare \w+ing suffix match - that spelling flagged
+# billing, pricing and onboarding across 288 files in syncing-scripts#583 while catching 0 of
+# the 7 phrases it was written for.
+
+participial-tail | participial-tail | ERROR | prose | builtin:participial-tail | decorative participle clause bolted on the end
+
+# ---------------------------------------------------------------------------------------
+# GLYPH TELLS
+# CLAUDE.md already bans em-dashes in all content and nothing enforced it. The invisible family
+# is the reliable machine tell: measured on the sales side 2026-08-01, one model put at least
+# one of U+2011, U+2019 and U+202F in 23 of 23 bodies while scoring "54% clean".
+# A NAMED LIST, never a blanket non-ASCII ban: an accented name belongs in the docs.
+
+glyph-dash | glyph-tell | ERROR | both | builtin:glyph-dash | em dash, en dash or exotic dash
+glyph-quote | glyph-tell | ERROR | both | builtin:glyph-quote | smart quote or ellipsis character
+glyph-invisible | glyph-tell | ERROR | both | builtin:glyph-invisible | invisible or exotic-width character
