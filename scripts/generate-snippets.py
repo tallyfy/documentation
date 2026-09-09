@@ -253,9 +253,17 @@ def strip_dashes(text: str) -> str:
 	The model is told not to produce them in HUMANIZATION_PROMPT_SUFFIX above. That
 	reduces the rate and cannot be relied on, so this is the half that actually holds.
 	Written after generate-snippets put an em-dash into a brand new article's
-	description on the run that published it (tallyfy/documentation#220), which
-	markdown-lint and ai-tell-check both let through because neither reads
-	`description`.
+	description on the run that published it (tallyfy/documentation#220).
+
+	Be precise about why nothing stopped it, because the obvious reading is wrong.
+	`markdown-lint.py` genuinely never reads `description`. `ai-tell-check` DOES:
+	`.github/ai-tells.txt` gives glyph-dash scope `both`, and a description carrying
+	an em-dash returns rc 1 with an ERROR, against rc 0 for the same file with the
+	dash removed. It passed on that one run purely on TIMING. `ai-tell-gate` checks
+	out `workflow_run.head_sha`, which is the commit BEFORE this script rewrote the
+	description, while `generate-snippets` checks out `head_branch`. So the gate is
+	not blind to descriptions and must not be narrowed on that assumption. Left
+	unfixed, the next full-corpus run would have gone red and blocked `sync`.
 
 	A dash between digits is a numeric range, so it becomes a plain hyphen. Anywhere
 	else it is separating an aside, so it becomes a spaced hyphen, which CLAUDE.md
