@@ -1,0 +1,98 @@
+---
+about_tallyfy: true
+description: Test a Tallyfy template before anyone runs it. Ask Claude or any connected
+  AI to walk every path through a template and report the problems it finds, like
+  a step no answer can ever reach or two rules fighting over the same step, without
+  launching a single process or involving a single person.
+id: e193339439c65bd82363682f51a0845d
+sidebar:
+  order: 35
+title: Test a template before anyone runs it
+---
+
+import { Steps, CardGrid, LinkTitleCard } from "~/components";
+
+## Find the broken path before a person does
+
+Until now the only way to find out what a template really does was to launch it, wait for real
+people to answer, and watch something break. If a step could never appear, you learned that when
+somebody's onboarding stalled.
+
+Two tools on the Tallyfy MCP server change that. Ask a connected AI to test a template and it walks
+every path through it internally, then tells you what is wrong. Nothing is launched. Nobody is
+assigned. No task is created.
+
+:::note[Both tools only read]
+They read one template and hand back a list of problems. Neither can change your template, launch a
+process, or touch anyone's tasks.
+:::
+
+### What to say
+
+You do not need to name the tool. Ask in plain language:
+
+- "Test my Employee Onboarding template and tell me what is broken."
+- "Is there any step in this template that can never be reached?"
+- "What happens in this template if someone picks Decline on the first form?"
+
+The last one is the scenario version. You describe the answers a person might give, and it tells
+you which steps that person would actually see.
+
+### What it reports, and what it does not
+
+It reports **problems, not paths**. A template with a few forms can have thousands of possible
+routes through it, and a list of those helps nobody. You get the handful of things that are wrong.
+
+Twelve kinds of problem, in plain terms:
+
+| It tells you | Why that matters |
+|---|---|
+| A step no answer can ever reach | The commonest one. Usually a rule hides it and nothing ever shows it again. |
+| A rule that can never fire | It waits for a combination nobody can produce, so it is dead weight. |
+| A rule that fires but changes nothing | Showing a step already visible, or hiding one already hidden. |
+| Two rules fighting over the same step | One shows it, one hides it, and the result depends on the order. |
+| A step nobody can finish | The process gets stuck there, because no path through it ever completes. |
+| A step with nobody assigned to it | It is visible, but only assignees may complete it, so it stalls. |
+| A rule pointing at something deleted | The step or field it names is gone. |
+| A deadline counting from a step that never happens | The deadline can never be worked out. |
+| A rule waiting for an answer the field no longer offers | Somebody edited the dropdown and left the rule behind. |
+| A start date that is set but ignored | The step is on "start anytime", so the date does nothing. |
+| A rule whose test is always true | It compares a field against every value the field offers, so it never filters anything. |
+| A rule nothing ever asks | No step and no other rule ever triggers it, so it sits there unused. |
+
+**What it cannot tell you** is whether the process is a good idea. It checks that the template can
+work, not that it should. It also cannot see anything outside Tallyfy, so a step that calls a
+webhook is treated as doing something it cannot inspect.
+
+### On very large templates
+
+A template with many form fields has too many combinations to try all of them, so on those it tests
+a large sample instead and **says so in the answer**. When that happens it will tell you what it
+found rather than claiming a step can never be reached, because it did not check every path.
+
+### Getting set up
+
+You need the Tallyfy MCP server connected to your AI tool first. That is a one-time setup, and each
+tool has its own page:
+
+- [Claude](/products/pro/integrations/mcp-server/claude-anthropic/)
+- [ChatGPT](/products/pro/integrations/mcp-server/openai-chatgpt/)
+- [Google Gemini](/products/pro/integrations/mcp-server/google-gemini/)
+- [Microsoft Copilot Studio](/products/pro/integrations/mcp-server/microsoft-copilot-studio/)
+
+Once connected, testing a template needs nothing else switched on.
+
+### Where this came from
+
+Templates that use several automations together can end up with a step no combination of answers
+ever shows. Nothing in the editor flags it, and the usual way to find out is that a live process
+stops halfway and somebody has to work out why. Customers asked for a way to check a template
+before running it, and this is that.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > MCP server</b>" href="/products/pro/integrations/mcp-server/" > Tallyfy's MCP Server lets you control workflows through plain English in ChatGPT, Claude... </LinkTitleCard>
+<LinkTitleCard header="<b>Use Cases > Audit and improve your templates</b>" href="/products/pro/integrations/byo-ai/use-cases/audit-and-improve-your-templates/" > Tallyfy's AI can audit any process template for missing instructions, form fields, assignees... </LinkTitleCard>
+<LinkTitleCard header="<b>Byo Ai > Use cases</b>" href="/products/pro/integrations/byo-ai/use-cases/" > Connect any major AI platform to Tallyfy through MCP to manage tasks, check process status... </LinkTitleCard>
+<LinkTitleCard header="<b>Mcp Server > Using Tallyfy MCP server with ChatGPT</b>" href="/products/pro/integrations/mcp-server/openai-chatgpt/" > ChatGPT Enterprise and Team users can connect to Tallyfy's MCP server through OAuth 2.1 to... </LinkTitleCard>
+</CardGrid>
