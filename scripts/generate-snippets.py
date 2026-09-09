@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 import requests
 from pathlib import Path
@@ -166,6 +167,11 @@ CRITICAL WRITING RULES - Follow these exactly:
 2. BANNED TRANSITIONS (never start sentences with): Moreover, Furthermore, Indeed,
    Subsequently, Additionally
 
+2b. NO EM-DASHES OR EN-DASHES. Never use the characters — or –. Use a comma, a
+   period, a colon, or a spaced hyphen instead. This is a hard rule in CLAUDE.md and
+   is also stripped deterministically after generation, so producing one just gets
+   rewritten.
+
 3. WORD REPLACEMENTS: Use "complete" not "comprehensive", "use" not "leverage",
    "smooth" not "seamless", "strong" not "robust", "help" not "facilitate",
    "improve" not "optimize", "simplify" not "streamline", "enable" not "empower",
@@ -237,11 +243,45 @@ class ClaudeClient:
 				logger.error(f"Failed to parse API response: {e}")
 				return None
 
+EM_DASH = '\u2014'
+EN_DASH = '\u2013'
+
+
+def strip_dashes(text: str) -> str:
+	"""Replace em-dashes and en-dashes, which CLAUDE.md bans outright.
+
+	The model is told not to produce them in HUMANIZATION_PROMPT_SUFFIX above. That
+	reduces the rate and cannot be relied on, so this is the half that actually holds.
+	Written after generate-snippets put an em-dash into a brand new article's
+	description on the run that published it (tallyfy/documentation#220).
+
+	Be precise about why nothing stopped it, because the obvious reading is wrong.
+	`markdown-lint.py` genuinely never reads `description`. `ai-tell-check` DOES:
+	`.github/ai-tells.txt` gives glyph-dash scope `both`, and a description carrying
+	an em-dash returns rc 1 with an ERROR, against rc 0 for the same file with the
+	dash removed. It passed on that one run purely on TIMING. `ai-tell-gate` checks
+	out `workflow_run.head_sha`, which is the commit BEFORE this script rewrote the
+	description, while `generate-snippets` checks out `head_branch`. So the gate is
+	not blind to descriptions and must not be narrowed on that assumption. Left
+	unfixed, the next full-corpus run would have gone red and blocked `sync`.
+
+	A dash between digits is a numeric range, so it becomes a plain hyphen. Anywhere
+	else it is separating an aside, so it becomes a spaced hyphen, which CLAUDE.md
+	names as an allowed replacement.
+	"""
+	if not text:
+		return text
+	result = re.sub(r'(?<=\d)\s*[' + EM_DASH + EN_DASH + r']\s*(?=\d)', '-', text)
+	result = re.sub(r'\s*[' + EM_DASH + EN_DASH + r']\s*', ' - ', result)
+	return result
+
+
 def post_process_description(text: str) -> str:
 	"""Enforce description quality rules deterministically after AI generation.
 
 	What this function actually does:
 	- Strips leading/trailing whitespace and surrounding quotes
+	- Replaces em-dashes and en-dashes, which CLAUDE.md bans (see strip_dashes)
 	- Caps at 2 sentences
 	- Ensures the text ends with a period
 	- Truncates at 350 characters, at a word boundary where it can
@@ -262,6 +302,9 @@ def post_process_description(text: str) -> str:
 
 	# Strip whitespace and surrounding quotes
 	result = text.strip().strip('"').strip("'").strip()
+
+	# Banned characters go first, so the 350-char check below measures the final text.
+	result = strip_dashes(result)
 
 	# Cap at 2 sentences: split on period-space or period-end, keep first 2
 	sentences = re.split(r'(?<=\.)\s+', result)
@@ -317,7 +360,78 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 		logger.error(f"Error processing file {file_path}: {str(e)}")
 		return False
 
+# The cases the self-test must run. Asserted as a SET, not just a pass/fail, because a
+# battery that quietly stops testing something keeps printing green while getting weaker.
+# Same reasoning as REQUIRED_RULE_IDS in ai-tell-check.py: adding a case needs a fixture,
+# removing one has to be a code change with an author and a diff.
+REQUIRED_SELF_TEST_CASES = frozenset({
+	"em-dash-between-words",
+	"en-dash-between-words",
+	"en-dash-between-digits",
+	"clean-text-unchanged",
+	"two-sentence-cap-still-works",
+	"trailing-period-still-added",
+})
+
+
+def _self_test() -> int:
+	"""Prove the description post-processor goes RED and GREEN.
+
+	Three RED arms feed it a banned character and require none back. One GREEN arm feeds
+	it clean text and requires it back untouched, which a transform that mangled
+	everything would fail while passing all three RED arms. Two further arms assert rules
+	that have nothing to do with dashes, so the battery still proves the rest of the
+	function runs rather than proving one regex fires.
+	"""
+	failures = []
+	seen = set()
+
+	def check(case_id, ok, got):
+		seen.add(case_id)
+		if not ok:
+			failures.append(f"{case_id}: got {got!r}")
+
+	def clean_of_dashes(s):
+		return EM_DASH not in s and EN_DASH not in s
+
+	r = post_process_description(f"Tallyfy works out dates at launch {EM_DASH} so templates stay reusable.")
+	check("em-dash-between-words", clean_of_dashes(r) and " - " in r, r)
+
+	r = post_process_description(f"Tallyfy works out dates at launch {EN_DASH} so templates stay reusable.")
+	check("en-dash-between-words", clean_of_dashes(r) and " - " in r, r)
+
+	r = post_process_description(f"Descriptions run 200{EN_DASH}350 characters.")
+	check("en-dash-between-digits", clean_of_dashes(r) and "200-350" in r, r)
+
+	clean = "Tallyfy turns template rules into real dates when you launch a process."
+	r = post_process_description(clean)
+	check("clean-text-unchanged", r == clean, r)
+
+	r = post_process_description("One. Two. Three.")
+	check("two-sentence-cap-still-works", r == "One. Two.", r)
+
+	r = post_process_description("No trailing period here")
+	check("trailing-period-still-added", r.endswith("."), r)
+
+	missing = REQUIRED_SELF_TEST_CASES - seen
+	unexpected = seen - REQUIRED_SELF_TEST_CASES
+	if missing or unexpected:
+		print(f"SELF-TEST BROKEN: the case set drifted. missing={sorted(missing)} unexpected={sorted(unexpected)}")
+		return 2
+	if failures:
+		print("SELF-TEST FAILED:")
+		for f in failures:
+			print(f"  {f}")
+		return 1
+	print(f"self-test OK: {len(seen)} cases. Dashes stripped, clean text untouched, other rules intact.")
+	return 0
+
+
 def main():
+	# Checked before argparse: --self-test takes no API key and no file list.
+	if '--self-test' in sys.argv:
+		return _self_test()
+
 	parser = argparse.ArgumentParser(description='Generate and update snippets for MDX files using Claude API')
 	parser.add_argument('--files', type=str, required=True, help='Newline-separated list of files')
 	parser.add_argument('--dir', type=str, required=True, help='Base directory path')
