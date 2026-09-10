@@ -91,6 +91,7 @@ CLASSES = (
     "vague-attribution",
     "participial-tail",
     "glyph-tell",
+    "register-labelling",
 )
 
 RULE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -102,6 +103,10 @@ MIN_NAME_CHARS = 12
 # still green. Adding a rule is fine and only needs a fixture; removing one is a code change
 # with an author and a diff.
 REQUIRED_RULE_IDS = frozenset({
+    "register-label-heading",
+    "register-label-opener",
+    "register-label-inline",
+    "register-jargon-strip",
     "revelation-heres-the",
     "revelation-part-worth",
     "revelation-what-nobody",
@@ -1012,6 +1017,14 @@ def run(paths, rules, strict=False, quiet=False, baseline_path=None, enforce_sta
 # the same outcome cannot tell a working rule from a broken one next to it.
 
 FIXTURES = {
+    "register-label-heading":
+        "## Seat billing in plain terms",
+    "register-label-opener":
+        "In plain terms, a template is a reusable process.",
+    "register-label-inline":
+        "Twelve kinds of problem, in plain terms:",
+    "register-jargon-strip":
+        "Strip away the jargon and a webhook is a callback.",
     "revelation-heres-the":
         "Here's the catch nobody mentions when you set this up.",
     "revelation-part-worth":
