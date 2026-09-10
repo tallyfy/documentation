@@ -1022,7 +1022,7 @@ FIXTURES = {
     "register-label-opener":
         "**In plain terms**, a template is a reusable process.",
     "register-label-inline":
-        "Twelve kinds of problem, in plain terms:",
+        "- What a webhook does, in plain terms\n\nA trailing paragraph so the bullet is not the last line.",
     "register-jargon-strip":
         "Strip away the jargon and a webhook is a callback.",
     "revelation-heres-the":
