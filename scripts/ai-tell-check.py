@@ -1020,7 +1020,7 @@ FIXTURES = {
     "register-label-heading":
         "## Seat billing in plain terms",
     "register-label-opener":
-        "In plain terms, a template is a reusable process.",
+        "**In plain terms**, a template is a reusable process.",
     "register-label-inline":
         "Twelve kinds of problem, in plain terms:",
     "register-jargon-strip":
