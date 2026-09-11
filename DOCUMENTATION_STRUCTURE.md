@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-08-19 22:21:23 -->
+<!-- Last updated: 2026-09-11 14:11:16 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,10 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (17 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-└── pro/             (682 files) - Tallyfy Pro main product documentation (90% of all content)
+└── pro/             (686 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 708 .mdx files across 146 directories
+**Total**: 712 .mdx files across 148 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
@@ -27,9 +27,9 @@ This file provides a comprehensive overview of the documentation organization to
 Ordered by size, largest first, so the biggest areas are the ones you see.
 
 ```
-pro/                                   (682 files)
-├── integrations/          (288 files) - Third-party connections
-│   ├── open-api/          (75 files)  - REST API documentation
+pro/                                   (686 files)
+├── integrations/          (291 files) - Third-party connections
+│   ├── open-api/          (76 files)  - REST API documentation
 │   ├── vendors/           (46 files)  - Per-vendor integration guides
 │   ├── middleware/        (43 files)  - Zapier, Make, Power Automate, Workato, Celigo
 │   ├── analytics/         (20 files)  - Analytics and reporting tools
@@ -37,7 +37,7 @@ pro/                                   (682 files)
 │   ├── authentication/    (9 files)   - SSO and identity providers
 │   ├── cli/               (9 files)   - The Tallyfy CLI
 │   ├── computer-ai-agents/ (9 files)  - Claude, ChatGPT, agent tooling
-│   ├── mcp-server/        (7 files)   - MCP server
+│   ├── mcp-server/        (9 files)   - MCP server
 │   ├── tallyfy-desktop-ai/ (7 files)  - Desktop AI
 │   ├── document-management/ (6 files) - Document systems
 │   ├── email/             (17 files)   - Email integrations
@@ -58,8 +58,8 @@ pro/                                   (682 files)
 │   ├── groups/            (2 files)   - User groups
 │   └── (1 file sits directly in documenting/)
 │
-├── tracking-and-tasks/    (50 files)  - Process execution and monitoring
-│   ├── tasks/             (22 files)  - Individual task management
+├── tracking-and-tasks/    (51 files)  - Process execution and monitoring
+│   ├── tasks/             (23 files)  - Individual task management
 │   ├── processes/         (12 files)  - Launched process management
 │   ├── tracker-view/      (9 files)   - Process tracking dashboard
 │   ├── tasks-view/        (3 files)   - Task dashboard and filtering
@@ -148,9 +148,9 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 
 ### Most Commonly Updated Areas
 1. **Templates & Workflows**: `pro/documenting/templates/` (54 files)
-2. **Task Management**: `pro/tracking-and-tasks/tasks/` (22 files)
+2. **Task Management**: `pro/tracking-and-tasks/tasks/` (23 files)
 3. **Process Management**: `pro/tracking-and-tasks/processes/` (12 files)
-4. **Integrations**: `pro/integrations/` (288 total files; per-vendor guides live under
+4. **Integrations**: `pro/integrations/` (291 total files; per-vendor guides live under
    `pro/integrations/vendors/` and `pro/integrations/middleware/[vendor]/`, not `pro/integrations/[vendor]/`)
 5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (16 files)
 
