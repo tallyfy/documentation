@@ -15,7 +15,9 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Referencing form fields, snippets and people through the API
 
-Several Tallyfy fields accept HTML rather than plain text, and inside that HTML you can point at something else: the answer someone gave to a form field, a saved snippet, another template, or a person. Each kind of reference is a small piece of markup with an identifier in it. Send the markup exactly as shown below and Tallyfy will recognise it everywhere: in the template editor, in the running task, and in email.
+Several Tallyfy fields accept HTML rather than plain text, and inside that HTML you can point at something else: the answer someone gave to a form field, a saved snippet, another template, or a person. Each kind of reference is a small piece of markup with an identifier in it. Send the markup exactly as shown below and Tallyfy will recognise it in the template editor and in the running task.
+
+Not every kind survives the trip into an email, though, and the ones that don't are called out where they come up.
 
 This page is the format reference. If you only need one thing from it, it is this: a form field reference is a `span` carrying the classes `insert-variable-tag fr-deletable`, and the field's alias in double curly braces is the text inside it.
 
@@ -27,18 +29,23 @@ Tallyfy accepts it, and the person doing the task sees the right value, because 
 
 So the braces make it render. The `span` makes it survive editing. You want both.
 
-## Which parameters accept rich text
+## Which parameters accept references
 
-| Parameter | Where it appears |
-|---|---|
-| `summary` | The description on a step or a task. |
-| `title` | The name of a step, a task or a process. |
-| `guidance` | The help text on a form field. |
-| `default_value` | The pre-filled answer on a text or large text form field. |
-| `content` | The body of a comment. |
-| `kickoff_description` | The instructions shown above a kick-off form. |
+| Parameter | Where it appears | Takes markup? |
+|---|---|---|
+| `summary` | The description on a step or a task. | Yes. |
+| `guidance` | The help text on a form field. | Yes. |
+| `default_value` | The pre-filled answer on a text or large text form field. | Yes. |
+| `kickoff_description` | The instructions shown above a kick-off form. | Yes. |
+| `title` | The name of a step or a task. | No. Plain text. |
+| `name` | The name of a process. | No. Plain text. |
+| `content` | The body of a comment. | Yes, but nothing resolves. See below. |
 
-`title` is a special case. It holds text rather than markup, so use the braces on their own there and leave the `span` out.
+`title` and `name` hold text, not markup. Use the braces on their own there and leave the `span` out.
+
+A process is named with `name`. It isn't `title`, and sending `title` on a process does nothing at all.
+
+Comments are the exception to this whole page. A comment keeps whatever HTML you put in `content`, but Tallyfy never swaps a form field answer into a comment, so `{{alias}}` there stays on the page as the literal text `{{alias}}`. Mentions are the one thing that does work in a comment, and the `+email` form works only there.
 
 ## The seven reference types
 
@@ -50,13 +57,15 @@ So the braces make it render. The `span` makes it survive editing. You want both
 | Embedded template | `span.insert-blueprint-tag` | A template `id`. |
 | Inline document field | `editor-form-field` | A kick-off field `id`. |
 | Person or group mention | `@[id]` in the text | A member or group `id`. |
-| Guest mention | `+email` in the text | An email address. |
+| Email mention, comments only | `+email` in the text | An email address. |
 
 The last two are not HTML at all. They are written straight into the text.
 
+The `+email` one is narrower than it looks. It works in a comment and nowhere else, and it assigns the person rather than just naming them.
+
 ## Form field variable
 
-This is the common one. It shows the answer somebody gave to a form field, wherever the text is read.
+This is the common one. It shows the answer somebody gave to a form field, wherever that text is read. Comments are the exception, as above.
 
 ```html
 <span class="insert-variable-tag fr-deletable" contenteditable="false">{{customer-name-4821}}</span>&nbsp;
@@ -78,17 +87,21 @@ Whitespace inside the braces is tolerated, so `{{ alias }}` resolves the same as
 
 Both kinds of form field carry an `alias`, and both are read from the template.
 
-- **Kick-off fields** come back in the template payload, under `prerun`.
-- **Step form fields** come back on each step, under `captures`.
+- **Kick-off fields** come back in the template payload, under `prerun`. You get these by default.
+- **Step form fields** come back on each step, under `captures`. You only get these if you ask for the steps.
+
+Ask for the steps with `?with=steps`:
 
 ```bash
-curl "https://go.tallyfy.com/api/organizations/{org_id}/checklists/{checklist_id}" \
+curl "https://go.tallyfy.com/api/organizations/{org_id}/checklists/{checklist_id}?with=steps" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Accept: application/json" \
   -H "X-Tallyfy-Client: APIClient"
 ```
 
-Each field object in the response carries both identifiers you might need: `alias`, for the variable markup on this page, and `id`, for the inline document field further down. They are not interchangeable.
+Leave `?with=steps` off and there is no `steps` array in the response, so there are no `captures` either. The reply still looks complete. You get the template, its `prerun` array and all its settings, and nothing in it says the steps were left out. If you're hunting for a step field's alias and can't find one, check the query string before you check anything else.
+
+Each field object carries both identifiers you might need: `alias`, for the variable markup on this page, and `id`, for the inline document field further down. They are not interchangeable.
 
 ## System variable
 
@@ -105,17 +118,29 @@ Four names are reserved. They use the same `span` as a form field variable, with
 <span class="insert-variable-tag fr-deletable" contenteditable="false">{{TEMPLATE_NAME}}</span>&nbsp;
 ```
 
-`DATE` and `TEMPLATE_NAME` work in task titles, task descriptions and process names. `current-process-id` and `current-task-id` work in task titles and descriptions. The names are matched exactly, so the capitalisation above is part of the contract.
+`DATE` and `TEMPLATE_NAME` are the broad pair. They work in task titles, task descriptions and process names, and in `kickoff_description`, `guidance` and `default_value` too.
+
+`current-process-id` and `current-task-id` are narrower. They only work in task titles and descriptions. Anywhere else they stay on the page as literal text.
+
+The names are matched exactly, so the capitalisation above is part of the contract.
 
 ## Snippet
 
-A snippet is a saved block of text. The reference is replaced by the snippet's current body when the text is read, so editing the snippet updates every task that references it.
+A snippet is a saved block of text. Inside Tallyfy, the reference is swapped for the snippet's current body when somebody opens the text, so editing the snippet updates every task that points at it.
 
 ```html
 <span class="insert-snippet-tag fr-deletable" contenteditable="false" data-snippet-id="1042">[[Refund policy]]</span>&nbsp;
 ```
 
-The `data-snippet-id` attribute is what resolves. The `[[Refund policy]]` text inside is only a label for the person editing, and it is replaced entirely when the snippet renders, so a stale label is harmless rather than wrong.
+The `data-snippet-id` attribute is what resolves. The `[[Refund policy]]` text inside is the label.
+
+### The swap only happens inside Tallyfy
+
+The Tallyfy app does the swap. The server doesn't, so nothing else does either.
+
+Read that step back through the API and you get the markup exactly as you stored it. More importantly, when Tallyfy emails a task to somebody, the snippet body isn't in that email. The `span` is just a wrapper in an email, so your reader sees the words inside it: `[[Refund policy]]`, and not the refund policy.
+
+That changes what the label is for. Write it so it makes sense to somebody who will only ever see the label. "[[Refund policy]]" does that. "[[snippet 1042]]" doesn't.
 
 Snippet ids are numeric. List them from the text templates endpoint:
 
@@ -134,24 +159,53 @@ This shows another template inside the text, expanded so the reader can see its 
 <span class="insert-blueprint-tag fr-deletable" contenteditable="false" data-blueprint-id="{checklist_id}">[[Employee onboarding]]</span>&nbsp;
 ```
 
-`data-blueprint-id` holds a template `id`, the same id the templates endpoint returns. As with a snippet, the bracketed text is a label only.
+`data-blueprint-id` holds a template `id`, the same id the templates endpoint returns.
+
+This expands inside Tallyfy only, exactly like a snippet. In an email, or in anything reading the raw API, the bracketed text is all anyone sees. So write a label that stands on its own.
 
 ## Inline document field
 
 Document templates are the exception to everything above. Instead of referencing a field, an inline document field *is* the field, placed in the middle of the document for someone to fill in.
 
+It also has its own quoting rule, and that rule is the mistake that costs people an afternoon.
+
 ```html
 <editor-form-field
+  class="fr-fil fr-dib fr-draggable"
   contenteditable="false"
-  data-field-id="{prerun_id}"
-  data-field-label="Signature date"
-  data-field-type="date"
-  data-field-required="false"
-  data-field-alias="signature-date-7710"
->Signature date</editor-form-field>&nbsp;
+  draggable="true"
+  data-editor-scope="this"
+  data-field-id="'{prerun_id}'"
+  data-field-label="'Signature date'"
+  data-field-type="'date'"
+></editor-form-field>&nbsp;
 ```
 
+### Single-quote the values
+
+Look closely at each value. There's a single quote inside the double quotes: `data-field-id="'abc123'"`, not `data-field-id="abc123"`.
+
+That isn't a typo, and it isn't optional. Tallyfy's document editor reads these three attributes as expressions rather than as plain strings. The single quotes are what say "this is text". Leave them off and the editor goes looking for something by that name, finds nothing, and the field never loads.
+
+Do the same for `data-field-label` and `data-field-type`. All three take the quotes.
+
+### Add `data-editor-scope="this"`
+
+It's how the chip finds the editor around it. Without it the chip can't reach its field, so it shows the same reference error as a broken id even though your id is perfectly good. If you're staring at that error on an id you've just checked, this attribute is the first thing to look for.
+
+### The rest
+
+`data-field-type` takes `text`, `textarea` or `date`.
+
+Leave the element empty. The label comes from `data-field-label` and from the field itself, so anything you write between the tags is discarded.
+
 `data-field-id` is the `id` the API returns on the kick-off field object. That's the identifier to use, and it's worth being careful here, because a field object carries several values that all look like plausible identifiers. Take `id` exactly as the API gives it to you. It stays the same as the template is edited over time, which is why it's the one that works.
+
+### The quotes matter a second time, much later
+
+When somebody copies a document template, Tallyfy rewrites the field ids inside it so the copy points at the copy's own fields.
+
+That rewrite only recognises the single-quoted form. Markup written without the quotes sails through the copy untouched and then points at the **original** template's fields. The copy looks fine. It fills in the wrong document.
 
 This is also the one reference type that fails loudly rather than quietly. See the next section.
 
@@ -165,30 +219,60 @@ A mention is not HTML. It is written directly into the text.
 
 The same form works for a group id. Use the ids returned by the members and groups endpoints.
 
-A guest mention is a plus sign immediately followed by an email address:
+The other form is a plus sign immediately followed by an email address:
 
 ```text
 +someone@example.com is copied on this.
 ```
 
-Mentioning an email address that already belongs to a member of your organization mentions that member. Mentioning any other valid address **creates a guest** and sends them an invitation, so treat this one as a write rather than a formatting choice. Guest invites are rate limited per organization, and a burst of them will start returning HTTP 429.
+Two things about `+email` surprise people, and both matter more than the syntax does.
+
+**It only works in a comment.** Put `+someone@example.com` in a step description, a task title or a kick-off description and nothing happens. It just sits there as ordinary text. Tallyfy reads this form when a comment is posted, and at no other moment.
+
+**It assigns somebody. It doesn't just name them.** The person becomes an assignee of the task or step that the comment is on. If the address belongs to a member of your organization, that member gets assigned. If it belongs to nobody yet, Tallyfy **creates a guest**, assigns them, and emails them an invitation.
+
+So treat `+email` as a write, not a formatting choice. Guest invites are rate limited per organization, and a burst of them starts returning HTTP 429 with a `Retry-After` header.
 
 ## What happens when a reference stops resolving
 
-This is the part worth reading twice, because most of it is silent.
+Most of this is silent, which is what makes it worth knowing.
 
-A reference can stop resolving for ordinary reasons. Someone deletes the form field, archives the snippet, or removes the template. Nothing checks your markup at the moment you send it, and nothing warns anybody later.
+A reference can stop resolving for ordinary reasons. Someone deletes the form field, deletes the snippet, or removes the template. Nothing checks your markup at the moment you send it, and nothing warns anybody later.
 
 | Reference | When it no longer resolves |
 |---|---|
-| Form field variable | Replaced with **nothing**. The reader sees a gap in the sentence. |
-| System variable | A name outside the four above is treated as an unknown alias, so it is also replaced with nothing. |
-| Snippet | The whole reference is removed from the text. |
-| Embedded template | The whole reference is removed from the text. This also happens when the reader lacks permission to see that template. |
+| Form field variable | Either blanked, or left on the page as `{{alias}}`. Depends where you're reading it. |
+| System variable | A name outside the four above counts as an unknown alias, so it behaves like the row above. |
+| Snippet | The markup is stripped out of your stored text when the snippet is deleted. |
+| Embedded template | Removed from the text when that template no longer exists. |
 | Inline document field | Shows the visible text **Error - Reference does not exist**. |
 | Person or group mention | Falls back to showing the raw id. |
 
-Only the inline document field tells anyone something is wrong. Everywhere else the sentence simply closes up, reads as though it was always written that way, and gives nobody a reason to look. A sentence written as `Please call {{customer-name}} before Friday` becomes `Please call before Friday`.
+Only the inline document field tells anyone something is wrong.
+
+### A dead variable blanks in some places and stays visible in others
+
+Two pieces of code sit behind this and they don't agree. Which one runs depends on what you're reading, not on what you wrote.
+
+**It blanks** in a task's `title` and `summary`. The sentence closes up. `Please call {{customer-name}} before Friday` becomes `Please call before Friday`, reads as though it was always written that way, and gives nobody a reason to look. This is the common case, and it's the one that hurts.
+
+**It stays visible**, as the literal text `{{customer-name}}`, in a form field's `default_value` and in a template's `guidance`, `summary` and `kickoff_description`. That's ugly on the page, but it's honest, and you'll spot it in a second.
+
+A process name is the third case. An unresolved variable blanks there, same as a task.
+
+One more split worth knowing: `current-task-id` and `current-process-id` only resolve in a task's title or description. Put either one in a `kickoff_description`, a `guidance` or a `default_value` and it stays on the page as literal text, because the code serving those columns only knows `DATE` and `TEMPLATE_NAME`.
+
+### Permission is not the same as missing
+
+A reader who can't open an embedded template does **not** see the reference vanish. They see the bracketed label, with a note telling them they don't have access.
+
+Removal means something else: that template genuinely isn't there any more. Tallyfy checks whether the id still exists, and that check says nothing about who may read it. So an embedded template that disappears is a deleted template. Chasing permissions is the wrong first move.
+
+### Deleting a snippet rewrites your stored text
+
+A snippet can't be archived. There's no archived state for one to sit in, and no way to bring a deleted one back.
+
+Deleting one also reaches into every template and step that referenced it and strips the markup out of the stored content. The delete response lists what it changed, so read it. That edit is permanent, and recreating the snippet does not undo it.
 
 Two consequences for anything you build.
 
@@ -212,9 +296,12 @@ Note the escaped quotes. The markup is a JSON string value, so every attribute q
 ## Checklist before you send
 
 - Every alias and id was read from the API in this session, not remembered or guessed.
+- Step field aliases came from a response you asked for with `?with=steps`.
 - Variable chips carry both classes, `insert-variable-tag` and `fr-deletable`.
 - Every chip carries `contenteditable="false"`.
 - There is a space after each chip.
+- Inline document fields single-quote their values, and carry `data-editor-scope="this"`.
+- A process is named with `name`, not `title`.
 - The ids belong to the template you are writing into.
 - You opened the template in Tallyfy afterwards and saw chips, not plain text.
 
