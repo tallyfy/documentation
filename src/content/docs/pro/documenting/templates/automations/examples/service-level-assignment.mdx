@@ -1,10 +1,10 @@
 ---
 about_tallyfy: true
 description: Tallyfy automations route tasks to different team members based on customer
-  service tiers. IF-THEN rules on kick-off form fields assign enterprise clients to
-  senior specialists and free-tier users to general support groups.
+  service tiers. Automations read the kick-off form fields and assign enterprise clients
+  to senior specialists and free-tier users to general support groups.
 id: 67ef6112e822d0629f582c5e65afb001
-lastUpdated: 2026-06-13
+lastUpdated: 2026-09-12
 sidebar:
   order: 8
 title: Service level-based task assignment
@@ -14,7 +14,7 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
-Use Tallyfy [automations](/products/pro/documenting/templates/automations/) to route [tasks](/products/pro/tracking-and-tasks/tasks/) to different team members based on customer service levels. IF-THEN rules on kick-off form fields let you match the right expertise to each customer's tier automatically.
+Use Tallyfy [automations](/products/pro/documenting/templates/automations/) to route [tasks](/products/pro/tracking-and-tasks/tasks/) to different team members based on customer service levels. An automation reads a kick-off form field and matches the right expertise to each customer's tier, without anyone deciding by hand.
 
 ## When you'd use service-based routing
 
@@ -31,70 +31,77 @@ Here's a real example - routing tasks based on service packages.
 
 **Scenario**: You're onboarding clients, and Platinum customers need your best account manager.
 
-1. **Add a service selection field to your kick-off form[^1]**:
+1. **Add a service selection field to your [kick-off form](/products/pro/launching/triggers/kick-off-forms/)[^1]**:
    - Field type: Dropdown or Radio
    - Options: "Basic", "Professional", "Platinum"
    - Label: "Select service package"
 
-2. **Create assignment rules for each level**:
+2. **Create an assignment automation for each level**:
 
-   **Rule 1: Platinum service**
-   ```
-   IF (Service Package field) is "Platinum"
-   THEN Replace Assignees for "Prepare proposal" with "Sarah Chen"
-   AND Replace Assignees for "Account setup" with "Sarah Chen"
-   ```
-
-   **Rule 2: Professional service**
-   ```
-   IF (Service Package field) is "Professional"
-   THEN Replace Assignees for "Prepare proposal" with "Mike Johnson"
-   AND Replace Assignees for "Account setup" with "Mike Johnson"
+   **Automation 1: Platinum service**
+   ```automation
+   AUTOMATION Platinum service
+   IF field "Service Package" is "Platinum"
+   THEN replace assignees on "Prepare proposal" with "Sarah Chen"
+   AND replace assignees on "Account setup" with "Sarah Chen"
    ```
 
-   **Rule 3: Basic service**
+   **Automation 2: Professional service**
+   ```automation
+   AUTOMATION Professional service
+   IF field "Service Package" is "Professional"
+   THEN replace assignees on "Prepare proposal" with "Mike Johnson"
+   AND replace assignees on "Account setup" with "Mike Johnson"
    ```
-   IF (Service Package field) is "Basic"
-   THEN Replace Assignees for "Prepare proposal" with "Support Team" group
-   AND Replace Assignees for "Account setup" with "Support Team" group
+
+   **Automation 3: Basic service**
+   ```automation
+   AUTOMATION Basic service
+   IF field "Service Package" is "Basic"
+   THEN replace assignees on "Prepare proposal" with group "Support Team"
+   AND replace assignees on "Account setup" with group "Support Team"
    ```
 
 ### Advanced patterns
 
 #### Workload-balanced assignment
 
-Don't pile everything on one person - assign to a group instead:
+Don't pile everything on one person. Assign to a group instead, and name each step the
+automation should cover:
 
-```
-IF (Service Package field) is "Platinum"
-THEN Replace Assignees for all account management tasks with "Senior Account Managers" group
+```automation
+AUTOMATION Platinum work goes to the senior group
+IF field "Service Package" is "Platinum"
+THEN replace assignees on "Prepare proposal" with group "Senior Account Managers"
+AND replace assignees on "Account setup" with group "Senior Account Managers"
 ```
 
-When you assign to a group, Tallyfy distributes work across its members.
+When you assign to a group, Tallyfy distributes work across its members. Each action names one
+step, so add an action for every step you want the group to pick up.
 
 #### Multi-criteria assignment
 
 Combine multiple conditions when service level alone isn't enough:
 
-```
-IF (Service Package field) is "Enterprise"
-AND (Industry field) is "Healthcare"
-THEN Replace Assignees for "Compliance review" with "Healthcare Specialist Team"
+```automation
+IF field "Service Package" is "Enterprise"
+AND field "Industry" is "Healthcare"
+THEN replace assignees on "Compliance review" with "Healthcare Specialist Team"
 ```
 
-This matches expertise to both customer tier AND industry.
+This matches expertise to both customer tier and industry, using the same [replace assignees](/products/pro/documenting/templates/automations/actions/asignment-actions/) action as the rules above.
 
 #### Progressive expertise escalation
 
-Higher tiers often need extra approval steps:
+Higher tiers often need extra approval steps, shown or hidden with [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/):
 
-```
-IF (Service Package field) is "Basic"
-THEN Hide "Executive review" step
+```automation
+IF field "Service Package" is "Basic"
+THEN hide "Executive review"
 
-IF (Service Package field) is "Enterprise"
-THEN Show "Executive review" step
-AND Assign "Executive review" to "C-Suite" group
+IF field "Service Package" is "Enterprise"
+THEN show "Executive review"
+AND add assignees to "Executive review" with "C-Suite"
 ```
 
 ## Example: technical support tiers
@@ -105,35 +112,39 @@ Here's how a support team can route tickets by customer tier.
 - Customer tier (dropdown): "Free", "Starter", "Growth", "Enterprise"
 - Issue type (dropdown): "Bug", "Feature Request", "Integration Help"
 
-**Automation rules**:
+**The automations**:
 
-1. **Free tier - community support**:
-   ```
-   IF (Customer Tier) is "Free"
-   THEN Assign "Initial response" to "Community Managers"
-   AND Update deadline to 48 hours from now
-   ```
-
-2. **Starter tier - standard support**:
-   ```
-   IF (Customer Tier) is "Starter"
-   THEN Assign "Initial response" to "Tier 1 Support"
-   AND Update deadline to 24 hours from now
+1. **Free tier, community support**:
+   ```automation
+   AUTOMATION Free tier support
+   IF field "Customer Tier" is "Free"
+   THEN add assignees to "Initial response" with group "Community Managers"
+   AND shift deadline of "Initial response" by 48 hours from launch
    ```
 
-3. **Growth tier - priority support**:
-   ```
-   IF (Customer Tier) is "Growth"
-   THEN Assign "Initial response" to "Tier 2 Support"
-   AND Update deadline to 4 hours from now
+2. **Starter tier, standard support**:
+   ```automation
+   AUTOMATION Starter tier support
+   IF field "Customer Tier" is "Starter"
+   THEN add assignees to "Initial response" with group "Tier 1 Support"
+   AND shift deadline of "Initial response" by 24 hours from launch
    ```
 
-4. **Enterprise - dedicated support**:
+3. **Growth tier, priority support**:
+   ```automation
+   AUTOMATION Growth tier support
+   IF field "Customer Tier" is "Growth"
+   THEN add assignees to "Initial response" with group "Tier 2 Support"
+   AND shift deadline of "Initial response" by 4 hours from launch
    ```
-   IF (Customer Tier) is "Enterprise"
-   THEN Assign "Initial response" to "Enterprise Success Team"
-   AND Update deadline to 1 hour from now
-   AND Show "Executive escalation" step
+
+4. **Enterprise, dedicated support**:
+   ```automation
+   AUTOMATION Enterprise tier support
+   IF field "Customer Tier" is "Enterprise"
+   THEN add assignees to "Initial response" with group "Enterprise Success Team"
+   AND shift deadline of "Initial response" by 1 hours from launch
+   AND show "Executive escalation"
    ```
 
 Each customer gets what they're paying for. Your team stays organized.
@@ -149,12 +160,12 @@ Each customer gets what they're paying for. Your team stays organized.
 import { CardGrid, LinkTitleCard } from "~/components";
 
 
-[^1]: Kick-off form - collects data before launching a process, used by automation rules to route tasks and set values
+[^1]: Kick-off form - collects data before launching a process, read by automations to route tasks and set values
 
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Automations > Examples</b>" href="/products/pro/documenting/templates/automations/examples/" > Tallyfy offers tested automation patterns for task assignment, workflow control, and deadlines... </LinkTitleCard>
 <LinkTitleCard header="<b>Examples > Dynamic member assignment from kick-off forms</b>" href="/products/pro/documenting/templates/automations/examples/dynamic-member-assignment-from-kickoff/" > Use assignee picker fields in kick-off forms so process launchers can pick who handles each... </LinkTitleCard>
 <LinkTitleCard header="<b>Tutorials > Create an automation</b>" href="/products/pro/tutorials/how-can-tallyfy-automate-and-streamline-my-processes/" > Tallyfy automations pair an If with a Then to adapt workflows at runtime. You can hide and... </LinkTitleCard>
-<LinkTitleCard header="<b>Edit Templates > Assign steps in the Tallyfy template builder</b>" href="/products/pro/documenting/templates/edit-templates/assign-steps-in-the-tallyfy-template-builder/" > Tallyfy lets you assign template steps to specific members, groups, job titles, or guests... </LinkTitleCard>
+<LinkTitleCard header="<b>Actions > Automate task assignments</b>" href="/products/pro/documenting/templates/automations/actions/asignment-actions/" > Assignment actions let you add, replace, or clear task assignees in a workflow. Use form-based... </LinkTitleCard>
 </CardGrid>

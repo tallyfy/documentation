@@ -5,7 +5,7 @@ description: Tallyfy's REST API gives developers full programmatic access to the
   template control, and data export with three authentication methods, standard JSON
   responses, and required headers.
 id: 256fa31154eb2d6af8bf7b80f5e2f8bd
-lastUpdated: 2026-09-11
+lastUpdated: 2026-09-12
 sidebar:
   order: 3
 title: Open API
@@ -53,6 +53,89 @@ X-Tallyfy-Client: APIClient
 :::caution[X-Tallyfy-Client header is mandatory]
 Your code *must* include `X-Tallyfy-Client: APIClient`. Requests without it will fail - typically returning "endpoint not found" or a 401 error.
 :::
+
+### How authentication works
+
+This diagram shows how each credential type leads to the same request cycle, and why a missing header still gets rejected.
+
+```d2
+# How you prove who you are to call the API
+direction: down
+
+Choice: Which credential? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Personal: Personal token {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+AppCred: App token {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+OAuthLogin: OAuth login {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Verify: Verify identity {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Grant: Access granted {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Ask: App calls API {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Check: Headers included? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Success: Data returned {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Reject: Request rejected {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Choice -> Personal: One user
+Choice -> AppCred: Server to server
+Choice -> OAuthLogin: Third party app
+Personal -> Verify
+AppCred -> Verify
+OAuthLogin -> Verify
+Verify -> Grant
+Grant -> Ask
+Ask -> Check
+Check -> Success: Yes
+Check -> Reject: No
+```
+
+**Diagram description:** Three credential types (a personal token, an app token, or an OAuth login) all funnel into one identity check. Once Tallyfy grants access, the app calls the API, and a missing required header rejects the request even though the credential was valid.
+
+**What to notice:**
+- Personal tokens, app tokens, and OAuth logins all lead to the same identity check. No method gets special treatment.
+- A valid credential grants access, but the call still needs the required headers from the section above. A missing `X-Tallyfy-Client` header rejects it anyway.
+- A rejected request here usually means a header problem, not a bad credential. Check the headers first.
 
 ### Available API operations
 
@@ -126,5 +209,5 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <LinkTitleCard header="<b>Open Api > API integration guide</b>" href="/products/pro/integrations/open-api/how-to-integrate-with-tallyfy-using-api/" > Tallyfy's REST API lets you connect workflow features to external systems using OAuth 2.0... </LinkTitleCard>
 <LinkTitleCard header="<b>Open Api > Third-party application API access</b>" href="/products/pro/integrations/open-api/access-api-as-a-third-party-application-instead-of-a-user/" > Third-party apps can access Tallyfy's API through OAuth 2.0 client credentials. Your app gets an... </LinkTitleCard>
 <LinkTitleCard header="<b>Api Clients > Getting started with Postman API testing</b>" href="/products/pro/integrations/open-api/api-clients/postman/" > Test Tallyfy's REST API in Postman without writing code. Authenticate with the password grant... </LinkTitleCard>
-<LinkTitleCard header="<b>Open Api > API code samples</b>" href="/products/pro/integrations/open-api/code-samples/" > Tallyfy's REST API code samples are organized by resource category with working examples in six... </LinkTitleCard>
+<LinkTitleCard header="<b>Code Samples > Authentication methods</b>" href="/products/pro/integrations/open-api/code-samples/authentication/" > Tallyfy API authentication uses either a personal access token (lasting 6 months from Settings)... </LinkTitleCard>
 </CardGrid>
