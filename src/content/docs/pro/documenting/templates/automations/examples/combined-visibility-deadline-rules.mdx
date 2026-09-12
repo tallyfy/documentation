@@ -7,7 +7,7 @@ id: de035c04c5f17287bf83a17fc39df255
 lastUpdated: 2026-06-13
 sidebar:
   order: 7
-title: Combined visibility and deadline rules
+title: Combined visibility and deadline automations
 ---
 
 import { Steps } from '@astrojs/starlight/components';
@@ -15,7 +15,7 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
-Combine visibility and deadline automations in Tallyfy so steps only appear when they're relevant - and arrive with the right due date already set.
+Combine visibility and [deadline automations](/products/pro/documenting/templates/automations/actions/deadline-actions/) in Tallyfy so steps only appear when they're relevant - and arrive with the right due date already set.
 
 ## When you'd use this
 
@@ -31,22 +31,22 @@ Combine visibility and deadline automations in Tallyfy so steps only appear when
 
    In your [template](/products/pro/documenting/templates/), add a step that should only appear in certain situations - for example, "Check international shipment arrival."
 
-2. **Create the visibility rule**
+2. **Create the visibility automation**
 
    Add an automation to show the step only when needed:
+   ```automation
+   IF field "Shipment Type" is "International"
+   THEN show "Check international shipment arrival"
    ```
-   IF (Shipment Type field) is "International"
-   THEN Show task "Check international shipment arrival"
-   ```
-   Tallyfy automatically hides steps with "Show" actions until conditions are met.
+   Tallyfy automatically hides steps with ["Show" actions](/products/pro/documenting/templates/automations/actions/visibility-actions/) until conditions are met.
 
-3. **Add a deadline rule for the same step**
+3. **Add a deadline automation for the same step**
 
    Create another automation targeting the same step:
-   ```
-   IF (Shipment Type field) is "International"
-   THEN Set deadline for "Check international shipment arrival"
-        to 7 days after (Expected Arrival Date field)
+   ```automation
+   IF field "Shipment Type" is "International"
+   THEN shift deadline of "Check international shipment arrival"
+        by 7 days from field "Expected Arrival Date"
    ```
 
 4. **Test it**
@@ -62,16 +62,17 @@ Combine visibility and deadline automations in Tallyfy so steps only appear when
 
 **Step**: "Legal review for special terms"
 
-**Visibility rule**:
-```
-IF (Contract Type field) is "Custom Enterprise"
-THEN Show "Legal review for special terms"
+**Visibility automation**:
+```automation
+IF field "Contract Type" is "Custom Enterprise"
+THEN show "Legal review for special terms"
 ```
 
-**Deadline rule**:
-```
-IF (Contract Type field) is "Custom Enterprise"
-THEN Set deadline to 30 days before (Contract End Date field)
+**Deadline automation**:
+```automation
+IF field "Contract Type" is "Custom Enterprise"
+THEN shift deadline of "Legal review for special terms"
+     by 30 days before field "Contract End Date"
 ```
 
 Enterprise contracts trigger legal review 30 days before expiration. Standard contracts skip the step entirely.
@@ -80,16 +81,17 @@ Enterprise contracts trigger legal review 30 days before expiration. Standard co
 
 **Step**: "Arrange catering service"
 
-**Visibility rule**:
-```
-IF (Services Requested field) contains "Catering"
-THEN Show "Arrange catering service"
+**Visibility automation**:
+```automation
+IF field "Services Requested" contains "Catering"
+THEN show "Arrange catering service"
 ```
 
-**Deadline rule**:
-```
-IF (Services Requested field) contains "Catering"
-THEN Set deadline to 14 days before (Event Date field)
+**Deadline automation**:
+```automation
+IF field "Services Requested" contains "Catering"
+THEN shift deadline of "Arrange catering service"
+     by 14 days before field "Event Date"
 ```
 
 No catering requested? No task. Catering needed? It'll appear with a 14-day countdown.
@@ -98,17 +100,18 @@ No catering requested? No task. Catering needed? It'll appear with a 14-day coun
 
 **Step**: "Senior engineer review"
 
-**Visibility rule**:
-```
-IF (Issue Priority field) is "Critical"
-AND (Initial Resolution) is "Unsuccessful"
-THEN Show "Senior engineer review"
+**Visibility automation**:
+```automation
+IF field "Issue Priority" is "Critical"
+AND field "Initial Resolution" is "Unsuccessful"
+THEN show "Senior engineer review"
 ```
 
-**Deadline rule**:
-```
-IF (Issue Priority field) is "Critical"
-THEN Set deadline to 2 hours after (Escalation Time field)
+**Deadline automation**:
+```automation
+IF field "Issue Priority" is "Critical"
+THEN shift deadline of "Senior engineer review"
+     by 2 hours from field "Escalation Time"
 ```
 
 Critical issues that first-line support can't resolve escalate to senior engineers with a 2-hour SLA[^1].
@@ -119,46 +122,45 @@ Critical issues that first-line support can't resolve escalate to senior enginee
 
 You can use AND/OR logic to combine conditions. Tallyfy supports both operators:
 
-```
-// Visibility depends on amount AND region
-IF (Purchase Amount field) is greater than $10,000
-AND (Region field) is "International"
-THEN Show "Export compliance check"
+```automation
+IF field "Purchase Amount" is greater than "10000"
+AND field "Region" is "International"
+THEN show "Export compliance check"
 
-// Express shipping - tight deadline
-IF (Shipping Method field) is "Express"
-THEN Set deadline for "Export compliance check" to 1 day after process launch
+IF field "Shipping Method" is "Express"
+THEN shift deadline of "Export compliance check"
+     by 1 day from process launch
 
-// Standard shipping - more time
-IF (Shipping Method field) is "Standard"
-THEN Set deadline for "Export compliance check" to 3 days after process launch
+IF field "Shipping Method" is "Standard"
+THEN shift deadline of "Export compliance check"
+     by 3 days from process launch
 ```
 
 ### Cascading deadlines
 
 One task's deadline can reference another task's deadline:
 
-```
-// First conditional step
-IF (Requires Inspection field) is "Yes"
-THEN Show "Quality inspection"
-AND Set deadline to (Ship Date field) minus 3 days
+```automation
+IF field "Requires Inspection" is "Yes"
+THEN show "Quality inspection"
+AND shift deadline of "Quality inspection"
+    by 3 days before field "Ship Date"
 
-// Second step references first step's deadline
-IF (Requires Inspection field) is "Yes"
-THEN Show "Inspection report filing"
-AND Set deadline to 1 day after "Quality inspection" deadline
+IF field "Requires Inspection" is "Yes"
+THEN show "Inspection report filing"
+AND shift deadline of "Inspection report filing"
+    by 1 day from step "Quality inspection" deadline
 ```
 
 ## Best practices
 
 - **Match your conditions** - If a step shows for "International" shipments, its deadline should trigger on the same condition.
-- **Set default deadlines** - Hidden steps should still have reasonable defaults in case someone manually shows a step.
+- **Set default deadlines** - Hidden steps should still have reasonable defaults in case someone [manually shows a step](/products/pro/tracking-and-tasks/tasks/manually-show-hide-tasks/).
 - **Test edge cases** - What happens if a date field's empty? Or a condition changes mid-process? Find out before your users do.
 - **Name steps clearly** - "Premium setup verification" beats "Step 3," especially for conditional steps.
 
-:::tip[Rule evaluation order[^2]]
-Tallyfy evaluates all applicable rules when conditions change. At process launch, steps with "Show" actions are hidden by default, then rules run to determine which should appear. Deadline rules can reference the same form fields as visibility rules.
+:::tip[The order automations run in[^2]]
+Tallyfy evaluates every applicable automation whenever a condition changes. At process launch, steps with "Show" actions start hidden, then the automations run and decide which ones appear. A deadline automation can read the same form fields a visibility one does.
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";
