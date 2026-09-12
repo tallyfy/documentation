@@ -54,6 +54,89 @@ X-Tallyfy-Client: APIClient
 Your code *must* include `X-Tallyfy-Client: APIClient`. Requests without it will fail - typically returning "endpoint not found" or a 401 error.
 :::
 
+### How authentication works
+
+This diagram shows how each credential type leads to the same request cycle, and why a missing header still gets rejected.
+
+```d2
+# How you prove who you are to call the API
+direction: down
+
+Choice: Which credential? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Personal: Personal token {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+AppCred: App token {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+OAuthLogin: OAuth login {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Verify: Verify identity {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Grant: Access granted {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Ask: App calls API {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Check: Headers included? {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Success: Data returned {
+  shape: circle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+Reject: Request rejected {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Choice -> Personal: One user
+Choice -> AppCred: Server to server
+Choice -> OAuthLogin: Third party app
+Personal -> Verify
+AppCred -> Verify
+OAuthLogin -> Verify
+Verify -> Grant
+Grant -> Ask
+Ask -> Check
+Check -> Success: Yes
+Check -> Reject: No
+```
+
+**Diagram description:** Three credential types (a personal token, an app token, or an OAuth login) all funnel into one identity check. Once Tallyfy grants access, the app calls the API, and a missing required header rejects the request even though the credential was valid.
+
+**What to notice:**
+- Personal tokens, app tokens, and OAuth logins all lead to the same identity check. No method gets special treatment.
+- A valid credential grants access, but the call still needs the required headers from the section above. A missing `X-Tallyfy-Client` header rejects it anyway.
+- A rejected request here usually means a header problem, not a bad credential. Check the headers first.
+
 ### Available API operations
 
 The API provides access to core Tallyfy features:

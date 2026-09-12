@@ -37,6 +37,64 @@ This is for teams that want their tools to talk to each other. If you'd rather s
 - **External forms**: create a process from a form filled out on another site
 - **Databases**: start a workflow when a record changes
 
+## How the trigger works
+
+Your other system stays in control of when a process starts. It sends one API call, and Tallyfy takes it from there.
+
+```d2
+# An outside system starts a Tallyfy process
+direction: down
+
+YourSystem: Your Other System {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+
+  Event: Something happens {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+}
+
+Tallyfy: Tallyfy {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+
+  Receive: Receives the call {
+    style.fill: "#f2faf4"
+    style.stroke: "#225930"
+  }
+
+  SetFields: Fills kick-off\nform fields {
+    style.fill: "#f2faf4"
+    style.stroke: "#225930"
+  }
+
+  Started: Process is running {
+    shape: circle
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+    style.stroke-width: 2
+  }
+}
+
+Confirmed: Sends back a process ID {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+YourSystem.Event -> Tallyfy.Receive: Calls the API
+Tallyfy.Receive -> Tallyfy.SetFields
+Tallyfy.SetFields -> Tallyfy.Started
+Tallyfy.Started -> Confirmed
+```
+
+**Diagram description:** An event in another system, such as a closed deal or an uploaded file, calls the Tallyfy API. Tallyfy receives the call, fills the kick-off form fields from the data it was given, and starts the process. The response hands back a process ID so the calling system can track it.
+
+**What to notice:**
+- The cause always starts outside Tallyfy. Nobody clicks Launch Process by hand.
+- Tallyfy fills the kick-off form fields from the data in the request, so the process starts pre-filled rather than empty.
+- The response includes a process ID, which is what the calling system uses to track progress afterward.
+
 ## For developers
 
 *(Skip this unless you're setting up the technical side.)*

@@ -1,7 +1,7 @@
 ---
 about_tallyfy: true
 description: Tallyfy lets you show or hide entire workflow tasks based on form field
-  values using IF-THEN rules with AND/OR logic. One template can handle multiple process
+  values using automations with AND/OR logic. One template can handle multiple process
   variations instead of maintaining separate templates for each path.
 id: 6a1fe13efbfe80124bd974223504c7ea
 lastUpdated: 2026-06-13
@@ -17,7 +17,7 @@ import { Audience } from "~/components";
 
 ## What conditional visibility does
 
-Show or hide entire tasks based on form field values. Someone fills out a field, Tallyfy checks your IF-THEN rules[^2], and tasks appear or stay hidden. You can combine conditions with AND/OR logic.
+Show or hide entire tasks based on form field values. Someone fills out a field, Tallyfy checks the conditions you set[^2], and tasks appear or stay hidden. You can combine conditions with AND/OR logic.
 
 This works at the **task level only** - you can't show or hide individual form fields within a task.
 
@@ -38,14 +38,14 @@ Tallyfy's conditional logic works at the task/step level, not within forms. You 
 
 ## Setting up conditional visibility
 
-You'll need a Pro plan (or active trial), plus a [template](/products/pro/documenting/templates/) with form fields and [automation rules](/products/pro/documenting/templates/automations/).
+You'll need a Pro plan (or active trial), plus a [template](/products/pro/documenting/templates/) with form fields and [automations](/products/pro/documenting/templates/automations/).
 
 <Steps>
 1. **Create your form fields** - add fields in your kick-off form[^1] or early tasks that'll trigger conditions
 
 2. **Add all possible tasks** - create every task that might appear in the workflow
 
-3. **Configure visibility rules** - open the template editor, go to **Automations** > **Add Rule**, select a visibility action, set your IF conditions, then choose THEN **Show this task** or **Hide this task**
+3. **Set up the visibility** - open the template editor, go to **Automations** > **Add Automation**, select a visibility action, set your IF conditions, then choose THEN **Show this task** or **Hide this task**
 
 4. **Test** - launch test processes to verify all condition paths work
 </Steps>
@@ -54,63 +54,54 @@ You'll need a Pro plan (or active trial), plus a [template](/products/pro/docume
 
 ### Simple Yes/No branching
 
-```
-Kick-off form field: "Shipping Type" (Dropdown: Domestic, International)
+A kick-off form field called "Shipping Type" offers "Domestic" or "International" as choices. This automation shows the "Customs Documentation" task only for "International" orders:
 
-Conditional task: "Customs Documentation"
-Rule: IF "Shipping Type" equals "International" THEN show this task
+```automation
+IF field "Shipping Type" is "International"
+THEN show "Customs Documentation"
 ```
 
 ### Multiple AND conditions
 
-```
-Form fields:
-- "Purchase Amount" (Number)
-- "Vendor Status" (Dropdown: New, Existing)
+Two kick-off form fields decide whether "Manager Approval Required" appears: "Purchase Amount" (a number) and "Vendor Status" (a dropdown with "New" or "Existing"). Join both conditions in one automation with AND:
 
-Conditional task: "Manager Approval Required"
-Rule: IF "Purchase Amount" is greater than 5000
-      AND "Vendor Status" equals "New"
-      THEN show this task
+```automation
+IF field "Purchase Amount" is greater than "5000"
+AND field "Vendor Status" is "New"
+THEN show "Manager Approval Required"
 ```
 
-Don't create two separate rules here. Use one rule with both conditions joined by AND.
+Don't create two separate automations here. Use one automation with both conditions joined by AND.
 
 ### OR conditions
 
-```
-Form field: "Document Type" (Dropdown)
-Options: Contract, NDA, Partnership Agreement, Invoice, Purchase Order
+A dropdown field called "Document Type" offers "Contract", "NDA", "Partnership Agreement", "Invoice" or "Purchase Order" as choices. This automation sends "Legal Review" to whoever handles contracts, NDAs or partnership agreements:
 
-Conditional task: "Legal Review"
-Rule: IF "Document Type" equals "Contract"
-      OR "Document Type" equals "NDA"
-      OR "Document Type" equals "Partnership Agreement"
-      THEN show this task
+```automation
+IF field "Document Type" is "Contract"
+OR field "Document Type" is "NDA"
+OR field "Document Type" is "Partnership Agreement"
+THEN show "Legal Review"
 ```
 
 ### Decision-tree quotation workflow
 
-```
-Step 1 - Kick-off form:
-- "Industry Type" (Dropdown: Manufacturing, Services, Retail)
-- "Company Size" (Radio: Small, Medium, Large)
+A kick-off form collects "Industry Type" ("Manufacturing", "Services" or "Retail") and "Company Size" ("Small", "Medium" or "Large"). Four automations show the matching step based on those answers:
 
-Step 2 - Manufacturing Questions (conditional):
-Rule: IF "Industry Type" equals "Manufacturing" THEN show this task
+```automation
+IF field "Industry Type" is "Manufacturing"
+THEN show "Manufacturing Questions"
 
-Step 3 - Services Questions (conditional):
-Rule: IF "Industry Type" equals "Services" THEN show this task
+IF field "Industry Type" is "Services"
+THEN show "Services Questions"
 
-Step 4 - Small Business Package (conditional):
-Rule: IF "Company Size" equals "Small"
-      AND "Industry Type" equals "Manufacturing"
-      THEN show this task
+IF field "Company Size" is "Small"
+AND field "Industry Type" is "Manufacturing"
+THEN show "Small Business Package"
 
-Step 5 - Enterprise Solution (conditional):
-Rule: IF "Company Size" equals "Large"
-      OR "Production Volume" greater than 10000
-      THEN show this task
+IF field "Company Size" is "Large"
+OR field "Production Volume" is greater than "10000"
+THEN show "Enterprise Solution"
 ```
 
 The process reveals only relevant questions based on previous answers.
@@ -118,7 +109,7 @@ The process reveals only relevant questions based on previous answers.
 :::tip[Using kick-off fields for process branching]
 Use kick-off form fields to control your entire process flow instead of maintaining multiple templates:
 1. Add dropdowns/radio buttons to your kick-off form for key decisions
-2. Reference these fields in automation rules throughout the template
+2. Reference these fields in automations throughout the template
 3. Show/hide entire task groups based on kick-off selections
 
 Example: Instead of "Onboarding - US" and "Onboarding - EU" templates, use one template with a "Region" kick-off field that controls which compliance steps appear.
@@ -175,12 +166,12 @@ Task C: Shows if Task B is complete AND [additional condition]
 
 Apply the same condition to related tasks:
 
-```
-If "Department" = "HR" then show:
-- Task 1: Collect employee information
-- Task 2: Background check
-- Task 3: Equipment requisition
-- Task 4: IT account setup
+```automation
+IF field "Department" is "HR"
+THEN show "Task 1: Collect employee information"
+AND show "Task 2: Background check"
+AND show "Task 3: Equipment requisition"
+AND show "Task 4: IT account setup"
 ```
 
 ### Enterprise playbook filtering
@@ -194,7 +185,7 @@ For managing 12+ variations (e.g. by delivery model, service type, and region) w
 
 3. **Name task groups clearly** - e.g. "[Principal] Fleet Operations - North America"
 
-4. **Configure visibility rules** combining multiple conditions:
+4. **Set up the visibility**, combining multiple conditions:
    ```
    IF Delivery Model = "Principal"
    AND Service Type = "Fleet"
@@ -233,7 +224,7 @@ A slides feature will let you create slide-based playbooks where entire slides a
 
 **How it'll work**:
 - Create slides with your content
-- Set IF-THEN rules at the slide level
+- Set the If and the Then at the slide level
 - Users answer questions at the start
 - Only relevant slides appear in their playbook
 
