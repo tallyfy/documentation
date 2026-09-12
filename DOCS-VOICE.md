@@ -46,6 +46,7 @@ search results and to Answers and is therefore prose a reader sees.
 | vague-attribution | borrows authority from a source that is never named |
 | participial-tail | a finished sentence with a decorative clause bolted on |
 | glyph-tell | em dash, en dash, smart quote, ellipsis character, invisible space |
+| register-labelling | announces that what follows is plain instead of writing it plainly |
 
 ## FORBIDDEN. Everything in this section is banned, and appears here only as the ban.
 
@@ -62,6 +63,9 @@ running the checker over this file must report findings in this section and nowh
 - Let's dive in. Let's unpack this. Sound familiar?
 - Supercharge, revolutionize, unleash, usher in, demystify.
 - A sentence finished, then a clause bolted on the end, ensuring the reader gets one more claim.
+- In plain English, in plain terms, in plain language, in simple terms, put plainly, simply put.
+- Strip away the jargon, forget the technical jargon, skip the jargon.
+- A heading that ends by promising the section is plain.
 
 ## Write this instead
 
@@ -78,6 +82,9 @@ Each of these is the same information with the promise removed.
   invented statistics, and an unnamed study is the same failure with the number hidden.
 - Instead of a participial tail: make it its own sentence, or cut it. Most of them are an empty
   benefit claim.
+- Instead of labelling the register: delete the label. The sentence underneath is already plain,
+  which is why the label reads as filler. "Twelve kinds of problem:" says everything the longer
+  version said.
 
 Good sentences that people mistake for tells, and which the checker deliberately leaves alone:
 "Here's how to create a template." "Here's where to click." A question in a heading. A checklist
