@@ -885,12 +885,19 @@ All 17 diagram types are technically supported, but use these based on content n
 - **Theme**: Customizable themes (works with light/dark modes)
 - **Rendering**: Server-side or client-side rendering options
 - **Font**: Inter Variable (matches documentation font)
-- **Colors**:
-  - Primary: `#0066CC` (Tallyfy Blue)
-  - Success: `#00AA55` / `fill:#D4EDDA`
-  - Error: `#DC3545` / `fill:#F8D7DA`
-  - Info: `fill:#E8F4FF`
-  - Warning: `fill:#FFF3CD`
+- **Colors**: the house palette, and nothing else. `scripts/validate-d2.sh` rejects any
+  other literal, so a diagram written from a different palette fails CI.
+  - Border and all strokes: `#225930`
+  - Primary fill: `#f2faf4`
+  - Secondary fill: `#e1f7e6`
+  - Warning or reminder: `#fff3cd`
+
+  This block previously listed a blue, red and teal palette (`#0066CC`, `#DC3545`,
+  `#E8F4FF`). That was stale: it contradicted the palette this same file documents above,
+  it contradicted the validator, and this file's own "don't hardcode colors" section named
+  `#E8F4FF` as an example of what NOT to write. No diagram in the corpus ever used it
+  (measured 2026-09-08: zero occurrences of `0066CC` across all content). It is corrected
+  rather than deleted so nobody restores it from an older copy.
 
 ## ⚠️ CRITICAL D2 DIAGRAM ISSUES TO AVOID
 

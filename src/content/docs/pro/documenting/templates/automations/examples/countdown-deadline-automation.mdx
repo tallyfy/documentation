@@ -3,7 +3,7 @@ about_tallyfy: true
 description: Set up automated countdown deadlines that work backwards from important
   dates so preparation tasks are always completed on time.
 id: fedc20f2ebac028de31e13ca48377ef4
-lastUpdated: 2026-09-03
+lastUpdated: 2026-09-12
 sidebar:
   order: 9
 title: Countdown deadline automation
@@ -86,28 +86,26 @@ Each task has no dependency on the others. They are four independent offsets fro
 <Steps>
 1. **Add a date field for the target date**
 
-   In your kick-off form[^1] or an early step, add a **Date** field (e.g. "Meeting date", "Event date", "Contract expiration date"). Tallyfy requires the field type to be `date` for deadline automations.
+   In your kick-off form[^1] or an early step, add a **Date** field (e.g. "Meeting date", "Event date", "Contract expiration date"). Use a real **Date** field rather than plain text: Tallyfy can technically read a date out of any field type, but if the value is missing or unreadable when the automation runs, it calculates the deadline from right now instead of leaving it alone, which can push a countdown deadline into the past.
 
 2. **Add preparation steps**
 
    Add steps to your [template](/products/pro/documenting/templates/) for the work that needs to happen before that date (e.g. "Send meeting agenda", "Finalize event venue").
 
-3. **Create deadline automation rules**
+3. **Create deadline automations**
 
-   Set up rules that calculate deadlines backwards from your date field:
+   Set up automations that [calculate deadlines](/products/pro/documenting/templates/automations/actions/deadline-actions/) backwards from your date field:
 
    **Example - meeting reminder 1 day before:**
-   ```
-   IF (Meeting Date field) is not empty
-   THEN Set deadline for "Send meeting reminder"
-        to 1 day before (Meeting Date field)
+   ```automation
+   IF field "Meeting Date" is not empty
+   THEN shift deadline of "Send meeting reminder" by 1 day before field "Meeting Date"
    ```
 
    **Example - event prep 2 weeks before:**
-   ```
-   IF (Event Date field) is not empty
-   THEN Set deadline for "Finalize catering order"
-        to 14 days before (Event Date field)
+   ```automation
+   IF field "Event Date" is not empty
+   THEN shift deadline of "Finalize catering order" by 14 days before field "Event Date"
    ```
 </Steps>
 
@@ -117,22 +115,19 @@ Each task has no dependency on the others. They are four independent offsets fro
 
 **Kick-off form field**: "Scheduled meeting date"
 
-```
-IF (Scheduled Meeting Date) exists
-THEN Set deadline for "Complete prospect research"
-     to 3 days before (Scheduled Meeting Date)
-```
-
-```
-IF (Scheduled Meeting Date) exists
-THEN Set deadline for "Send meeting agenda"
-     to 1 day before (Scheduled Meeting Date)
+```automation
+IF field "Scheduled Meeting Date" is not empty
+THEN shift deadline of "Complete prospect research" by 3 days before field "Scheduled Meeting Date"
 ```
 
+```automation
+IF field "Scheduled Meeting Date" is not empty
+THEN shift deadline of "Send meeting agenda" by 1 day before field "Scheduled Meeting Date"
 ```
-IF (Scheduled Meeting Date) exists
-THEN Set deadline for "Meeting day checklist"
-     to 2 hours before (Scheduled Meeting Date)
+
+```automation
+IF field "Scheduled Meeting Date" is not empty
+THEN shift deadline of "Meeting day checklist" by 2 hours before field "Scheduled Meeting Date"
 ```
 
 Valid deadline units are minutes, hours, days, weeks, and months.
@@ -141,85 +136,84 @@ Valid deadline units are minutes, hours, days, weeks, and months.
 
 **Kick-off form field**: "Podcast launch date"
 
-```
-IF (Launch Date) exists
-THEN Set deadline for "Upload final audio"
-     to 1 week before (Launch Date)
-```
-
-```
-IF (Launch Date) exists
-THEN Set deadline for "Create social media posts"
-     to 3 days before (Launch Date)
+```automation
+IF field "Launch Date" is not empty
+THEN shift deadline of "Upload final audio" by 1 week before field "Launch Date"
 ```
 
+```automation
+IF field "Launch Date" is not empty
+THEN shift deadline of "Create social media posts" by 3 days before field "Launch Date"
 ```
-IF (Launch Date) exists
-THEN Set deadline for "Final quality check"
-     to 1 day before (Launch Date)
+
+```automation
+IF field "Launch Date" is not empty
+THEN shift deadline of "Final quality check" by 1 day before field "Launch Date"
 ```
 
 ### International shipping
 
 **Step 1 fields**: Location (dropdown) and Expected arrival date (date field)
 
-```
-IF (Location) is "International"
-THEN Show "Verify customs documentation"
-```
-
-```
-IF (Location) is "International"
-THEN Set deadline for "Verify customs documentation"
-     to 1 week before (Expected Arrival Date)
+```automation
+IF field "Location" is "International"
+THEN show "Verify customs documentation"
 ```
 
-International shipments won't get stuck at customs.
+```automation
+IF field "Location" is "International"
+AND field "Expected Arrival Date" is not empty
+THEN shift deadline of "Verify customs documentation" by 1 week before field "Expected Arrival Date"
+```
+
+This automation's condition checks **Location**, not the arrival date, so it doesn't automatically skip a blank date the way the examples above do. Without the second condition, a blank **Expected arrival date** would still let the automation fire, and Tallyfy would calculate the deadline from right now instead of the arrival date, landing it a week in the past and marking the task overdue immediately. Adding `field "Expected Arrival Date" is not empty` stops that: the deadline only shifts once there's a real date to count back from.
+
+International shipments won't get stuck at customs, as long as the arrival date is filled in.
 
 ## Advanced patterns
 
 ### Multiple deadlines from one date
 
-Create separate automation rules that all reference the same date field:
+Create separate automations that all reference the same date field:
 
+```automation
+IF field "Contract End Date" is not empty
+THEN shift deadline of "Initial renewal discussion" by 60 days before field "Contract End Date"
 ```
-IF (Contract End Date) exists
-THEN Set "Initial renewal discussion" to 60 days before (Contract End Date)
+```automation
+IF field "Contract End Date" is not empty
+THEN shift deadline of "Prepare renewal proposal" by 45 days before field "Contract End Date"
 ```
-```
-IF (Contract End Date) exists
-THEN Set "Prepare renewal proposal" to 45 days before (Contract End Date)
-```
-```
-IF (Contract End Date) exists
-THEN Set "Send renewal offer" to 30 days before (Contract End Date)
+```automation
+IF field "Contract End Date" is not empty
+THEN shift deadline of "Send renewal offer" by 30 days before field "Contract End Date"
 ```
 
-Each rule is a separate automation - they'll all fire independently based on the same date.
+Each one is a separate automation - they'll all fire independently based on the same date.
 
 ### Conditional countdown deadlines
 
 Different lead times based on other field values:
 
-```
-IF (Event Type) is "Small Meeting"
-AND (Event Date) exists
-THEN Set "Room setup" to 1 hour before (Event Date)
+```automation
+IF field "Event Type" is "Small Meeting"
+AND field "Event Date" is not empty
+THEN shift deadline of "Room setup" by 1 hour before field "Event Date"
 
-IF (Event Type) is "Large Conference"
-AND (Event Date) exists
-THEN Set "Room setup" to 1 day before (Event Date)
+IF field "Event Type" is "Large Conference"
+AND field "Event Date" is not empty
+THEN shift deadline of "Room setup" by 1 day before field "Event Date"
 ```
 
 ### Working hours adjustment
 
-Tallyfy adjusts deadlines to fall within your org's configured working hours[^2]. If a calculated deadline lands on a non-working day, it shifts to the next available working day and time.
+Tallyfy adjusts deadlines to fall within your org's configured [working hours](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)[^2]. If a calculated deadline lands on a non-working day, it shifts to the next available working day and time.
 
 ## Tips
 
 - **Add buffer** - use 2 days before instead of 1 for critical tasks
 - **Name tasks clearly** - include timing like "Send agenda (1 day before meeting)"
-- **Require date fields** - if countdown deadlines depend on a date, make that field required
+- **Guard against blank dates** - if the automation's condition doesn't already check the date field, add that check (or make the field required), so a blank date can't push the deadline into the past
 - **Set fallback deadlines** - add default deadlines on steps in case date fields are left empty
 - **Test around weekends** - verify deadlines calculate correctly near non-working days
 
@@ -239,8 +233,8 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Actions > Automate deadline shifts on tasks</b>" href="/products/pro/documenting/templates/automations/actions/deadline-actions/" > Tallyfy's deadline actions automatically shift task due dates forward or backward based on... </LinkTitleCard>
+<LinkTitleCard header="<b>Actions > Automate deadline shifts on tasks</b>" href="/products/pro/documenting/templates/automations/actions/deadline-actions/" > Tallyfy's deadline actions automatically shift task due dates forward or backward when a... </LinkTitleCard>
+<LinkTitleCard header="<b>Examples > Combined visibility and deadline automations</b>" href="/products/pro/documenting/templates/automations/examples/combined-visibility-deadline-rules/" > Combine visibility and deadline automations so steps appear only when conditions are met, with... </LinkTitleCard>
 <LinkTitleCard header="<b>Edit Task > Set an exact date on a task</b>" href="/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/" > Tallyfy uses relative deadline rules (like "3 days after launch") in templates since they are... </LinkTitleCard>
 <LinkTitleCard header="<b>Edit Task > Set an exact date on a task</b>" href="/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/" > Tallyfy template steps carry relative deadlines like 3 days after launch, so a step never holds... </LinkTitleCard>
-<LinkTitleCard header="<b>Examples > Combined visibility and deadline rules</b>" href="/products/pro/documenting/templates/automations/examples/combined-visibility-deadline-rules/" > Combine visibility and deadline automations so steps appear only when conditions are met, with... </LinkTitleCard>
 </CardGrid>

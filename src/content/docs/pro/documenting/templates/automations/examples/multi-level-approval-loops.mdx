@@ -4,7 +4,7 @@ description: Build multi-level approval chains where rejections automatically re
   earlier steps for corrections. Use approve/reject task types and status action rules
   for sequential sign-offs with conditional routing and parallel approvals.
 id: 9f1e5212f050eb3826befabe83b4c3f4
-lastUpdated: 2026-09-03
+lastUpdated: 2026-09-12
 sidebar:
   order: 6
 title: Multi-level approval loops
@@ -108,7 +108,7 @@ COO -> Create: Rejected {
 
 **Key points:**
 - Every rejection re-opens the creation task
-- Later approvals won't appear until earlier ones pass - [visibility rules](/products/pro/documenting/templates/automations/actions/visibility-actions/)[^1] control this
+- Later approvals won't appear until earlier ones pass, which [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/)[^1] control
 - COO rejection can re-open multiple steps at once
 
 <Steps>
@@ -120,39 +120,44 @@ COO -> Create: Rejected {
    - Step 3: "Finance department approval" (Approve/Reject)
    - Step 4: "COO final approval" (Approve/Reject)
 
-2. **Create re-open rules for each approval level**
+2. **Create re-open automations for each approval level**
 
-   For each approval step, create a [status action[^2]](/products/pro/documenting/templates/automations/actions/status-actions/) rule that fires on rejection:
+   For each approval step, create an automation using a [status action[^2]](/products/pro/documenting/templates/automations/actions/status-actions/) that fires on rejection:
    
-   **Rule 1: Manager rejection reopens creation**
-   ```
-   IF (Manager review) is Rejected
-   THEN Re-open task "Create wire transfer request"
-   ```
-   
-   **Rule 2: Finance rejection reopens creation**
-   ```
-   IF (Finance department approval) is Rejected
-   THEN Re-open task "Create wire transfer request"
+   **Automation 1: a manager rejection reopens the request**
+   ```automation
+   AUTOMATION Manager rejection reopens the request
+   IF step "Manager review" is rejected
+   THEN reopen "Create wire transfer request"
    ```
    
-   **Rule 3: COO rejection can reopen multiple steps**
+   **Automation 2: a finance rejection reopens the request**
+   ```automation
+   AUTOMATION Finance rejection reopens the request
+   IF step "Finance department approval" is rejected
+   THEN reopen "Create wire transfer request"
    ```
-   IF (COO final approval) is Rejected
-   THEN Re-open task "Create wire transfer request"
-   AND Re-open task "Manager review"
+   
+   **Automation 3: a COO rejection can reopen more than one step**
+   ```automation
+   AUTOMATION COO rejection reopens both earlier steps
+   IF step "COO final approval" is rejected
+   THEN reopen "Create wire transfer request"
+   AND reopen "Manager review"
    ```
 
-3. **Add visibility rules to control flow**
+3. **Add visibility automations to control the flow**
 
-   Hide later approvals until earlier ones pass:
+   Hide later approvals until the earlier ones pass:
+   ```automation
+   AUTOMATION Reveal finance after the manager approves
+   IF step "Manager review" is approved
+   THEN show "Finance department approval"
    ```
-   IF (Manager review) is Approved
-   THEN Show "Finance department approval"
-   ```
-   ```
-   IF (Finance department approval) is Approved
-   THEN Show "COO final approval"
+   ```automation
+   AUTOMATION Reveal the COO after finance approves
+   IF step "Finance department approval" is approved
+   THEN show "COO final approval"
    ```
 </Steps>
 
@@ -160,12 +165,12 @@ COO -> Create: Rejected {
 
 ### Conditional approval routing
 
-Route approvals based on field values like amount thresholds:
+Route approvals based on field values like amount thresholds, then use a [visibility action](/products/pro/documenting/templates/automations/actions/visibility-actions/) to reveal the next step:
 
-```
-IF (Purchase Amount) is greater than $50,000
-AND (Manager review) is Approved
-THEN Show "Board approval required"
+```automation
+IF field "Purchase Amount" is greater than "$50,000"
+AND step "Manager review" is approved
+THEN show "Board approval required"
 ```
 
 ### Parallel approvals
@@ -258,21 +263,21 @@ Sync -> Initial: Any rejected {
 - The final step waits until ALL parallel approvals complete
 - Any single rejection sends everything back to start
 
-Set this up with [visibility rules](/products/pro/documenting/templates/automations/actions/visibility-actions/):
+Set this up with [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/):
 
-```
-IF (Initial review) is Completed
-THEN Show "Legal approval" 
-AND Show "Compliance approval"
-AND Show "Finance approval"
+```automation
+IF step "Initial review" is completed
+THEN show "Legal approval"
+AND show "Compliance approval"
+AND show "Finance approval"
 ```
 
 Then gate the final step on all three approvals:
-```
-IF (Legal approval) is Approved
-AND (Compliance approval) is Approved
-AND (Finance approval) is Approved
-THEN Show "Final implementation"
+```automation
+IF step "Legal approval" is approved
+AND step "Compliance approval" is approved
+AND step "Finance approval" is approved
+THEN show "Final implementation"
 ```
 
 ### Escalation paths
@@ -381,8 +386,8 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>How To > Complex approval workflows</b>" href="/products/pro/tutorials/how-to/track-and-run-complex-approval-workflows/" > Tallyfy turns multi-level approval processes into visible, trackable workflows. Use kick-off... </LinkTitleCard>
 <LinkTitleCard header="<b>Actions > Status actions</b>" href="/products/pro/documenting/templates/automations/actions/status-actions/" > Status actions in Tallyfy automatically re-open a previously completed task when a specific... </LinkTitleCard>
+<LinkTitleCard header="<b>How To > Complex approval workflows</b>" href="/products/pro/tutorials/how-to/track-and-run-complex-approval-workflows/" > Tallyfy turns multi-level approval processes into visible, trackable workflows. Use kick-off... </LinkTitleCard>
 <LinkTitleCard header="<b>Power Automate > Building approval workflows with Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/building-approval-workflows-with-power-automate/" > Power Automate's formal approval actions can wrap around Tallyfy processes to handle conditional... </LinkTitleCard>
-<LinkTitleCard header="<b>Actions > Automate hiding or showing tasks</b>" href="/products/pro/documenting/templates/automations/actions/visibility-actions/" > Visibility actions use IF-THEN rules to show or hide workflow steps based on conditions like... </LinkTitleCard>
+<LinkTitleCard header="<b>Actions > Automate hiding or showing tasks</b>" href="/products/pro/documenting/templates/automations/actions/visibility-actions/" > Visibility actions show or hide workflow steps based on conditions like form field values or... </LinkTitleCard>
 </CardGrid>
