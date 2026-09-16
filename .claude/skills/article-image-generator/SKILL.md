@@ -1,5 +1,5 @@
 ---
-name: editorial-image-generator
+name: article-image-generator
 description: Creates sophisticated HBR-style editorial illustrations for any content using AI understanding and visual analysis. Use when creating conceptual illustrations, analyzing generated images, or compositing logos. Works with any brand configuration. AI-native approach - Claude reasons about content rather than using rigid templates.
 dependencies: [pillow, requests]
 ---
