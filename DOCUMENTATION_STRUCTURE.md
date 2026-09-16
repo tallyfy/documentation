@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-11 14:11:16 -->
+<!-- Last updated: 2026-09-16 14:32:56 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,10 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (17 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-└── pro/             (686 files) - Tallyfy Pro main product documentation (90% of all content)
+└── pro/             (687 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 712 .mdx files across 148 directories
+**Total**: 713 .mdx files across 148 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
@@ -27,7 +27,7 @@ This file provides a comprehensive overview of the documentation organization to
 Ordered by size, largest first, so the biggest areas are the ones you see.
 
 ```
-pro/                                   (686 files)
+pro/                                   (687 files)
 ├── integrations/          (291 files) - Third-party connections
 │   ├── open-api/          (76 files)  - REST API documentation
 │   ├── vendors/           (46 files)  - Per-vendor integration guides
@@ -58,9 +58,9 @@ pro/                                   (686 files)
 │   ├── groups/            (2 files)   - User groups
 │   └── (1 file sits directly in documenting/)
 │
-├── tracking-and-tasks/    (51 files)  - Process execution and monitoring
+├── tracking-and-tasks/    (52 files)  - Process execution and monitoring
 │   ├── tasks/             (23 files)  - Individual task management
-│   ├── processes/         (12 files)  - Launched process management
+│   ├── processes/         (13 files)  - Launched process management
 │   ├── tracker-view/      (9 files)   - Process tracking dashboard
 │   ├── tasks-view/        (3 files)   - Task dashboard and filtering
 │   └── (4 files sit directly in tracking-and-tasks/)
@@ -149,7 +149,7 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 ### Most Commonly Updated Areas
 1. **Templates & Workflows**: `pro/documenting/templates/` (54 files)
 2. **Task Management**: `pro/tracking-and-tasks/tasks/` (23 files)
-3. **Process Management**: `pro/tracking-and-tasks/processes/` (12 files)
+3. **Process Management**: `pro/tracking-and-tasks/processes/` (13 files)
 4. **Integrations**: `pro/integrations/` (291 total files; per-vendor guides live under
    `pro/integrations/vendors/` and `pro/integrations/middleware/[vendor]/`, not `pro/integrations/[vendor]/`)
 5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (16 files)
