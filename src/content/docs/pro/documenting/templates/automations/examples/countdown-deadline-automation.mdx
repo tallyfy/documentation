@@ -14,7 +14,23 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
+:::note[Which app this page describes]
+This page describes Tallyfy at `go.tallyfy.com`, the app your team uses today. Screens and
+wording can differ in other versions of the Tallyfy interface.
+:::
+
 Tallyfy lets you set [task](/products/pro/tracking-and-tasks/tasks/) deadlines that count backwards from a target date. Your meeting agenda can be automatically due 1 day before the meeting. That's how preparation tasks always finish before the critical date arrives.
+
+:::caution[Read this before you build a countdown around a date that moves]
+Each of these automations runs **once** in a given process. It fires, it sets the deadline, and
+that's the end of it. If the target date changes afterwards, every deadline it already set stays
+exactly where it was.
+
+A countdown is a great fit for a date that's fixed once it's known, like a contract end date. It
+needs more care when the date slips, like a rescheduled meeting. See [when an automation
+runs](/products/pro/documenting/templates/automations/when-automations-run/) for what to do when
+that happens.
+:::
 
 ## When to use countdown deadlines
 
@@ -86,7 +102,7 @@ Each task has no dependency on the others. They are four independent offsets fro
 <Steps>
 1. **Add a date field for the target date**
 
-   In your kick-off form[^1] or an early step, add a **Date** field (e.g. "Meeting date", "Event date", "Contract expiration date"). Use a real **Date** field rather than plain text: Tallyfy can technically read a date out of any field type, but if the value is missing or unreadable when the automation runs, it calculates the deadline from right now instead of leaving it alone, which can push a countdown deadline into the past.
+   In your kick-off form[^1] or an early step, add a **Date** field (e.g. "Meeting date", "Event date", "Contract expiration date"). It has to be a real **Date** field: Tallyfy won't save a deadline action pointed at a text or number field. Even with a Date field, guard against it being blank, because if the value is missing when the automation runs, Tallyfy calculates the deadline from right now instead of leaving it alone, which pushes a countdown deadline into the past.
 
 2. **Add preparation steps**
 
@@ -205,9 +221,15 @@ AND field "Event Date" is not empty
 THEN shift deadline of "Room setup" by 1 day before field "Event Date"
 ```
 
-### Working hours adjustment
+### Working hours are not applied here
 
-Tallyfy adjusts deadlines to fall within your org's configured [working hours](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)[^2]. If a calculated deadline lands on a non-working day, it shifts to the next available working day and time.
+A countdown deadline is set by an automation, and a deadline set by an automation isn't adjusted
+to your organization's [work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)[^2].
+Tallyfy counts back in calendar time and leaves the answer where it lands, so "14 days before the
+event" can land on a Sunday.
+
+Allow for that when you choose the gap. If a task really can't be due at the weekend, pick a gap
+that clears it, or set the deadline on the step itself, where the work week is applied.
 
 ## Tips
 
@@ -217,12 +239,17 @@ Tallyfy adjusts deadlines to fall within your org's configured [working hours](/
 - **Set fallback deadlines** - add default deadlines on steps in case date fields are left empty
 - **Test around weekends** - verify deadlines calculate correctly near non-working days
 
-:::tip[When deadlines recalculate]
-Tallyfy recalculates countdown deadlines at two key points:
-1. When the process launches (if the date field is in the kick-off form)
-2. When you complete a step that contains the date field
+:::caution[When a countdown deadline gets set, and why it's only once]
+Tallyfy sets a countdown deadline at one of two moments, whichever applies to your automation:
 
-Your deadlines stay accurate based on these triggers.
+1. When the process launches, if every condition reads a kick-off form field.
+2. When somebody completes the step that carries the date field.
+
+It is set **once**. There's no second pass. Reopening the step, editing the date and completing
+it again doesn't run the automation a second time, so the deadline it already set doesn't move.
+
+If a date changes after the automation has run, change the affected deadlines by hand. See [when
+an automation runs](/products/pro/documenting/templates/automations/when-automations-run/).
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";

@@ -15,7 +15,12 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
-Combine visibility and [deadline automations](/products/pro/documenting/templates/automations/actions/deadline-actions/) in Tallyfy so steps only appear when they're relevant - and arrive with the right due date already set.
+:::note[Which app this page describes]
+This page describes Tallyfy at `go.tallyfy.com`, the app your team uses today. Screens and
+wording can differ in other versions of the Tallyfy interface.
+:::
+
+Combine visibility and [deadline automations](/products/pro/documenting/templates/automations/actions/deadline-actions/) in Tallyfy so steps only appear when they're relevant, and arrive with the right due date already set.
 
 ## When you'd use this
 
@@ -129,12 +134,17 @@ THEN show "Export compliance check"
 
 IF field "Shipping Method" is "Express"
 THEN shift deadline of "Export compliance check"
-     by 1 day from process launch
+     by 1 day before its own deadline
 
 IF field "Shipping Method" is "Standard"
 THEN shift deadline of "Export compliance check"
-     by 3 days from process launch
+     by 3 days from its own deadline
 ```
+
+A deadline action can't count from the process launch. The three starting points it offers are
+the target step's own deadline, another step's deadline, and a date form field, so the pair above
+nudges the step's existing deadline in or out instead. To set a deadline against launch, do it on
+the step itself in the [Timings row](/products/pro/documenting/templates/edit-templates/step-timings/).
 
 ### Cascading deadlines
 
@@ -152,6 +162,21 @@ AND shift deadline of "Inspection report filing"
     by 1 day from step "Quality inspection" deadline
 ```
 
+Chaining two automations like this is fragile, and it's worth knowing why before you rely on it.
+Both fire from the same moment. The second one reads whatever deadline "Quality inspection" holds
+at the instant it runs, so the answer depends on which of the two ran first. Don't build around
+that ordering.
+
+The sturdy version counts both steps from the same date field: "3 days before Ship Date" and
+"2 days before Ship Date". Then neither depends on the other, and the order they run in stops
+mattering.
+
+What won't rescue it is setting "Inspection report filing" to count from "Quality inspection" in
+the step's [Timings row](/products/pro/documenting/templates/edit-templates/step-timings/). A step
+deadline follows its anchor when the anchor is completed or edited by hand, but **not** when an
+automation moves the anchor's deadline. Since an automation is what moves "Quality inspection"
+here, the step counting from it would sit still.
+
 ## Best practices
 
 - **Match your conditions** - If a step shows for "International" shipments, its deadline should trigger on the same condition.
@@ -159,15 +184,24 @@ AND shift deadline of "Inspection report filing"
 - **Test edge cases** - What happens if a date field's empty? Or a condition changes mid-process? Find out before your users do.
 - **Name steps clearly** - "Premium setup verification" beats "Step 3," especially for conditional steps.
 
-:::tip[The order automations run in[^2]]
-Tallyfy evaluates every applicable automation whenever a condition changes. At process launch, steps with "Show" actions start hidden, then the automations run and decide which ones appear. A deadline automation can read the same form fields a visibility one does.
+:::caution[When these automations run, and how often]
+Tallyfy checks automations at two moments: when the process launches, for automations whose
+conditions all read kick-off form fields, and when a task is completed or reopened, for the rest.
+There's no trigger that watches a form field and reacts when its value changes[^2].
+
+At launch, steps carrying a "Show" action start hidden, then the launch check decides which ones
+appear. A deadline automation can read the same form fields a visibility one does.
+
+Each automation runs **once per process**. Both halves of a pair fire once, and if the field they
+read changes later, neither runs again. Full detail is in [when an automation
+runs](/products/pro/documenting/templates/automations/when-automations-run/).
 :::
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 
 [^1]: Service Level Agreement - a contractual commitment to respond within specified time
-[^2]: Rules execute in position order. At process launch, steps with "Show" actions are hidden first, then all rule conditions are evaluated.
+[^2]: At process launch, steps with "Show" actions are hidden first, then the kick-off conditions are evaluated. After launch, the trigger is a task being completed or reopened.
 
 ## Related articles
 <CardGrid>
