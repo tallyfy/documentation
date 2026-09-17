@@ -1,0 +1,70 @@
+---
+about_tallyfy: true
+description: Organization admins can hold their own encryption key for Tallyfy Vault.
+  Set it, rotate it, or destroy it with the kill switch. The salt that derives the
+  key is shown once and never again, and destroying the key makes your organization's
+  stored sign-ins unreadable for good.
+id: efe80d9c8b7862c17cfc222f622d093d
+lastUpdated: 2026-09-17
+sidebar:
+  order: 5
+title: Bring your own encryption key
+---
+
+import { Audience } from "~/components";
+import { CardGrid, LinkTitleCard } from "~/components";
+
+<Audience to="administrator" />
+
+## Holding the key that protects your connections
+
+Tallyfy Vault encrypts every organization's stored sign-ins. Your organization can supply the key rather than letting Tallyfy pick one. You set it, you rotate it when you want to, and you can destroy it.
+
+These controls sit under **Settings** then **Connections**, and you need the admin role to see them.
+
+### Your key, in short
+
+The key is worked out from a **salt**, and Tallyfy shows you that salt exactly once, at the moment you set or rotate it. Write it down somewhere safe while it's on screen. Tallyfy keeps only a wrapped copy so unattended work can still run, and it will never show you the salt again or store it in a form anyone can read.
+
+Asking Tallyfy about the key only ever tells you about the key, never the key itself: whether one exists, which version it's on, and when it was set or last rotated.
+
+### Setting the key
+
+**Set** establishes your organization's key and returns the salt in the response. Save it. From that point your connections are encrypted under your key.
+
+### Rotating the key
+
+**Rotate** issues a new salt, shown once like the first, and re-encrypts your organization's database under the new key.
+
+While that's running, your organization shows a short **Please wait** state, and anything asking for a connection gets a "rotation in progress" answer and tries again shortly. If a rotation is interrupted, Vault puts the previous state back when it restarts rather than leaving you with a database that's half one key and half the other.
+
+### Destroying the key
+
+**Delete** is the kill switch. It destroys the wrapped copy, which makes your organization's encrypted store unreadable.
+
+:::note[This cannot be undone]
+There is no recovery path, and that's the point of the control. After a delete, anything asking for a connection gets a clear "key destroyed" answer until an admin sets a new key. Your people then reconnect their apps from scratch.
+:::
+
+Reach for it when you believe something has gone badly wrong and you want your stored sign-ins to stop being readable immediately.
+
+### What you can see as an admin
+
+Under **Settings** then **Connections** there's a usage view, drawn from Vault's own records. It shows how many calls each app and each person made, how many worked, how many failed, and the state of every connection across your organization.
+
+It holds counts. It never holds a token or any part of one.
+
+### What you can rely on
+
+- The salt is shown once, and never logged, never stored in readable form, and never returned again.
+- Rotating and deleting are both recorded, with the details of who and when but nothing secret, so your security people can see what happened.
+- A rotation in progress makes reads wait rather than serving a half-rotated database.
+- Deletion is final, by design.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Vault > How your access is protected</b>" href="/products/pro/integrations/vault/security-model/" > Where your access token travels, what gets recorded, and what is encrypted today. </LinkTitleCard>
+<LinkTitleCard header="<b>Integrations > Tallyfy Vault</b>" href="/products/pro/integrations/vault/" > What Tallyfy Vault is, and why each person gets their own connection instead of one shared account. </LinkTitleCard>
+<LinkTitleCard header="<b>Vault > Connect an app</b>" href="/products/pro/integrations/vault/connect-an-app/" > Sign in to an app once so Tallyfy AI can act there as you, and repair a connection that has stopped working. </LinkTitleCard>
+<LinkTitleCard header="<b>Settings > Organization settings</b>" href="/products/pro/settings/org-settings/" > Settings an administrator controls for the whole organization, from branding to member permissions. </LinkTitleCard>
+</CardGrid>

@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-16 18:04:33 -->
+<!-- Last updated: 2026-09-17 18:21:32 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,10 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (17 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-└── pro/             (689 files) - Tallyfy Pro main product documentation (90% of all content)
+└── pro/             (694 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 715 .mdx files across 148 directories
+**Total**: 720 .mdx files across 149 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
@@ -27,8 +27,8 @@ This file provides a comprehensive overview of the documentation organization to
 Ordered by size, largest first, so the biggest areas are the ones you see.
 
 ```
-pro/                                   (689 files)
-├── integrations/          (291 files) - Third-party connections
+pro/                                   (694 files)
+├── integrations/          (296 files) - Third-party connections
 │   ├── open-api/          (76 files)  - REST API documentation
 │   ├── vendors/           (46 files)  - Per-vendor integration guides
 │   ├── middleware/        (43 files)  - Zapier, Make, Power Automate, Workato, Celigo
@@ -150,7 +150,7 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 1. **Templates & Workflows**: `pro/documenting/templates/` (56 files)
 2. **Task Management**: `pro/tracking-and-tasks/tasks/` (23 files)
 3. **Process Management**: `pro/tracking-and-tasks/processes/` (13 files)
-4. **Integrations**: `pro/integrations/` (291 total files; per-vendor guides live under
+4. **Integrations**: `pro/integrations/` (296 total files; per-vendor guides live under
    `pro/integrations/vendors/` and `pro/integrations/middleware/[vendor]/`, not `pro/integrations/[vendor]/`)
 5. **User Management**: `pro/documenting/members/` + `pro/documenting/guests/` (16 files)
 

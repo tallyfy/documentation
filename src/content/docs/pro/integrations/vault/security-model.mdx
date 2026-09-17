@@ -1,0 +1,69 @@
+---
+about_tallyfy: true
+description: The AI model never receives your access to another app. Tallyfy Vault
+  hands a short-lived token to Tallyfy's own server, which makes the call as you,
+  and the long-lived half never leaves Vault. Covers what's recorded, what is encrypted
+  today, and what happens when something is wrong.
+id: 5160e210d1d56cfa9883f7ba8e059edb
+lastUpdated: 2026-09-17
+sidebar:
+  order: 4
+title: How your access is protected
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Where your access to another app actually goes
+
+The AI model never gets your access to Slack. That's the promise this whole design exists to keep.
+
+When the AI decides something needs doing in Slack, it asks Tallyfy's own server to do it. The server asks Tallyfy Vault for a short-lived key, uses it to make the call to Slack as you, and hands back the result. The AI gets the answer. It never gets the key.
+
+### What never leaves
+
+The short-lived key goes to Tallyfy's own server and expires. The long-lived half stays in Vault.
+
+Neither reaches the AI, and neither turns up anywhere you'd later read: not in the AI's view of what a tool returned, not in a log, not in an error, not in a trace of a request. When something fails, Vault sends back its own plain error rather than passing along whatever Slack said, because raw replies from another app can carry a secret inside them.
+
+### The connection is yours
+
+A connection belongs to the person who signed in, and it's granted to your organization so the AI can use it while acting as that person. It's never a shared robot account.
+
+Personal is the default. An admin can promote a connection to **Shared** so colleagues can use it, and that takes an explicit acknowledgment first, because a Shared connection means the AI acts through your sign-in for somebody else.
+
+### When something's wrong, it stops
+
+Every request into Vault is checked three ways. Tallyfy has to know which person and which organization is asking. Your organization has to be on a paid plan. And the request has to belong to a real signed-in session.
+
+After that, any of these stops the work outright:
+
+- The connection is missing.
+- The access has expired.
+- Someone revoked it at the other app.
+- Your organization's encryption key is locked, or has been destroyed.
+
+Stopping means stopping. Vault won't reach for a different connection, and it won't quietly use somebody else's. You get a task asking you to sign in again instead of silent work done under the wrong name.
+
+### Your key, your control
+
+Your organization can hold its own encryption key. Admins can rotate it, and there's a kill switch that destroys it and makes your organization's stored sign-ins unreadable. See [bring your own encryption key](/products/pro/integrations/vault/admin-key-management/) for how that works and what it costs you.
+
+### What gets written down
+
+Every touch of a credential and every admin action writes an audit record against your organization, with no secret material in it. Refusals and blocked attempts are recorded too, so an attempt to poke at something shows up for your security people even though the person doing the poking learns nothing.
+
+Admins get a usage view under **Settings** then **Connections**, showing how much each app and each person is calling, how many calls worked, how many failed, and the state of every connection. It holds counts. It never holds a token.
+
+### What is and isn't encrypted today
+
+Your organization's database inside Vault is encrypted as a whole, and your sign-in sits inside it as a value that means nothing on its own.
+
+There's a further layer planned that would encrypt each stored sign-in separately, on top of the database encryption. It isn't built yet. Either way, the AI never receives your access and nothing secret is written to a log.
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Integrations > Tallyfy Vault</b>" href="/products/pro/integrations/vault/" > What Tallyfy Vault is, and why each person gets their own connection instead of one shared account. </LinkTitleCard>
+<LinkTitleCard header="<b>Vault > Bring your own encryption key</b>" href="/products/pro/integrations/vault/admin-key-management/" > Set your organization's own encryption key, rotate it, or destroy it in an emergency. </LinkTitleCard>
+<LinkTitleCard header="<b>Vault > Connect an app</b>" href="/products/pro/integrations/vault/connect-an-app/" > Sign in to an app once so Tallyfy AI can act there as you, and repair a connection that has stopped working. </LinkTitleCard>
+<LinkTitleCard header="<b>Pro > Security and compliance</b>" href="/products/pro/compliance/" > How Tallyfy protects your data across the product, and the certifications behind it. </LinkTitleCard>
+</CardGrid>
