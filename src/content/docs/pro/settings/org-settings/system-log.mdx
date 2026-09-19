@@ -1,12 +1,11 @@
 ---
 about_tallyfy: true
-description: Tallyfy's System Log gives administrators a single place to see webhook
-  failures, email delivery events, billing changes, security events, automatic process
-  actions, and AI usage for their organization. Three tabs cover system events, email
-  events, and AI usage. Data is retained for 90 days and can be filtered, searched,
-  and exported as CSV.
+description: Tallyfy's System Log gives administrators one place to see webhook failures,
+  email delivery, billing changes, security and authentication events, bot process
+  actions, and AI usage. Events are retained for 18 months and export as CSV. The
+  screens ship with the new Tallyfy client and are not yet generally available.
 id: 1c15f1db6035ad784b514578d5a1668a
-lastUpdated: 2026-06-16
+lastUpdated: 2026-09-17
 sidebar:
   order: 7
 title: System log
@@ -16,6 +15,21 @@ import { CardGrid, LinkTitleCard } from "~/components";
 import { Audience } from "~/components";
 
 <Audience to="administrator" />
+
+## Availability
+
+**The System Log screens ship with the new Tallyfy client and are not yet generally available.**
+If you are on the current client at `go.tallyfy.com`, the System Logs item is not in your sidebar,
+whatever your role is. This is not a permissions problem and an Administrator cannot switch it on
+for you.
+
+The data behind the screens is being collected now, so nothing is lost while you wait. When the new
+client reaches you, the full history described on this page is already there.
+
+To ask for an export in the meantime, contact support with the date range and the event types you
+need.
+
+{/* GA-SENSITIVE: the Availability section above and the availability sentence in the frontmatter description both become wrong at client-v2 general availability. Delete both then. Tracked by tallyfy/documentation#152. */}
 
 ## What the system log shows
 
@@ -34,13 +48,20 @@ The rest of this page covers how to open the log, what each of the three tabs sh
 
 Open the left sidebar and click **System Logs**. The page opens to the **System** tab by default. Use the tabs at the top to switch between System, Email, and AI Usage views.
 
-If you don't see **System Logs** in the sidebar, your role is not Administrator. Ask an Administrator to elevate your role, or to share an export with you.
+If you don't see **System Logs** in the sidebar, see [Availability](#availability) above. The screens
+are part of the new Tallyfy client, so they are missing for everyone on the current client, including
+Administrators. Once you are on the new client, the item is admin-only: a member or a light member
+will not see it.
+
+The rest of this page describes those screens. Every instruction below (the filter chips, the Bot
+user preset, the Export CSV button, the Pre-auth badge, the row expander and the Refresh button)
+applies to the new client only.
 
 ## What each tab shows
 
 ### System tab
 
-Captures events that happen inside Tallyfy's backend on behalf of your organization. Five categories:
+Captures events that happen inside Tallyfy's backend on behalf of your organization. Seven categories:
 
 | Category | What it captures |
 |----------|------------------|
@@ -49,6 +70,8 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | Billing | Recurly payment outcomes and subscription state changes. |
 | Security | Failed login attempts, password resets, role changes, email-address changes, and "made public" actions on blueprints and kickoff forms. |
 | Process | Auto-archive and auto-complete actions performed by Tallyfy's bot user against your processes and tasks. |
+| Auth | Successful sign-ins, and the OAuth steps an outside AI app goes through to connect to your organization. Security records the attempts that failed; Auth records the ones that worked. |
+| Audit access | Who opened or exported the System Log itself, and the filters they used. |
 
 #### Full list of system events
 
@@ -73,6 +96,11 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | `kickoff_form_made_public` | Security | An Administrator published a kickoff form publicly. |
 | `process_auto_archived` | Process | Tallyfy's bot user auto-archived a completed process per your archive policy. |
 | `task_auto_completed` | Process | Tallyfy's bot user auto-completed a task per your auto-complete rules. |
+| `login_succeeded` | Auth | A user signed in successfully. This is the row an auditor asks for first, and it is the counterpart to `login_failed` above. |
+| `oauth_authorize` | Auth | An outside AI app started the OAuth handshake to connect to Tallyfy. |
+| `consent_approved` | Auth | A user approved an outside AI app's request for access to your organization. |
+| `token_issued` | Auth | An access token was issued to an outside AI app after consent. |
+| `system_log_viewed` | Audit access | Someone opened or exported the System Log. The user, the tab and the filters they applied are in the row. |
 
 ### Email tab
 
@@ -108,7 +136,7 @@ Use this tab to track AI spend by team member, watch latency trends, and find fa
 
 Every tab has the same filter controls along the top. The filter panel collapses on narrow screens.
 
-* **Date range** picker. Maximum 90 days. The picker won't let you go further back.
+* **Date range** picker. The screen opens on the **last 90 days**. That is a starting view chosen to keep the first load fast, not a limit: pick an earlier date and the picker reaches the full 18 months that are retained.
 * **Category** (System tab only) and **Event type** multi-select chips.
 * **Severity** (System tab only): error, warning, info.
 * **Global search** box. Free-text search across event names and error messages. It's case-insensitive (a search for `connection refused` matches `Connection refused`).
@@ -122,6 +150,21 @@ Every tab has the same filter controls along the top. The filter panel collapses
 Click **Export CSV** in the toolbar. The export uses your current filters and streams rows to a downloaded file. There's no row cap. A 90-day window for a busy org typically exports in a few seconds.
 
 The CSV includes the same columns visible in the table plus the full message body. Use it for compliance archives or to share specific failures with engineering.
+
+### Reading the log through the API
+
+The same events are available through Tallyfy's API, and there is one default worth knowing before
+you write anything against it.
+
+🔴 **If you omit `from`, you get the last 24 hours and nothing older.** The default is applied by the
+service, silently, so a call with no date range returns a short list that looks like the whole log.
+It is the first thing most callers hit.
+
+Send an explicit `from` (and `to`, if you want to bound the other end) on every call. Both accept a
+date. The screens in the new client always send a `from` for this reason, which is why they show 90
+days where a bare API call shows one.
+
+Anything up to the full 18 months of retention is reachable this way.
 
 ## Good to know
 
@@ -144,15 +187,23 @@ If you want to hide pre-auth events from a search, toggle off **Include pre-auth
 
 ### Who viewed the log
 
-Every time someone opens or exports the System Log, Tallyfy records a `system_log_viewed` event. It shows up in the System tab itself, with the user, timestamp, log type, and the filters that were applied.
+Every time someone opens or exports the System Log, Tallyfy records a `system_log_viewed` event. It shows up in the System tab itself under the **Audit access** category, with the user, timestamp, log type, and the filters that were applied. Filter on that category to see log reads on their own.
 
 This is on purpose: if your org needs to know who's been auditing, you can answer that question from inside the same UI. This record of log views is visible to all Administrators and exports normally with CSV.
 
 ### How long events are kept
 
-System Log data is retained for 90 days. Events older than 90 days are removed and cannot be recovered. If you need a longer history, export the CSV monthly and archive it in your own storage.
+**System events, email events and AI usage events are retained for 18 months.** That is the storage
+policy on Tallyfy's logging database and it applies to all three tabs. Hourly rollups used for
+charts are kept for three years.
 
-The 90-day cap is a hard limit. The date-range picker won't let you go past it. If you need an older event for an active investigation, contact support quickly: we may still have it in our internal logging stack, but we can't promise anything past 90 days.
+**The 90 days you see on screen is not the retention period.** It is the window the date-range
+picker opens on. Set an earlier start date and you get the older events, because they are still
+there. An earlier version of this page called 90 days a hard cap, which was wrong and wrong in the
+worst direction: it told administrators their audit trail had been deleted when it had not.
+
+If you need a history longer than 18 months for compliance, export the CSV on a schedule and archive
+it in your own storage. Events older than 18 months are removed and cannot be recovered.
 
 ### What's not logged
 
@@ -167,7 +218,10 @@ Webhook URLs are returned in full because customers want to debug their own inte
 ## Common questions
 
 **Why don't I see events from before yesterday?**
-Check the date-range picker. It defaults to the last 24 hours. Expand it to 90 days for the full window.
+If you are calling the API, you omitted `from`, and the default is the last 24 hours. Send an
+explicit `from`. On screen the picker opens on the last 90 days instead, so if you are looking at
+the log in Tallyfy and want something older, just set an earlier start date. Either way the data
+goes back 18 months.
 
 **The Email tab is empty for an email I know we sent.**
 Two possibilities. Mailgun events arrive a few seconds after the send, so very recent emails may not have a delivery event yet (the `email_sent` event from the System tab will show, but `email_delivered` is in the Email tab and lags slightly). Or, the message was sent through your own SMTP transport, which doesn't report delivery back to Tallyfy.
@@ -182,6 +236,6 @@ The page polls when you switch back to the tab, and there's a manual **Refresh**
 <CardGrid>
 <LinkTitleCard header="<b>Email > What Tallyfy emails look like</b>" href="/products/pro/integrations/email/emails-tallyfy-sends/" > Tallyfy sends 53 distinct email types across 10 categories, from sign-in and task activity to... </LinkTitleCard>
 <LinkTitleCard header="<b>Emails Tallyfy Sends > Account change notices</b>" href="/products/pro/integrations/email/emails-tallyfy-sends/account-change-notices/" > Tallyfy automatically sends you confirmation emails whenever key account changes happen, like... </LinkTitleCard>
+<LinkTitleCard header="<b>Emails Tallyfy Sends > Signing in and account access</b>" href="/products/pro/integrations/email/emails-tallyfy-sends/signing-in-and-account-access/" > Tallyfy sends six account-related emails covering account reactivation, welcome messages... </LinkTitleCard>
 <LinkTitleCard header="<b>Miscellaneous > Glossary</b>" href="/products/pro/miscellaneous/glossary/" > A quick-reference glossary of Tallyfy platform terms. Covers templates, processes, automations... </LinkTitleCard>
-<LinkTitleCard header="<b>Tracker View > Check process activity</b>" href="/products/pro/tracking-and-tasks/tracker-view/how-can-i-track-process-activities-on-tallyfy/" > Every running process in Tallyfy has a built-in activity log that records task completions... </LinkTitleCard>
 </CardGrid>
