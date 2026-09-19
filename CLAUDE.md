@@ -1431,6 +1431,62 @@ git push origin main
 git checkout staging
 ```
 
+**Whether a promote reached the live site: read `canonical_deployment`, never the newest deployment.**
+
+Step 4 above ends at "Cloudflare Pages auto-builds from support-docs", and that is where the two
+failures below live. Both were measured on 2026-09-19 and both make a working promote look broken or
+a broken one look finished.
+
+**A Pages production build can hang after cloning and never start.** Deployment `5ea5ff83` sat in
+`build/active` for 22 minutes and published nothing. Nothing failed, so nothing said so, and the
+deployment list showed a build in progress exactly as a healthy one does. Cancelling it and letting
+the next commit build was what published.
+
+⚠️ **The only usable signal is ELAPSED TIME against this project's own normal build, which was
+5 to 7 minutes on that day. Two things that look like tells are NOT tells, and both were misread
+here before the run finished.** A build whose log ends at `Success: Finished cloning repository
+files` is normal: the build step has not flushed yet. So is a `modified_on` frozen seconds after
+creation. Measured the same afternoon, deployment `bd71a9cc` read BOTH ways at about 4 minutes and
+deployed successfully at about 7, so a retry fired against it on that reading was unnecessary and
+both builds of the same commit then succeeded. **Wait out the project's normal duration with a
+margin before calling a build hung, and derive that duration from its own recent deployments rather
+than from this paragraph.**
+
+**What the public sees is the project's `canonical_deployment`, which is not the same thing as its
+`latest_deployment`.** Throughout that hang the canonical deployment was `e219dc2a` from 2026-09-17
+while the latest was the hung `5ea5ff83`, so the live site was two days behind the branch and every
+page read normally. Ask the Pages project for both and compare the canonical commit against the
+commit you promoted:
+
+```
+GET /accounts/{account}/pages/projects/support-docs
+  .result.canonical_deployment.short_id
+  .result.canonical_deployment.deployment_trigger.metadata.commit_hash
+  .result.latest_deployment.short_id
+```
+
+Same credentials as step 5 above. **Cancel a hung build rather than waiting it out**
+(`POST /accounts/{account}/pages/projects/support-docs/deployments/{id}/cancel`), because cancelling
+leaves the canonical deployment untouched while leaving it queued does not: a build that finishes
+after a later one republishes the older tree. Then a new commit, or a retry, starts a fresh build.
+
+**Note the direction: it fails toward "the promote did not work".** The page is unchanged, the
+pipeline was green, and the next move a person reaches for is to promote again or to hunt a sync bug
+that is not there.
+
+🔴 **And the `sync` job runs `rsync -av --delete src/content/docs/` into support-docs, so a
+promote REVERTS anything published there that `main` does not have, and DELETES any page that exists
+only there.** Measured the same day: a subset promote of
+three unrelated pages produced support-docs commit `c7ed9c24c`, which also took
+`src/content/docs/pro/settings/org-settings/system-log.mdx` back by +13 / -67, undoing a correction
+that had reached production through a support-docs promotion two days earlier. In that file,
+`18 months` went from 7 hits to 0 and `not Administrator` from 0 to 1. Restored by #265, and it
+never reached a customer only because the build that would have published it was the hung one above.
+
+**So before any promote, check that `main` is not behind what is published.** This file already says
+not to ship content through the support-docs promotion, which is the other half of the same rule;
+the mechanical guard for that half is `tallyfy/support-docs#270`.
+
 **Holding a path back from production (`.github/promotion-holds.txt`):**
 
 Sometimes content is ready to write but not ready to publish, usually because the screen it
