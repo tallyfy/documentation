@@ -698,6 +698,54 @@ def self_test():
         lambda: _emit_and_parse("Promote staging to main [release-hold: some-other-hold]"),
     )
 
+    # tallyfy/documentation#171. The `sync` job writes this file to support-docs `staging` on
+    # one road and to `production` on the other, and those two roads are never the same commit.
+    # So the emitted BODY must not depend on which commit produced it, or the two branches
+    # always differ and every merge between them conflicts - on a file that is a security gate.
+    # This case FAILS on the pre-#171 emitter, which wrote a `# Source commit:` line, so it is a
+    # real discriminator rather than an assertion that happens to hold.
+    def _emit_bytes(commit_message):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, sha, holds = _build_fixture(
+                tmp, [HELD_PAGE, OTHER_PAGE], [FIXTURE_HOLD], commit_message=commit_message
+            )
+            out = os.path.join(tmp, "emitted.txt")
+            emit_effective_holds(repo, sha, holds, out)
+            with open(out, encoding="utf-8") as fh:
+                return fh.read()
+
+    def _two_roads_identical():
+        # Two different commits, same effective hold set: what the two roads look like on a
+        # normal cycle. Asserted non-empty first, because two failed emissions would both be
+        # the empty string and compare equal, which is a pass for the wrong reason.
+        a = _emit_bytes("Sync from staging")
+        b = _emit_bytes("Promote staging to main: a different commit entirely")
+        if not a or not b:
+            return "EMPTY EMISSION - cannot compare"
+        return a == b
+
+    case(
+        "EMIT-IDENTICAL - two different source commits emit byte-identical bodies (#171)",
+        True,
+        _two_roads_identical,
+    )
+
+    def _release_still_changes_bytes():
+        # The substitution arm for the case above. An emitter "fixed" by writing a constant
+        # body would pass that one and fail this one, so the pair pins the body to the
+        # effective hold SET rather than to nothing at all.
+        plain = _emit_bytes("Promote staging to main")
+        released = _emit_bytes("Promote staging to main [release-hold: sso-screens] shipping")
+        if not plain or not released:
+            return "EMPTY EMISSION - cannot compare"
+        return plain != released
+
+    case(
+        "EMIT-IDENTICAL - a release marker still CHANGES the bytes (not a constant body)",
+        True,
+        _release_still_changes_bytes,
+    )
+
     failed = [c for c in cases if not c[3]]
     log("")
     if failed:
@@ -734,10 +782,21 @@ def emit_effective_holds(repo, commit, holds_path, out_path):
     support-docs a hold that this repo's own gate has already allowed past, and its production
     build would fail on content we deliberately shipped. Resolving the marker here keeps one
     source of truth for what "held" means and leaves the other side a plain list to match.
+
+    THE BODY IS A PURE FUNCTION OF THE EFFECTIVE HOLD SET, AND IT MUST STAY ONE. Nothing about
+    WHICH promotion produced it may appear here. The `sync` job writes this same file to
+    support-docs `staging` on one road and to `production` on the other, and those two roads are
+    never the same commit, so any per-promotion value in the body guarantees the two branches
+    differ and guarantees a merge conflict on a SECURITY gate file. That is
+    tallyfy/documentation#171: it cost three pull requests whose only content was clearing the
+    conflict (support-docs #238, #239, #240), and routine conflicts in a gate file train people
+    to resolve by eye. Provenance now travels in the sync COMMIT MESSAGE, which cannot conflict.
+    A release marker is separately durable: it lives in the promotion's own commit message in
+    `main`'s history forever. Asserted by the two EMIT-IDENTICAL cases in the self-test.
     """
     holds = parse_holds(holds_path)
-    # Resolve to a real SHA. Recording the literal "HEAD" would make the provenance line
-    # unusable for anyone trying to work out which promotion produced this list.
+    # Still resolved, because `released_ids` reads that commit's message. It is deliberately
+    # NOT written into the body - see the paragraph above.
     resolved = git(repo, "rev-parse", commit).strip()
     message = git(repo, "log", "-1", "--format=%B", resolved)
     released = released_ids(message)
@@ -753,12 +812,12 @@ def emit_effective_holds(repo, commit, holds_path, out_path):
         "#",
         "# Enforced by scripts/promotion-hold-build-gate.mjs, chained into `npm run build`, so",
         "# a held path cannot reach production down the support-docs road either (#135).",
-        f"# Source commit: {resolved}",
+        "#",
+        "# This body carries NO per-promotion value, deliberately: it is written to two branches",
+        "# that are never the same commit, so anything of that kind here forces a conflict on",
+        "# every merge between them (tallyfy/documentation#171). The producing commit is named in",
+        "# the sync commit message instead.",
     ]
-    if dropped:
-        lines.append(
-            "# Released for this promotion by its commit message: " + ", ".join(sorted(dropped))
-        )
     lines.append("#")
     if effective:
         for hold in effective:
