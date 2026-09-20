@@ -53,6 +53,28 @@ jobs:
           python -m pip install --upgrade pyyaml
           python scripts/promotion-hold-check.py --check-wiring
         shell: bash
+      # The hold list comes from the AUTHORING branch, never from the promoted tree.
+      #
+      # Measured 2026-09-20 on run 35532856946, a real promote of 0a6b25249 to main: this job
+      # checked out the promoted tree, read ITS copy of the list, and logged "0 active
+      # hold(s). ... No active holds. Nothing can be violated." The vault-screen hold was live
+      # on staging the whole time. A hold is written on the branch the content is authored on,
+      # so a promote that never carried the hold file forward judges itself against an empty
+      # list. See tallyfy/documentation#270.
+      #
+      # test -s separates "the fetch produced nothing" from "the list has no holds": an empty
+      # file parses as zero holds and passes everything, which is the answer a broken fetch
+      # also gives. The real list always carries its header comment, so it is never empty.
+      - name: Fetch the hold list from the authoring branch
+        env:
+          AUTHORING_BRANCH: staging
+        run: |
+          git fetch --no-tags --depth=1 origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"
+          test -s "$RUNNER_TEMP/holds.txt"
+          echo "Hold list taken from origin/$AUTHORING_BRANCH:"
+          cat "$RUNNER_TEMP/holds.txt"
+        shell: bash
       - name: Check the promotion against the hold list
         # Values go through env, never straight into the shell line: workflow_run is a
         # privileged trigger and its payload is attacker-influenced input.
@@ -60,7 +82,8 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"
+          python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH" \
+            --holds "$RUNNER_TEMP/holds.txt"
         shell: bash
 
   # Blocks content carrying AI rhetorical tells - a sentence that promises significance and

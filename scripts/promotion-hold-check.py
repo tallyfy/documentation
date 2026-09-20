@@ -373,6 +373,101 @@ def self_test():
             ),
         )
 
+    # WHICH copy of the list the gate reads decides the verdict, and the two copies differ by
+    # design: a hold is written on the authoring branch, and a promote branched off the target
+    # never carries it. Same tree, same commit, two lists, two answers. Measured on the real
+    # thing 2026-09-20: run 35532856946 promoted 0a6b25249 to main and logged "0 active
+    # hold(s) ... No active holds. Nothing can be violated." while vault-screen was live on
+    # staging. See tallyfy/documentation#270.
+    def _verdicts_for_both_lists():
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, sha, authoring = _build_fixture(
+                tmp, [HELD_PAGE, OTHER_PAGE], [FIXTURE_HOLD]
+            )
+            promoted = os.path.join(tmp, "promoted-tree-holds.txt")
+            with open(promoted, "w", encoding="utf-8") as fh:
+                fh.write("# the target branch's own copy, which the hold was never written to\n")
+            return (
+                check(repo, sha, authoring, "main", require_on_branch=False),
+                check(repo, sha, promoted, "main", require_on_branch=False),
+            )
+
+    case(
+        "SOURCE - one promotion, two hold lists, two verdicts",
+        (1, 0),
+        _verdicts_for_both_lists,
+    )
+
+    # The gate must not refuse everything once it reads the authoring branch's list. A subset
+    # promote carries a handful of files off the target branch, and the held glob matches none
+    # of them, so it has to pass with the full list in force. A gate that blocks every
+    # promotion is as useless as one that blocks none, and it fails in the direction where
+    # nothing ships at all.
+    with tempfile.TemporaryDirectory() as tmp_subset:
+        repo, sha, holds = _build_fixture(
+            tmp_subset,
+            [OTHER_PAGE, "src/content/docs/pro/launching/index.mdx"],
+            [
+                FIXTURE_HOLD,
+                "vault-screen  src/content/docs/pro/integrations/vault/*  Not in production.",
+            ],
+        )
+        case(
+            "SUBSET - a clean subset promote still passes with every hold in force",
+            0,
+            lambda: check(repo, sha, holds, "main", require_on_branch=False),
+        )
+
+    # The wiring assertion that keeps the gate pointed at the authoring branch, proven in both
+    # directions on every run. The RED fixture is the shape this job had before #270: it reads
+    # no list from staging and passes no --holds, so it judges the promoted tree against its
+    # own copy.
+    _SYNC_JOB = {
+        "needs": [GATE_JOB],
+        "if": "!failure() && !cancelled() && " + UPSTREAM_SUCCESS_TERM,
+        "steps": [{"run": "rsync"}],
+    }
+    _GATE_BEFORE = {
+        "steps": [
+            {"run": 'python scripts/promotion-hold-check.py --commit "$HEAD_SHA" '
+                    '--branch "$HEAD_BRANCH"'}
+        ]
+    }
+    _GATE_AFTER = {
+        "steps": [
+            {
+                "env": {"AUTHORING_BRANCH": AUTHORING_BRANCH},
+                "run": 'git fetch --no-tags --depth=1 origin "$AUTHORING_BRANCH"\n'
+                       'git show "FETCH_HEAD:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"',
+            },
+            {
+                "run": 'python scripts/promotion-hold-check.py --commit "$HEAD_SHA" '
+                       '--branch "$HEAD_BRANCH" --holds "$RUNNER_TEMP/holds.txt"'
+            },
+        ]
+    }
+
+    def _wiring_verdict(gate_job):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "workflow.yml")
+            # JSON is valid YAML, so this needs no dumper and cannot drift from one.
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump({"jobs": {GATE_JOB: gate_job, PUBLISH_JOB: _SYNC_JOB}}, fh)
+            return check_wiring(path)
+
+    case(
+        "WIRING RED - a gate that reads the promoted tree's own hold list is refused",
+        1,
+        lambda: _wiring_verdict(_GATE_BEFORE),
+    )
+    case(
+        "WIRING GREEN - a gate that reads the authoring branch's list is accepted",
+        0,
+        lambda: _wiring_verdict(_GATE_AFTER),
+    )
+
     # The effective hold list handed to support-docs. Both directions matter: a hold that is
     # still active must survive the trip, and one released for this promotion must not, or the
     # other side's build fails on content this side deliberately shipped.
@@ -491,6 +586,14 @@ def emit_effective_holds(repo, commit, holds_path, out_path):
 GATE_JOB = "promotion-hold-gate"
 PUBLISH_JOB = "sync"
 UPSTREAM_SUCCESS_TERM = "github.event.workflow_run.conclusion == 'success'"
+# The branch content is authored on, and therefore the branch whose copy of the hold list
+# governs. A hold gets written on staging; a promote that branches off main never carries it,
+# so reading the list out of the PROMOTED tree asks the promotion to police itself. Measured
+# on run 35532856946 (#270): the gate read main's copy, found 0 active holds, and passed a
+# tree it had no list to judge. Both terms below are asserted, because passing --holds with a
+# file fetched from the wrong place would satisfy the second on its own.
+AUTHORING_BRANCH = "staging"
+HOLDS_FILE = "promotion-holds.txt"
 # Jobs that may legitimately run without waiting for the gate, each with the reason it is
 # harmless. Anything NOT listed here must depend on the gate, so adding a job forces a
 # decision instead of silently escaping the gate. Derived from the workflow file itself, so
@@ -556,6 +659,36 @@ def check_wiring(workflow_path):
             f"job {PUBLISH_JOB!r} does not require {UPSTREAM_SUCCESS_TERM!r} in its `if`, so "
             f"it will publish on runs where every validation job was skipped (see #122). "
             f"Its condition is currently: {sync_if!r}"
+        )
+
+    # The gate must read the hold list from the authoring branch and hand it to the checker.
+    # Without --holds the checker falls back to its default, which is the PROMOTED tree's copy,
+    # and the gate then judges a promote against a list that promote never carried.
+    gate_steps = (jobs.get(GATE_JOB) or {}).get("steps") or []
+    gate_run = "\n".join(str(s.get("run", "")) for s in gate_steps if isinstance(s, dict))
+    gate_env = " ".join(
+        f"{k}={v}"
+        for s in gate_steps
+        if isinstance(s, dict)
+        for k, v in (s.get("env") or {}).items()
+    )
+    gate_text = gate_run + "\n" + gate_env
+    if AUTHORING_BRANCH not in gate_text or "git show" not in gate_run or HOLDS_FILE not in gate_run:
+        problems.append(
+            f"job {GATE_JOB!r} does not read {HOLDS_FILE!r} out of the {AUTHORING_BRANCH!r} "
+            f"branch. A hold lives on the authoring branch, so a promote branched off the "
+            f"target reads an empty list and passes (see #270)."
+        )
+    checker_steps = [s for s in gate_run.splitlines() if "--commit" in s]
+    if not checker_steps:
+        problems.append(
+            f"job {GATE_JOB!r} never invokes the checker with --commit, so it checks nothing."
+        )
+    elif "--holds" not in gate_run:
+        problems.append(
+            f"job {GATE_JOB!r} runs the checker without --holds, so it falls back to the "
+            f"PROMOTED tree's copy of {HOLDS_FILE!r} instead of the authoring branch's "
+            f"(see #270)."
         )
 
     for name in jobs:
