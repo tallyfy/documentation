@@ -69,7 +69,7 @@ jobs:
         env:
           AUTHORING_BRANCH: staging
         run: |
-          git fetch --no-tags --depth=1 origin "$AUTHORING_BRANCH"
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
           git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"
           test -s "$RUNNER_TEMP/holds.txt"
           echo "Hold list taken from origin/$AUTHORING_BRANCH:"
@@ -410,8 +410,18 @@ jobs:
           # fetch-depth of 1, so head_sha is often not an object this checkout has and
           # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
           # tip here, which is the commit whose message carries any release marker.
+          # The SOURCE list comes from the authoring branch, exactly as promotion-hold-gate
+          # fetches it there. This step had the same defect and a wider blast radius: on a main
+          # promote it read main's copy, which carries no active holds, so it wrote an empty list
+          # into support-docs and disarmed the build gate on the very road that gate exists to
+          # guard. Measured 2026-09-20 after the promote of 0a6b25249: support-docs `production`
+          # read 0 active holds while `staging` read 1. See tallyfy/documentation#270.
+          git fetch --no-tags origin staging
+          git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/source-holds.txt"
+          test -s "$RUNNER_TEMP/source-holds.txt"
           python scripts/promotion-hold-check.py \
             --commit HEAD \
+            --holds "$RUNNER_TEMP/source-holds.txt" \
             --emit-effective-holds target-repo/promotion-holds.txt
           test -s target-repo/promotion-holds.txt \
             || { echo "::error::effective hold list is missing or empty after emit"; exit 1; }

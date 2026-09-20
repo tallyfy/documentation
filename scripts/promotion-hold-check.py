@@ -418,54 +418,152 @@ def self_test():
             lambda: check(repo, sha, holds, "main", require_on_branch=False),
         )
 
-    # The wiring assertion that keeps the gate pointed at the authoring branch, proven in both
-    # directions on every run. The RED fixture is the shape this job had before #270: it reads
-    # no list from staging and passes no --holds, so it judges the promoted tree against its
-    # own copy.
-    _SYNC_JOB = {
-        "needs": [GATE_JOB],
-        "if": "!failure() && !cancelled() && " + UPSTREAM_SUCCESS_TERM,
-        "steps": [{"run": "rsync"}],
+    # The wiring assertion that keeps both readers pointed at the authoring branch. Each shape
+    # below is one an UNBOUND check accepts: naming the branch in a comment, fetching the wrong
+    # branch, splitting --holds onto another step, or passing the promoted tree's own copy with
+    # the flag present. The last is the one to care about, because it is #270 wearing the fix,
+    # and a guard that accepts it reports that the hole is closed while it is open.
+    _FETCH_STEP = {
+        "env": {"AUTHORING_BRANCH": AUTHORING_BRANCH},
+        "run": 'git fetch --no-tags origin "$AUTHORING_BRANCH"\n'
+               'git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"',
     }
-    _GATE_BEFORE = {
+    _CHECK_STEP = {
+        "run": 'python promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH" \\\n'
+               '  --holds "$RUNNER_TEMP/holds.txt"'
+    }
+    _GOOD_GATE = {"steps": [_FETCH_STEP, _CHECK_STEP]}
+    _GATE_BEFORE_270 = {
         "steps": [
-            {"run": 'python scripts/promotion-hold-check.py --commit "$HEAD_SHA" '
-                    '--branch "$HEAD_BRANCH"'}
+            {"run": 'python promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"'}
         ]
     }
-    _GATE_AFTER = {
+    _GATE_WRONG_BRANCH = {
         "steps": [
             {
                 "env": {"AUTHORING_BRANCH": AUTHORING_BRANCH},
-                "run": 'git fetch --no-tags --depth=1 origin "$AUTHORING_BRANCH"\n'
-                       'git show "FETCH_HEAD:.github/promotion-holds.txt" '
-                       '> "$RUNNER_TEMP/holds.txt"',
+                "run": "git fetch --no-tags origin main\n"
+                       'git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"',
             },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_SPLIT_HOLDS = {
+        "steps": [
+            _FETCH_STEP,
+            {"run": 'python promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"'},
+            {"run": 'echo --holds "$RUNNER_TEMP/holds.txt"'},
+        ]
+    }
+    _GATE_PROMOTED_COPY = {
+        "steps": [
+            _FETCH_STEP,
             {
-                "run": 'python scripts/promotion-hold-check.py --commit "$HEAD_SHA" '
-                       '--branch "$HEAD_BRANCH" --holds "$RUNNER_TEMP/holds.txt"'
+                "run": 'python promotion-hold-check.py --commit "$HEAD_SHA" '
+                       "--branch \"$HEAD_BRANCH\" --holds .github/promotion-holds.txt"
             },
         ]
     }
+    _GATE_COMMENT_ONLY = {
+        "steps": [
+            {
+                "env": {"AUTHORING_BRANCH": AUTHORING_BRANCH},
+                # The comment is the COMPLETE, correct command. Only comment-stripping separates
+                # this from the good shape, so the arm tests the code rather than the fixture.
+                "run": '# git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"\n'
+                       "# git fetch --no-tags origin staging\n"
+                       "echo nothing",
+            },
+            _CHECK_STEP,
+        ]
+    }
 
-    def _wiring_verdict(gate_job):
-        import json
-        with tempfile.TemporaryDirectory() as tmp:
-            path = os.path.join(tmp, "workflow.yml")
-            # JSON is valid YAML, so this needs no dumper and cannot drift from one.
-            with open(path, "w", encoding="utf-8") as fh:
-                json.dump({"jobs": {GATE_JOB: gate_job, PUBLISH_JOB: _SYNC_JOB}}, fh)
-            return check_wiring(path)
+    _GATE_EXPLICIT_WRONG_REF = {
+        "steps": [
+            {
+                "run": 'git show "origin/main:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"'
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_EXPLICIT_RIGHT_REF = {
+        "steps": [
+            {
+                "run": 'git show "origin/staging:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"'
+            },
+            _CHECK_STEP,
+        ]
+    }
+
+    def _source_verdict(job):
+        return 1 if check_hold_source(job, "--commit", GATE_JOB) else 0
 
     case(
-        "WIRING RED - a gate that reads the promoted tree's own hold list is refused",
-        1,
-        lambda: _wiring_verdict(_GATE_BEFORE),
+        "SOURCE GREEN - fetch from the authoring branch and hand that file over is accepted",
+        0,
+        lambda: _source_verdict(_GOOD_GATE),
     )
     case(
-        "WIRING GREEN - a gate that reads the authoring branch's list is accepted",
+        "SOURCE RED - the shape this job had before #270 is refused",
+        1,
+        lambda: _source_verdict(_GATE_BEFORE_270),
+    )
+    case(
+        "SOURCE RED - fetching the list from the TARGET branch is refused",
+        1,
+        lambda: _source_verdict(_GATE_WRONG_BRANCH),
+    )
+    case(
+        "SOURCE RED - --holds on a step other than the checker call is refused",
+        1,
+        lambda: _source_verdict(_GATE_SPLIT_HOLDS),
+    )
+    case(
+        "SOURCE RED - --holds pointing at the promoted tree's own copy is refused",
+        1,
+        lambda: _source_verdict(_GATE_PROMOTED_COPY),
+    )
+    case(
+        "SOURCE RED - a comment naming the branch, with no git command, is refused",
+        1,
+        lambda: _source_verdict(_GATE_COMMENT_ONLY),
+    )
+
+    case(
+        "SOURCE GREEN - an explicit origin/<authoring> ref is accepted",
         0,
-        lambda: _wiring_verdict(_GATE_AFTER),
+        lambda: _source_verdict(_GATE_EXPLICIT_RIGHT_REF),
+    )
+    case(
+        "SOURCE RED - an explicit ref naming the TARGET branch is refused",
+        1,
+        lambda: _source_verdict(_GATE_EXPLICIT_WRONG_REF),
+    )
+
+    # main()'s --holds plumbing, driven through argv rather than by calling check() directly.
+    # Nothing else executes it: a main() that parsed --holds and then read the promoted tree's
+    # copy anyway passed every other arm here and --check-wiring at the same time.
+    def _main_honours_holds():
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, sha, authoring = _build_fixture(
+                tmp, [HELD_PAGE, OTHER_PAGE], [FIXTURE_HOLD]
+            )
+            # main() requires the commit to be on origin/main, which a fixture has no remote for.
+            subprocess.run(
+                ["git", "-C", repo, "update-ref", "refs/remotes/origin/main", "HEAD"], check=True
+            )
+            promoted = os.path.join(tmp, "promoted-tree-holds.txt")
+            with open(promoted, "w", encoding="utf-8") as fh:
+                fh.write("# the target branch's own copy, which the hold was never written to\n")
+            argv = ["--repo", repo, "--commit", sha, "--branch", "main", "--holds"]
+            return (main(argv + [authoring]), main(argv + [promoted]))
+
+    case(
+        "CLI - main() honours --holds rather than the promoted tree's own copy",
+        (1, 0),
+        _main_honours_holds,
     )
 
     # The effective hold list handed to support-docs. Both directions matter: a hold that is
@@ -613,6 +711,113 @@ WIRING_EXEMPT = {
 }
 
 
+def _shell_commands(job):
+    """Every runnable command in a job, comments dropped and continuations joined.
+
+    Dropping comment lines is what stops a job satisfying this check with prose. Joining
+    continuations is what lets --holds and --commit be recognised as ONE command when the
+    invocation is wrapped, which is how anyone would actually write it.
+    """
+    commands = []
+    for step in (job.get("steps") or []):
+        if not isinstance(step, dict):
+            continue
+        env = {k: str(v) for k, v in (step.get("env") or {}).items()}
+        buf = ""
+        for raw in str(step.get("run", "")).splitlines():
+            if raw.lstrip().startswith("#"):
+                continue
+            line = raw.rstrip()
+            if line.endswith("\\"):
+                buf += line[:-1] + " "
+                continue
+            command = (buf + line).strip()
+            buf = ""
+            if not command:
+                continue
+            for key, value in env.items():
+                command = command.replace("${" + key + "}", value).replace("$" + key, value)
+            commands.append(command)
+        if buf.strip():
+            commands.append(buf.strip())
+    return commands
+
+
+def check_hold_source(job, marker, job_name):
+    """Prove a job READS the hold list from the authoring branch and HANDS THAT FILE over.
+
+    Each clause is bound to the next rather than tested on its own. A string-presence check
+    passes on a job that names the authoring branch in a comment and then reads the promoted
+    tree's own copy anyway, which is #270 with the flag present, and it would report that the
+    fix is in place. Four shapes an unbound check accepts are self-tested below.
+    """
+    commands = _shell_commands(job)
+    problems = []
+
+    show = None
+    for command in commands:
+        show = re.search(
+            r"git\s+show\s+[\"']?([^\"'\s:]+):[^\"'\s]*"
+            + re.escape(HOLDS_FILE)
+            + r"[\"']?\s*>\s*[\"']?([^\"'\s]+)",
+            command,
+        )
+        if show:
+            break
+    if not show:
+        problems.append(
+            f"job {job_name!r} never runs a `git show <ref>:{HOLDS_FILE}` writing the list to a "
+            f"file, so it has no copy from the {AUTHORING_BRANCH!r} branch to check against. A "
+            f"hold lives on the authoring branch, and a promote branched off the target carries "
+            f"an empty list (see #270)."
+        )
+        return problems
+
+    ref, target = show.group(1), show.group(2)
+    if ref == "FETCH_HEAD":
+        fetched = any(
+            re.search(r"git\s+fetch\b", c)
+            and re.search(
+                r"""(^|[\s/"'])""" + re.escape(AUTHORING_BRANCH) + r"""($|[\s"'])""", c
+            )
+            for c in commands
+        )
+        if not fetched:
+            problems.append(
+                f"job {job_name!r} reads the hold list from FETCH_HEAD without fetching "
+                f"{AUTHORING_BRANCH!r}, so FETCH_HEAD is whatever was fetched last (see #270)."
+            )
+    elif AUTHORING_BRANCH not in ref:
+        problems.append(
+            f"job {job_name!r} reads the hold list from {ref!r} rather than from "
+            f"{AUTHORING_BRANCH!r}, the branch holds are authored on (see #270)."
+        )
+
+    # Matched on `python` plus the marker rather than on this file's own name: keying on
+    # __file__ breaks the moment the script is copied or renamed, including by a mutation
+    # battery testing this very function, and then every job reads as "invokes nothing".
+    invocations = [c for c in commands if marker in c and "python" in c]
+    if not invocations:
+        problems.append(
+            f"job {job_name!r} never invokes the checker with {marker}, so it checks nothing."
+        )
+        return problems
+    for command in invocations:
+        passed = re.search(r"--holds[=\s]+[\"']?([^\"'\s]+)", command)
+        if not passed:
+            problems.append(
+                f"job {job_name!r} runs the checker with {marker} and no --holds, so it falls "
+                f"back to the PROMOTED tree's copy of {HOLDS_FILE!r} (see #270)."
+            )
+        elif passed.group(1) != target:
+            problems.append(
+                f"job {job_name!r} passes --holds {passed.group(1)!r}, which is not the file it "
+                f"fetched from {AUTHORING_BRANCH!r} ({target!r}). Reading the promoted tree's "
+                f"own copy with the flag present is #270 wearing the fix (see #270)."
+            )
+    return problems
+
+
 def check_wiring(workflow_path):
     try:
         import yaml
@@ -661,35 +866,13 @@ def check_wiring(workflow_path):
             f"Its condition is currently: {sync_if!r}"
         )
 
-    # The gate must read the hold list from the authoring branch and hand it to the checker.
-    # Without --holds the checker falls back to its default, which is the PROMOTED tree's copy,
-    # and the gate then judges a promote against a list that promote never carried.
-    gate_steps = (jobs.get(GATE_JOB) or {}).get("steps") or []
-    gate_run = "\n".join(str(s.get("run", "")) for s in gate_steps if isinstance(s, dict))
-    gate_env = " ".join(
-        f"{k}={v}"
-        for s in gate_steps
-        if isinstance(s, dict)
-        for k, v in (s.get("env") or {}).items()
+    # Both readers of the hold list must take it from the authoring branch: the gate, which
+    # blocks the promotion, and the sync job's --emit-effective-holds, which writes the list
+    # support-docs enforces at build time on the other road into production.
+    problems += check_hold_source(jobs.get(GATE_JOB) or {}, "--commit", GATE_JOB)
+    problems += check_hold_source(
+        jobs.get(PUBLISH_JOB) or {}, "--emit-effective-holds", PUBLISH_JOB
     )
-    gate_text = gate_run + "\n" + gate_env
-    if AUTHORING_BRANCH not in gate_text or "git show" not in gate_run or HOLDS_FILE not in gate_run:
-        problems.append(
-            f"job {GATE_JOB!r} does not read {HOLDS_FILE!r} out of the {AUTHORING_BRANCH!r} "
-            f"branch. A hold lives on the authoring branch, so a promote branched off the "
-            f"target reads an empty list and passes (see #270)."
-        )
-    checker_steps = [s for s in gate_run.splitlines() if "--commit" in s]
-    if not checker_steps:
-        problems.append(
-            f"job {GATE_JOB!r} never invokes the checker with --commit, so it checks nothing."
-        )
-    elif "--holds" not in gate_run:
-        problems.append(
-            f"job {GATE_JOB!r} runs the checker without --holds, so it falls back to the "
-            f"PROMOTED tree's copy of {HOLDS_FILE!r} instead of the authoring branch's "
-            f"(see #270)."
-        )
 
     for name in jobs:
         if name in WIRING_EXEMPT:
