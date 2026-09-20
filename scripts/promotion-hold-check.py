@@ -25,6 +25,7 @@ import argparse
 import fnmatch
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -357,6 +358,12 @@ def self_test():
 
     with tempfile.TemporaryDirectory() as tmp_bad:
         repo, sha, _ = _build_fixture(tmp_bad, [OTHER_PAGE], [])
+        # Without this the commit is on no origin/main, so check() raises an ANCESTRY error
+        # whatever parse_holds does, and both arms below pass on a parser that refuses nothing.
+        # With it, the only CheckerError available is the one they are about.
+        subprocess.run(
+            ["git", "-C", repo, "update-ref", "refs/remotes/origin/main", "HEAD"], check=True
+        )
         bad = os.path.join(tmp_bad, "malformed.txt")
         with open(bad, "w", encoding="utf-8") as fh:
             fh.write("sso-screens src/content/docs/pro/*sso*\n")  # no reason
@@ -497,6 +504,65 @@ def self_test():
         ]
     }
 
+    _GATE_REFETCHES_TARGET = {
+        "steps": [
+            {
+                "run": "git fetch --no-tags origin staging\n"
+                       "git fetch --no-tags origin main\n"
+                       'git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"',
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_FETCHES_TARGET_AFTER = {
+        "steps": [
+            {
+                "run": "git fetch --no-tags origin staging\n"
+                       'git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"\n'
+                       "git fetch --no-tags origin main",
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_TRAILING_COMMENT = {
+        "steps": [
+            {
+                "run": "git fetch --no-tags origin main   # staging is the authoring branch\n"
+                       'git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"',
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_LOOKALIKE_BRANCH = {
+        "steps": [
+            {
+                "run": 'git show "origin/staging-archive:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"'
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_TWO_SOURCES = {
+        "steps": [
+            _FETCH_STEP,
+            {
+                "run": 'git show "origin/main:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"'
+            },
+            _CHECK_STEP,
+        ]
+    }
+    _GATE_NO_CHECKER = {"steps": [_FETCH_STEP, {"run": "echo done"}]}
+    _GATE_FETCH_HEAD_UNFETCHED = {
+        "steps": [
+            {
+                "run": 'git show "FETCH_HEAD:.github/promotion-holds.txt" '
+                       '> "$RUNNER_TEMP/holds.txt"'
+            },
+            _CHECK_STEP,
+        ]
+    }
+
     def _source_verdict(job):
         return 1 if check_hold_source(job, "--commit", GATE_JOB) else 0
 
@@ -540,6 +606,42 @@ def self_test():
         "SOURCE RED - an explicit ref naming the TARGET branch is refused",
         1,
         lambda: _source_verdict(_GATE_EXPLICIT_WRONG_REF),
+    )
+
+    case(
+        "SOURCE RED - fetching the target branch AFTER the authoring one is refused",
+        1,
+        lambda: _source_verdict(_GATE_REFETCHES_TARGET),
+    )
+    case(
+        "SOURCE GREEN - a fetch AFTER the show cannot change it, so it is allowed",
+        0,
+        lambda: _source_verdict(_GATE_FETCHES_TARGET_AFTER),
+    )
+    case(
+        "SOURCE RED - a trailing comment claiming the authoring branch is refused",
+        1,
+        lambda: _source_verdict(_GATE_TRAILING_COMMENT),
+    )
+    case(
+        "SOURCE RED - a branch merely CONTAINING the authoring name is refused",
+        1,
+        lambda: _source_verdict(_GATE_LOOKALIKE_BRANCH),
+    )
+    case(
+        "SOURCE RED - writing the list twice is refused rather than guessed",
+        1,
+        lambda: _source_verdict(_GATE_TWO_SOURCES),
+    )
+    case(
+        "SOURCE RED - FETCH_HEAD with no fetch before it at all is refused",
+        1,
+        lambda: _source_verdict(_GATE_FETCH_HEAD_UNFETCHED),
+    )
+    case(
+        "SOURCE RED - fetching the list and never invoking the checker is refused",
+        1,
+        lambda: _source_verdict(_GATE_NO_CHECKER),
     )
 
     # main()'s --holds plumbing, driven through argv rather than by calling check() directly.
@@ -711,6 +813,49 @@ WIRING_EXEMPT = {
 }
 
 
+def _strip_comment(line):
+    """Drop a shell comment, whole-line or trailing, without touching a # inside quotes.
+
+    Whole-line stripping alone is not enough: a trailing comment lets a command claim in words
+    to read the authoring branch while reading the target branch, and the claim is the part a
+    reader believes.
+    """
+    out = []
+    quote = None
+    for ch in line:
+        if quote:
+            out.append(ch)
+            if ch == quote:
+                quote = None
+            continue
+        if ch in "\"'":
+            quote = ch
+            out.append(ch)
+            continue
+        if ch == "#" and (not out or out[-1].isspace()):
+            break
+        out.append(ch)
+    return "".join(out)
+
+
+def _names_branch(ref, branch):
+    """`origin/staging` yes. `origin/staging-archive` and `origin/not-staging` no.
+
+    A substring test accepts both of those, and either is a different branch whose hold list
+    may say anything.
+    """
+    return ref == branch or ref.endswith("/" + branch)
+
+
+def _fetches_branch(command, branch):
+    """True when a `git fetch` command names the branch as a whole argument."""
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = command.split()
+    return any(_names_branch(token, branch) for token in tokens)
+
+
 def _shell_commands(job):
     """Every runnable command in a job, comments dropped and continuations joined.
 
@@ -725,9 +870,9 @@ def _shell_commands(job):
         env = {k: str(v) for k, v in (step.get("env") or {}).items()}
         buf = ""
         for raw in str(step.get("run", "")).splitlines():
-            if raw.lstrip().startswith("#"):
+            line = _strip_comment(raw).rstrip()
+            if not line.strip():
                 continue
-            line = raw.rstrip()
             if line.endswith("\\"):
                 buf += line[:-1] + " "
                 continue
@@ -754,17 +899,13 @@ def check_hold_source(job, marker, job_name):
     commands = _shell_commands(job)
     problems = []
 
-    show = None
-    for command in commands:
-        show = re.search(
-            r"git\s+show\s+[\"']?([^\"'\s:]+):[^\"'\s]*"
-            + re.escape(HOLDS_FILE)
-            + r"[\"']?\s*>\s*[\"']?([^\"'\s]+)",
-            command,
-        )
-        if show:
-            break
-    if not show:
+    pattern = (
+        r"git\s+show\s+[\"']?([^\"'\s:]+):[^\"'\s]*"
+        + re.escape(HOLDS_FILE)
+        + r"[\"']?\s*>\s*[\"']?([^\"'\s]+)"
+    )
+    shows = [(i, m) for i, c in enumerate(commands) for m in [re.search(pattern, c)] if m]
+    if not shows:
         problems.append(
             f"job {job_name!r} never runs a `git show <ref>:{HOLDS_FILE}` writing the list to a "
             f"file, so it has no copy from the {AUTHORING_BRANCH!r} branch to check against. A "
@@ -772,25 +913,34 @@ def check_hold_source(job, marker, job_name):
             f"an empty list (see #270)."
         )
         return problems
+    if len(shows) > 1:
+        # Which one wins depends on ordering and on the target paths, so refuse rather than
+        # pick. Refusing is a red gate; guessing is a gate that reports on the wrong file.
+        problems.append(
+            f"job {job_name!r} writes {HOLDS_FILE!r} out of git {len(shows)} times, so which "
+            f"copy the checker is handed depends on ordering. Write it once."
+        )
+        return problems
 
+    show_index, show = shows[0]
     ref, target = show.group(1), show.group(2)
     if ref == "FETCH_HEAD":
-        fetched = any(
-            re.search(r"git\s+fetch\b", c)
-            and re.search(
-                r"""(^|[\s/"'])""" + re.escape(AUTHORING_BRANCH) + r"""($|[\s"'])""", c
-            )
-            for c in commands
-        )
-        if not fetched:
+        # FETCH_HEAD is whatever the LAST fetch wrote, so only the fetch immediately before
+        # the show decides what this file is. An any() over every command accepts a job that
+        # fetches the authoring branch and then fetches the target branch, which is a plausible
+        # edit here because check() itself resolves origin/main.
+        earlier = [c for c in commands[:show_index] if re.search(r"git\s+fetch\b", c)]
+        if not _fetches_branch(earlier[-1] if earlier else "", AUTHORING_BRANCH):
             problems.append(
-                f"job {job_name!r} reads the hold list from FETCH_HEAD without fetching "
-                f"{AUTHORING_BRANCH!r}, so FETCH_HEAD is whatever was fetched last (see #270)."
+                f"job {job_name!r} reads the hold list from FETCH_HEAD, but the last fetch "
+                f"before it is {(earlier[-1] if earlier else None)!r}, not a fetch of "
+                f"{AUTHORING_BRANCH!r}. FETCH_HEAD "
+                f"follows the most recent fetch (see #270)."
             )
-    elif AUTHORING_BRANCH not in ref:
+    elif not _names_branch(ref, AUTHORING_BRANCH):
         problems.append(
-            f"job {job_name!r} reads the hold list from {ref!r} rather than from "
-            f"{AUTHORING_BRANCH!r}, the branch holds are authored on (see #270)."
+            f"job {job_name!r} reads the hold list from {ref!r}, which is not "
+            f"{AUTHORING_BRANCH!r} nor a remote-tracking ref for it (see #270)."
         )
 
     # Matched on `python` plus the marker rather than on this file's own name: keying on
