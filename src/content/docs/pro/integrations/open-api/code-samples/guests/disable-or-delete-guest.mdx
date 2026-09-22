@@ -1,0 +1,146 @@
+---
+about_tallyfy: true
+description: Tallyfy's API lets you disable a guest, enable them again with a new
+  guest link, or permanently delete them. Disabling needs all their tasks complete.
+  Permanent deletion only works on a disabled guest and removes their guest record
+  everywhere.
+id: d154a231dafa49c08393ad584d5693e2
+sidebar:
+  order: 6
+title: Disable, enable or delete guest
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Switching a guest off, on, or deleting them for good
+
+Disabling a guest stops them using their guest link in your organization, and you can undo it by enabling them again. Permanent deletion can't be undone, and it only works on a guest you've already disabled.
+
+Replace `{org_id}` with your organization ID. Disable and enable take the guest's URL-encoded email address as `{guest_email}`. Permanent delete takes either the guest's numeric ID or their URL-encoded email address as `{guest_id}`. None of them takes a request body.
+
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
+
+:::caution[Permanent deletion reaches beyond your organization]
+Permanent deletion removes the guest's record itself, not only their place in your organization. It doesn't check whether other Tallyfy organizations also use that guest, so they lose guest access there too. If you only want them out of your organization, use [delete guest](/products/pro/integrations/open-api/code-samples/guests/delete-guest/) instead, which removes them from your organization and keeps a record that other organizations still use.
+:::
+
+## Disable a guest
+
+`DELETE /organizations/{org_id}/guests/{guest_email}/disable`
+
+A disabled guest gets an error if they open their guest link for your organization. You can only disable a guest when none of their tasks are still open. Complete or reassign those tasks first.
+
+## Enable a guest
+
+`PUT /organizations/{org_id}/guests/{guest_email}/enable`
+
+This gives a disabled guest their access back. Enabling also gives them a new guest link, so any older link they have stops working. Send them the new one.
+
+## Permanently delete a guest
+
+`DELETE /organizations/{org_id}/guests/{guest_id}/delete`
+
+The guest must be disabled first. Tallyfy adds "(Deleted)" to their last name, changes their email to `{email}.deleted.{guest_id}`, and deletes the guest record. There's no endpoint to undo this.
+
+## Code samples
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const guestEmail = encodeURIComponent('guest@example.com');
+const base = `https://go.tallyfy.com/api/organizations/${orgId}/guests/${guestEmail}`;
+
+async function callTallyfy(method, path) {
+  const response = await fetch(base + path, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'X-Tallyfy-Client': 'APIClient'
+    }
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`${method} ${path} failed with ${response.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+async function main() {
+  // Disable the guest. You can undo this.
+  const disabled = await callTallyfy('DELETE', '/disable');
+  console.log('Disabled:', disabled.data.email);
+
+  // Enable them again. This also gives them a new guest link:
+  // await callTallyfy('PUT', '/enable');
+
+  // Or permanently delete them. They must be disabled first, and this can't be undone:
+  // await callTallyfy('DELETE', '/delete');
+}
+
+main().catch(error => console.error(error.message));
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import os
+from urllib.parse import quote
+
+import requests
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+guest_email = quote('guest@example.com', safe='')
+base = f'https://go.tallyfy.com/api/organizations/{org_id}/guests/{guest_email}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+}
+
+
+def call_tallyfy(method, path):
+    response = requests.request(method, base + path, headers=headers, timeout=30)
+    if not response.ok:
+        raise RuntimeError(f'{method} {path} failed with {response.status_code}: {response.text}')
+    return response.json()
+
+
+# Disable the guest. You can undo this.
+disabled = call_tallyfy('DELETE', '/disable')
+print('Disabled:', disabled['data']['email'])
+
+# Enable them again. This also gives them a new guest link:
+# call_tallyfy('PUT', '/enable')
+
+# Or permanently delete them. They must be disabled first, and this can't be undone:
+# call_tallyfy('DELETE', '/delete')
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+Each endpoint returns `200 OK` with the guest's details in a `data` object.
+
+### Error responses
+
+| Status | Error message | What to do |
+|--------|--------------|------------|
+| 403 | `Cannot disable guest with incomplete tasks.` | Complete or reassign the guest's open tasks, then disable them. |
+| 404 | `Guest not found with email: {email}` | Check the email address and that it's URL-encoded. |
+| 404 | `Resource not found` | On permanent delete, check that the guest belongs to this organization. |
+| 422 | `Please disable the guest before deletion.` | Call the disable endpoint first, then delete. |
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Guests > Delete guest</b>" href="/products/pro/integrations/open-api/code-samples/guests/delete-guest/" > Tallyfy's API lets you remove a guest from your organization by their email address. </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Get guest</b>" href="/products/pro/integrations/open-api/code-samples/guests/get-guest/" > Tallyfy's API lets you fetch one guest's details by their email address. </LinkTitleCard>
+<LinkTitleCard header="<b>Code Samples > Managing guests</b>" href="/products/pro/integrations/open-api/code-samples/guests/" > Tallyfy's guest endpoints let you create, list, update and remove guests. </LinkTitleCard>
+</CardGrid>
