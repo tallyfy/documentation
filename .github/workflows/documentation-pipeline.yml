@@ -435,6 +435,24 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
+          # This job writes promotion-holds.txt to support-docs `staging` on one road and to
+          # `production` on the other, and those two roads are never the same commit. So a
+          # per-promotion value in that FILE guaranteed the two branches differed and guaranteed
+          # a merge conflict on a security gate file, every cycle. Three pull requests existed
+          # only to clear it (support-docs #238, #239, #240), and routine conflicts in a gate
+          # file train people to resolve by eye, which is the real cost. A commit message cannot
+          # conflict, so the producing commit is recorded here instead.
+          #
+          # This also keeps the chain to a released hold intact in one hop: a
+          # `[release-hold: <id>]` marker lives in the promotion's own commit message in `main`
+          # forever, and the trailer below names that exact commit.
+          #
+          # Resolved BEFORE `cd target-repo`, so it is THIS repo's HEAD and not support-docs'.
+          # Asserted non-empty because this step does not set -e, so an unresolved SHA would
+          # otherwise be committed as an empty trailer.
+          SRC_SHA=$(git rev-parse HEAD)
+          [ -n "$SRC_SHA" ] || { echo "::error::could not resolve the source commit for the sync trailer"; exit 1; }
           cd target-repo
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
@@ -444,7 +462,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Sync docs from tallyfy/documentation"
+            git commit -m "Sync docs from tallyfy/documentation" -m "Source commit: $SRC_SHA"
             git pull origin $TARGET_BRANCH --no-rebase || true
             git push origin $TARGET_BRANCH
           fi
