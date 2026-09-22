@@ -1543,7 +1543,19 @@ issue (#88, #118).
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status
-- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success`.
+- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) what the run's `sync` job did, and (2) when it committed, that the CF Pages `support-docs` production deployment for that commit reached `deploy/success`.
+
+  **Step 1 has two correct outcomes, and only one of them makes a commit.** Read the `sync` job's own log, never the whole run's, because several jobs in this workflow print the same `No changes to commit` words:
+
+  ```bash
+  JOB=$(gh run view <run-id> --repo tallyfy/documentation --json jobs --jq '.jobs[] | select(.name=="sync") | .databaseId')
+  [ -n "$JOB" ] && gh run view --job "$JOB" --repo tallyfy/documentation --log | /usr/bin/grep -E 'No changes to commit|Sync docs from tallyfy/documentation'
+  ```
+
+  - **It committed.** support-docs `production` has a new `Sync docs from tallyfy/documentation` commit whose body carries a `Source commit: <sha>` trailer naming the documentation `main` tip the job checked out (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1' --jq '.[0].commit.message'`). Check your promotion is in it with `git merge-base --is-ancestor <promotion sha> <trailer sha>`, since another push to `main` can land before the job checks out. Then do step 2 for that commit.
+  - **It printed `No changes to commit`.** Nothing the run would write differs from what `production` already carries, so there is no commit, no push and no Pages build. That is a correct no-op, not a failed deploy, and step 2 has nothing new to find: the newest deployment is the previous one. Confirm instead that the page you changed already serves the new content.
+
+  ⚠️ **Until PR #273 (merged to `staging` on 2026-09-22) is promoted to `main`, production runs still commit every time.** The `sync` job runs `scripts/promotion-hold-check.py` from its `main` checkout, and `main`'s copy still writes a per-promotion `# Source commit:` line into `promotion-holds.txt`, so that file changes on every run. Once #273 is on `main` the file carries no per-promotion value, and a run with no content change makes no commit. The `Source commit:` trailer on the sync commit is live already, because a `workflow_run` workflow file is read from the default branch, `staging`.
 
   ⚠️ **Step 2 cannot be done with `gh`, and the failure looks exactly like a failed deploy.** `gh` only ever talks to GitHub, so it routes a Cloudflare path there and answers `Not Found (HTTP 404)` with a `documentation_url` of `docs.github.com`. That reads as "the deployment isn't there", and the natural response is to re-run a publish that already succeeded. This file prescribed `gh api 'accounts/<account_id>/pages/...'` until 2026-08-14; it never worked (tallyfy/documentation#139). Use `curl`:
 
