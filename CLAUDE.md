@@ -1880,7 +1880,7 @@ python3 orchestrator.py sync                              # apply (atomic; refre
 
 `audit` scans `src/content/docs/**` for `screenshots.tallyfy.com` URLs and cross-references the CSV (URL-encoding-aware). `sync` is safe-auto: it only ADDS skeleton rows + refreshes `article_ids`; it never deletes dead/orphaned rows (those are surfaced in the report for human decision).
 
-**🗂️ Bulk caption backlog → asset-sync Large Job.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so it runs under the Large-Job Protocol at `~/GitHub/temporary/asset-sync-job/` (single resumable command `bash run.sh`; the CSV itself is the done-ledger). Do NOT try to caption the whole backlog in one session.
+**🗂️ Bulk caption backlog.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so do NOT try to caption the whole backlog in one session. The one-off asset-sync Large Job that captioned the earlier backlog is finished and its working folder is gone, so there is no runner to hand work to. Work what is left in small batches from `scripts/asset_management/`: `python3 audit_sync.py worklist --limit 10` prints the next uncaptioned image URLs (it skips the blank captures listed in `caption-skip.txt`), and `python3 orchestrator.py caption --url ...` captions one of them inside a Claude Code session. If you already have the three captions, `python3 audit_sync.py set-caption --url ... --alt ... --descriptive ... --seo ...` writes them to the CSV; like `audit` and `sync`, it never builds the R2 uploader. The CSV is the done-ledger, so a batch can stop anywhere and the next `worklist` call picks up where it left off. `python3 orchestrator.py audit` gives the full count of what is still missing.
 
 ### Asset Storage Architecture
 
