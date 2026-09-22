@@ -192,9 +192,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def extract_snippet_text(response_json: dict) -> Optional[str]:
+	"""Return the text of the first `text` block in a Messages API response, or None.
+
+	Claude Opus 5.5 always thinks, so a response can open with one or more `thinking`
+	blocks before the answer. Reading `content[0]` would take a thinking block, whose
+	`text` key does not exist. A response with no text block at all (a refusal, or
+	thinking that used up max_tokens) and a text block holding only whitespace both
+	return None, so the caller logs a failure and never writes an empty description.
+	"""
+	for block in response_json.get('content') or []:
+		if block.get('type') == 'text':
+			text = block.get('text') or ''
+			return text if text.strip() else None
+	return None
+
+
 class ClaudeClient:
 	BASE_API = 'https://api.anthropic.com/v1/messages'
-	MODEL = "claude-opus-4-6"
+	MODEL = "claude-opus-5-5"
+	# Opus 5.5 rejects `temperature` with a 400 and always thinks. Effort is the one
+	# control for how much it thinks. Its default is already medium; it is set here so
+	# the choice is visible and does not move if the default does.
+	EFFORT = "medium"
 
 	def __init__(self, api_key: str, system_prompt: str):
 		self.headers = {
@@ -205,8 +225,13 @@ class ClaudeClient:
 		# Inject humanization guidelines into the system prompt
 		self.system_prompt = system_prompt + HUMANIZATION_PROMPT_SUFFIX
 
-	def generate_snippet(self, prompt: str, max_tokens: int = 100, temperature: float = 0.79, max_retries: int = 3) -> Optional[str]:
-		"""Generate a snippet using Claude API with retry on transient failures."""
+	def generate_snippet(self, prompt: str, max_tokens: int = 16000, max_retries: int = 3) -> Optional[str]:
+		"""Generate a snippet using Claude API with retry on transient failures.
+
+		max_tokens is a ceiling, not a length target. Thinking counts toward it, so a small
+		value cuts the answer off before it starts. Snippet length is set by the prompt and
+		enforced afterwards by post_process_description.
+		"""
 		payload = {
 			"model": self.MODEL,
 			"max_tokens": max_tokens,
@@ -214,7 +239,7 @@ class ClaudeClient:
 			"messages": [
 				{"role": "user", "content": prompt}
 			],
-			"temperature": temperature
+			"output_config": {"effort": self.EFFORT}
 		}
 
 		for attempt in range(1, max_retries + 1):
@@ -226,7 +251,11 @@ class ClaudeClient:
 					timeout=60
 				)
 				response.raise_for_status()
-				return response.json()['content'][0]['text']
+				body = response.json()
+				text = extract_snippet_text(body)
+				if text is None:
+					logger.error(f"No text in API response (stop_reason={body.get('stop_reason')!r})")
+				return text
 
 			except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
 				if attempt < max_retries:
@@ -239,7 +268,7 @@ class ClaudeClient:
 			except requests.exceptions.RequestException as e:
 				logger.error(f"API request failed: {e}")
 				return None
-			except (KeyError, IndexError) as e:
+			except (KeyError, IndexError, ValueError, AttributeError) as e:
 				logger.error(f"Failed to parse API response: {e}")
 				return None
 
@@ -371,6 +400,9 @@ REQUIRED_SELF_TEST_CASES = frozenset({
 	"clean-text-unchanged",
 	"two-sentence-cap-still-works",
 	"trailing-period-still-added",
+	"text-after-thinking-block",
+	"no-text-block-is-failure",
+	"blank-text-block-is-failure",
 })
 
 
@@ -382,6 +414,10 @@ def _self_test() -> int:
 	everything would fail while passing all three RED arms. Two further arms assert rules
 	that have nothing to do with dashes, so the battery still proves the rest of the
 	function runs rather than proving one regex fires.
+
+	Three more arms cover extract_snippet_text: the text block is found behind a thinking
+	block, and a response with no text block or only a blank one returns None rather than
+	an empty description.
 	"""
 	failures = []
 	seen = set()
@@ -413,6 +449,18 @@ def _self_test() -> int:
 	r = post_process_description("No trailing period here")
 	check("trailing-period-still-added", r.endswith("."), r)
 
+	# Response parsing. Opus 5.5 can put thinking blocks before the answer, so the
+	# snippet is the first text block, and a response without usable text is a failure.
+	thinking = {"type": "thinking", "thinking": "", "signature": "x"}
+	r = extract_snippet_text({"content": [thinking, {"type": "text", "text": clean}]})
+	check("text-after-thinking-block", r == clean, r)
+
+	r = extract_snippet_text({"content": [thinking], "stop_reason": "max_tokens"})
+	check("no-text-block-is-failure", r is None, r)
+
+	r = extract_snippet_text({"content": [thinking, {"type": "text", "text": "  "}]})
+	check("blank-text-block-is-failure", r is None, r)
+
 	missing = REQUIRED_SELF_TEST_CASES - seen
 	unexpected = seen - REQUIRED_SELF_TEST_CASES
 	if missing or unexpected:
@@ -423,7 +471,7 @@ def _self_test() -> int:
 		for f in failures:
 			print(f"  {f}")
 		return 1
-	print(f"self-test OK: {len(seen)} cases. Dashes stripped, clean text untouched, other rules intact.")
+	print(f"self-test OK: {len(seen)} cases. Dashes stripped, clean text untouched, other rules intact, response parsing picks the text block.")
 	return 0
 
 
