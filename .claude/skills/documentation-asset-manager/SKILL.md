@@ -24,7 +24,10 @@ for it in a Claude Code session. Treat the two as one task. Until 2026-08-12 bot
 claimed otherwise, and `caption` in particular printed a success tick while writing nothing
 (tallyfy/documentation#117).
 
-`audit` and `sync` need no R2 credentials. `upload` and `replace` do, and `config.py` loads them.
+`audit` and `sync` need no R2 credentials. `upload` and `replace` do, and so do `caption` and
+`stats`: all four build the R2 uploader before they run, so without credentials they stop with
+"Failed to initialize orchestrator" and exit 1, even though `caption` and `stats` never talk to R2.
+`config.py` loads the credentials, and `verify` lists any that are missing.
 
 The inventory is `documentation_assets.csv` at the repo root (16 columns). Captions reach the published docs at build time through the support-docs remark plugin, which reads `production_url` and the three `ai_caption_*` columns.
 
