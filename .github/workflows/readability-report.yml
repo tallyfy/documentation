@@ -1,0 +1,59 @@
+name: Readability report
+
+# REPORT ONLY. Owner decision on tallyfy/documentation#291: run
+# scripts/simplicity-check.py on the pages a pull request changes and show the
+# scores in the job summary, but never block a merge.
+#
+# A score never fails this job, however high. The job fails for one reason
+# only: the checker itself broke. That means it crashed, could not read a page,
+# or failed its own self-test, and the summary then says "checker error" in
+# plain words. Failing on purpose is deliberate. A broken checker that stayed
+# green would look exactly like a pull request with nothing worth reporting,
+# so nobody would notice it had stopped working. This is not a required check,
+# so a red run still cannot stop a merge.
+#
+# Why a separate file: see pr-validate.yml. documentation-pipeline.yml runs
+# `sync`, which publishes, so nothing a pull request triggers may live there.
+
+on:
+  pull_request:
+    branches: [staging, main]
+
+# Least privilege. With only `contents: read` this workflow cannot write to the
+# repository, comment on the pull request, or push. The job summary needs no
+# permission at all.
+permissions:
+  contents: read
+
+concurrency:
+  # github.event_name is in the key so a pull_request run can never share a
+  # group with a run from some other trigger added later, and cancel only the
+  # runs of the same pull request. Cancelling is only ever right for pull
+  # requests, where a newer push makes the older report obsolete.
+  group: readability-report-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  report:
+    name: Readability report (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The default checkout for a pull request is GitHub's test merge of it
+          # into the base branch. Depth 2 also fetches that merge's two parents,
+          # so the script can diff the base (the first parent) against the merge
+          # and see exactly what merging would add.
+          fetch-depth: 2
+          persist-credentials: false
+
+      # Pages are found with `git diff -z`, so a path with spaces in it is one
+      # path. A pull request that changes no pages gets a summary saying so.
+      # The same report is printed to the log as well as the job summary.
+      - name: Score the changed pages (never fails on a score)
+        run: |
+          python3 --version
+          python3 scripts/simplicity-pr-report.py --pr-merge-commit --run-self-tests \
+            --summary "$GITHUB_STEP_SUMMARY"
+        shell: bash
