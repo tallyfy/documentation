@@ -14,8 +14,20 @@ Read-only. Never edits content. Two modes:
   Gate (score just the article(s) a unit touched; used before committing):
     python scripts/simplicity-check.py --files src/content/docs/pro/.../index.mdx --report
 
-Exit code: 0 = every scored file is below threshold and has no AI-tell words;
-           1 = at least one file is at/above threshold or contains a banned word.
+  Self-test (prove the scope rules below work in both directions):
+    python scripts/simplicity-check.py --self-test
+
+Pages under open-api/code-samples are never scored, in any mode (see
+ALWAYS_SKIP below). Naming one with --files prints a SKIPPED line saying why.
+It is never reported as a pass.
+
+Exit code: 0 = every scored file is below threshold and has no AI-tell words
+               (also when every named file was skipped: the output says
+               SKIPPED, never PASS);
+           1 = at least one file is at/above threshold or contains a banned word;
+           2 = the checker could not do its job: a file it could not read or
+               score, an empty scan, or a crash. "I could not look" never
+               shares an exit code with "I looked and it passed".
 
 The score is computed on the article's BUSINESS REGION only - everything above
 the first technical section ("For your IT team" / "For developers" / "Technical
@@ -26,10 +38,14 @@ That is deliberate: it rewards "demote, don't delete".
 
 import re
 import os
+import io
+import sys
 import csv
 import json
 import argparse
+import tempfile
 import statistics
+import contextlib
 from pathlib import Path
 
 # Mirror markdown-lint.py exactly so triage scans the same file set.
@@ -39,10 +55,40 @@ SKIP_DIRS = ["src/content/docs/pro/changelog", "src/content/docs/changelog"]
 # Pure developer code-reference areas - never simplified for business readers
 # (auto-style API code snippets and API-client tool setup). Excluded from triage
 # like changelog; they are structural reference, not prose articles.
-EXCLUDE_FROM_TRIAGE = [
-    "open-api/code-samples",
-    "open-api/api-clients",
-]
+#
+# ALWAYS_SKIP is left out of EVERY mode: triage (--dir) and gate (--files) alike.
+# Owner decision on tallyfy/documentation#285. Before it, only triage left
+# code-samples out, so scoring one page by name reported a page that triage
+# deliberately never lists. Each entry maps to the reason printed when a page
+# under it is named with --files.
+ALWAYS_SKIP = {
+    "open-api/code-samples": "developer code reference, left out of the readability "
+                             "check by owner decision (tallyfy/documentation#285)",
+}
+
+# Left out of triage only. #285 decided code-samples, so a page here is still
+# scored when it is named with --files.
+TRIAGE_ONLY_SKIP = ["open-api/api-clients"]
+
+EXCLUDE_FROM_TRIAGE = list(ALWAYS_SKIP) + TRIAGE_ONLY_SKIP
+
+
+def content_relative(path):
+    """The path below src/content/docs/, with forward slashes. Matching is done on
+    this and never on the absolute path, so a checkout that happens to sit under a
+    folder named like a skipped area does not skip every page in it."""
+    norm = str(path).replace(os.sep, "/")
+    return norm.split("src/content/docs/", 1)[-1]
+
+
+def skip_match(path, areas):
+    """The first area in `areas` that `path` sits under, or None. The one place the
+    scope rule is applied, for triage and for --files."""
+    rel = content_relative(path)
+    for area in areas:
+        if area in rel:
+            return area
+    return None
 
 DEFAULT_THRESHOLD = 45
 
@@ -319,11 +365,13 @@ def gather_files(base_dir):
     for path, _subdirs, names in os.walk(base_dir):
         if any(sd in path for sd in SKIP_DIRS):
             continue
-        if any(ex in path for ex in EXCLUDE_FROM_TRIAGE):
-            continue
         for name in names:
-            if name.endswith(".mdx") and name not in SKIP_FILES:
-                files.append(os.path.join(path, name))
+            if not name.endswith(".mdx") or name in SKIP_FILES:
+                continue
+            full = os.path.join(path, name)
+            if skip_match(full, EXCLUDE_FROM_TRIAGE):
+                continue
+            files.append(full)
     return files
 
 
@@ -345,7 +393,20 @@ def print_report(r, threshold):
         print(f"  └─ ⛔ AI-tell words (hard fail): {', '.join(r['blacklist_hits'])}")
 
 
-def main():
+def main(argv=None):
+    try:
+        return _main(argv)
+    except Exception as exc:  # noqa: BLE001 - deliberate
+        # A crash must be 2, never 1. Python's own exit code for an uncaught
+        # exception is 1, which here means "a page scored too high", so a broken
+        # checker would otherwise look exactly like a page that needs work.
+        import traceback
+        traceback.print_exc()
+        print(f"CHECKER ERROR: simplicity-check crashed: {exc!r}")
+        return 2
+
+
+def _main(argv=None):
     parser = argparse.ArgumentParser(description="Score docs for business-reader simplicity")
     parser.add_argument("--dir", type=str, help="Base directory of MDX files (triage mode)")
     parser.add_argument("--files", type=str, nargs="+", help="Specific .mdx files to score (gate mode)")
@@ -353,33 +414,54 @@ def main():
     parser.add_argument("--out-csv", type=str, help="Write the ranked work-list as CSV")
     parser.add_argument("--threshold", type=int, default=DEFAULT_THRESHOLD, help=f"Complexity threshold (default {DEFAULT_THRESHOLD})")
     parser.add_argument("--report", action="store_true", help="Print per-file signal breakdown")
-    args = parser.parse_args()
+    parser.add_argument("--self-test", action="store_true",
+                        help="Prove the scope rules skip what they should and score everything else")
+    args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
 
     if not args.dir and not args.files:
         print("Error: pass --dir (triage) or --files (gate)")
-        return 1
+        return 2
 
     targets = []
+    skipped = []
     if args.files:
-        targets = [Path(f) for f in args.files]
+        # The same scope rule triage applies, so a page that triage never lists
+        # is not scored just because someone named it. Said out loud, never
+        # reported as a pass.
+        for f in args.files:
+            area = skip_match(f, ALWAYS_SKIP)
+            if area:
+                skipped.append((content_relative(f), ALWAYS_SKIP[area]))
+            else:
+                targets.append(Path(f))
     else:
         base_dir = Path(args.dir)
         if not base_dir.is_dir():
             print(f"Error: Invalid directory: {args.dir}")
-            return 1
+            return 2
         targets = [Path(f) for f in gather_files(args.dir)]
+        if not targets:
+            # A scan over nothing reports exactly what a clean corpus reports.
+            print(f"CHECKER ERROR: no .mdx files found to scan under {args.dir}")
+            return 2
 
     results = []
+    errors = []
     for p in targets:
         try:
             content = p.read_text(encoding="utf-8")
         except Exception as e:
             print(f"⚠ could not read {p}: {e}")
+            errors.append(p)
             continue
         try:
             results.append(analyze(p, content))
         except Exception as e:
             print(f"⚠ could not score {p}: {e}")
+            errors.append(p)
 
     results.sort(key=lambda r: r["score"], reverse=True)
 
@@ -389,6 +471,8 @@ def main():
     if args.files or args.report:
         for r in results:
             print_report(r, args.threshold)
+    for rel, why in skipped:
+        print(f"SKIPPED {rel}  (not scored: {why})")
 
     # Triage artifacts.
     if args.out_json or args.out_csv:
@@ -419,11 +503,181 @@ def main():
             print(f"✓ wrote CSV to {args.out_csv}")
 
     # Summary line.
-    if args.dir:
+    if args.dir and not args.files:
         print(f"\nScanned {len(results)} files - {len(over)} at/above threshold {args.threshold}.")
+    if skipped:
+        print(f"\n{len(skipped)} file(s) skipped and not scored. {len(results)} file(s) scored.")
+
+    if errors:
+        # Dropping a file it could not read, then exiting 0, would report a page
+        # nobody looked at as if it had passed.
+        print(f"\nCHECKER ERROR: {len(errors)} file(s) could not be read or scored.")
+        return 2
 
     return 1 if over else 0
 
 
+# ---------------------------------------------------------------------------
+# Self-test. Drives the real entry point, main(), on a throwaway docs tree.
+#
+# The same complex fixture sits both inside and outside the skipped area. It
+# must FAIL where it is scored, so its SKIPPED result inside code-samples is
+# proven to be the scope rule at work and not a page that happened to pass. A
+# plain fixture must PASS, so the checker is not simply failing everything.
+# ---------------------------------------------------------------------------
+
+_COMPLEX = """---
+title: Fixture
+---
+
+## Overview
+
+The `POST /organizations/{org_id}/widgets` endpoint instantiates heterogeneous configuration entities, necessitating authorization semantics that intermittently propagate organizational identifiers across asynchronous integration boundaries without deterministic acknowledgement guarantees for downstream consumers.
+
+```json
+{"id": 1, "name": "widget", "type": "configuration", "enabled": true}
+{"id": 2, "name": "widget", "type": "configuration", "enabled": true}
+{"id": 3, "name": "widget", "type": "configuration", "enabled": true}
+{"id": 4, "name": "widget", "type": "configuration", "enabled": true}
+{"id": 5, "name": "widget", "type": "configuration", "enabled": true}
+{"id": 6, "name": "widget", "type": "configuration", "enabled": true}
+```
+
+Administrators occasionally misinterpret the synchronization characteristics, particularly regarding idempotency considerations, reconciliation procedures, and authentication propagation throughout interconnected organizational infrastructure environments everywhere.
+"""
+
+_PLAIN = """---
+title: Fixture
+---
+
+## Overview
+
+A template is a list of steps. You run it when work comes in. Each step goes to a person. They tick it off when it's done.
+
+You can see every run in one place. It's easy to tell what's late.
+"""
+
+
+def self_test():
+    cases = []
+
+    def case(name, ok, detail=""):
+        cases.append((name, ok))
+        print(f"  [{'ok' if ok else 'FAILED'}] {name}{(' - ' + detail) if detail else ''}")
+
+    def run(argv):
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                rc = main(argv)
+        except Exception as exc:  # noqa: BLE001 - an escaped exception is a result here
+            rc = f"raised {exc!r}"
+        return rc, buf.getvalue()
+
+    def scored_line(out, rel):
+        """The PASS or FAIL header line for rel, or None."""
+        for line in out.splitlines():
+            if f" {rel}  score=" in line and ("(PASS," in line or "(FAIL," in line):
+                return line
+        return None
+
+    print("Self-test: proving code-samples pages are skipped in every mode, "
+          "and every other page is still scored.")
+    with tempfile.TemporaryDirectory() as tmp:
+        docs = Path(tmp, "repo", "src", "content", "docs")
+        cs_rel = "pro/integrations/open-api/code-samples/groups/complex.mdx"
+        ac_rel = "pro/integrations/open-api/api-clients/tool/complex.mdx"
+        guide_rel = "pro/guides/complex.mdx"
+        plain_rel = "pro/guides/plain.mdx"
+        for rel, body in ((cs_rel, _COMPLEX), (ac_rel, _COMPLEX),
+                          (guide_rel, _COMPLEX), (plain_rel, _PLAIN)):
+            f = docs / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(body, encoding="utf-8")
+        cs, ac, guide, plain = (str(docs / r) for r in (cs_rel, ac_rel, guide_rel, plain_rel))
+
+        # A checkout that sits under a folder named like the skipped area. Only
+        # the part below src/content/docs/ may decide, so this page is scored.
+        trap_docs = Path(tmp, "open-api", "code-samples", "clone", "src", "content", "docs")
+        trap = trap_docs / guide_rel
+        trap.parent.mkdir(parents=True, exist_ok=True)
+        trap.write_text(_COMPLEX, encoding="utf-8")
+
+        # 1. A code-samples page named explicitly is skipped, said so, and not scored.
+        rc, out = run(["--files", cs])
+        case("--files on a code-samples page prints SKIPPED with the reason",
+             f"SKIPPED {cs_rel}  (not scored: " in out and "#285" in out)
+        case("--files on a code-samples page is never reported as PASS or FAIL",
+             scored_line(out, cs_rel) is None and "score=" not in out)
+        case("--files on a code-samples page alone exits 0 (nothing scored, nothing over)",
+             rc == 0, f"rc={rc}")
+
+        # 2. The same complex content on an ordinary page is scored, and fails.
+        rc, out = run(["--files", guide])
+        line = scored_line(out, guide_rel)
+        case("--files on an ordinary page is scored", line is not None)
+        case("the complex fixture FAILS where it is scored, so the skip above is discriminating",
+             rc == 1 and line is not None and "(FAIL," in line, f"rc={rc}")
+
+        # 3. A plain ordinary page passes, so the checker is not failing everything.
+        rc, out = run(["--files", plain])
+        line = scored_line(out, plain_rel)
+        case("the plain fixture is scored and PASSES",
+             rc == 0 and line is not None and "(PASS," in line, f"rc={rc}")
+
+        # 4. Mixed: the skip does not swallow the other files, and the exit code
+        #    comes from the file that was scored.
+        rc, out = run(["--files", cs, guide])
+        case("mixed --files: one SKIPPED line, one FAIL line, exit 1",
+             rc == 1 and f"SKIPPED {cs_rel}" in out
+             and (scored_line(out, guide_rel) or "").find("(FAIL,") >= 0, f"rc={rc}")
+
+        # 5. api-clients is NOT covered by #285, so a named page there is scored.
+        rc, out = run(["--files", ac])
+        case("--files on an api-clients page is still scored (#285 covers code-samples only)",
+             rc == 1 and scored_line(out, ac_rel) is not None and "SKIPPED" not in out,
+             f"rc={rc}")
+
+        # 6. Matching is relative to the content root, not the absolute path.
+        rc, out = run(["--files", str(trap)])
+        case("a page whose PARENT folders are named open-api/code-samples is still scored",
+             rc == 1 and scored_line(out, guide_rel) is not None and "SKIPPED" not in out,
+             f"rc={rc}")
+
+        # 7. Triage leaves out both areas and scores the two ordinary pages.
+        jpath = Path(tmp, "triage.json")
+        rc, out = run(["--dir", str(docs), "--out-json", str(jpath)])
+        data = json.loads(jpath.read_text(encoding="utf-8")) if jpath.exists() else {}
+        listed = [i["path"] for i in data.get("items", [])]
+        case("triage scans exactly the 2 ordinary pages",
+             data.get("total_scanned") == 2, f"total_scanned={data.get('total_scanned')}")
+        case("triage lists the ordinary complex page and neither skipped area",
+             listed == [guide_rel], f"items={listed}")
+
+        # 8. "Could not look" is exit 2, never a pass.
+        rc, out = run(["--files", str(docs / "pro" / "guides" / "missing.mdx")])
+        case("a named file that does not exist exits 2, not 0", rc == 2, f"rc={rc}")
+        bad = docs / "pro" / "guides" / "bad.mdx"
+        bad.write_bytes(b"---\ntitle: X\n---\n\n\xff\xfe not utf-8\n")
+        rc, out = run(["--files", str(bad)])
+        case("a file that is not valid UTF-8 exits 2, not 0", rc == 2, f"rc={rc}")
+        empty = Path(tmp, "empty")
+        empty.mkdir()
+        rc, out = run(["--dir", str(empty)])
+        case("a triage scan that finds no files exits 2, not 0", rc == 2, f"rc={rc}")
+        blocker = Path(tmp, "a-file")
+        blocker.write_text("x", encoding="utf-8")
+        rc, out = run(["--dir", str(docs), "--out-json", str(blocker / "out.json")])
+        case("a crash exits 2, never Python's default 1, which means a page scored too high",
+             rc == 2 and "CHECKER ERROR" in out, f"rc={rc}")
+
+    failed = [c for c in cases if not c[1]]
+    if failed:
+        print(f"SELF-TEST FAILED: {len(failed)} of {len(cases)} case(s).")
+        return 1
+    print(f"SELF-TEST PASSED: {len(cases)} of {len(cases)} case(s).")
+    return 0
+
+
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

@@ -166,6 +166,8 @@ A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not 
 
 Developer and API reference under `pro/integrations/open-api` and `pro/integrations/webhooks` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
 
+Pages under `pro/integrations/open-api/code-samples` are not scored at all. `scripts/simplicity-check.py` skips them in every mode, and says SKIPPED when you name one with `--files` (owner decision, #285). `python3 scripts/simplicity-check.py --self-test` proves that rule works in both directions.
+
 ### Enforce it
 
 Before committing any article, run:
@@ -175,6 +177,8 @@ python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx
 ```
 
 It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
+
+Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error".
 
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
