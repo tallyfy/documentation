@@ -12,16 +12,16 @@ title: Authentication setup for Postman
 
 import { Steps } from '@astrojs/starlight/components';
 
-Tallyfy's API uses OAuth 2.0 with the password grant type. Most endpoints need user context, so you'll configure Postman with your credentials, set up the required headers, and store tokens automatically.
+Tallyfy's API uses OAuth 2.0 with the password grant type. You'll give Postman your credentials, add the required headers, and store tokens automatically.
 
 ## What you need to know first
 
-Here's what trips people up:
+Most Tallyfy API endpoints act for a signed-in person, not just for an app. So Postman has to sign in as you. Four things catch people out:
 
-- **Password grant is required** -- most endpoints need user context, not just application-level access
-- **The `X-Tallyfy-Client` header is required** -- include it on every request
-- **Access tokens last 6 months** -- refresh tokens last 12 months
-- **Client credentials grant is limited** -- those tokens only last 7 days and can't access user-scoped endpoints
+- **You need the password grant.** It signs Postman in as a user, and most endpoints need one.
+- **Tokens last a long time.** Access tokens last 6 months. Refresh tokens last 12 months.
+- **The client credentials grant is limited.** Its tokens only last 7 days, and they can't reach user-scoped endpoints.
+- **The `X-Tallyfy-Client` header is required.** Include it on every request.
 
 ## Setting up authentication step by step
 
@@ -88,7 +88,7 @@ Here's what trips people up:
 
 ## Authentication flow visualization
 
-This diagram shows the OAuth lifecycle -- initial token grant, API usage, and token refresh.
+This diagram shows the whole OAuth cycle. Postman gets a token, uses it to call the API, and then refreshes it.
 
 ```d2
 direction: right
@@ -165,9 +165,9 @@ API -> Postman: "13. Success" {
 ```
 
 **What to notice:**
-- **Steps 1-3** -- the password grant requires all four parameters (username, password, client_id, client_secret)
-- **Step 5** -- every API call needs both the Bearer token and the `X-Tallyfy-Client` header
-- **Steps 9-12** -- refresh happens before expiry using the stored refresh token
+- **Steps 1-3:** the password grant needs all four parameters (username, password, client_id, client_secret).
+- **Step 5:** every API call needs both the Bearer token and the `X-Tallyfy-Client` header.
+- **Steps 9-12:** Postman refreshes the token before it expires, using the stored refresh token.
 
 ## The required headers
 
@@ -190,7 +190,7 @@ if (token) {
 
 ## Token refresh
 
-Access tokens last 6 months and refresh tokens last 12 months. You probably won't hit expiry during a testing session, but here's a pre-request script that handles refresh automatically:
+Access tokens last 6 months, and refresh tokens last 12 months. You probably won't hit expiry while you test. If you'd like refresh handled for you anyway, use this pre-request script:
 
 ```javascript
 const tokenExpiry = pm.environment.get("TALLYFY_TOKEN_EXPIRY");
@@ -243,26 +243,26 @@ Use password grant for Postman testing. Client credentials won't give you access
 
 ## Security tips
 
-- Mark sensitive variables as **secret** in Postman so they're masked
-- Use the initial/current value distinction -- initial values sync with your team, current values stay local
-- Don't commit exported environments to version control
-- When sharing collections, export them without the environment and document which variables teammates need to create
+- Mark sensitive variables as **secret** in Postman so they're masked.
+- Use initial and current values on purpose. Initial values sync with your team. Current values stay local.
+- Don't commit exported environments to version control.
+- When you share a collection, export it without the environment. Then tell teammates which variables they need to create.
 
 ## Common errors and fixes
 
 **401 Unauthenticated:**
-1. Missing `X-Tallyfy-Client: APIClient` header
-2. Token has expired -- request a new one or check your refresh script
-3. Using `client_credentials` grant for a user-scoped endpoint -- switch to `password`
-4. Malformed Authorization header -- it should be `Bearer [token]` with exactly one space
+1. The `X-Tallyfy-Client: APIClient` header is missing.
+2. The token has expired. Request a new one, or check your refresh script.
+3. You're using the `client_credentials` grant for a user-scoped endpoint. Switch to `password`.
+4. The Authorization header is malformed. It should be `Bearer [token]` with exactly one space.
 
 **400 Bad Request on the token endpoint:**
-- Body must be `x-www-form-urlencoded`, not JSON
-- All parameters (grant_type, username, password, client_id, client_secret) must be present
+- The body must be `x-www-form-urlencoded`, not JSON.
+- All parameters (grant_type, username, password, client_id, client_secret) must be present.
 
 **Invalid client:**
-- Double-check your Client ID and Client Secret
-- Make sure you're using the right Postman environment
+- Double-check your Client ID and Client Secret.
+- Make sure you're using the right Postman environment.
 
 ## Testing your setup
 
