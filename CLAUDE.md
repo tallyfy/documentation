@@ -1545,12 +1545,17 @@ issue (#88, #118).
 - Check CF Pages build: GitHub Actions logs show sync status
 - **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) what the run's `sync` job did, and (2) when it committed, that the CF Pages `support-docs` production deployment for that commit reached `deploy/success`.
 
-  **Step 1 has two correct outcomes, and only one of them makes a commit.** Read the `sync` job's own log, never the whole run's, because several jobs in this workflow print the same `No changes to commit` words:
+  **Step 1 has two correct outcomes, and only one of them makes a commit.** Read the `sync` job's own log, never the whole run's, because several jobs in this workflow print the same `No changes to commit` words. And match only what the step printed when it ran. GitHub prints each step's whole script at the top of that step's log, so the script's own `echo "No changes to commit"` and `git commit -m "Sync docs from tallyfy/documentation"` lines are in every `sync` log, whatever the run did. A plain grep for either phrase matches on every run and cannot tell a commit from a no-op.
 
   ```bash
   JOB=$(gh run view <run-id> --repo tallyfy/documentation --json jobs --jq '.jobs[] | select(.name=="sync") | .databaseId')
-  [ -n "$JOB" ] && gh run view --job "$JOB" --repo tallyfy/documentation --log | /usr/bin/grep -E 'No changes to commit|Sync docs from tallyfy/documentation'
+  LOG=$(mktemp)
+  [ -n "$JOB" ] && gh run view --job "$JOB" --repo tallyfy/documentation --log > "$LOG" && [ -s "$LOG" ] || echo "COULD NOT READ THE SYNC LOG"
+  /usr/bin/grep -E 'Z \[production [0-9a-f]{7,}\] Sync docs from tallyfy/documentation$' "$LOG" && echo COMMITTED
+  /usr/bin/grep -E 'Z No changes to commit$' "$LOG" && echo NO-OP
   ```
+
+  Both patterns start at the `Z ` that ends each log line's timestamp and run to the end of the line. git's own commit line, `[production 5574fe3] Sync docs from tallyfy/documentation`, and the `echo` output sit straight after the timestamp. Every printed script line has a colour code (`^[[36;1m`) in between, so the script never matches. Exactly one of the two should print. If neither does, this log cannot tell you, so do not guess. A staging run commits to `staging` and prints `[staging <sha>]`, so the first pattern stays silent on it by design: swap in `staging` to check a staging sync. The printed script also carries `TARGET_BRANCH=production` or `TARGET_BRANCH=staging`, which tells you which branch the run was for when `gh run list` will not. Measured 2026-09-23 UTC on six real `sync` logs: the plain grep matched both phrases in all six, and these patterns (branch name set to each run's target) gave the right answer in all six. That was four commits, runs 35806223175 and 34427272145 to `production` and 35804809862 and 35779685248 to `staging`, and two no-ops from 2026-08-12, 31621930044 to `production` and 31614981833 to `staging`.
 
   - **It committed.** support-docs `production` has a new `Sync docs from tallyfy/documentation` commit whose body carries a `Source commit: <sha>` trailer naming the documentation `main` tip the job checked out (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1' --jq '.[0].commit.message'`). Check your promotion is in it with `git merge-base --is-ancestor <promotion sha> <trailer sha>`, since another push to `main` can land before the job checks out. Then do step 2 for that commit.
   - **It printed `No changes to commit`.** Nothing the run would write differs from what `production` already carries, so there is no commit, no push and no Pages build. That is a correct no-op, not a failed deploy, and step 2 has nothing new to find: the newest deployment is the previous one. Confirm instead that the page you changed already serves the new content.
