@@ -217,6 +217,7 @@ def is_explained(text, pat):
 
 def analyze(path, content):
     """Compute all signals + the 0-100 complexity score for one article."""
+    raise RuntimeError("deliberate crash, throwaway proof for #292")
     rel = str(path).split("src/content/docs/", 1)[-1]
     cat_mult = 0.4 if rel.startswith(REFERENCE_PREFIXES) else 1.0
 
