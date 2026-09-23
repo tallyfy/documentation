@@ -176,6 +176,8 @@ python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx
 
 It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
+Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error".
+
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
 ### When to Use Hover Annotations
