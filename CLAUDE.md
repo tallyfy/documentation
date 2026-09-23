@@ -166,6 +166,8 @@ A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not 
 
 Developer and API reference under `pro/integrations/open-api` and `pro/integrations/webhooks` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
 
+Pages under `pro/integrations/open-api/code-samples` are not scored at all. `scripts/simplicity-check.py` skips them in every mode, and says SKIPPED when you name one with `--files` (owner decision, #285). `python3 scripts/simplicity-check.py --self-test` proves that rule works in both directions.
+
 ### Enforce it
 
 Before committing any article, run:
