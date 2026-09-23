@@ -53,6 +53,28 @@ jobs:
           python -m pip install --upgrade pyyaml
           python scripts/promotion-hold-check.py --check-wiring
         shell: bash
+      # The hold list comes from the AUTHORING branch, never from the promoted tree.
+      #
+      # Measured 2026-09-20 on run 35532856946, a real promote of 0a6b25249 to main: this job
+      # checked out the promoted tree, read ITS copy of the list, and logged "0 active
+      # hold(s). ... No active holds. Nothing can be violated." The vault-screen hold was live
+      # on staging the whole time. A hold is written on the branch the content is authored on,
+      # so a promote that never carried the hold file forward judges itself against an empty
+      # list. See tallyfy/documentation#270.
+      #
+      # test -s separates "the fetch produced nothing" from "the list has no holds": an empty
+      # file parses as zero holds and passes everything, which is the answer a broken fetch
+      # also gives. The real list always carries its header comment, so it is never empty.
+      - name: Fetch the hold list from the authoring branch
+        env:
+          AUTHORING_BRANCH: staging
+        run: |
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/holds.txt"
+          test -s "$RUNNER_TEMP/holds.txt"
+          echo "Hold list taken from origin/$AUTHORING_BRANCH:"
+          cat "$RUNNER_TEMP/holds.txt"
+        shell: bash
       - name: Check the promotion against the hold list
         # Values go through env, never straight into the shell line: workflow_run is a
         # privileged trigger and its payload is attacker-influenced input.
@@ -60,7 +82,8 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH"
+          python scripts/promotion-hold-check.py --commit "$HEAD_SHA" --branch "$HEAD_BRANCH" \
+            --holds "$RUNNER_TEMP/holds.txt"
         shell: bash
 
   # Blocks content carrying AI rhetorical tells - a sentence that promises significance and
@@ -387,8 +410,18 @@ jobs:
           # fetch-depth of 1, so head_sha is often not an object this checkout has and
           # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
           # tip here, which is the commit whose message carries any release marker.
+          # The SOURCE list comes from the authoring branch, exactly as promotion-hold-gate
+          # fetches it there. This step had the same defect and a wider blast radius: on a main
+          # promote it read main's copy, which carries no active holds, so it wrote an empty list
+          # into support-docs and disarmed the build gate on the very road that gate exists to
+          # guard. Measured 2026-09-20 after the promote of 0a6b25249: support-docs `production`
+          # read 0 active holds while `staging` read 1. See tallyfy/documentation#270.
+          git fetch --no-tags origin staging
+          git show "FETCH_HEAD:.github/promotion-holds.txt" > "$RUNNER_TEMP/source-holds.txt"
+          test -s "$RUNNER_TEMP/source-holds.txt"
           python scripts/promotion-hold-check.py \
             --commit HEAD \
+            --holds "$RUNNER_TEMP/source-holds.txt" \
             --emit-effective-holds target-repo/promotion-holds.txt
           test -s target-repo/promotion-holds.txt \
             || { echo "::error::effective hold list is missing or empty after emit"; exit 1; }
@@ -402,6 +435,24 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
+          # This job writes promotion-holds.txt to support-docs `staging` on one road and to
+          # `production` on the other, and those two roads are never the same commit. So a
+          # per-promotion value in that FILE guaranteed the two branches differed and guaranteed
+          # a merge conflict on a security gate file, every cycle. Three pull requests existed
+          # only to clear it (support-docs #238, #239, #240), and routine conflicts in a gate
+          # file train people to resolve by eye, which is the real cost. A commit message cannot
+          # conflict, so the producing commit is recorded here instead.
+          #
+          # This also keeps the chain to a released hold intact in one hop: a
+          # `[release-hold: <id>]` marker lives in the promotion's own commit message in `main`
+          # forever, and the trailer below names that exact commit.
+          #
+          # Resolved BEFORE `cd target-repo`, so it is THIS repo's HEAD and not support-docs'.
+          # Asserted non-empty because this step does not set -e, so an unresolved SHA would
+          # otherwise be committed as an empty trailer.
+          SRC_SHA=$(git rev-parse HEAD)
+          [ -n "$SRC_SHA" ] || { echo "::error::could not resolve the source commit for the sync trailer"; exit 1; }
           cd target-repo
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
@@ -411,7 +462,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Sync docs from tallyfy/documentation"
+            git commit -m "Sync docs from tallyfy/documentation" -m "Source commit: $SRC_SHA"
             git pull origin $TARGET_BRANCH --no-rebase || true
             git push origin $TARGET_BRANCH
           fi

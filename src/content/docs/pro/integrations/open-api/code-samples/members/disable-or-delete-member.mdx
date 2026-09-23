@@ -1,0 +1,153 @@
+---
+about_tallyfy: true
+description: Tallyfy's API lets administrators disable a member to block access and
+  remove their groups and individual permissions then enable them again to restore
+  access or permanently delete a disabled member's account across every Tallyfy organization
+  they belong to with no way to undo it.
+id: 52bb853f60b7b901a784e79627377b36
+sidebar:
+  order: 6
+title: Disable, enable or delete member
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Switching a member off, on, or deleting them for good
+
+Disabling a member blocks their access to your organization, and you can undo it by enabling them again. Permanent deletion can't be undone, and it only works on a member you've already disabled.
+
+All three endpoints need an administrator's access token. Replace `{org_id}` with your organization ID and `{user_id}` with the member's numeric ID. None of them takes a request body.
+
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
+
+:::caution[Permanent deletion reaches beyond your organization]
+Permanent deletion removes the person's Tallyfy account itself, not only their place in your organization. It doesn't check whether they belong to other Tallyfy organizations, so they lose access to those too. If you only want them out of your organization, disable them and stop there.
+:::
+
+## Disable a member
+
+`DELETE /organizations/{org_id}/users/{user_id}/disable`
+
+The member can't use your organization until you enable them again. Disabling also removes them from all their groups, and deletes any template and process permissions given to them individually.
+
+You can only disable an administrator while another active administrator exists. If you disable the default administrator, that role passes to one of the other administrators.
+
+The one-call [remove member](/products/pro/integrations/open-api/code-samples/members/remove-member/) endpoint, `DELETE /organizations/{org_id}/users/{user_id}`, also deactivates a member and can reassign their tasks first. It doesn't delete their individual template and process permissions.
+
+## Enable a member
+
+`PUT /organizations/{org_id}/users/{user_id}/enable`
+
+This gives a disabled member their access back and puts them back in their groups. It doesn't restore the template and process permissions that disabling deleted, so grant those again if they need them. Tallyfy also emails the member to say their account is active again.
+
+Enabling can be refused when your organization only allows members to join through single sign-on, or when a trial organization has reached its member limit.
+
+## Permanently delete a member
+
+`DELETE /organizations/{org_id}/users/{user_id}/delete`
+
+The member must be disabled first. Tallyfy adds "(Deleted)" to their last name, changes their email to `{email}.deleted.{user_id}`, and deletes their account. Their completed work and history stay in your organization. There's no endpoint to undo this.
+
+## Code samples
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const userId = 12345; // the member's numeric ID
+const base = `https://go.tallyfy.com/api/organizations/${orgId}/users/${userId}`;
+
+async function callTallyfy(method, path) {
+  const response = await fetch(base + path, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'X-Tallyfy-Client': 'APIClient'
+    }
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`${method} ${path} failed with ${response.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+async function main() {
+  // Disable the member. You can undo this.
+  const disabled = await callTallyfy('DELETE', '/disable');
+  console.log('Disabled:', disabled.data.email);
+
+  // Enable them again:
+  // await callTallyfy('PUT', '/enable');
+
+  // Or permanently delete them. They must be disabled first, and this can't be undone:
+  // await callTallyfy('DELETE', '/delete');
+}
+
+main().catch(error => console.error(error.message));
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import os
+import requests
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+user_id = 12345  # the member's numeric ID
+base = f'https://go.tallyfy.com/api/organizations/{org_id}/users/{user_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+}
+
+
+def call_tallyfy(method, path):
+    response = requests.request(method, base + path, headers=headers, timeout=30)
+    if not response.ok:
+        raise RuntimeError(f'{method} {path} failed with {response.status_code}: {response.text}')
+    return response.json()
+
+
+# Disable the member. You can undo this.
+disabled = call_tallyfy('DELETE', '/disable')
+print('Disabled:', disabled['data']['email'])
+
+# Enable them again:
+# call_tallyfy('PUT', '/enable')
+
+# Or permanently delete them. They must be disabled first, and this can't be undone:
+# call_tallyfy('DELETE', '/delete')
+```
+</TabItem>
+</Tabs>
+
+## Response
+
+Each endpoint returns `200 OK` with the member's profile in a `data` object.
+
+### Error responses
+
+| Status | Error message | What to do |
+|--------|--------------|------------|
+| 403 | `Forbidden.` | Use an administrator's access token. |
+| 404 | `Resource not found` | Check that the user ID belongs to a member of this organization. |
+| 422 | `Bot users cannot be disabled.` | Bot users can't be disabled. |
+| 422 | `Bot users cannot be edited.` | Bot users can't be enabled either. |
+| 422 | `Cannot modify the default administrator. Please assign another member as default administrator first.` | You're disabling the only active administrator. Make another member an administrator, then try again. |
+| 422 | `Please disable the user before deletion.` | Call the disable endpoint first, then delete. |
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Members > Remove member</b>" href="/products/pro/integrations/open-api/code-samples/members/remove-member/" > Tallyfy's API lets you deactivate a member from your organization using a DELETE request with... </LinkTitleCard>
+<LinkTitleCard header="<b>Org Settings > Member deletion</b>" href="/products/pro/settings/org-settings/troubleshooting-member-deletion/" > To delete a member in Tallyfy, you must disable them first. This guide covers common blockers... </LinkTitleCard>
+<LinkTitleCard header="<b>Org Settings > Remove a member</b>" href="/products/pro/settings/org-settings/how-can-i-remove-a-member-from-my-tallyfy-organization/" > To remove a member from a Tallyfy organization, admins must first deactivate them. Tallyfy... </LinkTitleCard>
+<LinkTitleCard header="<b>Guests > Disable, enable or delete guest</b>" href="/products/pro/integrations/open-api/code-samples/guests/disable-or-delete-guest/" > Tallyfy's API lets you disable a guest with no open tasks to block their guest link and enable... </LinkTitleCard>
+</CardGrid>

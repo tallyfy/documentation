@@ -4,7 +4,7 @@ description: Tallyfy''s API lets you remove templates in two steps. First archiv
   (soft delete) with a DELETE request, then permanently delete with a second DELETE
   request using the /delete path segment.
 id: 940bde9dc1ae6230ffe1db7b74e789b5
-lastUpdated: 2026-09-12
+lastUpdated: 2026-09-22
 sidebar:
   order: 5
 title: Archive or delete template
@@ -16,7 +16,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 There are two ways to remove a template via the API:
 
 1.  **Archive (soft delete):** Hides the template but keeps its data. Processes already launched from it keep running. Archived templates can be restored, and restoring brings back the template's steps, form fields, automations and folder.
-    One thing does not come back. If other templates embedded this one in their text, archiving removes those embedded blocks from them permanently, and restoring does not put them back. You would need to add the embed again by hand. This only affects templates that embed other templates, which is rare.
+    If other templates or steps embedded this one in their text, archiving takes those embedded blocks out, and restoring puts them back. Templates archived before mid-September 2026 are the exception: Tallyfy didn't save a copy of the removed text then, so those embeds need adding again by hand.
 2.  **Delete (permanent):** Permanently removes the template and its associated data. This can't be undone. The template must be archived first before it can be permanently deleted.
 
 ## 1. Archive a template
@@ -231,14 +231,25 @@ func main() {
 
 ### Response
 
-A successful archive returns `200 OK` with a confirmation message and a list of deleted references (e.g., from automations or recurring jobs that referenced this template).
+A successful archive returns `200 OK` with a confirmation message and `deleted_references`. That's a list of the templates and steps whose descriptions had an embed of this template taken out. Each entry has a `type` (`Blueprint` for a template, `Step` for a step), a `title` and an `id`. The list is empty when nothing embedded the template.
 
 ```json
 {
   "message": "The Template was deleted, and references were also deleted from:",
-  "deleted_references": {}
+  "deleted_references": []
 }
 ```
+
+The message says "deleted", but this call only archives the template.
+
+### Restoring an archived template
+
+`PUT /organizations/{org_id}/checklists/{checklist_id}/restore`
+
+This brings the template back and puts its embeds back into the templates and steps they were taken from. The response returns the template in `data`, plus two lists in `meta`:
+
+- `restored_references` - the embeds that went back.
+- `unrestored_references` - the embeds that couldn't, each with a `resolution` and a `reason`. Most often that's because the template or step that held the embed was edited or deleted after the archive.
 
 ## 2. Permanently delete a template
 
@@ -591,12 +602,14 @@ public class TallyfyTemplateDeleter
 
 ### Response
 
-A successful permanent deletion returns `200 OK`. The response body contains a confirmation message and a list of deleted references. If the template isn't archived yet, you'll get an error - you must archive it first.
+A successful permanent deletion returns `200 OK`. The response body contains a confirmation message and a list of deleted references, in the same shape as the archive response. If the template isn't archived yet, you'll get an error - you must archive it first.
+
+Permanent deletion also throws away the saved copies of any embeds that archiving took out, so those embeds can't be restored after this.
 
 ```json
 {
   "message": "The Template was deleted, and references were also deleted from:",
-  "deleted_references": {}
+  "deleted_references": []
 }
 ```
 
@@ -605,7 +618,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Tasks > Archive task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/archive-task/" > Tallyfy's API lets you soft-delete (archive) a standalone one-off task by sending a DELETE... </LinkTitleCard>
-<LinkTitleCard header="<b>Processes > Delete process</b>" href="/products/pro/integrations/open-api/code-samples/processes/delete-process/" > Tallyfy's API lets admins permanently delete an archived process run and all its related data... </LinkTitleCard>
 <LinkTitleCard header="<b>Processes > Archive process</b>" href="/products/pro/integrations/open-api/code-samples/processes/archive-process/" > Tallyfy's API lets you soft-delete (archive) a running process via a DELETE request. The process... </LinkTitleCard>
 <LinkTitleCard header="<b>Tags > Delete tag</b>" href="/products/pro/integrations/open-api/code-samples/tags/archive-tag/" > Tallyfy's DELETE API endpoint at `/organizations/[org_id]/tags/[tag_id]` permanently removes a... </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Delete process</b>" href="/products/pro/integrations/open-api/code-samples/processes/delete-process/" > Tallyfy's API lets admins permanently delete an archived process run and all its related data... </LinkTitleCard>
 </CardGrid>

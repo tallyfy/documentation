@@ -1,10 +1,11 @@
 ---
 about_tallyfy: true
 description: Tallyfy's deadline actions automatically shift task due dates forward
-  or backward when a condition is met. They reference a step's current deadline, another
-  step's deadline, or a date from a form field while respecting your work week settings.
+  or backward when a condition is met. They count from a step's current deadline,
+  another step's deadline, or a date form field, and each one runs at most once per
+  process.
 id: 13bd401992bd312c29680b1bfab73f6f
-lastUpdated: 2026-09-12
+lastUpdated: 2026-09-17
 sidebar:
   order: 5
 title: Automate deadline shifts on tasks
@@ -13,6 +14,11 @@ title: Automate deadline shifts on tasks
 import { Audience } from "~/components";
 
 <Audience to="editor" />
+
+:::note[Which app this page describes]
+This page describes Tallyfy at `go.tallyfy.com`, the app your team uses today. Screens and
+wording can differ in other versions of the Tallyfy interface.
+:::
 
 ## Deadline actions
 
@@ -24,7 +30,18 @@ Deadline actions adjust task due dates automatically when an automation's condit
 
 Use the **Apply to** dropdown in your automation to pick which step's deadline changes.
 
-Deadline is one of five action types you can add to an [automation](/products/pro/documenting/templates/automations/). The others toggle [visibility](/products/pro/documenting/templates/automations/actions/visibility-actions/), [reopen steps](/products/pro/documenting/templates/automations/actions/status-actions/), and update [assignments](/products/pro/documenting/templates/automations/actions/asignment-actions/).
+Deadline is one of five action types you can add to an [automation](/products/pro/documenting/templates/automations/). The others toggle [visibility](/products/pro/documenting/templates/automations/actions/visibility-actions/), [reopen steps](/products/pro/documenting/templates/automations/actions/status-actions/), update [assignments](/products/pro/documenting/templates/automations/actions/asignment-actions/), and fire a webhook.
+
+:::caution[A deadline action runs once per process, and then it's done]
+Tallyfy runs each automation at most once in a given process. Once a deadline action has fired,
+the date it set stays put. Change the form field it counted from afterwards and the deadline
+does not move, because the automation won't run a second time.
+
+That matters most when a date you're counting from is the kind that slips, like a hire date or
+an event date. Read [when an automation
+runs](/products/pro/documenting/templates/automations/when-automations-run/) before you build a
+template around one, and adjust the deadlines by hand if the date moves mid-process.
+:::
 
 import { AutomationTypes } from "~/components";
 
@@ -61,24 +78,85 @@ Final approval falls 2 days after the client feedback step was due.
 
 Step 13's deadline gets pushed 1 day later when the condition is met.
 
-:::note[Setting the starting point for the new deadline]
-When creating a deadline action, pick where to start counting from:
+### What a deadline action counts from
 
-- **Current deadline** - add or subtract from the step's existing due date
-- **Another step's deadline** - build off a different step's deadline
-- **Date field value** - use a date someone entered in a form field
+Every deadline action needs a starting point. There are exactly three, and you pick one when you
+build the action.
+
+```d2
+# The three starting points a deadline action can count from
+direction: right
+
+Base: Starting point {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Own: This step's due date {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Step: Another step due date {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Field: A date form field {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+New: New deadline {
+  shape: rectangle
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Base -> Own
+Base -> Step
+Base -> Field
+Own -> New: Gap, after or before {
+  style.stroke: "#225930"
+}
+Step -> New: Gap, after or before {
+  style.stroke: "#225930"
+}
+Field -> New: Gap, after or before {
+  style.stroke: "#225930"
+}
+```
+
+- **Current deadline** - add to or subtract from the target step's existing due date
+- **Another step's deadline** - count from a different step's due date
+- **Date field value** - count from a date somebody entered in a form field
 
 Want Step B due 2 days after Step A? Set it as "+2 days from Step A's deadline."
-:::
 
-:::note[How deadlines handle non-working days]
-Tallyfy checks your company's working days and hours (set in **Settings** > **Organization**). If a calculated deadline falls on a non-working day or outside work hours, Tallyfy **always pushes it forward** to the next working time. Never backward.
+The form field has to be a **Date** field. Tallyfy won't let you save a deadline action pointed
+at a text or number field, so if the date you need is being typed into a text box, change the
+field type first.
 
-A deadline that lands on Saturday moves to Monday morning (if Monday's a workday for you).
+There's no option to count from the process launch. If that's what you want, set it on the step
+itself in the [Timings row](/products/pro/documenting/templates/edit-templates/step-timings/)
+rather than in an automation.
 
-Tallyfy uses calendar days for its calculations, then adjusts the result to fit your configured work week. It doesn't account for public holidays or individual time off - just the work week you've defined. See [Customize work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/) to change these settings.
+:::caution[Deadline actions ignore your work week]
+Your organization's working days and hours are applied when a task is first created, when you
+change a deadline by hand, and when a deadline moves because the step it counts from moved. They
+are **not** applied to a deadline set by an automation.
 
-**Coming soon**: Public holiday data for 200+ countries at [tallyfy.com/national-holidays](https://tallyfy.com/national-holidays/). A future release will skip national holidays automatically.
+So an automation can land a deadline on a Saturday, or at 3am, in an organization set to
+Monday through Friday, 9 to 5. The date is whatever the arithmetic produced. Bear that in mind
+when you pick a gap, and check the result near a weekend.
+
+Tallyfy counts in calendar days throughout, and it doesn't know about public holidays or
+individual time off anywhere. See [customize work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)
+for where the work week does apply.
 :::
 
 :::tip[Calendar-based vs relative deadlines]
@@ -93,13 +171,13 @@ Tallyfy deadlines are relative to when the process starts[^2], not calendar-base
 import { CardGrid, LinkTitleCard } from "~/components";
 
 
-[^1]: Tallyfy calculates in calendar days, then adjusts to your configured working days if the result falls on a non-working day
+[^1]: Calendar days, counted straight from the date in the field. A deadline set by an automation isn't adjusted to your work week
 [^2]: Deadlines calculate from run creation time, not from a fixed calendar date
 
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Examples > Countdown deadline automation</b>" href="/products/pro/documenting/templates/automations/examples/countdown-deadline-automation/" > Set up automated countdown deadlines that work backwards from important dates so preparation... </LinkTitleCard>
-<LinkTitleCard header="<b>Automations > Actions</b>" href="/products/pro/documenting/templates/automations/actions/" > Automation actions are the Then half of an automation. They automatically assign people, adjust... </LinkTitleCard>
-<LinkTitleCard header="<b>Edit Task > Set an exact date on a task</b>" href="/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/" > Tallyfy uses relative deadline rules (like "3 days after launch") in templates since they are... </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > When an automation runs</b>" href="/products/pro/documenting/templates/automations/when-automations-run/" > Tallyfy automations fire only once per process and are evaluated at just two moments (process... </LinkTitleCard>
 <LinkTitleCard header="<b>Edit Task > Set an exact date on a task</b>" href="/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/" > Tallyfy template steps carry relative deadlines like 3 days after launch, so a step never holds... </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > Actions</b>" href="/products/pro/documenting/templates/automations/actions/" > Automation actions are the Then half of an automation. They automatically assign people, adjust... </LinkTitleCard>
 </CardGrid>
