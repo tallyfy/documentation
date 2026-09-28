@@ -166,7 +166,7 @@ A flowchart with load balancers, WAF, DLP, or VNet boxes is for architects, not 
 
 Developer and API reference under `pro/integrations/open-api` and `pro/integrations/webhooks` may keep more jargon. Their audience genuinely is developers. Everything else (customer and buyer-facing) follows the lowest-common-denominator rule.
 
-Pages under `pro/integrations/open-api/code-samples` are not scored at all. `scripts/simplicity-check.py` skips them in every mode, and says SKIPPED when you name one with `--files` (owner decision, #285). `python3 scripts/simplicity-check.py --self-test` proves that rule works in both directions.
+Pages under `pro/integrations/open-api/code-samples` are not scored at all. `scripts/simplicity-check.py` skips them in every mode, and says SKIPPED when you name one with `--files` (owner decision, #285). `python3 scripts/simplicity-check.py --self-test` proves that rule works in both directions. The skip is `ALWAYS_SKIP` in the script, landed in #290. Pages under `open-api/api-clients` are different: triage (`--dir`) leaves them out through `TRIAGE_ONLY_SKIP`, but they are still scored when named with `--files` (owner, 2026-09-23).
 
 ### Enforce it
 
@@ -178,7 +178,7 @@ python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx
 
 It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
-Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error".
+Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
 ## 📝 Hover Annotations (Footnotes) Guidelines
 
@@ -1407,7 +1407,12 @@ These patterns are effective when used intentionally with substance:
 
 **Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
 
+⚠️ **Merge into `staging` one at a time.** `documentation-pipeline.yml` has no `concurrency` group (#296, open), so two merges seconds apart start two pipelines that can finish out of order. Wait for the previous merge's pipeline, sync included, to finish before merging the next, until #296 is fixed.
+
 **Deploying staging to production:**
+
+**Current practice (2026-09-23): a full promotion is a pull request from `staging` into `main`, merged as a true merge commit after an independent check of the running staging site.** #283 (`d4fab7fc`) and #294 (`6fcb47e6`) both landed that way, each with two parents in `git rev-list --parents -n1`. Merge with `gh pr merge <n> --repo tallyfy/documentation --merge`. A subset ship, such as #263 or #268, is a different operation: a squash pull request into `main` carrying only named changes. The commands below are the underlying git, kept for reference; steps 4 and 5 still apply after the pull request merges.
+
 ```bash
 # 1. Ensure staging is clean and pipeline has passed
 git checkout staging && git pull
@@ -1503,7 +1508,8 @@ issue (#88, #118).
   job then fails any promotion whose tree contains a matching file, before `sync` can copy
   anything to support-docs.
 - The check is presence-based, not diff-based - it fails if the promoted tree *contains* the
-  path, whether or not this promotion changed it. Promotions here fast-forward and the
+  path, whether or not this promotion changed it. A full promotion here lands as a merge commit
+  from a `staging` to `main` pull request (#283, #294 and earlier), and the
   `workflow_run` event carries no previous-main SHA, so a diff-based check would have no base
   and would pass when it couldn't compute an answer.
 - ⚠️ **A hold blocks a PUBLICATION and cannot block a DELETION.** This follows from the line
@@ -1539,6 +1545,9 @@ issue (#88, #118).
 - Release a hold by deleting its line (a reviewable diff), or for one promotion only by naming
   it in the merge commit: `git merge --no-ff staging -m "Promote staging to main [release-hold: <id>] <why>"`.
   A plain `git merge` fast-forwards and carries no message of yours, so the marker needs `--no-ff`.
+  With a pull request promotion, put the marker in the merge commit instead:
+  `gh pr merge <n> --merge --subject "Promote staging to main [release-hold: <id>] <why>"`. The gate
+  reads the whole message of the promoted commit (`git log -1 --format=%B`), so subject or body both work.
 - Check it locally before pushing: `python3 scripts/promotion-hold-check.py --self-test`. The
   same self-test runs in CI on every promotion, so the gate proves it can go red rather than
   only ever being seen passing.
@@ -1547,7 +1556,24 @@ issue (#88, #118).
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status
-- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) support-docs `production` has a fresh `Sync docs from tallyfy/documentation` commit (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1'`), and (2) the CF Pages `support-docs` production deployment reached `deploy/success`.
+- **Verifying a PROD (main) deploy:** `gh run list` mislabels the `workflow_run`-triggered main pipeline as `[staging]` (it runs in the default-branch context), so don't trust its branch label. Instead confirm: (1) what the run's `sync` job did, and (2) when it committed, that the CF Pages `support-docs` production deployment for that commit reached `deploy/success`.
+
+  **Step 1 has two correct outcomes, and only one of them makes a commit.** Read the `sync` job's own log, never the whole run's, because several jobs in this workflow print the same `No changes to commit` words. And match only what the step printed when it ran. GitHub prints each step's whole script at the top of that step's log, so the script's own `echo "No changes to commit"` and `git commit -m "Sync docs from tallyfy/documentation"` lines are in every `sync` log, whatever the run did. A plain grep for either phrase matches on every run and cannot tell a commit from a no-op.
+
+  ```bash
+  JOB=$(gh run view <run-id> --repo tallyfy/documentation --json jobs --jq '.jobs[] | select(.name=="sync") | .databaseId')
+  LOG=$(mktemp)
+  [ -n "$JOB" ] && gh run view --job "$JOB" --repo tallyfy/documentation --log > "$LOG" && [ -s "$LOG" ] || echo "COULD NOT READ THE SYNC LOG"
+  /usr/bin/grep -E 'Z \[production [0-9a-f]{7,}\] Sync docs from tallyfy/documentation$' "$LOG" && echo COMMITTED
+  /usr/bin/grep -E 'Z No changes to commit$' "$LOG" && echo NO-OP
+  ```
+
+  Both patterns start at the `Z ` that ends each log line's timestamp and run to the end of the line. git's own commit line, `[production 5574fe3] Sync docs from tallyfy/documentation`, and the `echo` output sit straight after the timestamp. Every printed script line has a colour code (`^[[36;1m`) in between, so the script never matches. Exactly one of the two should print. If neither does, this log cannot tell you, so do not guess. A staging run commits to `staging` and prints `[staging <sha>]`, so the first pattern stays silent on it by design: swap in `staging` to check a staging sync. The printed script also carries `TARGET_BRANCH=production` or `TARGET_BRANCH=staging`, which tells you which branch the run was for when `gh run list` will not. Measured 2026-09-23 UTC on six real `sync` logs: the plain grep matched both phrases in all six, and these patterns (branch name set to each run's target) gave the right answer in all six. That was four commits, runs 35806223175 and 34427272145 to `production` and 35804809862 and 35779685248 to `staging`, and two no-ops from 2026-08-12, 31621930044 to `production` and 31614981833 to `staging`.
+
+  - **It committed.** support-docs `production` has a new `Sync docs from tallyfy/documentation` commit whose body carries a `Source commit: <sha>` trailer naming the documentation `main` tip the job checked out (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1' --jq '.[0].commit.message'`). Check your promotion is in it with `git merge-base --is-ancestor <promotion sha> <trailer sha>`, since another push to `main` can land before the job checks out. Then do step 2 for that commit.
+  - **It printed `No changes to commit`.** Nothing the run would write differs from what `production` already carries, so there is no commit, no push and no Pages build. That is a correct no-op, not a failed deploy, and step 2 has nothing new to find: the newest deployment is the previous one. Confirm instead that the page you changed already serves the new content.
+
+  **PR #273 reached `main` on 2026-09-23, in the promotion PR #283 (`d4fab7fc`), so a production run can be a no-op again.** Before that, `main`'s copy of `scripts/promotion-hold-check.py`, which the `sync` job runs from its `main` checkout, wrote a per-promotion `# Source commit:` line into `promotion-holds.txt`. While that copy was on `main`, the file changed on every run, so every production run committed. The #283 sync, support-docs `5574fe3f`, removed the line, and the next production sync, `885bfba6` for promotion #294, did not touch the file. The `Source commit:` trailer on the sync commit comes from the workflow file, which a `workflow_run` workflow reads from the default branch, `staging`.
 
   ⚠️ **Step 2 cannot be done with `gh`, and the failure looks exactly like a failed deploy.** `gh` only ever talks to GitHub, so it routes a Cloudflare path there and answers `Not Found (HTTP 404)` with a `documentation_url` of `docs.github.com`. That reads as "the deployment isn't there", and the natural response is to re-run a publish that already succeeded. This file prescribed `gh api 'accounts/<account_id>/pages/...'` until 2026-08-14; it never worked (tallyfy/documentation#139). Use `curl`:
 
@@ -1867,7 +1893,15 @@ for feature in features:
 
 All documentation screenshots and media assets are hosted on Cloudflare R2 storage and served via the `screenshots.tallyfy.com` CDN. The asset management system in `scripts/asset_management/` handles uploading and inventory automatically, and captioning as a separate, human-run second phase. Captions that exist in the inventory are injected into documentation images as alt text at build time.
 
-**🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
+**🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, first look for one to reuse (next paragraph), then run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
+
+**Look for an existing image before you add one.** Search `documentation_assets.csv` by what the image shows, in the `ai_caption_alt`, `ai_caption_descriptive` and `ai_caption_seo` columns. Search it by where the image is used, in `article_ids`, which holds each article's frontmatter `id` or its path slug. One plain search from the repo root covers all four columns:
+
+```bash
+rg -i "role selection" documentation_assets.csv
+```
+
+To see what an article already uses, search for its `id` the same way. If a row fits, reuse its `production_url` and check its `url_exists` reads `True`. Upload a new image only when nothing fits: a reused image is already captioned, and every new one adds an R2 object, an inventory row and three captions to write. These are this CSV's own header names. website-astro's inventory calls its columns `ai_description` and `referenced_in`, so its search commands do not work here (tallyfy/documentation#301).
 
 **Source of truth:** `scripts/asset_management/` is the single implementation. The `documentation-asset-manager` skill (global `~/.claude/skills/` and the repo `.claude/skills/` copy) is a thin pointer to these scripts - never re-fork the code into the skill.
 
@@ -1884,7 +1918,7 @@ python3 orchestrator.py sync                              # apply (atomic; refre
 
 `audit` scans `src/content/docs/**` for `screenshots.tallyfy.com` URLs and cross-references the CSV (URL-encoding-aware). `sync` is safe-auto: it only ADDS skeleton rows + refreshes `article_ids`; it never deletes dead/orphaned rows (those are surfaced in the report for human decision).
 
-**🗂️ Bulk caption backlog → asset-sync Large Job.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so it runs under the Large-Job Protocol at `~/GitHub/temporary/asset-sync-job/` (single resumable command `bash run.sh`; the CSV itself is the done-ledger). Do NOT try to caption the whole backlog in one session.
+**🗂️ Bulk caption backlog.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so do NOT try to caption the whole backlog in one session. The one-off asset-sync Large Job that captioned the earlier backlog is finished and its working folder is gone, so there is no runner to hand work to. Work what is left in small batches from `scripts/asset_management/`: `python3 audit_sync.py worklist --limit 10` prints the next uncaptioned image URLs (it skips the blank captures listed in `caption-skip.txt`), and `python3 orchestrator.py caption --url ...` captions one of them inside a Claude Code session. If you already have the three captions, `python3 audit_sync.py set-caption --url ... --alt ... --descriptive ... --seo ...` writes them to the CSV; like `audit` and `sync`, it never builds the R2 uploader. The CSV is the done-ledger, so a batch can stop anywhere and the next `worklist` call picks up where it left off. `python3 orchestrator.py audit` gives the full count of what is still missing.
 
 ### Asset Storage Architecture
 

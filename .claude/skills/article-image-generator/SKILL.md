@@ -286,16 +286,16 @@ python3 scripts/logo_compositor.py \
 ```
 
 **Optional flags:**
-- `--width 110` - Logo width in pixels (default: from brand.yaml)
-- `--logo-url "https://..."` - Override logo URL
-- `--debug` - Show detection visualization
+- `--logo-width 110` - Logo width in pixels (default: worked out from the image width; the script does not read `brand.yaml`)
+- `--refresh-logo` - Download the logo again instead of using the cached copy
+- `--download-only` - Only download and cache the logo, do not composite
 
 ### Script Location
 
 The logo compositor is at: `scripts/logo_compositor.py`
 
 It handles:
-1. Downloading logo from URL (or using cached `assets/logo.png`)
+1. Downloading logo from URL (or using cached `assets/tallyfy-logo.png`)
 2. Detecting solution indicator area (orange X pattern)
 3. Calculating optimal logo position
 4. Scaling logo to appropriate size
@@ -319,10 +319,10 @@ After compositing, use vision to verify:
 Use the documentation-asset-manager skill:
 
 ```bash
-python3 ~/.claude/skills/documentation-asset-manager/scripts/orchestrator.py \
+# from the documentation repo root; R2 credentials are loaded by scripts/asset_management/config.py
+python3 scripts/asset_management/orchestrator.py upload \
   --file /temporary/article-images/{slug}-final.jpg \
-  --key "illustrations/{slug}.jpg" \
-  --credentials /path/to/cloudflare_credentials.json
+  --key "illustrations/{slug}.jpg"
 ```
 
 ### Generate AI Captions
@@ -369,7 +369,7 @@ article-image-generator/
 ├── config/
 │   └── brand.yaml            # Portable brand configuration
 └── assets/
-    └── logo.png              # Cached logo for compositing
+    └── tallyfy-logo.png      # Cached logo for compositing
 ```
 
 ### What's NOT Here (By Design)
@@ -464,7 +464,7 @@ Script error or unexpected result:
 
 ### Quality Reference
 
-The v3 prompt at `/documentation/comics/prompts/01-forgetting-curve.prompt` demonstrates the quality standard. Generated prompts should match or exceed this level of detail and specificity.
+The v3 reference prompt this section used to point at (`comics/prompts/01-forgetting-curve.prompt`) is not in the repo: the `comics/` folder was removed on 2025-12-04. Use the prompt structure in Phase 2 as the quality standard. Generated prompts should match or exceed that level of detail and specificity.
 
 ---
 

@@ -14,9 +14,11 @@ and scan the docs tree):
            Writes a markdown report; mutates nothing.
 
   sync   - safe-auto only. For every image URL referenced in docs but absent
-           from the inventory, appends a SKELETON row (no caption yet) so the
-           Large-Job caption pass can fill it. HEAD-checks each URL, dedupes by
-           normalized URL, refreshes article_ids on existing referenced rows.
+           from the inventory, appends a SKELETON row (no caption yet) for the
+           caption workflow to fill (`worklist`, then `orchestrator.py caption
+           --url` in a Claude Code session, or `set-caption`). HEAD-checks
+           each URL, dedupes by normalized URL, refreshes article_ids on
+           existing referenced rows.
            Destructive items (dead URLs, orphans) are REPORT-ONLY - never
            deleted here. Supports --dry-run. One atomic CSV write.
 
@@ -183,7 +185,7 @@ def write_report(a: dict, out_path: Path):
           a['dead_rows'], lambda r: f"`{r.get('production_url','')}` (source_type={r.get('source_type')})")
     block("Orphaned rows - not referenced anywhere (GATED - human decides cleanup)",
           a['orphaned_rows'], lambda r: f"`{r.get('filename','')}` ({r.get('file_type','')})")
-    block("Image rows missing captions (Large-Job caption pass fills these)",
+    block("Image rows missing captions (caption them in batches: worklist, then orchestrator.py caption --url)",
           a['missing_caption_rows'], lambda r: f"`{r.get('production_url','')}`")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

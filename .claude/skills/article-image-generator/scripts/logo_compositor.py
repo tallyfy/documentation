@@ -251,7 +251,7 @@ def main():
         '--logo-width',
         type=int,
         default=None,
-        help=f'Width to scale logo to (default: auto-calculated as ~9% of image width)'
+        help=f'Width to scale logo to (default: auto-calculated as ~12%% of image width)'
     )
     parser.add_argument(
         '--position',
