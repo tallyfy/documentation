@@ -2,8 +2,8 @@
 about_tallyfy: true
 description: Tallyfy's deadline actions automatically shift task due dates forward
   or backward when a condition is met. They count from a step's current deadline,
-  another step's deadline, or a date form field, and each one runs at most once per
-  process.
+  another step's deadline, or a date form field, and follow that date when it changes,
+  unless someone set the deadline by hand.
 id: 13bd401992bd312c29680b1bfab73f6f
 lastUpdated: 2026-09-27
 sidebar:
@@ -32,15 +32,15 @@ Use the **Apply to** dropdown in your automation to pick which step's deadline c
 
 Deadline is one of five action types you can add to an [automation](/products/pro/documenting/templates/automations/). The others toggle [visibility](/products/pro/documenting/templates/automations/actions/visibility-actions/), [reopen steps](/products/pro/documenting/templates/automations/actions/status-actions/), update [assignments](/products/pro/documenting/templates/automations/actions/asignment-actions/), and fire a webhook.
 
-:::caution[A deadline action runs once per process, and then it's done]
-Tallyfy runs each automation at most once in a given process. Once a deadline action has fired,
-the date it set stays put. Change the form field it counted from afterwards and the deadline
-does not move, because the automation won't run a second time.
+:::note[A deadline action follows the date it counts from]
+When the date a deadline action counts from changes, the deadline moves with it. Tallyfy checks
+again when the task holding that date is completed or reopened, or when the kick-off form is
+completed again. Saving a new date on its own moves nothing.
 
-That matters most when a date you're counting from is the kind that slips, like a hire date or
-an event date. Read [when an automation
-runs](/products/pro/documenting/templates/automations/when-automations-run/) before you build a
-template around one, and adjust the deadlines by hand if the date moves mid-process.
+Two kinds of deadline stay put. A deadline someone set by hand on a running task always wins, so
+automations never move it. And an action that counts from the step's own current deadline
+applies once only, because applying it again would shift the date a second time. See [when an
+automation runs](/products/pro/documenting/templates/automations/when-automations-run/).
 :::
 
 import { AutomationTypes } from "~/components";
@@ -138,6 +138,10 @@ Want Step B due 2 days after Step A? Set it as "+2 days from Step A's deadline."
 The form field has to be a **Date** field. Tallyfy won't let you save a deadline action pointed
 at a text or number field, so if the date you need is being typed into a text box, change the
 field type first.
+
+If the date field doesn't have **Collect time** turned on, the deadline counts from 17:00 (5pm)
+on that date, in your organization's timezone. If the field is still empty when the automation
+runs, the action does nothing and the step keeps the deadline it had.
 
 There's no option to count from the process launch. If that's what you want, set it on the step
 itself in the [Timings row](/products/pro/documenting/templates/edit-templates/step-timings/)

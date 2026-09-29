@@ -1,9 +1,9 @@
 ---
 about_tallyfy: true
-description: Tallyfy automations fire only once per process and are evaluated at just
-  two moments (process launch and task completion/reopening) so if a form field changes
-  after the automation has already run the original result stays in place and deadlines
-  must be adjusted manually or by relaunching the process.
+description: Tallyfy checks automations when a process launches and when a task or
+  the kick-off form is completed or reopened. Deadline and show/hide actions are worked
+  out again when an answer they read has changed, while reopen, assignment and webhook
+  actions run at most once per process.
 id: 68652edcfffcb17e7190f760e67f9337
 lastUpdated: 2026-09-16
 sidebar:
@@ -20,21 +20,24 @@ This page describes Tallyfy at `go.tallyfy.com`, the app your team uses today. S
 wording can differ in other versions of the Tallyfy interface.
 :::
 
-## An automation runs at most once per process
+## Automations are checked on completion, never on save
 
-This is the single most important thing to know about automations, and it catches people out.
+Tallyfy checks automations at set moments: when the process launches, when a task is completed
+or reopened, and when the kick-off form is completed again. Typing in a form field and saving it
+never starts an automation by itself.
 
-Once an automation has fired in a process, Tallyfy marks it as done for that process and never
-runs it again. Whatever it did stays done. If it set a deadline, that deadline sits where it was
-put, even when the thing it was calculated from changes later.
+What happens next depends on the kind of action.
 
-Launch the same template again and you get a fresh process with a clean slate, so every
-automation is eligible to run once more. The once-only rule is per process, not per template.
+- **Deadline and show/hide actions follow your answers.** Each time Tallyfy checks the automation, it works these out again if an answer the automation reads has changed, or the date a deadline counts from has moved. If nothing changed, nothing moves.
+- **Reopen, assignment and webhook actions run at most once per process.** Once one of these has fired, it won't fire again in that process. Nobody gets the same assignment twice, and an outside system doesn't get the same webhook twice.
 
-## The two moments Tallyfy checks
+An automation can mix both kinds. Its deadline and show/hide actions can run again, and its
+other actions still run only once.
 
-Tallyfy doesn't watch your process continuously. It checks automations at two moments, and only
-those two.
+Launch the same template again and you get a fresh process, where every automation starts from
+scratch.
+
+## The moments Tallyfy checks
 
 **When the process launches.** Tallyfy looks at every automation whose conditions all read
 kick-off form fields. Those are the only ones it can decide at launch, because the kick-off answers
@@ -45,8 +48,13 @@ involve that task or the form fields on it. This is why an automation reading a 
 doesn't fire the moment somebody types in the field. It fires when the task carrying that field
 is completed.
 
+**When the kick-off form is completed again.** Re-open the kick-off form on a running process,
+change an answer, and click **Complete**. Tallyfy checks the kick-off automations again at that
+moment. The steps are in [changing kick-off answers after
+launch](/products/pro/launching/triggers/kick-off-forms/).
+
 ```d2
-# The two moments Tallyfy checks an automation
+# The moments Tallyfy checks an automation
 direction: right
 
 Launch: Launch {
@@ -55,7 +63,13 @@ Launch: Launch {
   style.stroke: "#225930"
 }
 
-Done: Task done {
+Done: Task done or reopened {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Kickoff: Kick-off done again {
   shape: rectangle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
@@ -67,13 +81,13 @@ Check: Check rules {
   style.stroke: "#225930"
 }
 
-Apply: Apply actions {
+State: Deadline, show, hide {
   shape: rectangle
   style.fill: "#fff3cd"
   style.stroke: "#225930"
 }
 
-Never: Skipped after that {
+Event: Reopen, assign, webhook {
   shape: rectangle
   style.fill: "#f2faf4"
   style.stroke: "#225930"
@@ -85,62 +99,58 @@ Launch -> Check: Kick-off rules {
 Done -> Check: Step rules {
   style.stroke: "#225930"
 }
-Check -> Apply: Conditions met {
+Kickoff -> Check: Kick-off rules {
   style.stroke: "#225930"
 }
-Apply -> Never: Same process {
+Check -> State: Again if changed {
+  style.stroke: "#225930"
+}
+Check -> Event: Once per process {
   style.stroke: "#225930"
 }
 ```
 
-## There's no "when this field changes" trigger
+## When a date or an answer changes mid-process
 
-Tallyfy has no trigger that watches a form field and reacts when its value changes. Editing a
-date, a dropdown or a text answer never starts an automation by itself.
-
-Here's the sequence that trips people up:
+Here's what happens when a date moves after its automation has run:
 
 1. You enter a start date of 5 September and complete the task.
 2. The automation fires and sets a dependent task's deadline to 6 September.
 3. You reopen the task, change the start date to 15 September, and complete it again.
-4. Nothing happens. The dependent task is still due 6 September.
+4. Tallyfy checks the automation again, sees the start date has moved, and moves the dependent task to 16 September.
 
-Step 4 is the once-only rule doing exactly what it's built to do. The automation already ran in
-this process, so completing the task a second time doesn't run it again.
+Saving the new date without completing the task moves nothing. The check happens on completion.
 
-## What to do when a date moves mid-process
+Show and hide work the same way. Say a kick-off answer of "No" hid five steps at launch. Someone
+re-opens the kick-off form, changes the answer to "Yes" and completes it. The rule that hid those
+steps no longer holds, so Tallyfy shows them again. It works in the other direction too: a step
+a rule showed is hidden again once that rule stops holding.
 
-Pick whichever fits how often it happens.
+## What Tallyfy leaves alone
 
-- **Change the deadlines by hand.** Open each affected task and set the date you want. Tasks that count their deadline from the one you edited move with it, so a chain built in the template is still worth having.
-- **Get the date right before the task is completed.** The automation reads the field at the moment the task completes, so as long as the value is correct by then, the deadline it sets is correct.
-- **Relaunch, if almost nothing has been done.** A new process starts every automation fresh.
+- **Work that's under way.** Tallyfy never hides or changes back a step that's completed or in progress, has a saved form answer, or has an assignee who's already finished their part. The process's activity feed notes each step it kept. If that step isn't needed any more, [hide it by hand](/products/pro/tracking-and-tasks/tasks/manually-show-hide-tasks/).
+- **Steps someone hid or showed by hand.** A choice a person made on a running process beats the automation.
+- **Deadlines someone set by hand.** Once a person picks a date on a task, automations never move it. See [set an exact date on a task](/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/).
+- **A deadline with nothing to count from.** A deadline action that shifts a step's own due date, like "3 days later than its current deadline", applies once only. Applying it again would add another 3 days every time.
+- **A deadline whose rule stops holding.** Only show and hide are reversed. A deadline stays where the automation last put it.
+- **Rules that check whether a step was reopened.** What they show stays shown after the reopened step is completed again.
 
-## A deadline an automation sets doesn't push the steps behind it
+## A deadline an automation moves pushes the steps behind it
 
-A step whose deadline counts from another step normally follows it. Complete the anchor step, or
-edit its deadline by hand, and everything behind it is worked out again.
+A step whose deadline counts from another step follows it. When an automation moves the other
+step's deadline, every unfinished step counting from it is worked out again. That's the same thing
+that happens when someone completes that step or edits its date by hand.
 
-That doesn't happen when an **automation** sets the anchor's deadline. The automation moves the
-one task it targets and nothing else. Steps set to "2 days after that step" stay where they were.
-
-Here is the difference, in one process with step C set to "2 days after step B":
-
-| What moved step B | What happened to step C |
-|---|---|
-| An automation set B to 2 October | C didn't move |
-| Somebody edited B by hand to 20 October | C moved to 22 October |
-
-So if a chain of steps has to move together, move the step the chain hangs off by hand, or point
-every step in the chain at the same date field with its own automation. Don't mix the two.
+The one exception is a step whose own date somebody set by hand. It keeps that date, and the
+steps behind it count from it.
 
 ## Other reasons an automation does nothing
 
 Running isn't the same as having an effect. An automation can fire and still change nothing.
 
 - **The target task is already completed.** Deadline, visibility and assignment actions all skip a task that's finished. There's nothing to shift or hide.
-- **A condition reads a field that's still empty.** An empty field is a real value to Tallyfy and it gets compared like any other. A deadline action pointed at an empty date field is the case to watch, because it counts from right now instead of doing nothing, which usually lands the deadline in the past. Add an "is not empty" condition to stop that.
-- **The organization is on a free plan and its trial has ended.** Automations don't run at all in that case. They're still saved on the template and they start working again as soon as the organization is on a paid plan.
+- **A condition reads a field that's still empty.** An empty field is a real value to Tallyfy and it gets compared like any other. A deadline action pointed at an empty date field does nothing, and the task keeps the deadline it already had.
+- **The organization's plan doesn't run automations.** Automations run on Pro, Enterprise and AppSumo plans, and during a free trial. A Docs plan doesn't run them, and neither does an organization whose trial has ended without a paid plan. They're still saved on the template, and they start working as soon as the organization is on a plan that runs them.
 
 ## Order within one process
 
