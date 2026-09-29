@@ -1,7 +1,7 @@
 ---
 about_tallyfy: true
 description: Tallyfy's API lets you re-open a running process's kick-off form and
-  complete it again. Completing it re-checks the kick-off automations, so deadline
+  complete it again. Completing it re-checks automations with kick-off conditions, so deadline
   and show/hide actions follow the new answers while reopen, assignment and webhook
   actions still run only once.
 id: 62d4598c7e823ec51b17dbeb8e9ff010
@@ -43,12 +43,12 @@ timeline IDs. See [update process](/products/pro/integrations/open-api/code-samp
 
 `POST /organizations/{org_id}/runs/{run_id}/complete-prerun`
 
-This sets `prerun_completed_at` and checks every automation whose conditions all read kick-off
-fields:
+This sets `prerun_completed_at` and checks every automation with at least one condition on a
+kick-off field:
 
-- An automation that didn't match before, and matches now, runs with all its actions.
+- An automation that matches now applies its deadline and visibility actions. Its status (reopen), assignment and webhook actions run only if they've never run in this process.
 - For an automation that already ran, deadline and visibility actions are worked out again if a condition's result has changed, or the date a deadline counts from has moved. If nothing changed, nothing moves.
-- A show or hide that no longer holds is reversed. The exceptions are a task whose work has started (in progress or completed, a saved form value, or an assignee who has finished their part) and a task someone hid or showed by hand.
+- A show or hide that no longer holds is reversed. On this re-check, Tallyfy never hides a task whose work has started (in progress or completed, a saved form value, or an assignee who has finished their part), whether it's reversing a show or applying a hide that now matches. A show or hide someone made by hand isn't changed. The first completion of the form keeps the usual rule, where a hide hides any task that isn't completed.
 - A deadline action that counts from the target task's own deadline isn't applied a second time. A task with `deadline_set_by_hand: true` keeps its date.
 - Status (reopen), assignment and webhook actions never run a second time in the process.
 - A deadline an automation moves also moves the tasks whose deadlines count from it.
@@ -132,7 +132,7 @@ async function changeKickoffAnswer() {
     prerun: { 'KICKOFF_FIELD_TIMELINE_ID': '2026-11-02T12:00:00Z' }
   });
 
-  // 3. Complete it, which re-checks the kick-off automations
+  // 3. Complete it, which re-checks automations with kick-off conditions
   const result = await call('POST', `${base}/complete-prerun`);
   console.log('Tasks changed:', Object.keys(result.data.tasks_changed_by_rules || {}));
 }
@@ -166,7 +166,7 @@ response = requests.put(base, headers=headers, json={
 })
 response.raise_for_status()
 
-# 3. Complete it, which re-checks the kick-off automations
+# 3. Complete it, which re-checks automations with kick-off conditions
 response = requests.post(f'{base}/complete-prerun', headers=headers)
 response.raise_for_status()
 changed = response.json()['data'].get('tasks_changed_by_rules') or {}
