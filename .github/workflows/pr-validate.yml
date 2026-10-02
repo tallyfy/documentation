@@ -58,6 +58,18 @@ jobs:
         run: python scripts/a11y-lint.py --dir=$PWD
         shell: bash
 
+      # The pipeline's own scripts, proved here before a merge rather than on the default
+      # branch after it. Read-only: each self-test works in a temporary directory, and
+      # --check-wiring only parses the workflow files. pyyaml comes from the lint step above.
+      # update-last-modified imports frontmatter at module level, so its self-test needs it.
+      - name: Pipeline script self-tests (#296, #295)
+        run: |
+          python -m pip install --upgrade python-frontmatter
+          python scripts/pipeline-guard.py --self-test
+          python scripts/pipeline-guard.py --check-wiring
+          python scripts/update-last-modified.py --self-test
+        shell: bash
+
       # D2 is pinned to the SAME version the site build downloads
       # (tallyfy/support-docs scripts/install-d2.sh, D2_VERSION="v0.7.0").
       # A validator running a different D2 than the build can pass what the
