@@ -671,6 +671,41 @@ def self_test():
         case("a crash exits 2, never Python's default 1, which means a page scored too high",
              rc == 2 and "CHECKER ERROR" in out, f"rc={rc}")
 
+        # 9. --files reads a list the way ai-tell-check.py does (tallyfy/documentation#259).
+        #    A comma-joined list used to be read as ONE path, so the same command line
+        #    scored files in one checker and nothing in the other.
+        rc, out = run(["--files", f"{plain},{guide}"])
+        case("a comma-separated --files list is split, and both pages are scored",
+             rc == 1 and scored_line(out, plain_rel) is not None
+             and scored_line(out, guide_rel) is not None, f"rc={rc}")
+        rc, out = run(["--files", f"{plain}, {guide}\n"])
+        case("commas and whitespace inside one --files value split the same way",
+             rc == 1 and scored_line(out, plain_rel) is not None
+             and scored_line(out, guide_rel) is not None, f"rc={rc}")
+        rc, out = run(["--files", plain, guide])
+        case("space-separated --files arguments still work",
+             rc == 1 and scored_line(out, plain_rel) is not None
+             and scored_line(out, guide_rel) is not None, f"rc={rc}")
+
+        # 10. Zero readable paths is "could not look": exit 2, and it says so in numbers.
+        missing_a = str(docs / "pro" / "guides" / "missing-a.mdx")
+        missing_b = str(docs / "pro" / "guides" / "missing-b.mdx")
+        rc, out = run(["--files", f"{missing_a},{missing_b}"])
+        case("a comma list of unreadable paths exits 2 and says 0 file(s) were scored",
+             rc == 2 and "0 file(s) scored" in out and "score=" not in out, f"rc={rc}")
+        rc, out = run(["--files", ""])
+        case("an empty --files value exits 2 and says 0 file(s) were scored",
+             rc == 2 and "0 file(s) scored" in out, f"rc={rc}")
+        rc, out = run(["--files", " , "])
+        case("a --files value of only separators exits 2, not 0", rc == 2, f"rc={rc}")
+
+        # 11. One unreadable path among readable ones still fails closed, and the count
+        #     says how much WAS looked at, so a partial run is never read as a whole one.
+        rc, out = run(["--files", f"{plain},{missing_a}"])
+        case("one unreadable path beside a passing page exits 2 and says 1 file(s) scored",
+             rc == 2 and scored_line(out, plain_rel) is not None
+             and "1 file(s) scored" in out, f"rc={rc}")
+
     failed = [c for c in cases if not c[1]]
     if failed:
         print(f"SELF-TEST FAILED: {len(failed)} of {len(cases)} case(s).")
