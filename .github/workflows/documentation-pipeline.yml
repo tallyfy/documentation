@@ -16,6 +16,22 @@ on:
     types:
       - completed
 
+# One run per branch at a time (tallyfy/documentation#296). On 2026-09-23 #290 and #292 merged
+# into staging eight seconds apart, and run 35813745697's update-last-modified failed with
+# "fatal: Need to specify how to reconcile divergent branches" because run 35813737212 had
+# already pushed. Two runs that both reach `sync` can finish out of order and publish the older
+# tree last. Keyed on head_branch, because on workflow_run `github.ref` is the DEFAULT branch
+# whatever branch was pushed, so it would put main and staging in one queue.
+#
+# cancel-in-progress is false so a running `sync` is never cut off part way. GitHub keeps only
+# one WAITING run per group, so a third push while one run works and one waits drops the
+# waiting one. Every job that reads the whole tree is covered by the run that takes its place,
+# whose tree contains the dropped push. generate-snippets and check-deleted-files act on the
+# triggering commit alone, so their work for a dropped run's commit is not redone (#296 tracks
+# it). Asserted by `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
+concurrency:
+  group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 jobs:
   # Blocks a staging -> main promotion that carries a path on hold (see #118, successor to
@@ -283,6 +299,10 @@ jobs:
           fi
           git pull
           python -m pip install --upgrade python-frontmatter
+          # Prove the parser reads git's UTC `Z` dates on this job's Python 3.10 before
+          # trusting it with every page. Without it, each run printed 587 "Invalid isoformat
+          # string" lines and left those pages stale (tallyfy/documentation#295).
+          python scripts/update-last-modified.py --self-test
           python scripts/update-last-modified.py --dir=src/content/docs
         shell: bash
       - name: Commit and push lastUpdated dates
@@ -293,7 +313,9 @@ jobs:
             git config --local user.name "GitHub Action"
             git add .
             git commit -m "Update lastUpdated dates from Git history" -a
-            git pull
+            # --no-rebase, as the other generator jobs already do: a bare `git pull` after a
+            # commit is what failed run 35813745697 when another push had landed (#296).
+            git pull --no-rebase
             git push
           else
             echo "No lastUpdated changes needed"
@@ -351,10 +373,15 @@ jobs:
     if: ${{ !failure() && !cancelled() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # The branch TIP, not head_sha: the generator jobs above push their own commits to the
+      # branch, and those must ship. The publish guard below proves the tip holds nothing
+      # else. Full history, because the guard must see whether head_sha is an ancestor of
+      # the tip and read every commit between them, and a shallow checkout cannot say.
       - name: Checkout source repository (tallyfy/documentation)
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
 
       - name: Checkout target repository (tallyfy/support-docs)
         uses: actions/checkout@v3
@@ -372,7 +399,52 @@ jobs:
         with:
           python-version: '3.10'
 
+      # The guard comes from the authoring branch, as the hold list does in "Sync files"
+      # below. A workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run
+      # for main these steps exist before main carries the script, and run from main's
+      # checkout they would fail every main publish until the next promotion brought it over.
+      # It still judges THIS checkout, and reads the paths filter from this checkout's
+      # generate-ids.yml, which is the copy GitHub applies to a push to this branch.
+      - name: Fetch the publish guard from the authoring branch and prove it can refuse
+        env:
+          AUTHORING_BRANCH: staging
+        run: |
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:scripts/pipeline-guard.py" > "$RUNNER_TEMP/pipeline-guard.py"
+          test -s "$RUNNER_TEMP/pipeline-guard.py"
+          python -m pip install --upgrade pyyaml
+          python "$RUNNER_TEMP/pipeline-guard.py" --self-test
+        shell: bash
+
+      # Publish only what the gates read (tallyfy/work-queue#2748). The gates check out
+      # workflow_run.head_sha; this job checks out the branch tip. If a person pushed again
+      # while this run was in flight, the tip holds a commit no gate in this run read. The
+      # guard allows only the generator jobs' own commits between the two, and otherwise this
+      # run does not publish: the run for the newer push is queued behind it by the
+      # concurrency group above, and publishes after its own gates.
+      #
+      # Exit 0 publish, 1 do not publish (a green job that says why), anything else means the
+      # guard could not read the range: the job goes red and nothing is published. The two
+      # steps below run only on an explicit `publish=true`, so no answer is never a publish.
+      # Asserted by `scripts/ai-tell-check.py --check-wiring`.
+      - name: Publish only what the gates read
+        id: publish-guard
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          rc=0
+          python "$RUNNER_TEMP/pipeline-guard.py" --head-sha "$HEAD_SHA" --repo . || rc=$?
+          case "$rc" in
+            0) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "publish=false" >> "$GITHUB_OUTPUT"
+               echo "sync did not publish. The publish guard's report above says why." ;;
+            *) echo "::error::publish guard could not run (exit $rc), so nothing was published"
+               exit 1 ;;
+          esac
+        shell: bash
+
       - name: Sync files
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           rsync -av --delete src/content/docs/ target-repo/src/content/docs/
@@ -406,10 +478,13 @@ jobs:
           # it verbatim would hand support-docs a hold we have already, deliberately, allowed
           # past - and its production build would fail on content we meant to ship.
           #
-          # HEAD, not workflow_run.head_sha: this job checks out the branch at the default
-          # fetch-depth of 1, so head_sha is often not an object this checkout has and
-          # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
-          # tip here, which is the commit whose message carries any release marker.
+          # HEAD, not workflow_run.head_sha. This job checked out the branch at the default
+          # fetch-depth of 1 until the publish guard needed full history, and then head_sha was
+          # often not an object it had, so `git log -1 <sha>` died on an unknown revision. HEAD
+          # is the tree being published. On a promotion to main this pipeline's generator jobs
+          # early-exit, so HEAD is normally the promotion's own commit, the one whose message
+          # carries any release marker. generate-ids.yml is the one generator that can still
+          # commit on main.
           # The SOURCE list comes from the authoring branch, exactly as promotion-hold-gate
           # fetches it there. This step had the same defect and a wider blast radius: on a main
           # promote it read main's copy, which carries no active holds, so it wrote an empty list
@@ -434,6 +509,7 @@ jobs:
           echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
 
       - name: Commit and push changes
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
           # This job writes promotion-holds.txt to support-docs `staging` on one road and to
