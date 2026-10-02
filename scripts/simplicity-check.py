@@ -13,6 +13,8 @@ Read-only. Never edits content. Two modes:
 
   Gate (score just the article(s) a unit touched; used before committing):
     python scripts/simplicity-check.py --files src/content/docs/pro/.../index.mdx --report
+    Several files may be separated by spaces, commas, or both, exactly as
+    scripts/ai-tell-check.py --files takes them.
 
   Self-test (prove the scope rules below work in both directions):
     python scripts/simplicity-check.py --self-test
@@ -26,8 +28,16 @@ Exit code: 0 = every scored file is below threshold and has no AI-tell words
                SKIPPED, never PASS);
            1 = at least one file is at/above threshold or contains a banned word;
            2 = the checker could not do its job: a file it could not read or
-               score, an empty scan, or a crash. "I could not look" never
-               shares an exit code with "I looked and it passed".
+               score, a --files value naming no paths, an empty scan, or a
+               crash. The output says how many files were scored. "I could
+               not look" never shares an exit code with "I looked and it
+               passed".
+
+A run where every named file was SKIPPED by rule exits 0 and not 2, on
+purpose. A skip is a decision about scope that the output states, not a file
+the checker failed to read, and scripts/simplicity-pr-report.py reads exit 0
+plus a SKIPPED line as "skipped". Exit 2 there would report every pull request
+that touches a code-samples page as a checker error.
 
 The score is computed on the article's BUSINESS REGION only - everything above
 the first technical section ("For your IT team" / "For developers" / "Technical
@@ -360,6 +370,24 @@ def analyze(path, content):
     }
 
 
+def split_files(values):
+    """The --files values as a flat list of paths.
+
+    Split on commas and whitespace, as scripts/ai-tell-check.py splits its --files, so one
+    command line works for both checkers. A comma-joined list used to be read as ONE path
+    here, which named nothing (tallyfy/documentation#259). A value that is already an
+    existing file is kept whole, so a path that happens to contain a space or comma is
+    never broken in two. No page under src/content/docs has either today.
+    """
+    paths = []
+    for value in values or []:
+        if os.path.isfile(value):
+            paths.append(value)
+        else:
+            paths.extend(p for p in re.split(r"[,\s]+", value.strip()) if p)
+    return paths
+
+
 def gather_files(base_dir):
     files = []
     for path, _subdirs, names in os.walk(base_dir):
@@ -409,7 +437,9 @@ def main(argv=None):
 def _main(argv=None):
     parser = argparse.ArgumentParser(description="Score docs for business-reader simplicity")
     parser.add_argument("--dir", type=str, help="Base directory of MDX files (triage mode)")
-    parser.add_argument("--files", type=str, nargs="+", help="Specific .mdx files to score (gate mode)")
+    parser.add_argument("--files", type=str, nargs="+",
+                        help="Specific .mdx files to score (gate mode). Separate them with "
+                             "spaces, commas, or both, as for scripts/ai-tell-check.py")
     parser.add_argument("--out-json", type=str, help="Write the ranked work-list as JSON")
     parser.add_argument("--out-csv", type=str, help="Write the ranked work-list as CSV")
     parser.add_argument("--threshold", type=int, default=DEFAULT_THRESHOLD, help=f"Complexity threshold (default {DEFAULT_THRESHOLD})")
@@ -428,10 +458,16 @@ def _main(argv=None):
     targets = []
     skipped = []
     if args.files:
+        names = split_files(args.files)
+        if not names:
+            # `--files ""` is what a shell variable that came out empty produces. Nothing
+            # was named, so nothing was looked at, and that is never a pass (#259).
+            print("CHECKER ERROR: --files named no paths. 0 file(s) scored.")
+            return 2
         # The same scope rule triage applies, so a page that triage never lists
         # is not scored just because someone named it. Said out loud, never
         # reported as a pass.
-        for f in args.files:
+        for f in names:
             area = skip_match(f, ALWAYS_SKIP)
             if area:
                 skipped.append((content_relative(f), ALWAYS_SKIP[area]))
@@ -511,7 +547,10 @@ def _main(argv=None):
     if errors:
         # Dropping a file it could not read, then exiting 0, would report a page
         # nobody looked at as if it had passed.
-        print(f"\nCHECKER ERROR: {len(errors)} file(s) could not be read or scored.")
+        # The scored count is printed too, so a run that looked at some of what it was
+        # named, or none of it, is never mistaken for one that looked at everything (#259).
+        print(f"\nCHECKER ERROR: {len(errors)} file(s) could not be read or scored. "
+              f"{len(results)} file(s) scored.")
         return 2
 
     return 1 if over else 0
