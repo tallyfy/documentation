@@ -27,6 +27,16 @@ on:
       - '!src/content/docs/pro/changelog/**'
   workflow_dispatch:
 
+# One run per branch at a time, like documentation-pipeline.yml (tallyfy/documentation#296).
+# This workflow commits and pushes IDs to the branch, and its completion starts the pipeline,
+# so serializing it here also starts the pipeline runs in push order. cancel-in-progress is
+# false so a push of IDs is never cut off. GitHub keeps only one WAITING run per group, so a
+# third push while one run works and one waits drops the waiting one, and the pages that push
+# added keep the id they were written with (#296 tracks it). Asserted by
+# `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
+concurrency:
+  group: generate-ids-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   generate-ids:
