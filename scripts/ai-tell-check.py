@@ -1354,6 +1354,58 @@ WIRING_KNOWN = {
 }
 
 
+# The publish guard (tallyfy/work-queue#2748). This gate, like every gate, reads
+# workflow_run.head_sha, while `sync` publishes the branch TIP. `scripts/pipeline-guard.py
+# --head-sha` proves the tip holds nothing a gate did not read, so a gate's green counts for
+# what is published only while that step runs BEFORE the copy and the copy waits for its
+# answer. Removing the step, moving it after the rsync, or dropping the `if:` on the steps
+# that copy and push would each publish an ungated commit with every gate still green.
+PUBLISH_GUARD_SCRIPT = "pipeline-guard.py"
+PUBLISH_GUARD_SHA = "github.event.workflow_run.head_sha"
+
+
+def check_publish_guard(job, job_name):
+    steps = [s for s in (job.get("steps") or []) if isinstance(s, dict)]
+
+    def run_of(step):
+        return str(step.get("run", ""))
+
+    def label(i):
+        return steps[i].get("name") or f"step {i + 1}"
+
+    guards = [i for i, st in enumerate(steps)
+              if PUBLISH_GUARD_SCRIPT in run_of(st) and "--head-sha" in run_of(st)]
+    copies = [i for i, st in enumerate(steps) if re.search(r"(?m)^\s*rsync\b", run_of(st))]
+    pushes = [i for i, st in enumerate(steps) if re.search(r"(?m)^\s*git\s+push\b", run_of(st))]
+    if not guards:
+        return [f"job {job_name!r} never runs `{PUBLISH_GUARD_SCRIPT} --head-sha`, so it can "
+                f"publish a commit pushed after the one every gate read (work-queue#2748)."]
+    if not copies:
+        return [f"job {job_name!r} has no step that runs rsync, so where it publishes from "
+                f"cannot be checked against the publish guard."]
+    g = guards[0]
+    guard = steps[g]
+    problems = []
+    passed = str(guard.get("env", {}).get("HEAD_SHA", "")) + " " + run_of(guard)
+    if PUBLISH_GUARD_SHA not in passed.replace(" ", ""):
+        problems.append(f"the publish guard step {label(g)!r} is not handed "
+                        f"{PUBLISH_GUARD_SHA}, the commit the gates read, so it proves nothing "
+                        f"about them.")
+    gid = guard.get("id")
+    if not gid:
+        problems.append(f"the publish guard step {label(g)!r} has no `id`, so no later step can "
+                        f"wait for its answer.")
+    wanted = f"steps.{gid}.outputs.publish == 'true'"
+    for i in sorted(set(copies + pushes)):
+        if i < g:
+            problems.append(f"step {label(i)!r} runs before the publish guard {label(g)!r}, so it "
+                            f"copies or pushes before anything checked what it publishes.")
+        if gid and wanted not in str(steps[i].get("if", "")).replace('"', "'"):
+            problems.append(f"step {label(i)!r} does not require `{wanted}` in its `if:`, so it "
+                            f"publishes whatever the publish guard answered.")
+    return problems
+
+
 def check_wiring(workflow_path):
     try:
         import yaml
@@ -1408,6 +1460,10 @@ def check_wiring(workflow_path):
             f"and `sync` published anyway. A gate that can be skipped is not a gate."
         )
 
+    for name in PUBLISH_JOBS:
+        if name in jobs:
+            problems += check_publish_guard(jobs[name] or {}, name)
+
     log(f"Workflow {workflow_path}: {len(jobs)} job(s).")
     for name in sorted(jobs):
         if name in PUBLISH_JOBS:
@@ -1430,7 +1486,8 @@ def check_wiring(workflow_path):
             annotate("error", f"ai-tell gate wiring: {problem}")
         return 1
     log(f"WIRING OK: {', '.join(PUBLISH_JOBS)} waits for {GATE_JOB}, and the gate is a root job "
-        f"with no `if:`.")
+        f"with no `if:`. The publish guard runs before the rsync, and the copy and the push wait "
+        f"for its answer.")
     return 0
 
 

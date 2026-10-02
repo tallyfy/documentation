@@ -373,10 +373,15 @@ jobs:
     if: ${{ !failure() && !cancelled() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # The branch TIP, not head_sha: the generator jobs above push their own commits to the
+      # branch, and those must ship. The publish guard below proves the tip holds nothing
+      # else. Full history, because the guard must see whether head_sha is an ancestor of
+      # the tip and read every commit between them, and a shallow checkout cannot say.
       - name: Checkout source repository (tallyfy/documentation)
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
 
       - name: Checkout target repository (tallyfy/support-docs)
         uses: actions/checkout@v3
@@ -394,7 +399,42 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Prove the publish guard can refuse (red and green control)
+        run: |
+          python -m pip install --upgrade pyyaml
+          python scripts/pipeline-guard.py --self-test
+          python scripts/pipeline-guard.py --check-wiring
+        shell: bash
+
+      # Publish only what the gates read (tallyfy/work-queue#2748). The gates check out
+      # workflow_run.head_sha; this job checks out the branch tip. If a person pushed again
+      # while this run was in flight, the tip holds a commit no gate in this run read. The
+      # guard allows only the generator jobs' own commits between the two, and otherwise this
+      # run does not publish: the run for the newer push is queued behind it by the
+      # concurrency group above, and publishes after its own gates.
+      #
+      # Exit 0 publish, 1 do not publish (a green job that says why), anything else means the
+      # guard could not read the range: the job goes red and nothing is published. The two
+      # steps below run only on an explicit `publish=true`, so no answer is never a publish.
+      # Asserted by `scripts/ai-tell-check.py --check-wiring`.
+      - name: Publish only what the gates read
+        id: publish-guard
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          rc=0
+          python scripts/pipeline-guard.py --head-sha "$HEAD_SHA" || rc=$?
+          case "$rc" in
+            0) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "publish=false" >> "$GITHUB_OUTPUT"
+               echo "sync did not publish. The publish guard's report above says why." ;;
+            *) echo "::error::publish guard could not run (exit $rc), so nothing was published"
+               exit 1 ;;
+          esac
+        shell: bash
+
       - name: Sync files
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           rsync -av --delete src/content/docs/ target-repo/src/content/docs/
@@ -428,10 +468,13 @@ jobs:
           # it verbatim would hand support-docs a hold we have already, deliberately, allowed
           # past - and its production build would fail on content we meant to ship.
           #
-          # HEAD, not workflow_run.head_sha: this job checks out the branch at the default
-          # fetch-depth of 1, so head_sha is often not an object this checkout has and
-          # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
-          # tip here, which is the commit whose message carries any release marker.
+          # HEAD, not workflow_run.head_sha. This job checked out the branch at the default
+          # fetch-depth of 1 until the publish guard needed full history, and then head_sha was
+          # often not an object it had, so `git log -1 <sha>` died on an unknown revision. HEAD
+          # is the tree being published. On a promotion to main this pipeline's generator jobs
+          # early-exit, so HEAD is normally the promotion's own commit, the one whose message
+          # carries any release marker. generate-ids.yml is the one generator that can still
+          # commit on main.
           # The SOURCE list comes from the authoring branch, exactly as promotion-hold-gate
           # fetches it there. This step had the same defect and a wider blast radius: on a main
           # promote it read main's copy, which carries no active holds, so it wrote an empty list
@@ -456,6 +499,7 @@ jobs:
           echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
 
       - name: Commit and push changes
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
           # This job writes promotion-holds.txt to support-docs `staging` on one road and to
