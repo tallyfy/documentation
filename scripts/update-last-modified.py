@@ -11,9 +11,17 @@ content is authored.
 --self-test proves the date parser reads every form git prints, on the Python
 the pipeline pins (3.10), and refreshes a page in a scratch git repository.
 Exit 0 passed, 1 a case failed.
+
+Which commits count (owner decision 2026-10-02, tallyfy/work-queue#3466): the
+date is the newest commit to the page that a person authored and that changed
+more than formatting. Pipeline bot commits ("GitHub Action", any "[bot]"
+author) are skipped, and so is a commit whose only change to the page is
+whitespace or the lastUpdated line itself. A page with no such commit keeps the
+lastUpdated it has.
 """
 
 import os
+import re
 import sys
 import argparse
 import tempfile
@@ -39,26 +47,71 @@ def parse_git_date(git_date):
         text = text[:-1] + "+00:00"
     return datetime.fromisoformat(text).date().isoformat()
 
+# Authors whose commits never set a page's date: the documentation pipeline commits as
+# "GitHub Action" (action@github.com), and GitHub Apps commit as "<name>[bot]". Measured
+# 2026-10-02 on src/content/docs history: 1,043 commits by "GitHub Action", mostly "Push
+# related articles", and 4 by "tallyfy-workhorse[bot]" in the newest 400.
+BOT_AUTHOR_NAMES = {"github action", "github-actions"}
+BOT_AUTHOR_EMAILS = {"action@github.com"}
+
+
+def is_bot_author(name, email):
+    """True when a commit's author is a pipeline or app bot rather than a person."""
+    n = (name or "").strip().lower()
+    e = (email or "").strip().lower()
+    return n in BOT_AUTHOR_NAMES or n.endswith("[bot]") or e in BOT_AUTHOR_EMAILS
+
+
+_LAST_UPDATED_LINE = re.compile(r"^lastUpdated:.*$", re.MULTILINE)
+_WHITESPACE = re.compile(r"\s+")
+
+
+def formatting_key(text):
+    """The page with every whitespace run and the lastUpdated line removed. Two versions
+    with the same key differ only in formatting, so a commit between them is not an
+    authored change."""
+    return _WHITESPACE.sub("", _LAST_UPDATED_LINE.sub("", text or ""))
+
+
+def _git_out(cwd, *args):
+    result = subprocess.run(['git', *args], capture_output=True, text=True, cwd=cwd)
+    return result.returncode, result.stdout
+
+
 def get_git_last_modified(file_path):
-    """Get the last modified date from Git history for a file."""
+    """The date of the newest commit to file_path that a person authored and that changed
+    more than formatting, as YYYY-MM-DD, or None when there is none.
+
+    Until 2026-10-02 this was simply the newest commit (`git log -1`), so a related
+    articles refresh by the pipeline bot set the public "last updated" date: 40 of 40
+    sampled pages after staging run 36952690737 (tallyfy/work-queue#3466)."""
     try:
-        # Get the last commit date for this file. Run from the file's own folder, so
-        # the answer comes from the repository the file is in, whatever the caller's
-        # working directory is.
-        result = subprocess.run(
-            ['git', 'log', '-1', '--format=%aI', '--', os.path.abspath(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=os.path.dirname(os.path.abspath(file_path))
-        )
-        
-        if result.stdout.strip():
-            # Return as date only (YYYY-MM-DD) for cleaner display
-            return parse_git_date(result.stdout)
-        else:
+        # realpath on both sides: git prints the top level with symlinks resolved (macOS
+        # /var is /private/var), and a relative path built across that difference would
+        # name no file, which would read as "content changed" on every commit.
+        path = os.path.realpath(file_path)
+        folder = os.path.dirname(path)
+        rc, top = _git_out(folder, 'rev-parse', '--show-toplevel')
+        if rc != 0 or not top.strip():
             return None
-    except subprocess.CalledProcessError:
+        rel = os.path.relpath(path, os.path.realpath(top.strip()))
+        # Newest first. A tab cannot appear in a name or an email.
+        rc, log = _git_out(folder, 'log', '--format=%H%x09%an%x09%ae%x09%aI', '--', path)
+        if rc != 0:
+            return None
+        for line in log.splitlines():
+            parts = line.split('\t')
+            if len(parts) != 4:
+                continue
+            sha, name, email, date = parts
+            if is_bot_author(name, email):
+                continue
+            rc_after, after = _git_out(folder, 'show', f'{sha}:{rel}')
+            rc_before, before = _git_out(folder, 'show', f'{sha}^:{rel}')
+            if rc_after == 0 and rc_before == 0 and formatting_key(after) == formatting_key(before):
+                continue  # whitespace or the lastUpdated line only
+            # The page was created here, deleted here, or changed in content.
+            return parse_git_date(date)
         return None
     except Exception as e:
         print(f"Error getting git date for {file_path}: {e}")
@@ -108,7 +161,7 @@ def update_file_last_modified(file_path):
                 print(f"⏭️  Skipped {file_path}: already up-to-date")
                 return False
         else:
-            print(f"⚠️  No git history for {file_path}")
+            print(f"⚠️  No person-authored content commit for {file_path}; lastUpdated left as it is")
             return False
             
     except Exception as e:
@@ -206,9 +259,11 @@ class _Py310Datetime(datetime):
         return super().fromisoformat(date_string)
 
 
-def _git(repo, *args, date=None):
+def _git(repo, *args, date=None, author=None):
     env = dict(os.environ, GIT_AUTHOR_NAME="Self Test", GIT_AUTHOR_EMAIL="self-test@example.com",
                GIT_COMMITTER_NAME="Self Test", GIT_COMMITTER_EMAIL="self-test@example.com")
+    if author:
+        env["GIT_AUTHOR_NAME"], env["GIT_AUTHOR_EMAIL"] = author
     if date:
         env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = date
     return subprocess.run(['git', '-c', 'commit.gpgsign=false', *args], cwd=repo, env=env,
@@ -271,6 +326,61 @@ def self_test():
         case("a page whose newest commit carries an offset is refreshed to that date",
              refreshed_offset is True and str(offset_now) == "2026-09-22",
              f"lastUpdated is now {offset_now}")
+
+    # Which commits count (tallyfy/work-queue#3466). Each page gets a person's content commit,
+    # then a later commit that must NOT move the date. Against the old `git log -1` every one
+    # of these pages takes the later date, so each arm can fail.
+    bot = ("GitHub Action", "action@github.com")
+    app = ("tallyfy-workhorse[bot]", "123+tallyfy-workhorse[bot]@users.noreply.github.com")
+    person = ("A Person", "person@example.com")
+    with tempfile.TemporaryDirectory() as tmp:
+        _git(tmp, 'init', '-q')
+
+        def commit(page, text, date, who):
+            Path(tmp, page).write_text(text, encoding='utf-8')
+            _git(tmp, 'add', page)
+            _git(tmp, 'commit', '-q', '-m', f'{page} by {who[0]}', date=date, author=who)
+
+        head = "---\ntitle: T\nlastUpdated: 2020-01-01\n---\n\n"
+        commit('bot.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('bot.mdx', head + "Written by a person.\n\n## Related articles\n- x\n", "2026-09-20T12:00:00Z", bot)
+        commit('app.mdx', head + "Written by a person.\n", "2026-09-11T12:00:00+00:00", person)
+        commit('app.mdx', head + "Written by a person, then an app.\n", "2026-09-21T12:00:00Z", app)
+        commit('wrap.mdx', head + "One long line of real prose here.\n", "2026-09-12T12:00:00+00:00", person)
+        commit('wrap.mdx', head + "One long line\nof real   prose here.\n\n", "2026-09-22T12:00:00+00:00", person)
+        commit('stamp.mdx', head + "Body.\n", "2026-09-13T12:00:00+00:00", person)
+        commit('stamp.mdx', head.replace("2020-01-01", "2026-09-13") + "Body.\n", "2026-09-23T12:00:00+00:00", person)
+        commit('edit.mdx', head + "First.\n", "2026-09-14T12:00:00+00:00", person)
+        commit('edit.mdx', head + "First.\n\n## Related articles\n- x\n", "2026-09-15T12:00:00Z", bot)
+        commit('edit.mdx', head + "First, then edited by a person.\n\n## Related articles\n- x\n", "2026-09-24T12:00:00+00:00", person)
+        commit('onlybot.mdx', head + "Generated.\n", "2026-09-16T12:00:00Z", bot)
+
+        def date_of(page):
+            return get_git_last_modified(str(Path(tmp, page)))
+
+        got = date_of('bot.mdx')
+        case("a pipeline bot commit after a person's edit does not move the date",
+             got == "2026-09-10", f"got {got}")
+        got = date_of('app.mdx')
+        case("an app '[bot]' commit after a person's edit does not move the date",
+             got == "2026-09-11", f"got {got}")
+        got = date_of('wrap.mdx')
+        case("a person's whitespace-only rewrap does not move the date",
+             got == "2026-09-12", f"got {got}")
+        got = date_of('stamp.mdx')
+        case("a commit that changes only the lastUpdated line does not move the date",
+             got == "2026-09-13", f"got {got}")
+        got = date_of('edit.mdx')
+        case("control: a person's content edit after a bot commit does move the date",
+             got == "2026-09-24", f"got {got}")
+        got = date_of('onlybot.mdx')
+        case("a page only bots have touched has no date to give, so it is left alone",
+             got is None, f"got {got}")
+        before = frontmatter.load(str(Path(tmp, 'onlybot.mdx'))).get('lastUpdated')
+        update_file_last_modified(str(Path(tmp, 'onlybot.mdx')))
+        after = frontmatter.load(str(Path(tmp, 'onlybot.mdx'))).get('lastUpdated')
+        case("and its lastUpdated is unchanged", str(before) == str(after) == "2020-01-01",
+             f"{before} then {after}")
 
     failed = cases.count(False)
     if failed:
