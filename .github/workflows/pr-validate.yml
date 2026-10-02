@@ -58,6 +58,17 @@ jobs:
         run: python scripts/a11y-lint.py --dir=$PWD
         shell: bash
 
+      # A prose ` -- ` renders as an em dash today, which the writing rules ban,
+      # and shows as a raw `--` once support-docs stops converting it
+      # (tallyfy/documentation#287, tallyfy/support-docs#272). The self-test runs
+      # first so this step proves it can go red before it reports green.
+      # Exit codes: 0 clean, 1 findings, 2 the counter could not run.
+      - name: Prose double hyphens (no ` -- ` used as a dash)
+        run: |
+          python scripts/prose-double-hyphen-check.py --self-test
+          python scripts/prose-double-hyphen-check.py --dir src/content/docs
+        shell: bash
+
       # D2 is pinned to the SAME version the site build downloads
       # (tallyfy/support-docs scripts/install-d2.sh, D2_VERSION="v0.7.0").
       # A validator running a different D2 than the build can pass what the

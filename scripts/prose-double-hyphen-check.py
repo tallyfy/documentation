@@ -50,6 +50,8 @@ EXIT CODES (as DOCS-VOICE.md sets for the checkers in this repository)
 """
 
 import argparse
+import contextlib
+import io
 import os
 import re
 import sys
@@ -120,7 +122,7 @@ def mask(raw):
                 break
 
     # Fenced code, line by line, so the closing rule is the real one: same character, at
-    # least as many of it, nothing else on the line.
+    # least as many of it, and nothing but spaces around it on the line.
     i = 0
     while i < len(lines):
         start, end, _ = lines[i]
@@ -250,7 +252,9 @@ def self_test():
     case("a planted prose line is found, on its real line", lines_found(planted) == [5],
          str(lines_found(planted)))
 
-    fenced = "Intro.\n\n```bash\ncurl --data '{}' https://x\necho a -- b\n```\n\nOutro.\n"
+    # A blank line inside each fence below stops the inline-code pattern from spanning the
+    # fence, so these cases fail if fence masking alone breaks.
+    fenced = "Intro.\n\n```bash\ncurl --data '{}' https://x\n\necho a -- b\n```\n\nOutro.\n"
     case("`--data` and `a -- b` inside a code fence are not found", lines_found(fenced) == [])
 
     inline = "Run `a -- b` and then ``x -- ` y`` to see it.\n"
@@ -278,9 +282,9 @@ def self_test():
     case("a fence closes only on a fence at least as long",
          lines_found(short_close) == [5], str(lines_found(short_close)))
 
-    indented = "<Steps>\n1. Do it.\n   ```bash\n   tool --x -- y\n   ```\n2. Then -- this.\n</Steps>\n"
+    indented = "<Steps>\n1. Do it.\n   ```bash\n\n   tool --x -- y\n   ```\n2. Then -- this.\n</Steps>\n"
     case("an indented fence inside a list is masked, the prose step is counted",
-         lines_found(indented) == [6], str(lines_found(indented)))
+         lines_found(indented) == [7], str(lines_found(indented)))
 
     comments = "<!-- a -- b -->\n{/* c -- d */}\n---\n\nText.\n"
     case("HTML and MDX comments and a horizontal rule are not counted", lines_found(comments) == [])
@@ -313,11 +317,20 @@ def self_test():
         case("exit 0 when the named files are clean", main(["--files", clean, "--quiet"]) == 0)
         case("a comma-joined --files list is split into its paths",
              run_count([f"{clean},{dirty}"]) == (1, 1))
-        case("exit 2 when a named file cannot be read",
-             main(["--files", os.path.join(tmp, "missing.mdx"), "--quiet"]) == 2)
+        # The two "could not run" cases print to stderr. That text is captured and checked
+        # here, so a CI log never shows a COULD NOT RUN line from a self-test that passed.
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = main(["--files", os.path.join(tmp, "missing.mdx"), "--quiet"])
+        case("exit 2 when a named file cannot be read, and it says so",
+             rc == 2 and "COULD NOT RUN: could not read" in err.getvalue(), f"rc={rc}")
         empty = os.path.join(tmp, "empty")
         os.mkdir(empty)
-        case("exit 2 when the directory holds no .mdx files", main(["--dir", empty, "--quiet"]) == 2)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = main(["--dir", empty, "--quiet"])
+        case("exit 2 when the directory holds no .mdx files, and it says so",
+             rc == 2 and "COULD NOT RUN: 0 files" in err.getvalue(), f"rc={rc}")
         case("--dir finds the planted line under it", main(["--dir", tmp, "--quiet"]) == 1)
 
     failed = [name for name, ok in cases if not ok]
