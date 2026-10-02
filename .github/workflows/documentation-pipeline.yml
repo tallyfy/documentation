@@ -28,7 +28,7 @@ on:
 # waiting one. Every job that reads the whole tree is covered by the run that takes its place,
 # whose tree contains the dropped push. generate-snippets and check-deleted-files act on the
 # triggering commit alone, so their work for a dropped run's commit is not redone (#296 tracks
-# it). Asserted by `scripts/pipeline-guard.py --check-wiring`.
+# it). Asserted by `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
 concurrency:
   group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
@@ -399,11 +399,21 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Prove the publish guard can refuse (red and green control)
+      # The guard comes from the authoring branch, as the hold list does in "Sync files"
+      # below. A workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run
+      # for main these steps exist before main carries the script, and run from main's
+      # checkout they would fail every main publish until the next promotion brought it over.
+      # It still judges THIS checkout, and reads the paths filter from this checkout's
+      # generate-ids.yml, which is the copy GitHub applies to a push to this branch.
+      - name: Fetch the publish guard from the authoring branch and prove it can refuse
+        env:
+          AUTHORING_BRANCH: staging
         run: |
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:scripts/pipeline-guard.py" > "$RUNNER_TEMP/pipeline-guard.py"
+          test -s "$RUNNER_TEMP/pipeline-guard.py"
           python -m pip install --upgrade pyyaml
-          python scripts/pipeline-guard.py --self-test
-          python scripts/pipeline-guard.py --check-wiring
+          python "$RUNNER_TEMP/pipeline-guard.py" --self-test
         shell: bash
 
       # Publish only what the gates read (tallyfy/work-queue#2748). The gates check out
@@ -423,7 +433,7 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           rc=0
-          python scripts/pipeline-guard.py --head-sha "$HEAD_SHA" || rc=$?
+          python "$RUNNER_TEMP/pipeline-guard.py" --head-sha "$HEAD_SHA" --repo . || rc=$?
           case "$rc" in
             0) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
             1) echo "publish=false" >> "$GITHUB_OUTPUT"
