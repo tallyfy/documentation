@@ -872,6 +872,7 @@ This repository uses a Python-based content automation system:
 4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
 5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
    - Dated 2026-10-02 (tallyfy/work-queue#3466): the date is the newest commit to the page that a person authored and that changed more than whitespace or the `lastUpdated` line. Pipeline bot commits ("GitHub Action", any `[bot]` author), such as the related articles refresh, never set it, and a page only bots have touched keeps its date. `--self-test` pins this.
+   - Dated 2026-10-03 (owner decision 217): content commits by `tallyfy-workhorse[bot]` also set the date, because it lands content pull requests a person reviewed. Its formatting-only or `lastUpdated`-only commits do not, the same as anyone's. Every other bot stays out, now including "GitHub Actions Bot", the sync job's own identity (tallyfy/work-queue#3544), and "Cursor Agent". Measured on staging 278b8bc7b that day: the change moved two pages and no others, `pro/settings/org-settings/system-log` to 2026-09-17 and `pro/documenting/members/how-can-i-remove-a-member-from-my-tallyfy-organization` to 2026-09-03.
 
 ### Pipeline behavior: what's safe to edit vs auto-generated
 
