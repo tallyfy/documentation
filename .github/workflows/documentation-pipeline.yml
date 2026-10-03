@@ -274,10 +274,16 @@ jobs:
           python "$RUNNER_TEMP/check-deleted-files.py" --self-test
         shell: bash
       - name: Remove index entries whose page is gone
-        # Values through env, never straight into the shell line: workflow_run is a
+        # head_branch goes through env, never straight into the shell line: workflow_run is a
         # privileged trigger and head_branch is attacker-influenced input.
+        #
+        # The key does NOT go through env. It goes on the command line exactly as
+        # upload-to-tallyfy-answers passes it, because the stored secret only works after the
+        # shell has parsed it. Measured on run 37143848015 (2026-10-03): the upload, with the key
+        # inline, got 200 from the staging index, and this step, with the same secret through
+        # env, got 403 a minute later. A local key taken from the Answers service's own env
+        # file got 200 through the same script, so the script is not the difference.
         env:
-          ANSWERS_API_KEY: ${{ secrets.ANSWERS_API_KEY }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           case "$HEAD_BRANCH" in
@@ -287,7 +293,7 @@ jobs:
                exit 0 ;;
           esac
           python "$RUNNER_TEMP/check-deleted-files.py" --dir="$PWD" --collection_name=tyfy \
-            --answers_api_key="$ANSWERS_API_KEY" --base_url="$base_url"
+            --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url="$base_url"
         shell: bash
 
 
