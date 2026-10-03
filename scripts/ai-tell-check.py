@@ -1345,7 +1345,7 @@ WIRING_KNOWN = {
     "generate-snippets": "early-exits on main; writes MDX back to staging only",
     "update-last-modified": "early-exits on main; writes MDX back to staging only",
     "generate-related-articles": "early-exits on main; writes MDX back to staging only",
-    "check-deleted-files": "only removes Answers entries for files deleted in this commit",
+    "check-deleted-files": "only removes Answers entries whose page is no longer in the tree",
     "upload-to-tallyfy-answers":
         "indexes article text for search. DELIBERATELY not gated: #191 scopes this gate to "
         "blocking `sync`, which is what puts an article in front of a reader. Widening it to "

@@ -1,3 +1,26 @@
+"""
+generate-snippets.py - write a description for every documentation page that lacks one.
+
+    python scripts/generate-snippets.py --dir=$PWD --token KEY --prompt BASE64
+    python scripts/generate-snippets.py --dir=$PWD --dry-run        report only, no API call
+    python scripts/generate-snippets.py --self-test [--target PATH]
+
+WHOLE TREE, EVERY RUN (owner decision 218, 2026-10-03, tallyfy/documentation#296 criterion 2).
+Until then it was handed the pages one commit added (`git diff-tree --diff-filter=A`), so a page
+added in a push whose run was dropped from the concurrency queue never got a description, and a
+new page that already had one written by its author had it overwritten. Now it reads the tree:
+a page lacks a description when its front matter has no `description`, a null or blank one, or
+a value that is not text (the CLAUDE.md template line `description: [AI-generated ...]` is a
+YAML list). An existing description is never overwritten. pro/changelog/** and 404.mdx are left
+alone, as before. Measured 2026-10-03 on staging 278b8bc7b: 0 of 593 pages lack one.
+
+CAP: at most --max-pages pages (default 10) per run, in path order, because each is one Claude
+API call. The run says how many wait for the next one.
+
+EXIT CODES: 0 done (nothing to do included), 1 a description could not be written or a
+self-test case failed, 2 could not run (no docs tree, unreadable front matter, bad arguments).
+"""
+
 import argparse
 import base64
 import frontmatter
@@ -216,7 +239,8 @@ class ClaudeClient:
 	# the choice is visible and does not move if the default does.
 	EFFORT = "medium"
 
-	def __init__(self, api_key: str, system_prompt: str):
+	def __init__(self, api_key: str, system_prompt: str, api_url: Optional[str] = None):
+		self.api_url = api_url or self.BASE_API
 		self.headers = {
 			"anthropic-version": "2023-06-01",
 			"x-api-key": api_key,
@@ -245,7 +269,7 @@ class ClaudeClient:
 		for attempt in range(1, max_retries + 1):
 			try:
 				response = requests.post(
-					self.BASE_API,
+					self.api_url,
 					headers=self.headers,
 					json=payload,
 					timeout=60
@@ -389,6 +413,51 @@ def process_file(file_path: Path, claude_client: ClaudeClient) -> bool:
 		logger.error(f"Error processing file {file_path}: {str(e)}")
 		return False
 
+DOCS = os.path.join("src", "content", "docs")
+SKIP_PREFIX = "src/content/docs/pro/changelog/"
+SKIP_FILES = {"src/content/docs/404.mdx"}
+DEFAULT_MAX_PAGES = 10
+
+
+class CannotRun(Exception):
+	"""Exit 2. Nothing has been written when this is raised."""
+
+
+def lacks_description(metadata) -> bool:
+	"""True when the front matter has no usable description: none, null, blank, or not text."""
+	if "description" not in metadata:
+		return True
+	value = metadata.get("description")
+	return not isinstance(value, str) or not value.strip()
+
+
+def pages_lacking_description(root: str) -> list:
+	"""Repository-relative paths of every eligible page lacking a description, sorted.
+	Raises CannotRun when there is no docs tree or a page's front matter cannot be read."""
+	base = os.path.join(root, DOCS)
+	if not os.path.isdir(base):
+		raise CannotRun(f"no {DOCS} under {root}")
+	lacking, unreadable, seen = [], [], 0
+	for folder, _, files in os.walk(base):
+		for name in files:
+			full = os.path.join(folder, name)
+			rel = os.path.relpath(full, root).replace(os.sep, "/")
+			if not rel.endswith(".mdx") or rel.startswith(SKIP_PREFIX) or rel in SKIP_FILES:
+				continue
+			seen += 1
+			try:
+				if lacks_description(frontmatter.load(full).metadata):
+					lacking.append(rel)
+			except Exception as e:
+				unreadable.append(f"{rel}: {e}")
+	if unreadable:
+		raise CannotRun("front matter could not be read:\n  " + "\n  ".join(unreadable))
+	if seen == 0:
+		raise CannotRun(f"found no pages under {base}")
+	logger.info(f"{seen} pages read, {len(lacking)} lack a description.")
+	return sorted(lacking)
+
+
 # The cases the self-test must run. Asserted as a SET, not just a pass/fail, because a
 # battery that quietly stops testing something keeps printing green while getting weaker.
 # Same reasoning as REQUIRED_RULE_IDS in ai-tell-check.py: adding a case needs a fixture,
@@ -403,10 +472,19 @@ REQUIRED_SELF_TEST_CASES = frozenset({
 	"text-after-thinking-block",
 	"no-text-block-is-failure",
 	"blank-text-block-is-failure",
+	"reconcile-writes-missing-description",
+	"reconcile-blank-null-and-template-count-as-missing",
+	"reconcile-never-overwrites-existing",
+	"reconcile-skips-changelog-and-404",
+	"reconcile-second-run-changes-nothing",
+	"reconcile-cap-per-run",
+	"reconcile-api-failure-writes-nothing",
+	"reconcile-failure-names-the-page",
+	"reconcile-dry-run-writes-nothing",
 })
 
 
-def _self_test() -> int:
+def _self_test(target: str) -> int:
 	"""Prove the description post-processor goes RED and GREEN.
 
 	Three RED arms feed it a banned character and require none back. One GREEN arm feeds
@@ -461,6 +539,11 @@ def _self_test() -> int:
 	r = extract_snippet_text({"content": [thinking, {"type": "text", "text": "  "}]})
 	check("blank-text-block-is-failure", r is None, r)
 
+	# Whole-tree reconcile (owner decision 218). These drive the CLI of `target`, against a fake
+	# Messages API on 127.0.0.1, so the real request code runs and the same cases can be pointed
+	# at an older copy of this script to see which of them it fails.
+	_reconcile_cases(target, check)
+
 	missing = REQUIRED_SELF_TEST_CASES - seen
 	unexpected = seen - REQUIRED_SELF_TEST_CASES
 	if missing or unexpected:
@@ -475,56 +558,179 @@ def _self_test() -> int:
 	return 0
 
 
-def main():
-	# Checked before argparse: --self-test takes no API key and no file list.
-	if '--self-test' in sys.argv:
-		return _self_test()
+def _reconcile_cases(target, check):
+	import subprocess
+	import tempfile
+	import threading
+	from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-	parser = argparse.ArgumentParser(description='Generate and update snippets for MDX files using Claude API')
-	parser.add_argument('--files', type=str, required=True, help='Newline-separated list of files')
-	parser.add_argument('--dir', type=str, required=True, help='Base directory path')
-	parser.add_argument('--token', type=str, required=True, help='Claude API key')
-	parser.add_argument('--prompt', type=str, required=True)
+	generated = "Tallyfy self-test description for a page that had none."
+	state = {"calls": 0, "fail": False}
+
+	class FakeMessages(BaseHTTPRequestHandler):
+		def log_message(self, *a):
+			pass
+
+		def do_POST(self):
+			self.rfile.read(int(self.headers.get("Content-Length") or 0))
+			state["calls"] += 1
+			if state["fail"]:
+				code, body = 500, {"type": "error", "error": {"type": "api_error"}}
+			else:
+				code, body = 200, {"content": [{"type": "text", "text": generated}], "stop_reason": "end_turn"}
+			data = json.dumps(body).encode()
+			self.send_response(code)
+			self.send_header("Content-Type", "application/json")
+			self.send_header("Content-Length", str(len(data)))
+			self.end_headers()
+			self.wfile.write(data)
+
+	server = ThreadingHTTPServer(("127.0.0.1", 0), FakeMessages)
+	threading.Thread(target=server.serve_forever, daemon=True).start()
+	api = f"http://127.0.0.1:{server.server_address[1]}/v1/messages"
+	prompt = base64.b64encode(b"You write page descriptions.").decode()
+
+	def page(root, rel, front, body="Body.\n"):
+		path = os.path.join(root, rel)
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		with open(path, "w", encoding="utf-8") as fh:
+			fh.write("---\n" + front + "---\n\n" + body)
+
+	def run(root, *extra):
+		r = subprocess.run([sys.executable, target, f"--dir={root}", "--token=self-test",
+		                    f"--prompt={prompt}", f"--api-url={api}", *extra],
+		                   capture_output=True, text=True)
+		return r.returncode, r.stdout + r.stderr
+
+	def desc(root, rel):
+		return frontmatter.load(os.path.join(root, rel)).get("description")
+
+	def snapshot(root):
+		out = {}
+		for folder, _, files in os.walk(root):
+			for name in files:
+				with open(os.path.join(folder, name), "rb") as fh:
+					out[os.path.join(folder, name)] = fh.read()
+		return out
+
+	try:
+		with tempfile.TemporaryDirectory() as tmp:
+			d = os.path.join(tmp, "repo")
+			page(d, "src/content/docs/pro/none.mdx", "title: None\n")
+			page(d, "src/content/docs/pro/blank.mdx", "description: '   '\ntitle: Blank\n")
+			page(d, "src/content/docs/pro/null.mdx", "description:\ntitle: Null\n")
+			page(d, "src/content/docs/pro/template.mdx", "description: [AI-generated comprehensive description]\ntitle: T\n")
+			page(d, "src/content/docs/pro/has.mdx", "description: An author wrote this one.\ntitle: Has\n")
+			page(d, "src/content/docs/pro/changelog/2026/c.mdx", "title: C\n")
+			page(d, "src/content/docs/404.mdx", "title: N\n")
+			before = snapshot(d)
+			rc, out = run(d)
+			check("reconcile-writes-missing-description",
+			      rc == 0 and desc(d, "src/content/docs/pro/none.mdx") == generated, (rc, out[-300:]))
+			got = [desc(d, f"src/content/docs/pro/{n}.mdx") for n in ("blank", "null", "template")]
+			check("reconcile-blank-null-and-template-count-as-missing", got == [generated] * 3, got)
+			has = os.path.join(d, "src/content/docs/pro/has.mdx")
+			check("reconcile-never-overwrites-existing", snapshot(d)[has] == before[has],
+			      desc(d, "src/content/docs/pro/has.mdx"))
+			after = snapshot(d)
+			check("reconcile-skips-changelog-and-404",
+			      all(after[os.path.join(d, p)] == before[os.path.join(d, p)]
+			          for p in ("src/content/docs/pro/changelog/2026/c.mdx", "src/content/docs/404.mdx")), "changed")
+			calls = state["calls"]
+			rc, out = run(d)
+			check("reconcile-second-run-changes-nothing",
+			      rc == 0 and snapshot(d) == after and state["calls"] == calls, (rc, state["calls"] - calls))
+
+		with tempfile.TemporaryDirectory() as tmp:
+			d = os.path.join(tmp, "repo")
+			for i in range(3):
+				page(d, f"src/content/docs/pro/p{i}.mdx", "title: P\n")
+			rc, out = run(d, "--max-pages=2")
+			got = [desc(d, f"src/content/docs/pro/p{i}.mdx") for i in range(3)]
+			check("reconcile-cap-per-run",
+			      rc == 0 and got == [generated, generated, None] and "1 more page(s) lack a description" in out,
+			      (rc, got))
+
+		with tempfile.TemporaryDirectory() as tmp:
+			d = os.path.join(tmp, "repo")
+			page(d, "src/content/docs/pro/none.mdx", "title: None\n")
+			before = snapshot(d)
+			state["fail"] = True
+			rc, out = run(d)
+			state["fail"] = False
+			check("reconcile-api-failure-writes-nothing", rc == 1 and snapshot(d) == before, rc)
+			check("reconcile-failure-names-the-page",
+			      "::error file=src/content/docs/pro/none.mdx::No description could be written" in out,
+			      out[-300:])
+			calls = state["calls"]
+			rc, out = run(d, "--dry-run")
+			check("reconcile-dry-run-writes-nothing",
+			      rc == 0 and snapshot(d) == before and state["calls"] == calls and "1 lack a description" in out,
+			      (rc, out[-200:]))
+	finally:
+		server.shutdown()
+
+
+def main():
+	# Checked before argparse: --self-test takes no API key and no tree.
+	if '--self-test' in sys.argv:
+		argv = sys.argv[1:]
+		target = os.path.abspath(__file__)
+		if '--target' in argv and argv.index('--target') + 1 < len(argv):
+			target = os.path.abspath(argv[argv.index('--target') + 1])
+		return _self_test(target)
+
+	parser = argparse.ArgumentParser(description='Write a description for every page that lacks one, using the Claude API')
+	parser.add_argument('--dir', type=str, required=True, help='Repository root (the folder holding src/content/docs)')
+	parser.add_argument('--token', type=str, help='Claude API key')
+	parser.add_argument('--prompt', type=str, help='System prompt, base64')
+	parser.add_argument('--max-pages', type=int, default=DEFAULT_MAX_PAGES)
+	parser.add_argument('--dry-run', action='store_true')
+	parser.add_argument('--api-url', type=str, default=None, help=argparse.SUPPRESS)
 
 	args = parser.parse_args()
+	if args.max_pages < 1 or (not args.dry_run and not (args.token and args.prompt)):
+		logger.error("CANNOT RUN: pass --token and --prompt (or --dry-run), and --max-pages of 1 or more")
+		return 2
 
-	# Validate directory
-	base_dir = Path(args.dir)
-	if not base_dir.is_dir():
-		logger.error(f"Invalid directory path: {args.dir}")
-		return 1
+	try:
+		lacking = pages_lacking_description(os.path.abspath(args.dir))
+	except CannotRun as e:
+		print(f"::error::generate-snippets could not run, so nothing was written: {e}", flush=True)
+		return 2
+
+	todo, later = lacking[:args.max_pages], lacking[args.max_pages:]
+	for rel in todo:
+		logger.info(f"  lacks a description: {rel}")
+	if later:
+		print(f"::warning::{len(later)} more page(s) lack a description and wait for a later run "
+		      f"(cap {args.max_pages} per run). First: {later[0]}", flush=True)
+	if args.dry_run or not todo:
+		logger.info(f"{'DRY RUN: would write' if args.dry_run else 'Nothing to write:'} {len(todo)} description(s) this run.")
+		return 0
 
 	try:
 		system_prompt = base64.b64decode(args.prompt).decode('utf-8')
 	except Exception as e:
 		logger.error(f"Failed to decode prompt: {str(e)}")
-		return 1
+		return 2
 
-	claude_client = ClaudeClient(args.token, system_prompt)
-
-	# Process files
-	skip_list = {"src/content/docs/404.mdx"}
-	files = [f.strip() for f in str(args.files).split('\n') if f.strip()]
-
+	claude_client = ClaudeClient(args.token, system_prompt, api_url=args.api_url)
 	success_count = 0
-	for file_name in files:
-		if file_name.startswith("src/content/docs/pro/changelog") or not file_name.endswith('.mdx') or file_name in skip_list:
-			logger.warning(f"Skipping file: {file_name}")
+	for rel in todo:
+		if process_file(Path(args.dir) / rel, claude_client):
 			success_count += 1
-			continue
+		else:
+			# Named on its own line so the run's summary says which page blocks it and how to
+			# clear it. The run still fails, because writing nothing for a page whose description
+			# is null or a list would break the support-docs build (Starlight's schema wants a
+			# string or no key), and this page is retried on every run until it has one.
+			print(f"::error file={rel}::No description could be written for {rel}. "
+			      f"Write one by hand in its front matter; this job never overwrites an existing description.",
+			      flush=True)
 
-		file_path = base_dir / file_name
-		if not file_path.is_file():
-			logger.warning(f"File not found: {file_path}")
-			continue
-
-		if process_file(file_path, claude_client):
-			success_count += 1
-
-	total_files = len([f for f in files if f.endswith('.mdx') and f not in skip_list])
-	logger.info(f"Processing complete. Successfully processed {success_count} out of {total_files} files.")
-
-	return 0 if success_count == total_files else 1
+	logger.info(f"Processing complete. Wrote {success_count} of {len(todo)} description(s) this run.")
+	return 0 if success_count == len(todo) else 1
 
 if __name__ == "__main__":
 	exit(main())

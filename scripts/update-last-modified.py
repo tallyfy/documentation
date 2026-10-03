@@ -18,6 +18,13 @@ more than formatting. Pipeline bot commits ("GitHub Action", any "[bot]"
 author) are skipped, and so is a commit whose only change to the page is
 whitespace or the lastUpdated line itself. A page with no such commit keeps the
 lastUpdated it has.
+
+Owner decision 217 (2026-10-03): content commits by tallyfy-workhorse[bot]
+count, because it lands content pull requests a person reviewed. Every other
+bot stays out, which now includes two identities the filter used to read as
+people: "GitHub Actions Bot", the identity the pipeline's sync job commits as
+(tallyfy/work-queue#3544), and "Cursor Agent". A formatting-only or
+lastUpdated-only commit still never counts, whoever made it.
 """
 
 import os
@@ -51,12 +58,39 @@ def parse_git_date(git_date):
 # "GitHub Action" (action@github.com), and GitHub Apps commit as "<name>[bot]". Measured
 # 2026-10-02 on src/content/docs history: 1,043 commits by "GitHub Action", mostly "Push
 # related articles", and 4 by "tallyfy-workhorse[bot]" in the newest 400.
-BOT_AUTHOR_NAMES = {"github action", "github-actions"}
-BOT_AUTHOR_EMAILS = {"action@github.com"}
+#
+# "github actions bot" is the sync job's identity ("Commit and push changes" in
+# documentation-pipeline.yml, email `<>`). It has 6 commits on staging, and one of them,
+# 2d1ce39bd on 2026-02-25, touches src/content/docs, which no rule above caught
+# (tallyfy/work-queue#3544).
+# "Cursor Agent" (cursoragent@cursor.com) is an AI agent that committed once, b469a2bbf on
+# 2026-05-12, and carries no "[bot]" suffix. Measured 2026-10-03: it sets no page's date today,
+# because both pages it touched have a later person edit.
+BOT_AUTHOR_NAMES = {"github action", "github-actions", "github actions bot", "cursor agent"}
+BOT_AUTHOR_EMAILS = {"action@github.com", "cursoragent@cursor.com"}
+
+# The one app whose commits DO count (owner decision 217, 2026-10-03). tallyfy-workhorse[bot]
+# lands content pull requests that a person reviewed, so its content edits are authored
+# changes. Matched on the name and on GitHub's noreply address for an app,
+# "<app user id>+tallyfy-workhorse[bot]@users.noreply.github.com". Measured 2026-10-03: four
+# commits in src/content/docs history, all as 322529570+tallyfy-workhorse[bot]@... Every other
+# "[bot]" author stays excluded.
+COUNTED_APP_NAME = "tallyfy-workhorse[bot]"
+COUNTED_APP_EMAIL_SUFFIX = "+tallyfy-workhorse[bot]@users.noreply.github.com"
+
+
+def is_counted_app(name, email):
+    """True for tallyfy-workhorse[bot], the one app whose content commits count."""
+    n = (name or "").strip().lower()
+    e = (email or "").strip().lower()
+    return n == COUNTED_APP_NAME and e.endswith(COUNTED_APP_EMAIL_SUFFIX)
 
 
 def is_bot_author(name, email):
-    """True when a commit's author is a pipeline or app bot rather than a person."""
+    """True when a commit's author is a pipeline or app bot whose commits never set a
+    page's date. tallyfy-workhorse[bot] is not one of them (owner decision 217)."""
+    if is_counted_app(name, email):
+        return False
     n = (name or "").strip().lower()
     e = (email or "").strip().lower()
     return n in BOT_AUTHOR_NAMES or n.endswith("[bot]") or e in BOT_AUTHOR_EMAILS
@@ -331,7 +365,11 @@ def self_test():
     # then a later commit that must NOT move the date. Against the old `git log -1` every one
     # of these pages takes the later date, so each arm can fail.
     bot = ("GitHub Action", "action@github.com")
-    app = ("tallyfy-workhorse[bot]", "123+tallyfy-workhorse[bot]@users.noreply.github.com")
+    # Any app other than tallyfy-workhorse[bot]. Until decision 217 this case used workhorse.
+    app = ("google-labs-jules[bot]", "161369871+google-labs-jules[bot]@users.noreply.github.com")
+    workhorse = ("tallyfy-workhorse[bot]", "322529570+tallyfy-workhorse[bot]@users.noreply.github.com")
+    sync_bot = ("GitHub Actions Bot", "")
+    cursor = ("Cursor Agent", "cursoragent@cursor.com")
     person = ("A Person", "person@example.com")
     with tempfile.TemporaryDirectory() as tmp:
         _git(tmp, 'init', '-q')
@@ -355,6 +393,38 @@ def self_test():
         commit('edit.mdx', head + "First, then edited by a person.\n\n## Related articles\n- x\n", "2026-09-24T12:00:00+00:00", person)
         commit('onlybot.mdx', head + "Generated.\n", "2026-09-16T12:00:00Z", bot)
 
+        # Owner decision 217 (2026-10-03). Every page below starts with a person's edit on
+        # 2026-09-10, so the filter before decision 217, which skipped workhorse and counted
+        # "GitHub Actions Bot", answers wrongly on each of them.
+        commit('wh.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('wh.mdx', head + "Corrected by workhorse.\n", "2026-09-17T13:09:31-05:00", workhorse)
+        # A workhorse content edit, then a workhorse rewrap and a person's lastUpdated-only
+        # commit, neither of which may move the date. A fix that trusted workhorse without
+        # the formatting rule would answer 2026-09-25 here.
+        commit('wh-format.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('wh-format.mdx', head + "Corrected by workhorse, one line.\n", "2026-09-20T12:00:00+00:00", workhorse)
+        commit('wh-format.mdx', head + "Corrected by workhorse,\none line.\n\n", "2026-09-25T12:00:00+00:00", workhorse)
+        commit('wh-format.mdx', head.replace("2020-01-01", "2026-09-20") + "Corrected by workhorse,\none line.\n\n",
+               "2026-09-26T12:00:00+00:00", person)
+        # A workhorse content edit, then content edits by another app and by the pipeline bot,
+        # neither of which may move the date. A fix that counted every "[bot]" would answer
+        # 2026-09-25 here.
+        commit('wh-others.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('wh-others.mdx', head + "Corrected by workhorse.\n", "2026-09-20T12:00:00+00:00", workhorse)
+        commit('wh-others.mdx', head + "Corrected by workhorse, then another app.\n", "2026-09-25T12:00:00Z", app)
+        commit('wh-others.mdx', head + "Corrected by workhorse, then another app.\n\n## Related articles\n- x\n",
+               "2026-09-26T12:00:00Z", bot)
+        # The sync job's identity, "GitHub Actions Bot" with an empty email (work-queue#3544).
+        commit('syncbot.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('syncbot.mdx', head + "Written by a person, then merged by sync.\n", "2026-09-20T12:00:00Z", sync_bot)
+        # An AI agent with no "[bot]" suffix is still a bot (decision 217: other bots stay out).
+        commit('cursor.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('cursor.mdx', head + "Written by a person, then an agent.\n", "2026-09-20T12:00:00Z", cursor)
+        # Someone else naming themselves tallyfy-workhorse[bot] is not the app.
+        commit('wh-impostor.mdx', head + "Written by a person.\n", "2026-09-10T12:00:00+00:00", person)
+        commit('wh-impostor.mdx', head + "Not the app.\n", "2026-09-20T12:00:00Z",
+               ("tallyfy-workhorse[bot]", "someone@example.com"))
+
         def date_of(page):
             return get_git_last_modified(str(Path(tmp, page)))
 
@@ -362,8 +432,26 @@ def self_test():
         case("a pipeline bot commit after a person's edit does not move the date",
              got == "2026-09-10", f"got {got}")
         got = date_of('app.mdx')
-        case("an app '[bot]' commit after a person's edit does not move the date",
+        case("an app '[bot]' commit (not workhorse) after a person's edit does not move the date",
              got == "2026-09-11", f"got {got}")
+        got = date_of('wh.mdx')
+        case("217: a tallyfy-workhorse[bot] content edit moves the date to its own date",
+             got == "2026-09-17", f"got {got}")
+        got = date_of('wh-format.mdx')
+        case("217: a workhorse rewrap and a lastUpdated-only commit after it do not move the date",
+             got == "2026-09-20", f"got {got}")
+        got = date_of('wh-others.mdx')
+        case("217: other apps and the pipeline bot after a workhorse edit do not move the date",
+             got == "2026-09-20", f"got {got}")
+        got = date_of('syncbot.mdx')
+        case("3544: a 'GitHub Actions Bot' commit with an empty email does not move the date",
+             got == "2026-09-10", f"got {got}")
+        got = date_of('cursor.mdx')
+        case("217: a 'Cursor Agent' commit, a bot with no '[bot]' suffix, does not move the date",
+             got == "2026-09-10", f"got {got}")
+        got = date_of('wh-impostor.mdx')
+        case("217: the workhorse name with some other email is not the app, so it does not count",
+             got == "2026-09-10", f"got {got}")
         got = date_of('wrap.mdx')
         case("a person's whitespace-only rewrap does not move the date",
              got == "2026-09-12", f"got {got}")
