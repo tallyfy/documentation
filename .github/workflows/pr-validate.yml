@@ -62,12 +62,17 @@ jobs:
       # branch after it. Read-only: each self-test works in a temporary directory, and
       # --check-wiring only parses the workflow files. pyyaml comes from the lint step above.
       # update-last-modified imports frontmatter at module level, so its self-test needs it.
+      # The three whole-tree reconcile scripts (owner decision 218, #296) need requests too, and
+      # their self-tests talk only to a fake API they start on 127.0.0.1.
       - name: "Pipeline script self-tests (#296, #295)"
         run: |
-          python -m pip install --upgrade python-frontmatter
+          python -m pip install --upgrade python-frontmatter requests
           python scripts/pipeline-guard.py --self-test
           python scripts/pipeline-guard.py --check-wiring
           python scripts/update-last-modified.py --self-test
+          python scripts/generate-ids.py --self-test
+          python scripts/generate-snippets.py --self-test
+          python scripts/check-deleted-files.py --self-test
         shell: bash
 
       # A prose ` -- ` renders as an em dash today, which the writing rules ban,

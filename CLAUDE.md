@@ -672,10 +672,11 @@ npm install                    # Install dependencies
 npm run dev                   # Start development server
 
 # Content Automation (Python scripts)
-python scripts/generate-snippets.py --files [files] --dir [directory] --token [api-key] --prompt [base64-prompt]
+python scripts/generate-ids.py --dir [repo root] [--dry-run]       # Give every page lacking one an id (whole tree, #296)
+python scripts/generate-snippets.py --dir [repo root] --token [api-key] --prompt [base64-prompt] [--dry-run]   # Description for every page lacking one
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
-python scripts/check-deleted-files.py --dir [directory]
+python scripts/check-deleted-files.py --dir [repo root] --collection_name tyfy --answers_api_key [key] --base_url [answers url] [--dry-run]   # Remove index entries whose page is gone
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
@@ -740,6 +741,9 @@ This validates frontmatter, imports, and related articles sections.
        `git diff-tree --diff-filter=A`, so it sees NEWLY ADDED articles and nothing else. Edit
        an existing article's description to 500 characters and no check anywhere will object.
        The corpus proves it: **5 articles sit above 350 today**, the longest at 402.
+       Dated 2026-10-03 (owner decision 218, #296): the generator no longer takes a `--files`
+       list. It reads the whole tree and writes a description only where a page has none, so it
+       still never touches an existing description, and a human edit is still unchecked.
      - **Why 200 rather than 150**: 150 was stated twice and justified nowhere, and the
        `post_process_description` docstring that carries it also promises to pad a short
        description, which that function does not do. 200 is what the generation prompt in
@@ -879,12 +883,12 @@ The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but aut
 
 | Pipeline step | Runs on | Trigger | What it changes | Safe to edit manually? |
 |---|---|---|---|---|
-| `generate-ids.yml` | staging only (new files arrive via merge to main) | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
+| `generate-ids.yml` | both branches (push to either) | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 50 pages per run | Adds an `id` to any page with none, an empty one, or the all-zero placeholder; never changes an existing id | No - auto-assigned |
 | `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
 | `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" below |
-| `generate-snippets` | **staging only** | New files only (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
+| `generate-snippets` | **staging only** | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 10 pages per run | Sets `description` on any page with none or a blank one | **Yes** - it never overwrites an existing description, a new page's included |
 | `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search) | Nothing in files (uploads to Answers API) | N/A |
-| `check-deleted-files` | main only | Every push (cleans deleted articles from prod Answers) | Nothing in files | N/A |
+| `check-deleted-files` | both branches | Every push: lists the branch's Answers index and deletes entries whose uid no page in the tree carries, since 2026-10-03 (owner decision 218, #296); at most 25 per run, refuses when more than a fifth of the index looks orphaned, reads each delete back | Nothing in files | N/A |
 | `update-last-modified` | **staging only** | Every push to staging | `lastUpdated` field from git history | No - always recalculated from git on staging |
 | `generate-related-articles` | **staging only** | Every push to staging | `## Related articles` section at bottom | No - fully regenerated on each staging run |
 | `sync` | both branches | Every push | Copies to support-docs (staging → staging branch, main → production branch) | N/A |
@@ -1409,6 +1413,7 @@ These patterns are effective when used intentionally with substance:
 **Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
 
 ⚠️ **Runs take turns now, and a third push can still drop work (#296).** Since #311 (2026-10-02), `documentation-pipeline.yml` and `generate-ids.yml` carry a concurrency group per branch with `cancel-in-progress: false`, so runs take turns. GitHub keeps one waiting run per group, so a third push while one run works and one waits drops the waiting one. Whole-tree jobs are covered by the next run, but `generate-ids`, `generate-snippets` and `check-deleted-files` lose that commit's work (#296 stays open for that case). Until it is decided, still prefer merging into `staging` one at a time.
+Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree on every run, with no stored state, so the run that replaces a dropped one does the dropped run's work. Read only before the change, staging held one page still on the all-zero placeholder id since 2026-01-15 (`pro/integrations/mcp-server/google-gemini/index.mdx`), the staging index held 3 entries for no page and the production index 1. A first run on the whole tree therefore had 1 id and 0 descriptions to write on staging, and 4 index deletes: the 3 orphans plus the placeholder page's old entry once that page has its id.
 
 **Deploying staging to production:**
 

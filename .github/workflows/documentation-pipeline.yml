@@ -25,10 +25,10 @@ on:
 #
 # cancel-in-progress is false so a running `sync` is never cut off part way. GitHub keeps only
 # one WAITING run per group, so a third push while one run works and one waits drops the
-# waiting one. Every job that reads the whole tree is covered by the run that takes its place,
-# whose tree contains the dropped push. generate-snippets and check-deleted-files act on the
-# triggering commit alone, so their work for a dropped run's commit is not redone (#296 tracks
-# it). Asserted by `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
+# waiting one. Every job reads the whole tree, so the run that takes its place covers it: since
+# owner decision 218 (2026-10-03, #296) that includes generate-snippets and check-deleted-files,
+# which until then acted on the triggering commit alone and lost a dropped run's work.
+# Asserted by `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
 concurrency:
   group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
@@ -176,26 +176,23 @@ jobs:
           python -m pip install --upgrade python-frontmatter requests
           python scripts/generate-snippets.py --self-test
         shell: bash
+      # The whole tree, not the pages this push added (owner decision 218, #296). A page with
+      # no description, or a blank one, gets one; an existing description is never overwritten;
+      # at most 10 pages per run, because each is one Claude API call.
       - name: Generate snippets script
         run: |
           if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
             echo "Skipping snippet generation on main — staging owns auto-regen (see #56). Files inherit from staging via merge."
             exit 0
           fi
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
-            git pull
-            python -m pip install --upgrade python-frontmatter requests
-            python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
-          else
-            echo "No new files added. Skipping snippet generation."
-          fi
+          git pull
+          python -m pip install --upgrade python-frontmatter requests
+          python scripts/generate-snippets.py --dir=$PWD --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
         shell: bash
       - name: Commit and push articles with snippets
         if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
+          if [[ -n $(git status --porcelain) ]]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
             git pull --no-rebase
@@ -207,7 +204,7 @@ jobs:
               echo "No changes to commit after git pull"
             fi
           else
-            echo "No files changed. Skipping snippet generation."
+            echo "No page lacks a description. Nothing to commit."
           fi
     outputs:
       generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
@@ -240,44 +237,58 @@ jobs:
       upload-to-tallyfy-answers-completed: ${{ steps.upload-to-tallyfy-answers.outcome }}
 
   check-deleted-files:
-    # Runs on BOTH branches so the staging index is pruned too (previously main-only, which
-    # let the staging index accumulate removed docs). It deletes ONLY index objects whose
-    # source .mdx was removed in this commit (diff-filter=D), so it is safe on staging and
-    # cannot nuke valid docs. Targets the branch-correct Answers API via --base_url, exactly
-    # like upload-to-tallyfy-answers: staging branch -> staging Answers, main -> prod Answers.
+    # Runs on BOTH branches, each against its own Answers index: staging -> staging Answers,
+    # main -> prod Answers, exactly like upload-to-tallyfy-answers.
+    #
+    # Whole tree, every run (owner decision 218, 2026-10-03, #296). It lists the index and
+    # deletes the entries whose uid no page in the tree carries, so a page deleted in a push
+    # whose run was dropped, or whose id changed, still leaves search. It used to read one
+    # commit's deletions (diff-filter=D) and lost exactly those. Measured read only that day:
+    # 3 such entries in the staging index, 1 in production. At most 25 deletes per run; more
+    # orphans than a fifth of the index deletes nothing and fails, because a wrong tree would
+    # make every entry look orphaned. Each delete is read back.
     needs: upload-to-tallyfy-answers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-          # The exact promoted commit, not the branch tip: this job diffs that commit, and a
-          # commit missing from a depth-2 checkout makes `git diff-tree` fail, which the
-          # `|| true` below would otherwise launder into "nothing was deleted".
-          ref: ${{ github.event.workflow_run.head_sha }}
+          # The branch TIP, the tree upload-to-tallyfy-answers just indexed (it checks out
+          # head_branch and pulls). Judging the index against an older tree would delete the
+          # entries of pages added since, and the next upload would put them straight back.
+          ref: ${{ github.event.workflow_run.head_branch }}
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Check deleted files
+      # The script comes from the authoring branch, like the publish guard in `sync`. A
+      # workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run for main
+      # this step exists before main carries the new script; main's own copy takes
+      # --commit_sha and would fail every production run until the next promotion.
+      - name: Fetch the prune script from the authoring branch and prove it can refuse
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          AUTHORING_BRANCH: staging
         run: |
-          # Split the two exit codes apart. `git diff-tree` failing means we do not know what
-          # was deleted, and must not proceed as though nothing was; `grep` finding no .mdx
-          # legitimately means nothing was deleted. One `|| true` over the whole pipeline
-          # cannot tell those apart, and answers "nothing" to both.
-          deleted=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r "$HEAD_SHA")
-          file_changes=$(printf '%s\n' "$deleted" | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
-            python -m pip install --upgrade python-frontmatter requests
-            if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://answers.tallyfy.com
-            else
-              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
-            fi
-          else
-            echo "No files were deleted. Skipping ..."
-          fi
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:scripts/check-deleted-files.py" > "$RUNNER_TEMP/check-deleted-files.py"
+          test -s "$RUNNER_TEMP/check-deleted-files.py"
+          python -m pip install --upgrade python-frontmatter requests
+          python "$RUNNER_TEMP/check-deleted-files.py" --self-test
+        shell: bash
+      - name: Remove index entries whose page is gone
+        # Values through env, never straight into the shell line: workflow_run is a
+        # privileged trigger and head_branch is attacker-influenced input.
+        env:
+          ANSWERS_API_KEY: ${{ secrets.ANSWERS_API_KEY }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          case "$HEAD_BRANCH" in
+            main) base_url=https://answers.tallyfy.com ;;
+            staging) base_url=https://staging.answers.tallyfy.com ;;
+            *) echo "Branch $HEAD_BRANCH is neither main nor staging, so no index is judged against its tree."
+               exit 0 ;;
+          esac
+          python "$RUNNER_TEMP/check-deleted-files.py" --dir="$PWD" --collection_name=tyfy \
+            --answers_api_key="$ANSWERS_API_KEY" --base_url="$base_url"
+        shell: bash
 
 
   update-last-modified:
