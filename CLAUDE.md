@@ -176,7 +176,7 @@ Before committing any article, run:
 python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
 ```
 
-It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
+It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, as `ai-tell-check.py` does, and a run that scores no file exits 2 (#259). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
@@ -871,6 +871,7 @@ This repository uses a Python-based content automation system:
 3. **Related Articles**: `generate-related-articles.py` fetches cross-references via Answers API
 4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
 5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
+   - Dated 2026-10-02 (tallyfy/work-queue#3466): the date is the newest commit to the page that a person authored and that changed more than whitespace or the `lastUpdated` line. Pipeline bot commits ("GitHub Action", any `[bot]` author), such as the related articles refresh, never set it, and a page only bots have touched keeps its date. `--self-test` pins this.
 
 ### Pipeline behavior: what's safe to edit vs auto-generated
 
@@ -1407,7 +1408,7 @@ These patterns are effective when used intentionally with substance:
 
 **Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
 
-⚠️ **Merge into `staging` one at a time.** `documentation-pipeline.yml` has no `concurrency` group (#296, open), so two merges seconds apart start two pipelines that can finish out of order. Wait for the previous merge's pipeline, sync included, to finish before merging the next, until #296 is fixed.
+⚠️ **Runs take turns now, and a third push can still drop work (#296).** Since #311 (2026-10-02), `documentation-pipeline.yml` and `generate-ids.yml` carry a concurrency group per branch with `cancel-in-progress: false`, so runs take turns. GitHub keeps one waiting run per group, so a third push while one run works and one waits drops the waiting one. Whole-tree jobs are covered by the next run, but `generate-ids`, `generate-snippets` and `check-deleted-files` lose that commit's work (#296 stays open for that case). Until it is decided, still prefer merging into `staging` one at a time.
 
 **Deploying staging to production:**
 
@@ -1572,6 +1573,7 @@ issue (#88, #118).
 
   - **It committed.** support-docs `production` has a new `Sync docs from tallyfy/documentation` commit whose body carries a `Source commit: <sha>` trailer naming the documentation `main` tip the job checked out (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1' --jq '.[0].commit.message'`). Check your promotion is in it with `git merge-base --is-ancestor <promotion sha> <trailer sha>`, since another push to `main` can land before the job checks out. Then do step 2 for that commit.
   - **It printed `No changes to commit`.** Nothing the run would write differs from what `production` already carries, so there is no commit, no push and no Pages build. That is a correct no-op, not a failed deploy, and step 2 has nothing new to find: the newest deployment is the previous one. Confirm instead that the page you changed already serves the new content.
+  - **It printed `DO NOT PUBLISH:`** (since #311). The publish guard found a commit after the gated one that was not the pipeline's own generated commit, so this run published nothing and the run for that push publishes it. That is correct, not a failed deploy. Read it with `/usr/bin/grep -E 'Z (PUBLISH|DO NOT PUBLISH): ' "$LOG"`; a run that publishes prints `PUBLISH:` first.
 
   **PR #273 reached `main` on 2026-09-23, in the promotion PR #283 (`d4fab7fc`), so a production run can be a no-op again.** Before that, `main`'s copy of `scripts/promotion-hold-check.py`, which the `sync` job runs from its `main` checkout, wrote a per-promotion `# Source commit:` line into `promotion-holds.txt`. While that copy was on `main`, the file changed on every run, so every production run committed. The #283 sync, support-docs `5574fe3f`, removed the line, and the next production sync, `885bfba6` for promotion #294, did not touch the file. The `Source commit:` trailer on the sync commit comes from the workflow file, which a `workflow_run` workflow reads from the default branch, `staging`.
 
