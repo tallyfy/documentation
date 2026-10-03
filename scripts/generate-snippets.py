@@ -479,6 +479,7 @@ REQUIRED_SELF_TEST_CASES = frozenset({
 	"reconcile-second-run-changes-nothing",
 	"reconcile-cap-per-run",
 	"reconcile-api-failure-writes-nothing",
+	"reconcile-failure-names-the-page",
 	"reconcile-dry-run-writes-nothing",
 })
 
@@ -658,6 +659,9 @@ def _reconcile_cases(target, check):
 			rc, out = run(d)
 			state["fail"] = False
 			check("reconcile-api-failure-writes-nothing", rc == 1 and snapshot(d) == before, rc)
+			check("reconcile-failure-names-the-page",
+			      "::error file=src/content/docs/pro/none.mdx::No description could be written" in out,
+			      out[-300:])
 			calls = state["calls"]
 			rc, out = run(d, "--dry-run")
 			check("reconcile-dry-run-writes-nothing",
@@ -716,6 +720,14 @@ def main():
 	for rel in todo:
 		if process_file(Path(args.dir) / rel, claude_client):
 			success_count += 1
+		else:
+			# Named on its own line so the run's summary says which page blocks it and how to
+			# clear it. The run still fails, because writing nothing for a page whose description
+			# is null or a list would break the support-docs build (Starlight's schema wants a
+			# string or no key), and this page is retried on every run until it has one.
+			print(f"::error file={rel}::No description could be written for {rel}. "
+			      f"Write one by hand in its front matter; this job never overwrites an existing description.",
+			      flush=True)
 
 	logger.info(f"Processing complete. Wrote {success_count} of {len(todo)} description(s) this run.")
 	return 0 if success_count == len(todo) else 1
