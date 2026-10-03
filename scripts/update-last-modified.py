@@ -60,8 +60,9 @@ def parse_git_date(git_date):
 # related articles", and 4 by "tallyfy-workhorse[bot]" in the newest 400.
 #
 # "github actions bot" is the sync job's identity ("Commit and push changes" in
-# documentation-pipeline.yml, email `<>`). It committed into this repository once, as
-# 2d1ce39bd on 2026-02-25, and no rule above caught it (tallyfy/work-queue#3544).
+# documentation-pipeline.yml, email `<>`). It has 6 commits on staging, and one of them,
+# 2d1ce39bd on 2026-02-25, touches src/content/docs, which no rule above caught
+# (tallyfy/work-queue#3544).
 # "Cursor Agent" (cursoragent@cursor.com) is an AI agent that committed once, b469a2bbf on
 # 2026-05-12, and carries no "[bot]" suffix. Measured 2026-10-03: it sets no page's date today,
 # because both pages it touched have a later person edit.
