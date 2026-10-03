@@ -867,7 +867,7 @@ WIRING_EXEMPT = {
     "generate-snippets": "early-exits on main; writes only to staging",
     "update-last-modified": "early-exits on main; writes only to staging",
     "generate-related-articles": "early-exits on main; writes only to staging",
-    "check-deleted-files": "only removes Answers entries for files deleted in this commit; "
+    "check-deleted-files": "only removes Answers entries whose page is no longer in the tree; "
                            "cannot publish held content",
 }
 

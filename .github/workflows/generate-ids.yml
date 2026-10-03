@@ -31,8 +31,9 @@ on:
 # This workflow commits and pushes IDs to the branch, and its completion starts the pipeline,
 # so serializing it here also starts the pipeline runs in push order. cancel-in-progress is
 # false so a push of IDs is never cut off. GitHub keeps only one WAITING run per group, so a
-# third push while one run works and one waits drops the waiting one, and the pages that push
-# added keep the id they were written with (#296 tracks it). Asserted by
+# third push while one run works and one waits drops the waiting one. Since owner decision 218
+# (2026-10-03, #296) that loses nothing: generate-ids.py reads the whole tree on every run, so
+# the run that takes the dropped one's place gives its pages an id. Asserted by
 # `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
 concurrency:
   group: generate-ids-${{ github.ref }}
@@ -48,32 +49,31 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Generate IDs script
+      # The whole tree, not the pages this push added (owner decision 218, #296). A page that
+      # lacks an id, or still carries the all-zero placeholder, gets one; an existing id is
+      # never changed; at most 50 pages per run. The self-test runs first so the script proves
+      # it can go red before it writes anything.
+      - name: Give every page that lacks an id one
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
-            python -m pip install --upgrade python-frontmatter
-            python scripts/generate-ids.py --dir=$PWD --files="$file_changes"
-          else
-            echo "No new files added. Skipping ID generation."
-          fi
+          python -m pip install --upgrade python-frontmatter
+          python scripts/generate-ids.py --self-test
+          python scripts/generate-ids.py --dir=$PWD
         shell: bash
       - name: Commit and push new articles with IDs
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --no-renames --find-renames=0 --diff-filter=A -r ${{ github.sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
+          if [[ -n $(git status --porcelain) ]]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
             git pull --no-rebase
             git add .
             if git diff --cached --quiet; then
-              echo "No ID changes to commit (new files already had canonical IDs). Skipping commit so the pipeline can proceed."
+              echo "No ID changes to commit after git pull. Skipping commit so the pipeline can proceed."
             else
               git commit -m "Push Articles With ID(s)"
               git push
             fi
           else
-            echo "No new files added. Skipping ID generation."
+            echo "No page lacks an id. Nothing to commit."
           fi
     outputs:
       generate-ids-completed: ${{ steps.generate-ids.outcome }}
