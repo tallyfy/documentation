@@ -2285,6 +2285,10 @@ Before submitting documentation:
 - [ ] Prerequisites stated for complex procedures
 - [ ] Expected outcomes clearly defined
 
+## CI runners and pull requests (dated 2026-10-06)
+
+This repo is public. All its CI runs on GitHub-hosted runners and it sets no `CI_*` variable.
+
 ## PR Review Intelligence
 
 ### Code Change Minimization (ABSOLUTE PRIORITY)
