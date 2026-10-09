@@ -1,8 +1,8 @@
 ---
 about_tallyfy: false
-description: Connect Microsoft 365 Copilot to Tallyfy through API plugins and Azure
-  AD OAuth2. Copilot reads your emails, documents, and Teams data to trigger and manage
-  workflow automation.
+description: Use Tallyfy from Microsoft 365 Copilot by adding Tallyfy's MCP server
+  to a Copilot Studio agent. Copilot can then turn your emails, documents and meeting
+  notes into Tallyfy processes, tasks and templates.
 id: f17d7c54b99c95bf39bf7d52ee635fdb
 lastUpdated: 2026-03-22
 sidebar:
@@ -10,188 +10,39 @@ sidebar:
 title: Microsoft Copilot integration
 ---
 
-## What this integration does
+## Use Tallyfy from Microsoft Copilot
 
-Microsoft 365 Copilot can connect to Tallyfy through API plugins and enterprise OAuth2. This brings your Microsoft tools - emails, documents, Teams conversations, SharePoint data - into workflow automation while respecting your organization's security policies.
+Microsoft 365 Copilot connects to Tallyfy through Tallyfy's MCP server. You add the server to an agent in Copilot Studio once, publish the agent to Copilot and Teams, and from then on you can ask Copilot to work in Tallyfy for you.
+
+Copilot is good at reading messy material like emails, documents and meeting notes. Tallyfy keeps the process, the deadlines and the record of who did what.
 
 ### How it works
 
-The integration uses Microsoft's API plugin system with enterprise authentication:
+1. **Someone builds the agent once.** In Copilot Studio, they add Tallyfy's MCP server as a tool and choose Tallyfy sign-in.
+2. **Each person signs in with their Tallyfy account.** Copilot then works inside that person's Tallyfy permissions.
+3. **You ask in plain words.** The agent picks the right Tallyfy tool and does the work, in Copilot chat or in Teams.
 
-1. **API plugin deployment** - Install the Tallyfy plugin in your Microsoft 365 admin center
-2. **Azure AD authentication** - Single sign-on through your existing Microsoft identity
-3. **Graph API access** - Copilot reads your Microsoft 365 data with scoped permissions
-4. **Declarative agents** - Configure Copilot agents for specific workflow scenarios
+The exact steps, the admin settings and the known limits are in [Using Tallyfy MCP server with Microsoft Copilot Studio](/products/pro/integrations/mcp-server/microsoft-copilot-studio/).
 
-Copilot already knows your organization's context - who works on what, document history, communication patterns - so it's well-suited for enterprise workflows.
+### Things you can ask for
 
-### Authentication and security
+#### From an email
 
-Microsoft Copilot uses Azure AD OAuth2:
+Paste a contract request email into the chat and ask Copilot to start your contract process in Tallyfy, with the client name, value and deadline filled in from the email.
 
-**Authorization endpoint**: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`
-**Token endpoint**: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`
+#### From a document
 
-Enterprise security features apply automatically:
-- Conditional access policies
-- Multi-factor authentication
-- Sensitivity labels
-- Data loss prevention rules
-- Compliance boundaries
+Upload or paste a policy document or a process write-up and ask Copilot to build a Tallyfy template from it, with one step per task and the right form fields.
 
-### Using Microsoft 365 context
+#### From a meeting
 
-#### Email-driven automation
-Copilot can read Outlook emails to trigger workflows:
-```
-Scenario: Contract Request Email
-Copilot action: Detects contract request email, extracts requirements,
-creates Tallyfy process with pre-filled data, assigns to legal team,
-attaches relevant email thread.
-```
+Paste a meeting transcript or your notes and ask Copilot to update the matching Tallyfy tasks, or to create tasks for the action items with the dates people mentioned.
 
-#### Document intelligence
-Copilot can analyze SharePoint and OneDrive files:
-```
-Scenario: Policy Update Process
-Copilot action: Compares new policy version with previous, identifies
-changes, determines affected departments, generates summary for
-approval, creates review tasks for stakeholders.
-```
+### What you need
 
-#### Teams collaboration
-Copilot bridges Teams and Tallyfy:
-```
-Scenario: Project Kickoff
-Copilot action: Reads Teams meeting transcript, extracts action items,
-creates Tallyfy process with assigned tasks, sets deadlines from
-mentioned dates, links to Teams channel.
-```
-
-### Declarative agent configuration
-
-You can create specialized Copilot agents for your workflows:
-
-**Sales process agent**
-```yaml
-name: Sales Workflow Assistant
-instructions: |
-  Monitor sales emails for new opportunities.
-  Create opportunity processes in Tallyfy.
-  Pull customer data from Dynamics 365.
-  Generate proposals using SharePoint templates.
-knowledge:
-  - SharePoint: /sites/Sales/Templates
-  - Teams: Sales Team Channel
-actions:
-  - Create Tallyfy process
-  - Assign tasks by territory
-  - Generate documents
-```
-
-**HR operations agent**
-```yaml
-name: HR Process Manager
-instructions: |
-  Process employee requests from Forms.
-  Check policy documents for guidance.
-  Route approvals based on org chart.
-  Maintain compliance audit trail.
-knowledge:
-  - SharePoint: /sites/HR/Policies
-  - Teams: HR Support Channel
-actions:
-  - Create employee processes
-  - Route hierarchical approvals
-  - Generate HR documents
-```
-
-### Microsoft Graph API integration
-
-Copilot accesses your organization's data through Graph API:
-
-**Available data sources**:
-- User profiles and org hierarchy
-- Calendar availability and meeting details
-- Email content and attachments
-- SharePoint documents and lists
-- Teams messages and files
-- OneDrive files
-- Planner tasks
-
-**Example API calls**:
-```javascript
-// Get manager for approval routing
-GET https://graph.microsoft.com/v1.0/users/{id}/manager
-
-// Create Teams meeting for process review
-POST https://graph.microsoft.com/v1.0/me/onlineMeetings
-
-// Access SharePoint template
-GET https://graph.microsoft.com/v1.0/sites/{site}/drive/items/{id}
-```
-
-### Power Platform connectivity
-
-You can extend Copilot with Power Platform:
-
-- **Power Automate** - Trigger multi-system workflows, connect to 1000+ services, handle approvals
-- **Power Apps** - Embed custom forms in tasks, create mobile interfaces, access on-premises data
-- **Power BI** - Generate workflow analytics, create dashboards, track KPIs
-
-### Compliance and governance
-
-**Information protection**:
-- Sensitivity labels apply to generated content
-- Encryption for data at rest and in transit
-- Rights management for documents
-
-**Audit and monitoring**:
-- All Copilot actions logged in audit trail
-- Compliance center visibility
-- Alert policies for unusual activity
-- eDiscovery support
-
-**Data residency**:
-- Respects geographic boundaries
-- Complies with regional regulations
-- Supports government clouds
-
-### Performance tips
-
-- Cache frequently accessed data to reduce API calls
-- Batch Graph API requests where possible
-- Use delta queries for change detection
-- Implement webhook subscriptions for real-time updates
-- Respect Graph API throttling limits with exponential backoff
-
-### Troubleshooting
-
-**"Copilot can't access Tallyfy"**
-- Verify API plugin installation in admin center
-- Check Azure AD app permissions
-- Review conditional access policies
-- Ensure the user has a Copilot license
-
-**"Data isn't syncing correctly"**
-- Check Graph API permissions
-- Verify sensitivity labels allow access
-- Review data loss prevention rules
-
-### Licensing requirements
-
-- Microsoft 365 E3 or E5
-- Copilot for Microsoft 365 (check Microsoft for current pricing)
-- Tallyfy subscription
-- Optional: Power Platform licenses
-
-### Getting started
-
-1. **Admin setup** - Install Tallyfy API plugin from Microsoft admin center
-2. **Configure permissions** - Grant necessary Graph API and Tallyfy permissions
-3. **Create agent** - Build a declarative agent for your use case
-4. **Test integration** - Run a pilot with a single workflow
-5. **Roll out** - Deploy to all users with training
+- A Microsoft 365 Copilot license.
+- Access to Copilot Studio, or someone in your company who has it and can build the agent.
+- A Tallyfy account in a workspace where AI connections are turned on.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
