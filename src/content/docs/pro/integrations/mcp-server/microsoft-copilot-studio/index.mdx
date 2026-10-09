@@ -1,10 +1,10 @@
 ---
 about_tallyfy: true
-description: Connect Tallyfy's MCP server to Microsoft Copilot Studio through Power
-  Platform custom connectors. Automate workflows and manage processes via natural
-  language with enterprise security features like VNet isolation and DLP policies.
+description: Connect Tallyfy to Microsoft Copilot by adding Tallyfy's MCP server to
+  a Copilot Studio agent, signing in with your Tallyfy account, and publishing the
+  agent to Copilot and Teams, so people can build templates and update tasks by chatting.
 id: b52cf52fa43abd282cf4a12ac69313d2
-lastUpdated: 2026-09-12
+lastUpdated: 2026-10-09
 sidebar:
   order: 30
 title: Using Tallyfy MCP server with Microsoft Copilot Studio
@@ -12,41 +12,111 @@ title: Using Tallyfy MCP server with Microsoft Copilot Studio
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
-## Run your workflows from Microsoft Copilot Studio
+## Run your Tallyfy work from Microsoft Copilot
 
-Connect Tallyfy to Microsoft Copilot Studio and your team can run Tallyfy workflows by chatting with an AI agent. Ask an agent to start a process, assign tasks, or pull a status report, and it does the work in Tallyfy for you. If your company already runs on Microsoft tools, this fits right in.
+You can run Tallyfy by talking to Microsoft Copilot. Ask it to build a template from your own notes, update tasks after a meeting, or tell you which processes are running late, and it does the work in Tallyfy for you.
 
-Setup goes through a Power Platform custom connector, so it's more involved than a plug-and-play chat tool. Someone comfortable with Power Apps or Power Automate handles it once, then everyone uses it. The full steps are under [For developers](#for-developers).
+You set this up once in Copilot Studio, Microsoft's tool for building your own Copilot agent. After that, you and the people you share it with use the agent in Copilot chat and in Teams.
+
+The ordinary Copilot chat can't add Tallyfy on its own, because it has no place to type in an MCP[^1] server address. That's why setup goes through Copilot Studio.
 
 ### What you can do
 
-Once it's connected, you talk to a Copilot Studio agent and it handles Tallyfy for you. For example, you can:
+Some things people ask for:
 
-- **Split a process across several agents.** Onboard a new hire and let one agent handle the HR tasks, another the IT setup, and another the training schedule, all tracked in one Tallyfy process.
-- **Tie Tallyfy into the rest of your Microsoft tools.** Start a Tallyfy process when a new deal shows up in Dynamics 365, open a Teams channel for it, and report progress in Power BI.
-- **Run compliance and audit work.** Review this quarter's audit processes and generate a report in SharePoint, with anything that breaks the rules flagged for the compliance team.
-- **Find and fix bottlenecks.** Have an agent look across your processes, point out where work slows down, and suggest changes.
+- Paste a checklist from a Word document and ask for a new template with one step per item.
+- Paste your notes from a planning meeting and ask Copilot to add the steps the template is missing.
+- Paste a contractor's meeting notes and ask which tasks in the build process they've finished.
+- Ask which processes are running late this week, and who's holding them up.
+- Ask to move a task from one person to another while someone is away.
 
 ### What you need
 
-- A Microsoft Copilot Studio license (trial or paid).
-- A Tallyfy credential: either your Tallyfy API key from your organization settings, or a Tallyfy account to authorize through OAuth. The steps below use the API key, because it is the quicker of the two to wire up.
-- Access to Power Apps or Power Automate, to build the connector.
-- Generative Orchestration turned on in your Copilot Studio agent.
-- An environment in a region where this is available.
+- **Access to Copilot Studio.** Your IT team decides who can build agents there.
+- **A license that can publish.** The person who builds the agent needs a Microsoft 365 Copilot license, or a Copilot Studio user license with credits for the environment. Trial licenses can't publish an agent like this one, according to Microsoft's [licensing FAQ](https://learn.microsoft.com/en-us/microsoft-copilot-studio/faq-billing-licensing)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/faq-billing-licensing" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>.
+- **A Tallyfy account** in a workspace where AI connections are turned on. If they aren't, Tallyfy's sign-in page tells you so and gives you a ready-made email to ask Tallyfy support to add them.
 
-### Good to know
+### Set it up
 
-- **It takes real setup.** You connect through a Power Platform custom connector, so plan for someone who knows Power Apps or Power Automate to wire it up and test it.
-- **It costs more.** MCP needs Generative Orchestration, which is an add-on, and your monthly message limit depends on your plan (roughly 25,000 to 200,000 messages). Some features need their own Power Platform licenses too.
-- **It's region-limited.** MCP and some preview features aren't available everywhere yet, and data-residency rules may restrict where you can use it.
-- **Heavy security adds a little delay.** Extra protections like keeping traffic on a private network add a few milliseconds, and large result lists come back split into pages.
+<Steps>
+
+1. **Create an agent.** Open [Copilot Studio](https://copilotstudio.microsoft.com)<a href="https://copilotstudio.microsoft.com" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a>. On the home page, select **Other ways to build**, then create a new agent. If your screen shows a **New experience** switch instead, turn it off, open **Agents**, and select **Create blank agent**. A name like "Tallyfy assistant" works well.
+
+   **Other ways to build** gives you a standard agent, which is what these steps follow. The cards at the top of the home page build Microsoft's newer GitHub Copilot-based agents instead, which have different menus and different billing (see Microsoft's [Start building guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-first-bot)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-first-bot" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a> and the Cost section below).
+
+2. **Add Tallyfy as a tool.** On the agent's **Tools** page, select **Add a tool**, then **New tool**, then **Model Context Protocol**.
+
+3. **Fill in the server details.**
+
+   - **Server name**: `Tallyfy`
+   - **Server URL**: `https://mcp.tallyfy.com`
+   - **Server description**: paste the text below. Copilot reads it to decide when to use Tallyfy, so keep it specific.
+
+   ```text
+   Tallyfy runs our business processes. Use it to find, create and edit templates, steps, form fields and automation rules, to launch and track processes, and to read, complete or reassign tasks.
+   ```
+
+4. **Choose how to sign in.** Select **OAuth 2.0**[^2], then **Dynamic discovery**, then **Create**, then **Next**. Copilot finds Tallyfy's sign-in details by itself, so there's no key or secret to paste.
+
+5. **Connect your Tallyfy account.** In the **Add tool** box, select **Create a new connection**. A Tallyfy window opens. Sign in, pick your organization if you belong to more than one, and tick the permissions Copilot should have.
+
+   To let Copilot build and edit templates, tick **Create and manage your templates**. Tick **Create and manage form fields** and **Create and manage automation rules** too if you want it to add fields and rules. Then select **Authorize**, and back in Copilot Studio select **Add to agent**.
+
+6. **Keep each person's own sign-in.** In the Tallyfy tool's settings, leave **Authentication** on **End user**. That's Microsoft's default, and it means everyone who uses the agent signs in to Tallyfy as themselves. **Maker-provided** would make every user act as you.
+
+7. **Pick the tools you need.** Tallyfy offers more than 100 tools, and [Microsoft's tools guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent" rel="nofollow noopener noreferrer" target="_blank"><sup>[4]</sup></a> suggests keeping an agent to 25 to 30 tools for the best results. Every tool starts switched on. Turn off **Allow all**, then turn off each tool you don't need, so you're left with the ones for the job. For building templates, keep the tools in the **Templates and steps** section of [the tool list](/products/pro/integrations/mcp-server/tool-list/), which is about two dozen, and add a few form field tools if you want Copilot to add fields. Once **Allow all** is off, tools Tallyfy adds later start switched off.
+
+8. **Test it.** In the test chat, ask `List my templates in Tallyfy`. You should see your Tallyfy templates.
+
+9. **Put it in Copilot and Teams.** Select **Publish**. Then go to **Channels**, open **Teams and Microsoft Copilot**, make sure **Make agent available in Microsoft Copilot** is selected, and select **Add channel**. Then select **See agent in Teams** and **Add** to install it for yourself. This needs your organization to allow Power Platform apps in Teams; if **Add** fails, ask your Teams admin.
+
+10. **Share it with colleagues.** Select the three dots (**...**) at the top of the agent, select **Share**, add a security group, and choose **User - can use the agent** so they can chat with it without editing it. Microsoft's sharing guide lists what they need, as noted under **Sharing** in the IT section below. Then go back to **Channels** > **Teams and Microsoft Copilot**, select **Availability options**, select **Show to my teammates and shared users**, check that **Show in Built By Your Colleagues** is selected, and select **Update**. The people you shared it with will find it in the **Built with Power Platform** section of the Teams app store, or you can send them the install link from **Availability options** > **Copy link** (the link doesn't work in the Teams mobile app). Showing it to everyone in the company is a separate process with admin approval, covered in the publishing guide. Microsoft's [publishing guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams" rel="nofollow noopener noreferrer" target="_blank"><sup>[5]</sup></a> has the full details.
+
+</Steps>
+
+### If something goes wrong
+
+- **A Tallyfy page says AI connectors aren't on your plan.** AI connections aren't turned on for your Tallyfy workspace yet. Select **Email support to add it** on that page and Tallyfy support takes it from there.
+- **Tallyfy's permission screen says "Unverified third-party application".** You'll see this when you connect Copilot today, because Copilot Studio's sign-in address isn't on Tallyfy's list of known apps yet. Continue only if you started the connection yourself a moment ago, from Copilot Studio, Teams or Copilot.
+- **Copilot can read but won't change anything.** There are three usual causes. The Tallyfy sign-in it's using may lack the write permission, such as **Create and manage your templates**: remove that Tallyfy connection, sign in again and tick it. The tool it needs may be switched off in the agent's tool list. Or your own Tallyfy role may not allow the change, since Copilot can't do more than you can. If you didn't build the agent, ask the person who did.
+- **Publishing fails with a license message.** The builder is probably on a trial license. Ask your IT team for one of the licenses under **What you need**.
+- **The agent never calls Tallyfy.** MCP tools need generative orchestration, which is on by default for new agents. If you reused an older agent, check it's turned on in the agent's settings.
+- **Signing in or loading the tools fails inside Copilot Studio.** Check Microsoft's [MCP troubleshooting page](https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-troubleshooting)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-troubleshooting" rel="nofollow noopener noreferrer" target="_blank"><sup>[6]</sup></a>, then [contact Tallyfy support](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) with the time it failed and the error you saw.
 
 ### Is it secure?
 
-Yes. Two separate sign-ins are involved, and it helps to keep them apart. You get into Copilot Studio with your normal Microsoft account, and your IT team can add the same protections they use for any other Microsoft app: keeping traffic on a private network, blocking sensitive data from leaving, requiring a second sign-in step, and keeping full audit logs. Admins can see every connected agent in the Microsoft 365 admin center.
+Yes. Two separate sign-ins are involved. You get into Copilot Studio with your normal Microsoft account. Copilot then connects to Tallyfy with a separate **Tallyfy** sign-in. Copilot doesn't pass your Microsoft sign-in to Tallyfy, so you sign in to Tallyfy the way you normally do.
 
-The connector then authenticates to Tallyfy separately, with a **Tallyfy** credential. Your Microsoft account does not sign you in to Tallyfy. You can use either a Tallyfy API key or OAuth 2.1[^1]; see [Which credential to use](#which-credential-to-use) for the difference. The exact settings are under [For developers](#for-developers).
+Each person who uses the agent signs in with their own Tallyfy account, so Copilot works inside that person's Tallyfy permissions.
+
+## For your IT team
+
+*(Skip this unless you're setting up the technical side.)*
+
+### Keeping it to the people who need it
+
+The agent reaches only the people it's shared with, so you can start with one person and widen it later. A few settings decide who gets what:
+
+- **Data policies.** Copilot Studio reaches the Tallyfy server through a Power Platform connector, so your data policies apply to it, and blocking that connector blocks the Tallyfy tools ([Microsoft's data policy guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-data-loss-prevention)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-data-loss-prevention" rel="nofollow noopener noreferrer" target="_blank"><sup>[7]</sup></a>). If your policy's **Custom connectors** page tags the `*` pattern as Blocked, add a pattern for `https://mcp.tallyfy.com*` above it and tag it Business ([custom connector patterns](https://learn.microsoft.com/en-us/power-platform/admin/dlp-custom-connector-parity)<a href="https://learn.microsoft.com/en-us/power-platform/admin/dlp-custom-connector-parity" rel="nofollow noopener noreferrer" target="_blank"><sup>[8]</sup></a>). Business works only if the agent's other connectors are in the Business group too, because connectors in different groups can't share data.
+- **Sharing.** The agent's **Share** option gives named people or security groups access ([Microsoft's sharing guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-share-bots)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-share-bots" rel="nofollow noopener noreferrer" target="_blank"><sup>[9]</sup></a>). Listing it for the whole company in the Teams app store needs your admin's approval. The same guide says the people you share with need a Copilot Studio per user license and the Environment Maker role in the environment, which an environment administrator assigns. Check those before you widen access.
+
+### Cost
+
+Microsoft's [billing rates table](https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management)<a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management" rel="nofollow noopener noreferrer" target="_blank"><sup>[10]</sup></a> lists generative answers and agent actions, the features this setup uses, as "No charge" when a person with a Microsoft 365 Copilot license uses the agent under their own identity in Microsoft 365, such as in Teams or Copilot. People without that license use Copilot Credits, and so do agent flows started by other triggers. Check the conditions on that page for your tenant.
+
+That applies to standard agents, which step 1 creates. Microsoft's newer GitHub Copilot-based agents use consumption-based billing: building, testing and running them can use Copilot Credits that a Microsoft 365 Copilot license doesn't cover, according to Microsoft's [cost guide for those agents](https://learn.microsoft.com/en-us/power-platform/admin/manage-usage-github-copilot-harness)<a href="https://learn.microsoft.com/en-us/power-platform/admin/manage-usage-github-copilot-harness" rel="nofollow noopener noreferrer" target="_blank"><sup>[11]</sup></a>.
+
+To set a hard ceiling, open the Power Platform admin center, go to **Licensing** > **Copilot Studio** > **Manage Agents**, select the agent, select **Set limit**, enter a monthly credit limit, and turn on **Stop usage**. Without **Stop usage**, the limit only sends alerts. The list shows only agents that have incurred charges, so a new agent may not appear there yet. To cap a new agent before it appears there, give its environment a fixed amount of Copilot Credits under **Manage Copilot Credits** and turn off **Draw from the available capacity in my tenant**. If the environment is already linked to a pay-as-you-go billing plan, unlink it unless you've decided to use it. Microsoft's [credit limits guide](https://learn.microsoft.com/en-us/power-platform/admin/manage-copilot-studio-copilot-credits-capacity)<a href="https://learn.microsoft.com/en-us/power-platform/admin/manage-copilot-studio-copilot-credits-capacity" rel="nofollow noopener noreferrer" target="_blank"><sup>[12]</sup></a> and its cost guide for GitHub Copilot-based agents (linked above) walk through these settings.
+
+Copilot Cowork is a different product and is billed per use. This setup doesn't need it.
+
+On the Tallyfy side, AI connections have to be on your Tallyfy plan. If they aren't, the sign-in page offers Tallyfy's AI connector add-on and shows its price.
+
+### Data and compliance
+
+Copilot sends Tallyfy what each person asks about, and Tallyfy sends back what that person's account can see. Once data reaches Tallyfy, your agreement with Tallyfy covers it. Microsoft's [agent settings guide](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-settings)<a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-settings" rel="nofollow noopener noreferrer" target="_blank"><sup>[13]</sup></a> says data processed by non-Microsoft services isn't subject to Microsoft agreements. Tallyfy's security and compliance details are on the [compliance page](/products/pro/compliance/).
+
+Tallyfy doesn't block anyone from typing sensitive data into a form field or a comment. If you handle regulated data, decide what belongs in Tallyfy before you widen access.
 
 ## For developers
 
@@ -54,217 +124,30 @@ The connector then authenticates to Tallyfy separately, with a **Tallyfy** crede
 
 ### Server endpoint and support status
 
-The MCP server is hosted at `https://mcp.tallyfy.com/` and exposes the full Tallyfy tool set. It's listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy) as `com.tallyfy/mcp-server`. Copilot Studio connects to it over streamable HTTP.
+The MCP server is hosted at `https://mcp.tallyfy.com` and exposes the full Tallyfy tool set over streamable HTTP. `https://mcp.tallyfy.com/mcp` reaches the same server. It's listed on the [Official MCP Registry](https://registry.modelcontextprotocol.io/?q=tallyfy)<a href="https://registry.modelcontextprotocol.io/?q=tallyfy" rel="nofollow noopener noreferrer" target="_blank"><sup>[14]</sup></a> as `com.tallyfy/mcp-server`. The full list of tools is on [Every tool the MCP server gives your AI](/products/pro/integrations/mcp-server/tool-list/).
 
-Tallyfy is already a Microsoft Verified Publisher with a [Power Automate connector](https://learn.microsoft.com/en-us/connectors/tallyfy/) that's been live for years, so the MCP path is the natural next step for AI-driven workflow ops on the Microsoft stack. Direct MCP support inside Copilot Studio (skipping the custom-connector wrapper) is under active investigation with Microsoft.
+Tallyfy also has a [Power Automate connector](https://learn.microsoft.com/en-us/connectors/tallyfy/)<a href="https://learn.microsoft.com/en-us/connectors/tallyfy/" rel="nofollow noopener noreferrer" target="_blank"><sup>[15]</sup></a> listed by Microsoft. The MCP server is added through Copilot Studio's own MCP wizard, so you don't need to build a custom connector or write an OpenAPI file.
 
-MCP server support is generally available in Copilot Studio as of early 2026:
+### How sign-in works
 
-- **Transport**: Streamable HTTP only (SSE is deprecated)
-- **MCP resources**: Files and images supported in responses
-- **Enterprise features**: VNet integration, DLP, multiple auth methods
-- **Admin visibility**: MCP-enabled agents visible in M365 admin center
-- **Platform integration**: Native Power Platform connector infrastructure
-- **Prebuilt connectors**: GitHub, Asana, Jira, Dataverse, Dynamics 365, Microsoft Fabric
-- **Governance**: MCP governed by Agentic AI Foundation under Linux Foundation (December 2025); Microsoft is a founding member
+Copilot Studio's **Dynamic discovery** option reads Tallyfy's discovery documents, registers itself as a client, and runs the authorization code flow. You don't configure any of it by hand.
 
-### Which credential to use
+| Item | Value |
+|---|---|
+| Protected resource metadata | `https://mcp.tallyfy.com/.well-known/oauth-protected-resource` |
+| Authorization server metadata | `https://mcp.tallyfy.com/.well-known/oauth-authorization-server` |
+| Client registration | `https://mcp.tallyfy.com/mcp/oauth/register` |
+| Authorization | `https://mcp.tallyfy.com/mcp/oauth/authorize` |
+| Token | `https://mcp.tallyfy.com/mcp/oauth/token` |
+| Grant types | `authorization_code`, `refresh_token` |
+| PKCE | `S256`, required |
+| Client authentication | `none`, `client_secret_post`, `client_secret_basic` |
+| Access token lifetime | 1 hour |
+| Refresh token lifetime | 30 days |
 
-The server accepts **two** credentials, and both work today. Pick one and keep the whole connector consistent with it.
+The twelve scopes follow `mcp.{resource}.{action}`, with `read` and `write` for each of `users`, `tasks`, `processes`, `templates`, `forms` and `automation`. The person signing in chooses which ones to grant on Tallyfy's consent screen, whatever the client asked for. A normal MCP request with no valid bearer token gets `401` with a `WWW-Authenticate` header that points at the protected resource metadata.
 
-| | Tallyfy API key | OAuth 2.1 |
-|---|---|---|
-| How it travels | `Authorization: Bearer <your Tallyfy API key>` | `Authorization: Bearer <OAuth access token>` |
-| Connector security scheme | `apiKey`, header `Authorization`, prefix `Bearer ` | `oauth2`, authorization code flow with PKCE |
-| Setup effort | Low. Paste one value and test. | Higher. Register the connector against the authorization server first. |
-| Per-user identity | No. Every agent call acts as whoever owns the key. | Yes. Each person authorizes with their own Tallyfy account. |
-| Scoped permissions | No. The key carries the owner's full access. | Yes. Twelve scopes, in dot notation like `mcp.tasks.read` and `mcp.processes.write`. |
-| Revocation | Rotate the key in organization settings. | Revoke that user's grant. |
-| Best for | Getting a connector working, and single-owner automation. | Shared agents, and anywhere per-user audit trails or least privilege matter. |
-
-The steps below build the API key version, because it is the shortest path to a working connector. If you need per-user identity or scoped permissions, use OAuth instead. Discovery starts at `/.well-known/oauth-authorization-server` (per RFC 8414), which advertises `https://mcp.tallyfy.com/mcp/oauth/authorize` and `https://mcp.tallyfy.com/mcp/oauth/token`, with PKCE `S256`.
-
-Whichever you choose, an unauthenticated or invalid request is rejected with `401 invalid_token`. There is no anonymous access.
-
-### Prerequisites
-
-- Microsoft Copilot Studio license (trial or paid)
-- A Tallyfy API key from your organization settings, if you are following the steps below. For the OAuth route, a Tallyfy account to authorize with instead.
-- Power Apps or Power Automate access (for custom connectors)
-- Generative Orchestration enabled in your Copilot Studio agent
-- Environment in a supported region (check Microsoft docs for availability)
-
-### Set up the connector
-
-<Steps>
-
-1. **Connect to Tallyfy's MCP server**
-
-   Tallyfy provides a hosted MCP server at `https://mcp.tallyfy.com` that exposes tools for managing tasks, processes, templates, users, form fields, kickoff fields, automation, and more. You don't need to build your own MCP server - instead, you'll create a connector that points to Tallyfy's existing server.
-
-   These steps build the API key version of the connector. See [Which credential to use](#which-credential-to-use) if you need OAuth instead.
-
-2. **Create an OpenAPI specification**
-
-   Create a YAML file describing the MCP server for the Power Platform connector:
-
-   ```yaml
-   swagger: '2.0'
-   info:
-     title: Tallyfy MCP Server
-     description: MCP server for Tallyfy workflow management
-     version: 1.0.0
-   host: mcp.tallyfy.com
-   basePath: /
-   schemes:
-     - https
-   paths:
-     /mcp:
-       post:
-         summary: Tallyfy Workflow Management Server
-         x-ms-agentic-protocol: mcp-streamable-1.0
-         operationId: InvokeMCP
-         parameters:
-           - name: Authorization
-             in: header
-             required: true
-             type: string
-             description: Bearer token for authentication
-         responses:
-           '200':
-             description: Success
-   securityDefinitions:
-     apiKey:
-       type: apiKey
-       in: header
-       name: Authorization
-   ```
-
-3. **Create a custom connector in Power Apps**
-   
-   1. Navigate to your Copilot Studio agent
-   2. Go to **Tools** → **Add a tool** → **New tool** → **Custom connector**
-   3. In Power Apps, select **New custom connector** → **Import OpenAPI file**
-   4. Import your YAML specification and configure authentication
-
-4. **Configure authentication**
-   
-   In the connector configuration:
-   - Set authentication type to **API Key**
-   - Configure the header name as `Authorization`
-   - Set the prefix to `Bearer `
-   - Test the connection with your Tallyfy API key
-
-   A successful test returns the server's tool list. A wrong or missing credential returns `401 invalid_token`, so a green test really does mean the credential was accepted.
-
-   For OAuth instead, set the security scheme to `oauth2` with the authorization code flow, point it at the two endpoints listed under [Which credential to use](#which-credential-to-use), and request the scopes your agent needs. Tallyfy also publishes an authored Power Platform connector using OAuth, which is a useful reference if you go this route.
-
-5. **Add the MCP connector to your agent**
-   
-   Back in Copilot Studio:
-   1. Select **Tools** → **Add a tool** → **Model Context Protocol**
-   2. Choose your Tallyfy MCP connector from the list
-   3. Authorize the connection with your credentials
-   4. Select **Add to agent** or **Add and configure**
-
-6. **Configure DLP policies (optional)**
-   
-   For enterprise deployments:
-   1. Navigate to Power Platform Admin Center
-   2. Create DLP policies to control data flow
-   3. Apply policies to your Copilot Studio environment
-   4. Configure connector classifications (Business/Non-Business/Blocked)
-
-7. **Test the integration**
-
-   In your Copilot Studio agent, try queries like:
-   ```
-   "Find all open tasks assigned to the sales team"
-   "Show me overdue processes for customer onboarding"
-   "Create a task for reviewing the Q4 budget"
-   ```
-
-</Steps>
-
-### How the pieces connect
-
-This diagram shows how Tallyfy's MCP server connects with Copilot Studio through Power Platform infrastructure.
-
-```d2
-direction: down
-
-Developer: "Developer" {
-  shape: person
-  style.fill: "#f2faf4"
-}
-
-Azure: "Azure Functions\n(MCP Server)" {
-  shape: hexagon
-  style.fill: "#fff3cd"
-}
-
-PowerApps: "Power Apps\nConnector" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-CopilotStudio: "Copilot Studio\nAgent" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-TallyfyAPI: "Tallyfy API" {
-  shape: cylinder
-  style.fill: "#e1f7e6"
-}
-
-Developer -> Azure: "1. Deploy MCP\nserver code" {
-  style.stroke: "#225930"
-}
-
-Azure -> PowerApps: "2. Register as\ncustom connector" {
-  style.stroke: "#225930"
-}
-
-PowerApps -> PowerApps: "3. Configure\nauthentication" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-PowerApps -> CopilotStudio: "4. Add to agent\nactions" {
-  style.stroke: "#225930"
-}
-
-CopilotStudio -> Azure: "5. Invoke MCP\ntools" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Azure -> TallyfyAPI: "6. API requests\nwith auth" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-TallyfyAPI -> Azure: "7. Return data" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Azure -> CopilotStudio: "8. Format response" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-CopilotStudio -> CopilotStudio: "9. Process with\nGenerative AI" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-```
-
-**What to notice:**
-- Setup involves multiple Microsoft services (Azure, Power Apps, Copilot Studio) configured in sequence
-- Authentication happens at the Power Apps connector level using your Tallyfy API key
-- DLP policies add a security layer for enterprise deployments
+Three tools, `ask_user_question`, `ask_user_to_rank` and `ask_user_to_confirm`, are built for Tallyfy's own chat window, which shows their answer as a form. Turn them off in Copilot.
 
 ### Multi-agent orchestration
 
@@ -393,145 +276,8 @@ Multi-agent setups delegate tasks between specialized agents, keep context acros
 
 Copilot Studio also gives you a tools and prompts framework: a **prompt library** to create and share custom prompts across agents, a **tool catalog** to browse and install prebuilt MCP connectors, **version control** to track changes to tools and prompts, and a **testing framework** to validate tools before deployment.
 
-### Enterprise architecture
-
-Recommended architecture for large organizations needing high availability and security.
-
-```d2
-direction: right
-
-Copilot: "Copilot Studio\nAgents" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-Gateway: "API Gateway\n(with WAF)" {
-  shape: hexagon
-  style.fill: "#fff3cd"
-}
-
-LB: "Load\nBalancer" {
-  shape: diamond
-  style.fill: "#fff3cd"
-}
-
-MCP1: "MCP Server\nInstance 1" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-MCP2: "MCP Server\nInstance 2" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-API: "Tallyfy API\nCluster" {
-  shape: cylinder
-  style.fill: "#e1f7e6"
-}
-
-Copilot -> Gateway: "HTTPS\nrequests" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Gateway -> LB: "Route to\navailable server" {
-  style.stroke: "#225930"
-}
-
-LB -> MCP1: "50% traffic" {
-  style.stroke: "#225930"
-}
-
-LB -> MCP2: "50% traffic" {
-  style.stroke: "#225930"
-}
-
-MCP1 -> API: "API calls\n(with auth)" {
-  style.stroke: "#225930"
-}
-
-MCP2 -> API: "API calls\n(with auth)" {
-  style.stroke: "#225930"
-}
-```
-
-**What to notice:**
-- Multiple MCP server instances provide high availability behind a load balancer
-- Security is layered with WAF, DLP policies, and VNet isolation
-- Managed identities remove the need to store credentials in code
-
-Common deployment shapes, from simplest to most involved:
-
-**Basic (small organizations)**
-
-```
-[Copilot Studio] → [Custom Connector] → [Tallyfy MCP Server] → [Tallyfy API]
-```
-
-**Enterprise (large organizations)**
-
-```
-[Copilot Studio]
-    ↓ (VNet Integration)
-[API Management]
-    ↓ (Private Endpoint)
-[App Service Environment]
-    ├── [MCP Proxy Instance 1]
-    ├── [MCP Proxy Instance 2]
-    └── [Load Balancer]
-         ↓ (Managed Identity)
-    [Tallyfy MCP Server]
-```
-
-**Hybrid (multi-cloud)**
-
-```
-[Copilot Studio] → [ExpressRoute] → [On-premises Proxy] → [Tallyfy MCP Server]
-                 ↘                                        ↗
-                   [Azure Proxy] → [Tallyfy MCP Server]
-```
-
-### Security
-
-- **Network security** - deploy within VNet for isolation, use Private Endpoints, implement WAF rules, enable DDoS protection.
-- **Authentication** - use Azure AD, implement service principal auth for server-to-server, apply conditional access policies, enable MFA.
-- **Data protection** - classify data sensitivity levels, apply DLP policies, enable encryption at rest and in transit.
-- **Monitoring** - enable Azure Monitor, configure anomaly alerts, maintain audit logs for compliance.
-
-You also get Microsoft's enterprise features directly: VNet integration to isolate MCP traffic within your network, Data Loss Prevention (DLP) policies to prevent data exfiltration, Azure AD authentication that reuses your existing identity management, and inherited Microsoft compliance certifications.
-
-### Limitations
-
-- **Licensing complexity** - MCP requires Generative Orchestration (additional cost), message limits vary by plan (25K to 200K messages/month), some features need Power Platform licenses too, and multi-agent orchestration may still be in preview for some customers.
-- **Regional availability** - MCP is available in limited regions initially, data residency requirements may restrict usage, and preview features are often US-only at launch.
-- **Connector development overhead** - you must create OpenAPI specifications, Power Apps/Automate knowledge is needed, testing takes longer than direct MCP connections, and versioning or updates require republishing.
-- **Performance considerations** - DLP policy evaluation adds processing time, VNet routing increases response times (10-50ms typically), large result sets require pagination, and rate limits are shared across Power Platform.
-
-### Best practices
-
-1. **Start with prebuilt connectors** - use Microsoft's MCP connectors as templates
-2. **Implement retry logic** - handle transient failures gracefully
-3. **Use managed identities** - never store credentials in code
-4. **Monitor usage** - track message consumption against limits
-5. **Plan for scale** - design for multi-agent scenarios from the start
-6. **Test extensively** - use Copilot Studio's testing framework
-
-### Known issues and workarounds
-
-1. **SSE not supported** - use Streamable HTTP for all implementations
-2. **Tool naming conflicts** - prefix Tallyfy tools to avoid collisions with other MCP servers
-3. **Large payloads** - implement pagination for result sets over 100 items
-4. **Session timeout** - implement keep-alive mechanisms for long-running operations
-5. **Regional latency** - deploy connectors in same region as Copilot Studio
-6. **Resource rendering** - files and images in responses may need extra handling in custom UIs
-7. **Admin center visibility** - MCP-enabled agents must be registered to appear in M365 admin center
-
-### What's coming
-
-Microsoft keeps expanding this: wider GA coverage and more regions, Agent 365 as a unified control plane for AI agents, better debugging tools, more prebuilt enterprise connectors (GitHub, Asana, and Jira are already available), zero-trust architecture with full M365 admin governance, and performance improvements. Microsoft is a founding member of the Agentic AI Foundation, which signals continued commitment to MCP as an industry standard.
-
-[^1]: OAuth is the standard that lets you sign in to one app using another account, without sharing your password.
+[^1]: Model Context Protocol, the open standard AI assistants use to connect to apps like Tallyfy.
+[^2]: OAuth is the standard that lets you allow one app to act in another for you, without giving it your password.
 
 ## Related articles
 <CardGrid>
