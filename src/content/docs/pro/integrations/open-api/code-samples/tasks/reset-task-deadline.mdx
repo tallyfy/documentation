@@ -1,0 +1,181 @@
+---
+about_tallyfy: true
+description: Tallyfy's API shows the automatic deadline a process task would have
+  if nobody had set it by hand, and resets a hand-set deadline back to it. Tasks whose
+  deadlines count from the reset task move with it, the same way they do after an edit.
+id: 67e1ea06893e2843354c4aaa14a56d33
+sidebar:
+  order: 8
+title: Reset a task deadline
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Handing a deadline back to its rule
+
+When a person changes a process task's deadline, Tallyfy marks it as set by hand, and the task's
+`deadline_set_by_hand` field reads `true`. After that, deadline automations and the step chain
+leave that date alone. These two endpoints show the date the task would have without the mark,
+and put that date back.
+
+The app at go.tallyfy.com has no button for this, so the API is the way back there.
+
+Replace `{org_id}`, `{run_id}` and `{task_id}` with your IDs. Neither call takes a request body.
+
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
+
+### What marks a deadline as set by hand
+
+- Changing it with [update task](/products/pro/integrations/open-api/code-samples/tasks/update-task/) (`PUT .../runs/{run_id}/tasks/{task_id}`) or the bulk `PUT .../runs/{run_id}/update-tasks`. Sending the date the task already has, with other changes, marks nothing.
+- [Launching a process](/products/pro/integrations/open-api/code-samples/processes/launch-process/) with `deadline_set_by_hand: true` next to a step's `deadline` in the `tasks` object.
+
+Dates written by an automation, by the step chain, or worked out at launch aren't marked. One-off
+tasks are never marked, because they have no automatic date to go back to.
+
+Undoing a deadline change from the process's activity feed
+(`PUT /organizations/{org_id}/activity-feed/{activity_feed_id}/undo`) puts back both the date and
+the set-by-hand mark as they were before that change.
+
+## See the automatic deadline
+
+`GET /organizations/{org_id}/runs/{run_id}/tasks/{task_id}/automatic-deadline`
+
+This only reads. It changes nothing on the task and sends no notifications. Anyone who can read
+the task can call it.
+
+```json
+{
+  "data": {
+    "date": "2027-06-08T09:00:00Z",
+    "reason": "7 days before Confirmed Hire Date",
+    "source": "automation"
+  }
+}
+```
+
+`source` says where the date comes from. Tallyfy takes the first one that applies:
+
+1. `automation` - the deadline automation that last set this task, while its conditions still hold. The date is what that automation would write now. Automations don't adjust for working days, so this doesn't either.
+2. `step` - the step this task's deadline counts from, using that step's deadline, or the time it was completed once it's done, plus or minus the step's gap. The date is moved onto your organization's working days, as the step chain does.
+3. `launch` - when the process was launched, plus or minus the step's gap, moved onto working days as a launch does.
+
+A deadline automation that shifts the task's own date has no fixed date to go back to, so it's
+skipped. `reason` is a sentence for people to read, like "2 days after Step 1: Collect documents"
+or "1 day after launch". Show it as it is, and don't parse it.
+
+## Reset to automatic
+
+`POST /organizations/{org_id}/runs/{run_id}/tasks/{task_id}/reset-deadline`
+
+This needs the same rights as updating the task. It sets the deadline to the date the `GET`
+returns, sets `deadline_set_by_hand` to `false`, and moves the tasks whose deadlines count from
+this one. The response is the task, with the automatic date under `meta`:
+
+```json
+{
+  "data": {
+    "id": "TASK_ID",
+    "deadline": "2027-06-08T09:00:00Z",
+    "deadline_set_by_hand": false
+  },
+  "meta": {
+    "automatic_deadline": {
+      "date": "2027-06-08T09:00:00Z",
+      "reason": "7 days before Confirmed Hire Date",
+      "source": "automation"
+    },
+    "deadline_reset": true
+  }
+}
+```
+
+`data` carries the whole task. It's trimmed here. `deadline_reset` is `false` when the task
+wasn't set by hand. Then nothing changes and the same response comes back, so a retry is safe.
+
+### Errors
+
+- `404` - the task isn't in that process.
+- `422` - a one-off task, a task that didn't come from a template step, or a completed task. Reopen a completed task first.
+- `422` from `POST` only - the caller can't update this task.
+
+## Code samples
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID';
+const taskId = 'TASK_ID';
+const base = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}/tasks/${taskId}`;
+
+const headers = {
+  'Authorization': `Bearer ${accessToken}`,
+  'Accept': 'application/json',
+  'X-Tallyfy-Client': 'APIClient'
+};
+
+async function call(method, url) {
+  const response = await fetch(url, { method, headers });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`${method} ${url} failed with ${response.status}: ${JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+async function resetDeadline() {
+  // See the automatic date first. This changes nothing.
+  const preview = await call('GET', `${base}/automatic-deadline`);
+  console.log(`Automatic date: ${preview.data.date} (${preview.data.reason})`);
+
+  // Put it back
+  const result = await call('POST', `${base}/reset-deadline`);
+  console.log('Reset:', result.meta.deadline_reset, 'New deadline:', result.data.deadline);
+}
+
+resetDeadline().catch(error => console.error(error.message));
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import os
+import requests
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID'
+task_id = 'TASK_ID'
+base = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}/tasks/{task_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+}
+
+# See the automatic date first. This changes nothing.
+response = requests.get(f'{base}/automatic-deadline', headers=headers)
+response.raise_for_status()
+preview = response.json()['data']
+print(f"Automatic date: {preview['date']} ({preview['reason']})")
+
+# Put it back
+response = requests.post(f'{base}/reset-deadline', headers=headers)
+response.raise_for_status()
+result = response.json()
+print('Reset:', result['meta']['deadline_reset'], 'New deadline:', result['data']['deadline'])
+```
+</TabItem>
+</Tabs>
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Tasks > Update task</b>" href="/products/pro/integrations/open-api/code-samples/tasks/update-task/" > Tallyfy's API lets you change a task's title, deadline, assignees and form field values with a PUT request. </LinkTitleCard>
+<LinkTitleCard header="<b>Edit Task > Set an exact date on a task</b>" href="/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/" > How deadlines work in a running process, and why a date you set by hand stays put. </LinkTitleCard>
+<LinkTitleCard header="<b>Edit Templates > How a step deadline is worked out</b>" href="/products/pro/documenting/templates/edit-templates/step-timings/" > Step deadlines in Tallyfy are built from an anchor, a gap and a direction, and turn into real dates at launch. </LinkTitleCard>
+<LinkTitleCard header="<b>Processes > Complete or re-open the kick-off form</b>" href="/products/pro/integrations/open-api/code-samples/processes/complete-or-reopen-kick-off-form/" > Re-open and complete a running process's kick-off form so automations follow the new answers. </LinkTitleCard>
+</CardGrid>

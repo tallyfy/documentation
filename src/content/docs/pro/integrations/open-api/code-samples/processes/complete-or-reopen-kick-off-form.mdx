@@ -1,0 +1,184 @@
+---
+about_tallyfy: true
+description: Tallyfy's API lets you re-open a running process's kick-off form and
+  complete it again. Completing it re-checks automations with kick-off conditions, so deadline
+  and show/hide actions follow the new answers while reopen, assignment and webhook
+  actions still run only once.
+id: 62d4598c7e823ec51b17dbeb8e9ff010
+sidebar:
+  order: 4
+title: Complete or re-open the kick-off form
+---
+
+import { CardGrid, LinkTitleCard } from "~/components";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Changing kick-off answers on a running process
+
+To change a kick-off answer and have automations follow it, do three calls in order: re-open the
+form, save the new values, then complete it. Saving values on their own updates what the process
+shows, and it doesn't re-apply any automation.
+
+Replace `{org_id}` and `{run_id}` with your IDs. The two `complete-prerun` calls don't take a
+request body.
+
+- `Authorization: Bearer {your_access_token}`
+- `Accept: application/json`
+- `X-Tallyfy-Client: APIClient`
+
+## Re-open the kick-off form
+
+`DELETE /organizations/{org_id}/runs/{run_id}/complete-prerun`
+
+This clears `prerun_completed_at` and `prerun_completed_by` and sets the process `status` to
+`active`, so a completed process becomes active again. It returns the process. It doesn't touch
+any automation.
+
+## Save the new values
+
+`PUT /organizations/{org_id}/runs/{run_id}` with a `prerun` object. Keys are the kick-off field
+timeline IDs. See [update process](/products/pro/integrations/open-api/code-samples/processes/update-process/).
+
+## Complete the kick-off form
+
+`POST /organizations/{org_id}/runs/{run_id}/complete-prerun`
+
+This sets `prerun_completed_at` and checks every automation with at least one condition on a
+kick-off field:
+
+- An automation that matches now applies its deadline and visibility actions. Its status (reopen), assignment and webhook actions run only if they've never run in this process.
+- For an automation that already ran, deadline and visibility actions are worked out again if a condition's result has changed, or the date a deadline counts from has moved. If nothing changed, nothing moves.
+- A show or hide that no longer holds is reversed. On this re-check, Tallyfy never hides a task whose work has started (in progress or completed, a saved form value, or an assignee who has finished their part), whether it's reversing a show or applying a hide that now matches. A show or hide someone made by hand isn't changed. The first completion of the form keeps the usual rule, where a hide hides any task that isn't completed.
+- A deadline action that counts from the target task's own deadline isn't applied a second time. A task with `deadline_set_by_hand: true` keeps its date.
+- Status (reopen), assignment and webhook actions never run a second time in the process.
+- A deadline an automation moves also moves the tasks whose deadlines count from it.
+
+A kick-off date field that doesn't collect a time counts from 17:00 on that date, in the
+organization's timezone.
+
+Calling `POST` on a form that's already complete returns straight away without checking any
+automation. Re-open it first.
+
+The response is the process. It includes `tasks_changed_by_rules`, keyed by task ID, listing the
+tasks automations changed on this call, each with the `triggered_actions` types.
+
+:::note[New field: `rules_evaluated`]
+The release that re-applies automations adds `rules_evaluated` (boolean) to this response. It's
+`true` when Tallyfy checked the automations, and `false` when the form was already complete and
+nothing was checked. Before it, an empty `tasks_changed_by_rules` couldn't tell those two cases
+apart.
+:::
+
+Example response, trimmed to the fields this page covers:
+
+```json
+{
+  "data": {
+    "id": "PROCESS_RUN_ID",
+    "name": "New hire onboarding - Jane Doe",
+    "status": "active",
+    "prerun_status": "complete",
+    "prerun_completed_at": "2026-10-01T15:04:05Z",
+    "prerun_completed_by": 1001,
+    "rules_evaluated": true,
+    "tasks_changed_by_rules": {
+      "TASK_ID": {
+        "id": "TASK_ID",
+        "title": "Launch manager onboarding",
+        "status": "not-started",
+        "triggered_actions": ["deadline"]
+      }
+    }
+  }
+}
+```
+
+## Code samples
+
+<Tabs>
+<TabItem label="JavaScript">
+```javascript
+const accessToken = 'YOUR_PERSONAL_ACCESS_TOKEN';
+const orgId = 'YOUR_ORGANIZATION_ID';
+const runId = 'PROCESS_RUN_ID';
+const base = `https://go.tallyfy.com/api/organizations/${orgId}/runs/${runId}`;
+
+const headers = {
+  'Authorization': `Bearer ${accessToken}`,
+  'Accept': 'application/json',
+  'X-Tallyfy-Client': 'APIClient',
+  'Content-Type': 'application/json'
+};
+
+async function call(method, url, body) {
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`${method} ${url} failed with ${response.status}: ${JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+async function changeKickoffAnswer() {
+  // 1. Re-open the kick-off form
+  await call('DELETE', `${base}/complete-prerun`);
+
+  // 2. Save the new value (key is the kick-off field's timeline ID)
+  await call('PUT', base, {
+    prerun: { 'KICKOFF_FIELD_TIMELINE_ID': '2026-11-02T12:00:00Z' }
+  });
+
+  // 3. Complete it, which re-checks automations with kick-off conditions
+  const result = await call('POST', `${base}/complete-prerun`);
+  console.log('Tasks changed:', Object.keys(result.data.tasks_changed_by_rules || {}));
+}
+
+changeKickoffAnswer().catch(error => console.error(error.message));
+```
+</TabItem>
+<TabItem label="Python">
+```python
+import os
+import requests
+
+access_token = os.environ.get('TALLYFY_ACCESS_TOKEN', 'YOUR_PERSONAL_ACCESS_TOKEN')
+org_id = os.environ.get('TALLYFY_ORG_ID', 'YOUR_ORGANIZATION_ID')
+run_id = 'PROCESS_RUN_ID'
+base = f'https://go.tallyfy.com/api/organizations/{org_id}/runs/{run_id}'
+
+headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/json',
+    'X-Tallyfy-Client': 'APIClient',
+}
+
+# 1. Re-open the kick-off form
+response = requests.delete(f'{base}/complete-prerun', headers=headers)
+response.raise_for_status()
+
+# 2. Save the new value (key is the kick-off field's timeline ID)
+response = requests.put(base, headers=headers, json={
+    'prerun': {'KICKOFF_FIELD_TIMELINE_ID': '2026-11-02T12:00:00Z'}
+})
+response.raise_for_status()
+
+# 3. Complete it, which re-checks automations with kick-off conditions
+response = requests.post(f'{base}/complete-prerun', headers=headers)
+response.raise_for_status()
+changed = response.json()['data'].get('tasks_changed_by_rules') or {}
+print('Tasks changed:', list(changed.keys()))
+```
+</TabItem>
+</Tabs>
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Processes > Update process</b>" href="/products/pro/integrations/open-api/code-samples/processes/update-process/" > Tallyfy's API lets you partially update a running process by sending a PUT request with only the fields you want to change. </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > When an automation runs</b>" href="/products/pro/documenting/templates/automations/when-automations-run/" > When Tallyfy checks automations, which actions run again when an answer changes, and which run only once per process. </LinkTitleCard>
+<LinkTitleCard header="<b>Triggers > Launch via a kick-off form</b>" href="/products/pro/launching/triggers/kick-off-forms/" > Kick-off forms collect information before a Tallyfy template launches, and can be re-opened and completed again on a running process. </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Reset a task deadline</b>" href="/products/pro/integrations/open-api/code-samples/tasks/reset-task-deadline/" > See the automatic deadline a process task would have, and reset a deadline someone set by hand back to it. </LinkTitleCard>
+</CardGrid>
