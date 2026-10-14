@@ -15,15 +15,22 @@
 #   scripts/validate-d2.sh                  compile + palette, honouring the baseline
 #   scripts/validate-d2.sh --strict         ignore the baseline; report ALL palette debt
 #   scripts/validate-d2.sh --write-baseline regenerate the baseline from the tree
+#   scripts/validate-d2.sh --self-test      run this gate over scripts/d2-fixtures/
 #
 # Exit codes:
 #   0  all diagrams compile and are on-palette (or baselined)
 #   1  findings
 #   2  the gate could not run (no d2, no python3, no diagrams found)
+# With --self-test: 0 every fixture behaved, 1 one did not, 2 it could not run.
 #
 # Exit 2 on "no diagrams found" is deliberate. A sweep that discovers nothing
 # satisfies every assertion made about it, so a zero-fence result is a broken
 # gate rather than a clean tree.
+#
+# link: and tooltip: are allowed (tallyfy/documentation#363). D2 pins a small
+# icon to any shape that carries either, in fixed colours the author cannot
+# set, and the docs site hides it. The palette check ignores that icon and
+# nothing else; the run's last lines say how many it ignored.
 #
 # ---------------------------------------------------------------------------
 # Why this script is shaped the way it is (tallyfy/documentation#192)
@@ -58,20 +65,36 @@ set -uo pipefail
 #   #fff3cd  warning / reminder
 #
 # D2-DIAGRAMS.md also documents a DARK theme palette (#0D0D0D, #0b2813, and
-# #e1f7e6 as a border). No diagram in the corpus hardcodes those - dark mode is
-# produced by D2's own --dark-theme, so authors write the light colours only. If
-# a diagram ever legitimately needs a dark literal, add it here and say why.
+# #e1f7e6 as a border). No diagram in the corpus hardcodes those, and authors
+# write the light colours only: since support-docs#259 (2026-09-12) dark mode
+# is a CSS filter over the whole inlined diagram (support-docs
+# src/styles/d2-inline.css), not a second D2 theme. If a diagram ever
+# legitimately needs a dark literal, add it here and say why.
 PALETTE="#225930 #f2faf4 #e1f7e6 #fff3cd"
 
 # --- The D2 flags the site build uses ---------------------------------------
 # Read from tallyfy/support-docs astro.config.mjs (the `d2({...})` block) and
-# astro-d2's own libs/d2.ts, which assembles the command line as:
+# astro-d2's own libs/d2.ts (astro-d2 0.8.0), which assembles the command
+# line as:
 #
 #   d2 --layout=<layout> --theme=<theme.default> --sketch=<sketch> \
-#      --pad=<pad> --dark-theme=<theme.dark> - <outputPath>
+#      --pad=<pad> [--dark-theme=<theme.dark>] - <outputPath>
 #
 # `--force-appendix` is NOT passed because the config sets `appendix: false`,
 # and no --font-* flags are passed because the config sets no `fonts`.
+#
+# --dark-theme is the ONE flag here that differs from the build, on purpose.
+# Since support-docs#259 (2026-09-12) the build sets `theme.dark: false`, so
+# astro-d2 passes no --dark-theme at all. Do not "fix" this script to match.
+# Without a dark theme, D2 writes the theme's own colours as inline attributes
+# on every shape, edge and label (fill="#EBFDF7", stroke="#023324",
+# fill="#170206" and a fill="#FFFFFF" background for theme 104), and every
+# diagram would fail the palette check. With one, D2 moves them into classes
+# in <style>, which the check strips, so only the author's colours are left.
+# Measured on D2 v0.7.0 for tallyfy/documentation#363: the same diagram with
+# and without the flag differs outside <style> only by those theme
+# attributes, and dropping the flag failed all 70 fences in the tree and all
+# nine self-test fixtures, so the self-test pins it.
 #
 # NOTE the dark theme is 8, not 200. The previous script validated at
 # --dark-theme=200, so it could pass what the build fails.
@@ -86,7 +109,8 @@ for arg in "$@"; do
     case "$arg" in
         --strict)         MODE="strict" ;;
         --write-baseline) MODE="write" ;;
-        -h|--help)        sed -n '2,28p' "$0"; exit 0 ;;
+        --self-test)      MODE="selftest" ;;
+        -h|--help)        sed -n '2,34p' "$0"; exit 0 ;;
         *) echo "Unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
@@ -127,11 +151,107 @@ echo ""
 WORK_DIR="$(mktemp -d)" || { echo "CANNOT RUN: mktemp failed."; exit 2; }
 trap 'rm -rf "$WORK_DIR"' EXIT
 
+# --- Self-test (tallyfy/documentation#363) ----------------------------------
+# Runs THIS gate, a byte-for-byte copy of this file, once per fixture in
+# scripts/d2-fixtures/, each in a throwaway repo layout holding one .mdx with
+# that fixture as its only fence. Nothing is re-implemented here, so the
+# self-test can only pass if the real sweep does.
+#
+# Every fixture carries "# icons: N", the number of D2 link and tooltip icons
+# the gate must report ignoring. That count is what proves the ignore rule ran
+# on a pass-*.d2 fixture rather than the fixture passing for another reason.
+#   pass-*.d2  must exit 0 and print "No new findings."
+#   fail-*.d2  must exit 1 and print exactly the colours its "# expect:" lines
+#              name, no more and no fewer
+# A fixture run that exits 2 means the gate could not run, which is exit 2 here.
+if [ "$MODE" = "selftest" ]; then
+    FIXTURE_DIR="${SCRIPT_DIR}/d2-fixtures"
+    SELF="${SCRIPT_DIR}/$(basename -- "${BASH_SOURCE[0]}")"
+    st_total=0
+    st_bad=0
+    seen_pass_link=0
+    seen_fail_palette=0
+    for fx in "$FIXTURE_DIR"/*.d2; do
+        [ -f "$fx" ] || continue
+        name="$(basename -- "$fx" .d2)"
+        case "$name" in
+            pass-*) want_rc=0 ;;
+            fail-*) want_rc=1 ;;
+            *) echo "SELF-TEST BROKEN: ${name}.d2 is named neither pass-* nor fail-*"; exit 2 ;;
+        esac
+        [ "$name" = "pass-link" ] && seen_pass_link=1
+        [ "$name" = "fail-off-palette" ] && seen_fail_palette=1
+        st_total=$((st_total + 1))
+
+        want_icons="$(sed -n 's/^#[[:space:]]*icons:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*$/\1/p' "$fx")"
+        case "$want_icons" in
+            ''|*[!0-9]*) echo "SELF-TEST BROKEN: ${name}.d2 needs exactly one '# icons: N' line"; exit 2 ;;
+        esac
+
+        root="${WORK_DIR}/selftest/${name}"
+        mkdir -p "${root}/scripts" "${root}/src/content/docs" \
+            && cp "$SELF" "${root}/scripts/validate-d2.sh" \
+            || { echo "CANNOT RUN: could not build the fixture tree for ${name}"; exit 2; }
+        {
+            printf -- '---\ntitle: %s\n---\n\n```d2\n' "$name"
+            cat "$fx"
+            printf '\n```\n'
+        } > "${root}/src/content/docs/${name}.mdx"
+
+        out="${root}/out.txt"
+        bash "${root}/scripts/validate-d2.sh" --strict > "$out" 2>&1
+        got_rc=$?
+        if [ "$got_rc" -eq 2 ]; then
+            echo "SELF-TEST BROKEN: the gate could not run on ${name}.d2:"
+            sed 's/^/    /' "$out"
+            exit 2
+        fi
+
+        sed -n 's/^#[[:space:]]*expect:[[:space:]]*//p' "$fx" | sort -u > "${root}/expected.txt"
+        /usr/bin/grep -E '^ {16}(fill|stroke|stop-color|flood-color|color)=' "$out" \
+            | sed 's/^ *//' | sort -u > "${root}/actual.txt"
+
+        why=""
+        [ "$got_rc" -eq "$want_rc" ] || why="exit ${got_rc}, wanted ${want_rc}"
+        if ! /usr/bin/grep -qxF "Link and tooltip icons ignored: ${want_icons}" "$out"; then
+            why="${why:+${why}; }did not report ${want_icons} icon(s) ignored"
+        fi
+        if [ "$want_rc" -eq 0 ]; then
+            [ -s "${root}/expected.txt" ] && { echo "SELF-TEST BROKEN: pass fixture ${name}.d2 has '# expect:' lines"; exit 2; }
+            /usr/bin/grep -qxF "No new findings." "$out" || why="${why:+${why}; }no 'No new findings.' line"
+        else
+            [ -s "${root}/expected.txt" ] || { echo "SELF-TEST BROKEN: fail fixture ${name}.d2 has no '# expect:' line"; exit 2; }
+            cmp -s "${root}/expected.txt" "${root}/actual.txt" \
+                || why="${why:+${why}; }reported [$(tr '\n' ' ' < "${root}/actual.txt")] but expected [$(tr '\n' ' ' < "${root}/expected.txt")]"
+        fi
+
+        if [ -z "$why" ]; then
+            echo "ok    ${name}"
+        else
+            st_bad=$((st_bad + 1))
+            echo "FAIL  ${name}: ${why}"
+            sed 's/^/        /' "$out"
+        fi
+    done
+
+    # Floors. A self-test that found no fixtures, or lost the two cases this
+    # test exists for, would pass every assertion above by default.
+    if [ "$st_total" -lt 2 ] || [ "$seen_pass_link" -ne 1 ] || [ "$seen_fail_palette" -ne 1 ]; then
+        echo "SELF-TEST BROKEN: need pass-link.d2 and fail-off-palette.d2 in ${FIXTURE_DIR} (found ${st_total} fixtures)"
+        exit 2
+    fi
+    echo ""
+    echo "Self-test: ${st_total} fixtures, $((st_total - st_bad)) behaved, ${st_bad} did not."
+    [ "$st_bad" -eq 0 ] && exit 0
+    exit 1
+fi
+
 # The palette checker. Reads one SVG, prints one offending colour per line.
 #
 # It strips <style> and <mask> regions BEFORE scanning, and that is the whole
 # design:
-#   - <style> holds D2's own theme colours (32 hexes for theme 104 + dark 8).
+#   - <style> holds D2's own theme colours (theme 104, plus dark theme 8; see
+#     the flags block above for why the dark theme is passed here).
 #     A diagram that sets no colours of its own emits ZERO hex literals outside
 #     <style>, so stripping it leaves exactly the author-chosen colours.
 #   - <mask> is built from fill="white" and fill="black" on every diagram.
@@ -142,6 +262,22 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 # elements would blind the check to the author's own fills. Measured: an
 # author-filled ellipse carries class="shape" and the arrowhead marker that
 # inherits the connection colour carries class="connection".
+#
+# The one exception is D2's own link and tooltip icon (tallyfy/documentation#363).
+# Any shape with `link:` or `tooltip:` gets a 32px icon in colours D2 hardcodes
+# (fill white, strokes #DEE1EB and #2E3346), so the author cannot set them, and
+# the docs site hides it: support-docs src/tailwind.css has
+# `svg .appendix-icon { display: none !important }`, which reaches it because
+# diagrams are inlined into the page since support-docs#259. Before this, a
+# diagram that followed D2-DIAGRAMS.md's own link advice failed here as
+# off-palette. The pattern is D2's exact markup, not the class name alone: D2
+# copies an author's D2 class name into the SVG, so `A.class: appendix-icon`
+# yields class="<id> appendix-icon" around the author's own fill, and matching
+# the class token alone would hide that fill
+# (scripts/d2-fixtures/fail-class-named-appendix-icon.d2). If a D2 upgrade
+# changes the markup, nothing matches, the icon colours come back as findings,
+# and the self-test's pass-link fixture goes red, so a change in D2 is
+# reported, never quietly allowed.
 PALETTE_PY="${WORK_DIR}/palette_check.py"
 cat > "$PALETTE_PY" <<'PYEOF'
 import re, sys
@@ -150,11 +286,25 @@ ALLOWED = {c.strip().lower() for c in sys.argv[2].split() if c.strip()}
 # Structural non-colours D2 legitimately emits outside <style> and <mask>.
 STRUCTURAL_NAMES = {"none", "transparent", "inherit", "currentcolor"}
 
+# D2's own link and tooltip icon, exactly as D2 v0.7 writes it: a translated
+# group whose class is only "appendix-icon", an optional tooltip <title>, then
+# one 32x32 <svg> with no <svg> nested inside it.
+APPENDIX_ICON = re.compile(
+    r'<g transform="translate\([^")]*\)" class="appendix-icon">'
+    r'(?:<title>[^<]*</title>)?'
+    r'<svg width="32" height="32" viewBox="0 0 32 32"[^>]*>'
+    r'(?:(?!<svg\b).)*?</svg>\s*</g>',
+    re.S,
+)
+
 svg = open(sys.argv[1], encoding="utf-8").read()
 
 # Strip the regions whose colours are not the author's choice.
 svg = re.sub(r"<style\b[^>]*>.*?</style>", " ", svg, flags=re.S | re.I)
 svg = re.sub(r"<mask\b[^>]*>.*?</mask>", " ", svg, flags=re.S | re.I)
+svg, icons = APPENDIX_ICON.subn(" ", svg)
+with open(sys.argv[3], "a", encoding="utf-8") as fh:
+    fh.write(f"{icons}\n")
 
 def norm(h):
     h = h.lower()
@@ -191,9 +341,11 @@ baselined_hits=0
 findings_file="${WORK_DIR}/findings.txt"
 seen_baseline="${WORK_DIR}/seen_baseline.txt"
 new_baseline="${WORK_DIR}/new_baseline.txt"
+icons_file="${WORK_DIR}/icons.txt"
 : > "$findings_file"
 : > "$seen_baseline"
 : > "$new_baseline"
+: > "$icons_file"
 
 # --- Walk every .mdx file ---------------------------------------------------
 # -print0 / read -d '' so a filename containing a space or a glob character is
@@ -275,7 +427,7 @@ while IFS= read -r -d '' file; do
         # "No new findings" at rc 0 on a diagram the healthy gate flags at rc 1.
         # That is the fails-toward-clean class this whole script exists to remove.
         # A checker that could not answer is exit 2, never exit 0.
-        bad="$(python3 "$PALETTE_PY" "$svg_out" "$PALETTE" 2>"${WORK_DIR}/palette.err")"
+        bad="$(python3 "$PALETTE_PY" "$svg_out" "$PALETTE" "$icons_file" 2>"${WORK_DIR}/palette.err")"
         palette_rc=$?
         if [ "$palette_rc" -ne 0 ]; then
             echo "GATE BROKEN: the palette checker failed on ${rel} fence #${fence_num}" >&2
@@ -337,6 +489,16 @@ fi
 echo "Checked ${total_fences} D2 fences across ${total_files} files."
 echo ""
 
+# One line per checker run went into icons_file. Fewer lines than fences that
+# compiled would mean a checker run left no count, so refuse rather than
+# print a number that undercounts.
+icons_ignored="$(awk '{ s += $1 } END { print s + 0 }' "$icons_file")"
+icon_lines="$(awk 'END { print NR }' "$icons_file")"
+if [ "$icon_lines" -ne $((total_fences - compile_failures)) ]; then
+    echo "GATE BROKEN: ${icon_lines} icon counts for $((total_fences - compile_failures)) compiled fences." >&2
+    exit 2
+fi
+
 # --- Rot detector -----------------------------------------------------------
 # A baseline entry that no longer has a violation is dead allowance. Left
 # alone it would silently re-admit that diagram later, which is exactly how a
@@ -365,9 +527,12 @@ if [ -s "$findings_file" ]; then
     echo "  off-palette:      ${palette_failures}"
     echo "  stale baseline:   ${stale_count}"
     [ "$baselined_hits" -gt 0 ] && echo "  known debt:       ${baselined_hits} (baselined)"
+    echo ""
+    echo "Link and tooltip icons ignored: ${icons_ignored}"
     exit 1
 fi
 
+echo "Link and tooltip icons ignored: ${icons_ignored}"
 echo "All ${total_fences} diagrams compile."
 if [ "$baselined_hits" -gt 0 ]; then
     echo "${baselined_hits} carry known off-palette debt (see scripts/d2-palette-baseline.txt)."
