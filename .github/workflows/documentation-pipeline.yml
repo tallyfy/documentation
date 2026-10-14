@@ -16,6 +16,22 @@ on:
     types:
       - completed
 
+# One run per branch at a time (tallyfy/documentation#296). On 2026-09-23 #290 and #292 merged
+# into staging eight seconds apart, and run 35813745697's update-last-modified failed with
+# "fatal: Need to specify how to reconcile divergent branches" because run 35813737212 had
+# already pushed. Two runs that both reach `sync` can finish out of order and publish the older
+# tree last. Keyed on head_branch, because on workflow_run `github.ref` is the DEFAULT branch
+# whatever branch was pushed, so it would put main and staging in one queue.
+#
+# cancel-in-progress is false so a running `sync` is never cut off part way. GitHub keeps only
+# one WAITING run per group, so a third push while one run works and one waits drops the
+# waiting one. Every job reads the whole tree, so the run that takes its place covers it: since
+# owner decision 218 (2026-10-03, #296) that includes generate-snippets and check-deleted-files,
+# which until then acted on the triggering commit alone and lost a dropped run's work.
+# Asserted by `scripts/pipeline-guard.py --check-wiring`, which pr-validate.yml runs.
+concurrency:
+  group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 jobs:
   # Blocks a staging -> main promotion that carries a path on hold (see #118, successor to
@@ -38,11 +54,11 @@ jobs:
     # can be skipped is not a gate, so this one always runs.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0   # merge-base --is-ancestor needs real history
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Prove the gate can fail (red and green control)
@@ -102,10 +118,10 @@ jobs:
     # adds either one fails the gate rather than quietly disarming it.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Prove the gate can fail (red and green control, per rule)
@@ -124,33 +140,31 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 2
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Markdown Lint Script
         run: |
           python -m pip install --upgrade pyyaml
-          python scripts/markdown-lint.py --dir=$PWD
+          python scripts/markdown-lint.py --dir="$PWD"
         shell: bash
       - name: Accessibility lint (headings 1.3.1, alt text 1.1.1, D2 animation 2.2.2)
-        run: python scripts/a11y-lint.py --dir=$PWD
+        run: python scripts/a11y-lint.py --dir="$PWD"
         shell: bash
-    outputs:
-      validate-markdown-completed: ${{ steps.validate-markdown.outcome }}
 
   generate-snippets:
     needs: validate-markdown
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           ref: ${{ github.event.workflow_run.head_branch }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       # generate-snippets.py imports frontmatter and requests at module level, so the
@@ -160,26 +174,23 @@ jobs:
           python -m pip install --upgrade python-frontmatter requests
           python scripts/generate-snippets.py --self-test
         shell: bash
+      # The whole tree, not the pages this push added (owner decision 218, #296). A page with
+      # no description, or a blank one, gets one; an existing description is never overwritten;
+      # at most 10 pages per run, because each is one Claude API call.
       - name: Generate snippets script
         run: |
           if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
             echo "Skipping snippet generation on main — staging owns auto-regen (see #56). Files inherit from staging via merge."
             exit 0
           fi
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
-            git pull
-            python -m pip install --upgrade python-frontmatter requests
-            python scripts/generate-snippets.py --dir=$PWD --files="$file_changes" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
-          else
-            echo "No new files added. Skipping snippet generation."
-          fi
+          git pull
+          python -m pip install --upgrade python-frontmatter requests
+          python scripts/generate-snippets.py --dir="$PWD" --token ${{ secrets.CLAUDE_API_KEY }} --prompt ${{ secrets.CLAUDE_PROMPT }}
         shell: bash
       - name: Commit and push articles with snippets
         if: ${{ github.event.workflow_run.head_branch != 'main' }}
         run: |
-          file_changes=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r ${{ github.event.workflow_run.head_sha }} | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
+          if [[ -n $(git status --porcelain) ]]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
             git pull --no-rebase
@@ -191,10 +202,8 @@ jobs:
               echo "No changes to commit after git pull"
             fi
           else
-            echo "No files changed. Skipping snippet generation."
+            echo "No page lacks a description. Nothing to commit."
           fi
-    outputs:
-      generate-snippets-completed: ${{ steps.generate-snippets.outcome }}
 
   upload-to-tallyfy-answers:
     # promotion-hold-gate: on main this uploads to the PRODUCTION Answers index, so held
@@ -203,11 +212,11 @@ jobs:
 #    needs: validate-markdown
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           ref: ${{ github.event.workflow_run.head_branch }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Dump articles into JSON file
@@ -215,64 +224,82 @@ jobs:
           git pull
           python -m pip install --upgrade python-frontmatter requests
           if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-            python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+            python scripts/answers-connector.py --dir="$PWD/src/content/docs" --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
           else
-            python scripts/answers-connector.py --dir=$PWD/src/content/docs --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_urls https://staging.answers.tallyfy.com
+            python scripts/answers-connector.py --dir="$PWD/src/content/docs" --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_urls https://staging.answers.tallyfy.com
           fi
         shell: bash
-    outputs:
-      upload-to-tallyfy-answers-completed: ${{ steps.upload-to-tallyfy-answers.outcome }}
 
   check-deleted-files:
-    # Runs on BOTH branches so the staging index is pruned too (previously main-only, which
-    # let the staging index accumulate removed docs). It deletes ONLY index objects whose
-    # source .mdx was removed in this commit (diff-filter=D), so it is safe on staging and
-    # cannot nuke valid docs. Targets the branch-correct Answers API via --base_url, exactly
-    # like upload-to-tallyfy-answers: staging branch -> staging Answers, main -> prod Answers.
+    # Runs on BOTH branches, each against its own Answers index: staging -> staging Answers,
+    # main -> prod Answers, exactly like upload-to-tallyfy-answers.
+    #
+    # Whole tree, every run (owner decision 218, 2026-10-03, #296). It lists the index and
+    # deletes the entries whose uid no page in the tree carries, so a page deleted in a push
+    # whose run was dropped, or whose id changed, still leaves search. It used to read one
+    # commit's deletions (diff-filter=D) and lost exactly those. Measured read only that day:
+    # 3 such entries in the staging index, 1 in production. At most 25 deletes per run; more
+    # orphans than a fifth of the index deletes nothing and fails, because a wrong tree would
+    # make every entry look orphaned. Each delete is read back.
     needs: upload-to-tallyfy-answers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
-          # The exact promoted commit, not the branch tip: this job diffs that commit, and a
-          # commit missing from a depth-2 checkout makes `git diff-tree` fail, which the
-          # `|| true` below would otherwise launder into "nothing was deleted".
-          ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: actions/setup-python@v4
+          # The branch TIP, the tree upload-to-tallyfy-answers just indexed (it checks out
+          # head_branch and pulls). Judging the index against an older tree would delete the
+          # entries of pages added since, and the next upload would put them straight back.
+          ref: ${{ github.event.workflow_run.head_branch }}
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
-      - name: Check deleted files
+      # The script comes from the authoring branch, like the publish guard in `sync`. A
+      # workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run for main
+      # this step exists before main carries the new script; main's own copy takes
+      # --commit_sha and would fail every production run until the next promotion.
+      - name: Fetch the prune script from the authoring branch and prove it can refuse
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          AUTHORING_BRANCH: staging
         run: |
-          # Split the two exit codes apart. `git diff-tree` failing means we do not know what
-          # was deleted, and must not proceed as though nothing was; `grep` finding no .mdx
-          # legitimately means nothing was deleted. One `|| true` over the whole pipeline
-          # cannot tell those apart, and answers "nothing" to both.
-          deleted=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r "$HEAD_SHA")
-          file_changes=$(printf '%s\n' "$deleted" | grep '\.mdx$' || true )
-          if [[ -n "$file_changes" ]]; then
-            python -m pip install --upgrade python-frontmatter requests
-            if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://answers.tallyfy.com
-            else
-              python scripts/check-deleted-files.py --commit_sha=${{ github.event.workflow_run.head_sha }} --collection_name=tyfy --github_token=${{ secrets.GH_TOKEN }} --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
-            fi
-          else
-            echo "No files were deleted. Skipping ..."
-          fi
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:scripts/check-deleted-files.py" > "$RUNNER_TEMP/check-deleted-files.py"
+          test -s "$RUNNER_TEMP/check-deleted-files.py"
+          python -m pip install --upgrade python-frontmatter requests
+          python "$RUNNER_TEMP/check-deleted-files.py" --self-test
+        shell: bash
+      - name: Remove index entries whose page is gone
+        # head_branch goes through env, never straight into the shell line: workflow_run is a
+        # privileged trigger and head_branch is attacker-influenced input.
+        #
+        # The key does NOT go through env. It goes on the command line exactly as
+        # upload-to-tallyfy-answers passes it, because the stored secret only works after the
+        # shell has parsed it. Measured on run 37143848015 (2026-10-03): the upload, with the key
+        # inline, got 200 from the staging index, and this step, with the same secret through
+        # env, got 403 a minute later. A local key taken from the Answers service's own env
+        # file got 200 through the same script, so the script is not the difference.
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          case "$HEAD_BRANCH" in
+            main) base_url=https://answers.tallyfy.com ;;
+            staging) base_url=https://staging.answers.tallyfy.com ;;
+            *) echo "Branch $HEAD_BRANCH is neither main nor staging, so no index is judged against its tree."
+               exit 0 ;;
+          esac
+          python "$RUNNER_TEMP/check-deleted-files.py" --dir="$PWD" --collection_name=tyfy \
+            --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url="$base_url"
+        shell: bash
 
 
   update-last-modified:
     needs: upload-to-tallyfy-answers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Full history for accurate Git dates
           ref: ${{ github.event.workflow_run.head_branch }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Update lastUpdated dates from Git history
@@ -283,6 +310,10 @@ jobs:
           fi
           git pull
           python -m pip install --upgrade python-frontmatter
+          # Prove the parser reads git's UTC `Z` dates on this job's Python 3.10 before
+          # trusting it with every page. Without it, each run printed 587 "Invalid isoformat
+          # string" lines and left those pages stale (tallyfy/documentation#295).
+          python scripts/update-last-modified.py --self-test
           python scripts/update-last-modified.py --dir=src/content/docs
         shell: bash
       - name: Commit and push lastUpdated dates
@@ -293,7 +324,9 @@ jobs:
             git config --local user.name "GitHub Action"
             git add .
             git commit -m "Update lastUpdated dates from Git history" -a
-            git pull
+            # --no-rebase, as the other generator jobs already do: a bare `git pull` after a
+            # commit is what failed run 35813745697 when another push had landed (#296).
+            git pull --no-rebase
             git push
           else
             echo "No lastUpdated changes needed"
@@ -304,11 +337,11 @@ jobs:
     #    if: needs.upload-to-tallyfy-search.outputs.upload-to-tallyfy-search-completed == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           ref: ${{ github.event.workflow_run.head_branch }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Generate related articles script
@@ -319,7 +352,7 @@ jobs:
           fi
           git pull
           python -m pip install --upgrade python-frontmatter requests
-          python scripts/generate-related-articles.py --dir=$PWD/src/content/docs --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
+          python scripts/generate-related-articles.py --dir="$PWD/src/content/docs" --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_url https://staging.answers.tallyfy.com
         shell: bash
       - name: Commit and push
         if: ${{ github.event.workflow_run.head_branch != 'main' }}
@@ -351,13 +384,18 @@ jobs:
     if: ${{ !failure() && !cancelled() && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # The branch TIP, not head_sha: the generator jobs above push their own commits to the
+      # branch, and those must ship. The publish guard below proves the tip holds nothing
+      # else. Full history, because the guard must see whether head_sha is an ancestor of
+      # the tip and read every commit between them, and a shallow checkout cannot say.
       - name: Checkout source repository (tallyfy/documentation)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
 
       - name: Checkout target repository (tallyfy/support-docs)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: tallyfy/support-docs
           token: ${{ secrets.GH_TOKEN }}
@@ -368,11 +406,56 @@ jobs:
       # being emitted here. Every other job in this file that runs `python` sets it up first,
       # and relying on a bare `python` existing on the runner image is the kind of assumption
       # that fails on an image update, in the one job that publishes.
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
+      # The guard comes from the authoring branch, as the hold list does in "Sync files"
+      # below. A workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run
+      # for main these steps exist before main carries the script, and run from main's
+      # checkout they would fail every main publish until the next promotion brought it over.
+      # It still judges THIS checkout, and reads the paths filter from this checkout's
+      # generate-ids.yml, which is the copy GitHub applies to a push to this branch.
+      - name: Fetch the publish guard from the authoring branch and prove it can refuse
+        env:
+          AUTHORING_BRANCH: staging
+        run: |
+          git fetch --no-tags origin "$AUTHORING_BRANCH"
+          git show "FETCH_HEAD:scripts/pipeline-guard.py" > "$RUNNER_TEMP/pipeline-guard.py"
+          test -s "$RUNNER_TEMP/pipeline-guard.py"
+          python -m pip install --upgrade pyyaml
+          python "$RUNNER_TEMP/pipeline-guard.py" --self-test
+        shell: bash
+
+      # Publish only what the gates read (tallyfy/work-queue#2748). The gates check out
+      # workflow_run.head_sha; this job checks out the branch tip. If a person pushed again
+      # while this run was in flight, the tip holds a commit no gate in this run read. The
+      # guard allows only the generator jobs' own commits between the two, and otherwise this
+      # run does not publish: the run for the newer push is queued behind it by the
+      # concurrency group above, and publishes after its own gates.
+      #
+      # Exit 0 publish, 1 do not publish (a green job that says why), anything else means the
+      # guard could not read the range: the job goes red and nothing is published. The two
+      # steps below run only on an explicit `publish=true`, so no answer is never a publish.
+      # Asserted by `scripts/ai-tell-check.py --check-wiring`.
+      - name: Publish only what the gates read
+        id: publish-guard
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          rc=0
+          python "$RUNNER_TEMP/pipeline-guard.py" --head-sha "$HEAD_SHA" --repo . || rc=$?
+          case "$rc" in
+            0) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "publish=false" >> "$GITHUB_OUTPUT"
+               echo "sync did not publish. The publish guard's report above says why." ;;
+            *) echo "::error::publish guard could not run (exit $rc), so nothing was published"
+               exit 1 ;;
+          esac
+        shell: bash
+
       - name: Sync files
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           rsync -av --delete src/content/docs/ target-repo/src/content/docs/
@@ -406,10 +489,13 @@ jobs:
           # it verbatim would hand support-docs a hold we have already, deliberately, allowed
           # past - and its production build would fail on content we meant to ship.
           #
-          # HEAD, not workflow_run.head_sha: this job checks out the branch at the default
-          # fetch-depth of 1, so head_sha is often not an object this checkout has and
-          # `git log -1 <sha>` would die on an unknown revision. HEAD is the promotion's own
-          # tip here, which is the commit whose message carries any release marker.
+          # HEAD, not workflow_run.head_sha. This job checked out the branch at the default
+          # fetch-depth of 1 until the publish guard needed full history, and then head_sha was
+          # often not an object it had, so `git log -1 <sha>` died on an unknown revision. HEAD
+          # is the tree being published. On a promotion to main this pipeline's generator jobs
+          # early-exit, so HEAD is normally the promotion's own commit, the one whose message
+          # carries any release marker. generate-ids.yml is the one generator that can still
+          # commit on main.
           # The SOURCE list comes from the authoring branch, exactly as promotion-hold-gate
           # fetches it there. This step had the same defect and a wider blast radius: on a main
           # promote it read main's copy, which carries no active holds, so it wrote an empty list
@@ -434,6 +520,7 @@ jobs:
           echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
 
       - name: Commit and push changes
+        if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
           # This job writes promotion-holds.txt to support-docs `staging` on one road and to

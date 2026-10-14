@@ -410,12 +410,14 @@ Content-Length: {file_size}
 
 ### Claude Vision API
 
-**Model**: `claude-sonnet-5` (Claude Sonnet 5)
+**Model**: `claude-sonnet-5-5` (Claude Sonnet 5.5)
+
+`image_captioner.py` does not call this API itself. Captions are written inside a Claude Code session, which reads the image with its own vision, so this request shape is for reference when calling the API directly.
 
 **Request Format**:
 ```json
 {
-  "model": "claude-sonnet-5",
+  "model": "claude-sonnet-5-5",
   "max_tokens": 512,
   "messages": [
     {
@@ -451,7 +453,7 @@ Content-Length: {file_size}
       "text": "Task assignment interface showing user selection dropdown menu with role-based options"
     }
   ],
-  "model": "claude-sonnet-5",
+  "model": "claude-sonnet-5-5",
   "stop_reason": "end_turn",
   "usage": {
     "input_tokens": 2048,

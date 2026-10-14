@@ -105,7 +105,7 @@ word list could ever have found them: *"This is the part worth knowing before yo
 
 **The standard is [`DOCS-VOICE.md`](DOCS-VOICE.md)**, enforced by `scripts/ai-tell-check.py` from
 the rules in `.github/ai-tells.txt`, as the `ai-tell-gate` job that blocks `sync` in the
-pipeline. It checks eleven shapes rather than words, and it **blocks rather than rewrites** -
+pipeline. It checks twelve shapes rather than words, and it **blocks rather than rewrites** -
 deliberately unlike `scripts/generate-related-articles.py`, which silently maps `comprehensive`
 to `complete`. A silent rewrite is right for the card text that script generates and wrong for an
 article body, because the author never finds out and the next article repeats it.
@@ -176,7 +176,7 @@ Before committing any article, run:
 python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
 ```
 
-It must score **below the threshold** (default 45) with no AI-tell words. The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
+It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, as `ai-tell-check.py` does, and a run that scores no file exits 2 (#259). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
@@ -429,7 +429,7 @@ You are working with Tallyfy's comprehensive product documentation. Your role is
 
 This is a **documentation website** for Tallyfy's suite of products built with **Astro and Starlight**.
 
-**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 724 .mdx files across 149 directories, search strategies, and file patterns.
+**📁 COMPLETE DOCUMENTATION STRUCTURE**: See `DOCUMENTATION_STRUCTURE.md` for comprehensive organization guide including 726 .mdx files across 149 directories, search strategies, and file patterns.
 
 > **Counts in this file go stale. Re-derive, do not trust.** The two figures above read 585 and 99
 > until 2026-08-06, when they were measured at 742 and 156 - a 27% undercount that had been sitting
@@ -442,8 +442,8 @@ This is a **documentation website** for Tallyfy's suite of products built with *
 
 ### Tallyfy Products Overview
 - **Tallyfy Pro** (Primary focus): Create, launch, track and improve repeatable business processes
-  - Location: `/src/content/docs/pro/` (698 files - 90% of all documentation)
-  - Core areas: documenting/ (81 files), tracking-and-tasks/ (52 files), integrations/ (300 files)
+  - Location: `/src/content/docs/pro/` (700 files - 90% of all documentation)
+  - Core areas: documenting/ (81 files), tracking-and-tasks/ (52 files), integrations/ (302 files)
 - **Tallyfy Answers**: Vector-based search engine
   - Location: `/src/content/docs/answers/` (17 files)
 - **Tallyfy Denizen**: Localized images based on user location
@@ -672,10 +672,11 @@ npm install                    # Install dependencies
 npm run dev                   # Start development server
 
 # Content Automation (Python scripts)
-python scripts/generate-snippets.py --files [files] --dir [directory] --token [api-key] --prompt [base64-prompt]
+python scripts/generate-ids.py --dir [repo root] [--dry-run]       # Give every page lacking one an id (whole tree, #296)
+python scripts/generate-snippets.py --dir [repo root] --token [api-key] --prompt [base64-prompt] [--dry-run]   # Description for every page lacking one
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
-python scripts/check-deleted-files.py --dir [directory]
+python scripts/check-deleted-files.py --dir [repo root] --collection_name tyfy --answers_api_key [key] --base_url [answers url] [--dry-run]   # Remove index entries whose page is gone
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
@@ -740,6 +741,9 @@ This validates frontmatter, imports, and related articles sections.
        `git diff-tree --diff-filter=A`, so it sees NEWLY ADDED articles and nothing else. Edit
        an existing article's description to 500 characters and no check anywhere will object.
        The corpus proves it: **5 articles sit above 350 today**, the longest at 402.
+       Dated 2026-10-03 (owner decision 218, #296): the generator no longer takes a `--files`
+       list. It reads the whole tree and writes a description only where a page has none, so it
+       still never touches an existing description, and a human edit is still unchecked.
      - **Why 200 rather than 150**: 150 was stated twice and justified nowhere, and the
        `post_process_description` docstring that carries it also promises to pad a short
        description, which that function does not do. 200 is what the generation prompt in
@@ -871,6 +875,8 @@ This repository uses a Python-based content automation system:
 3. **Related Articles**: `generate-related-articles.py` fetches cross-references via Answers API
 4. **Content Validation**: `markdown-lint.py` validates frontmatter structure and MDX syntax
 5. **Last Updated Dates**: `update-last-modified.py` extracts Git modification dates for each file
+   - Dated 2026-10-02 (tallyfy/work-queue#3466): the date is the newest commit to the page that a person authored and that changed more than whitespace or the `lastUpdated` line. Pipeline bot commits ("GitHub Action", any `[bot]` author), such as the related articles refresh, never set it, and a page only bots have touched keeps its date. `--self-test` pins this.
+   - Dated 2026-10-03 (owner decision 217): content commits by `tallyfy-workhorse[bot]` also set the date, because it lands content pull requests a person reviewed. Its formatting-only or `lastUpdated`-only commits do not, the same as anyone's. Every other bot stays out, now including "GitHub Actions Bot", the sync job's own identity (tallyfy/work-queue#3544), and "Cursor Agent". Measured on staging 278b8bc7b that day: the change moved two pages and no others, `pro/settings/org-settings/system-log` to 2026-09-17 and `pro/documenting/members/how-can-i-remove-a-member-from-my-tallyfy-organization` to 2026-09-03.
 
 ### Pipeline behavior: what's safe to edit vs auto-generated
 
@@ -878,12 +884,12 @@ The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but aut
 
 | Pipeline step | Runs on | Trigger | What it changes | Safe to edit manually? |
 |---|---|---|---|---|
-| `generate-ids.yml` | staging only (new files arrive via merge to main) | New files only (`diff-filter=A`) | Adds `id` field to frontmatter | No - auto-assigned on creation |
+| `generate-ids.yml` | both branches (push to either) | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 50 pages per run | Adds an `id` to any page with none, an empty one, or the all-zero placeholder; never changes an existing id | No - auto-assigned |
 | `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
 | `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" below |
-| `generate-snippets` | **staging only** | New files only (`diff-filter=A`) | Sets `description` field | **Yes** - only overwrites new files, not modified ones |
+| `generate-snippets` | **staging only** | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 10 pages per run | Sets `description` on any page with none or a blank one | **Yes** - it never overwrites an existing description, a new page's included |
 | `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search) | Nothing in files (uploads to Answers API) | N/A |
-| `check-deleted-files` | main only | Every push (cleans deleted articles from prod Answers) | Nothing in files | N/A |
+| `check-deleted-files` | both branches | Every push: lists the branch's Answers index and deletes entries whose uid no page in the tree carries, since 2026-10-03 (owner decision 218, #296); at most 25 per run, refuses when more than a fifth of the index looks orphaned, reads each delete back | Nothing in files | N/A |
 | `update-last-modified` | **staging only** | Every push to staging | `lastUpdated` field from git history | No - always recalculated from git on staging |
 | `generate-related-articles` | **staging only** | Every push to staging | `## Related articles` section at bottom | No - fully regenerated on each staging run |
 | `sync` | both branches | Every push | Copies to support-docs (staging → staging branch, main → production branch) | N/A |
@@ -1407,7 +1413,8 @@ These patterns are effective when used intentionally with substance:
 
 **Important:** There is NO auto-promotion from `staging` to `main`. Merging to `main` is a manual step to push content to production. The `staging` branch is the active working branch (default HEAD).
 
-⚠️ **Merge into `staging` one at a time.** `documentation-pipeline.yml` has no `concurrency` group (#296, open), so two merges seconds apart start two pipelines that can finish out of order. Wait for the previous merge's pipeline, sync included, to finish before merging the next, until #296 is fixed.
+⚠️ **Runs take turns now, and a third push can still drop work (#296).** Since #311 (2026-10-02), `documentation-pipeline.yml` and `generate-ids.yml` carry a concurrency group per branch with `cancel-in-progress: false`, so runs take turns. GitHub keeps one waiting run per group, so a third push while one run works and one waits drops the waiting one. Whole-tree jobs are covered by the next run, but `generate-ids`, `generate-snippets` and `check-deleted-files` lose that commit's work (#296 stays open for that case). Until it is decided, still prefer merging into `staging` one at a time.
+Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree on every run, with no stored state, so the run that replaces a dropped one does the dropped run's work. Read only before the change, staging held one page still on the all-zero placeholder id since 2026-01-15 (`pro/integrations/mcp-server/google-gemini/index.mdx`), the staging index held 3 entries for no page and the production index 1. A first run on the whole tree therefore had 1 id and 0 descriptions to write on staging, and 4 index deletes: the 3 orphans plus the placeholder page's old entry once that page has its id.
 
 **Deploying staging to production:**
 
@@ -1572,6 +1579,7 @@ issue (#88, #118).
 
   - **It committed.** support-docs `production` has a new `Sync docs from tallyfy/documentation` commit whose body carries a `Source commit: <sha>` trailer naming the documentation `main` tip the job checked out (`gh api 'repos/tallyfy/support-docs/commits?sha=production&per_page=1' --jq '.[0].commit.message'`). Check your promotion is in it with `git merge-base --is-ancestor <promotion sha> <trailer sha>`, since another push to `main` can land before the job checks out. Then do step 2 for that commit.
   - **It printed `No changes to commit`.** Nothing the run would write differs from what `production` already carries, so there is no commit, no push and no Pages build. That is a correct no-op, not a failed deploy, and step 2 has nothing new to find: the newest deployment is the previous one. Confirm instead that the page you changed already serves the new content.
+  - **It printed `DO NOT PUBLISH:`** (since #311). The publish guard found a commit after the gated one that was not the pipeline's own generated commit, so this run published nothing and the run for that push publishes it. That is correct, not a failed deploy. Read it with `/usr/bin/grep -E 'Z (PUBLISH|DO NOT PUBLISH): ' "$LOG"`; a run that publishes prints `PUBLISH:` first.
 
   **PR #273 reached `main` on 2026-09-23, in the promotion PR #283 (`d4fab7fc`), so a production run can be a no-op again.** Before that, `main`'s copy of `scripts/promotion-hold-check.py`, which the `sync` job runs from its `main` checkout, wrote a per-promotion `# Source commit:` line into `promotion-holds.txt`. While that copy was on `main`, the file changed on every run, so every production run committed. The #283 sync, support-docs `5574fe3f`, removed the line, and the next production sync, `885bfba6` for promotion #294, did not touch the file. The `Source commit:` trailer on the sync commit comes from the workflow file, which a `workflow_run` workflow reads from the default branch, `staging`.
 
@@ -2276,6 +2284,10 @@ Before submitting documentation:
 - [ ] Content length justified by value provided
 - [ ] Prerequisites stated for complex procedures
 - [ ] Expected outcomes clearly defined
+
+## CI runners and pull requests (dated 2026-10-06)
+
+This repo is public. All its CI runs on GitHub-hosted runners and it sets no `CI_*` variable.
 
 ## PR Review Intelligence
 
