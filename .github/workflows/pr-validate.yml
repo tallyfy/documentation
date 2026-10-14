@@ -90,7 +90,10 @@ jobs:
       # (tallyfy/support-docs scripts/install-d2.sh, D2_VERSION="v0.7.0").
       # A validator running a different D2 than the build can pass what the
       # build fails, which is the whole reason the previous validator was
-      # useless: it also validated at --dark-theme=200 while the build uses 8.
+      # useless: it also validated at --dark-theme=200 while the build used 8.
+      # Since support-docs#259 the build passes no --dark-theme at all, and the
+      # gate keeps passing 8 on purpose: the flags block in
+      # scripts/validate-d2.sh says why.
       #
       # No `|| true` and no soft mode anywhere in these two steps. A gate that
       # cannot fail is what tallyfy/documentation#192 is about.
@@ -112,8 +115,13 @@ jobs:
       # Exit codes: 0 clean, 1 findings, 2 the gate could not run (no d2, no
       # python3, or zero fences discovered). Exit 2 is a failure on purpose: a
       # sweep that finds nothing satisfies every assertion made about it.
+      #
+      # The self-test runs first, so this step proves the gate can go red
+      # before it reports green: a diagram with link: must pass and an
+      # off-palette colour must still fail (tallyfy/documentation#363).
       - name: D2 diagram validation (compiles + house palette)
         run: |
           d2 --version
+          bash scripts/validate-d2.sh --self-test
           bash scripts/validate-d2.sh
         shell: bash
