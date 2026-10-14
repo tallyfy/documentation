@@ -31,7 +31,7 @@ and CI would overwrite. Also excluded: code fences, inline code, JSX tags, impor
 image alt, table rows, link URLs, and all frontmatter **except** `description:`, which ships to
 search results and to Answers and is therefore prose a reader sees.
 
-## The eleven classes
+## The twelve classes
 
 | Class | The move |
 |---|---|
