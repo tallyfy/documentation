@@ -637,16 +637,16 @@ B: Add Approval {
 A -> B
 ```
 
-### Hyperlink Support in D2
-- ✅ **Full support**: All node types support hyperlinks
-- ✅ **Tooltips**: Rich tooltips on hover
-- ✅ **External links**: Full URL support
-- **Note**: D2 provides consistent link support across all diagram types
+### What a link and a tooltip do on the docs site
+- **The whole node is the link.** D2 wraps the node's shape and label in an ordinary `<a href>`, and since tallyfy/support-docs#259 (2026-09-12) the site puts each diagram's SVG straight into the page rather than behind an `<img>`, so the link is part of the page. A `link:` on an edge (`A -> B: label { link: ... }`) links the edge's label, which D2 draws underlined.
+- **A tooltip is the browser's plain hover text.** D2 writes `tooltip:` as the node's `<title>`, which a browser shows when a mouse rests on the node. Touch screens don't hover, so never put anything a reader needs only in a tooltip.
+- **D2's small link and info icon is hidden.** D2 pins a 32 pixel icon to the corner of every node that has `link:` or `tooltip:`, in colours D2 sets itself (white, `#DEE1EB` and `#2E3346`). The site hides it with CSS (`svg .appendix-icon` in support-docs `src/tailwind.css`), so readers never see it.
+- **`scripts/validate-d2.sh` ignores that icon and nothing else.** A diagram with links passes the palette check, and any colour you set yourself outside the palette still fails, on a linked node too. The run's last lines say how many icons it ignored. Until tallyfy/documentation#363 the check reported the icon's three colours as off-palette, so a diagram that followed this section failed it.
 
 ### Link Patterns
-1. **Internal docs**: `link: /products/pro/path/`
-2. **Same-page anchors**: `link: #section-id`
-3. **External sites**: `link: https://api.tallyfy.com`
+1. **Internal docs**: `link: /products/pro/path/`, the full path with its trailing slash.
+2. **Same-page anchors**: `link: "#section-id"`, in quotes. Unquoted, D2 reads everything after `#` as a comment and the diagram fails to compile with "missing value after colon".
+3. **Other tallyfy.com sites**: `link: https://api.tallyfy.com`. Link to any other domain in the text around the diagram instead: a D2 link can't carry the `rel="nofollow"` and new tab attributes that CLAUDE.md requires for those.
 4. **With tooltip**: `tooltip: Descriptive text`
 
 **Best Practice**: Add at least 2 links per diagram to make it a navigation hub.
@@ -794,7 +794,7 @@ These global settings ensure:
 2. **Progressive Disclosure**:
    ```d2
    Overview: Process Overview\nClick for details {
-     link: #detailed-steps
+     link: "#detailed-steps"
      tooltip: View detailed steps
    }
    ```
@@ -832,7 +832,7 @@ These global settings ensure:
 1. **Review Existing Diagrams**: Check if the content changes affect the diagram's accuracy
 2. **Update Diagram Content**: If the article changes modify any process, flow, or relationship shown in the diagram, update the D2 notation accordingly
 3. **Maintain Consistency**: Ensure terminology in the diagram matches the updated article text
-4. **Verify Links**: If the diagram contains `click` statements, verify all linked paths remain valid
+4. **Verify Links**: If the diagram contains `link:` lines, verify all linked paths remain valid
 5. **Apply thorough analysis**: Re-evaluate if the diagram still adds value after the content update
    - If the process simplified to ≤3 steps, consider removing the diagram
    - If complexity increased, consider if a diagram is now needed
@@ -886,7 +886,9 @@ All 17 diagram types are technically supported, but use these based on content n
 - **Rendering**: Server-side or client-side rendering options
 - **Font**: Inter Variable (matches documentation font)
 - **Colors**: the house palette, and nothing else. `scripts/validate-d2.sh` rejects any
-  other literal, so a diagram written from a different palette fails CI.
+  other literal, so a diagram written from a different palette fails CI. The one thing it
+  ignores is the link and info icon D2 draws for `link:` and `tooltip:`, whose colours D2
+  sets and the site hides (see "Hyperlinks in D2 Diagrams").
   - Border and all strokes: `#225930`
   - Primary fill: `#f2faf4`
   - Secondary fill: `#e1f7e6`
@@ -906,8 +908,8 @@ All 17 diagram types are technically supported, but use these based on content n
 **SOLUTION**: Text color is now forced to black in light mode via global CSS. Never override this.
 
 ### 2. Broken Hyperlinks (ALWAYS VERIFY)
-**PROBLEM**: Many click directives point to non-existent URLs (404 errors).
-**SOLUTION**: ALWAYS verify URLs exist before adding click directives:
+**PROBLEM**: A `link:` to a page that doesn't exist sends the reader to a 404.
+**SOLUTION**: ALWAYS verify the page exists before adding a `link:`:
 ```bash
 # Check if a URL exists
 ls ~/GitHub/documentation/src/content/docs/pro/[path]/index.mdx
@@ -957,13 +959,25 @@ grep -r "sequenceDiagram\|participant\|autonumber" src/content/docs --include="*
 # Find incorrect edge label syntax
 grep -r "->.*:.*\"" src/content/docs --include="*.mdx" | grep -v "-> [A-Za-z]*:"
 
-# Verify linked URLs in D2 diagrams
-for file in $(grep -r "link:" src/content/docs --include="*.mdx" -l); do
-  echo "Checking $file"
-  grep "link:" "$file" | sed 's/.*link: "\(.*\)".*/\1/' | while read url; do
-    if [[ ! -f "src/content/docs${url}index.mdx" ]] && [[ ! -f "src/content/docs${url%.mdx}.mdx" ]]; then
-      echo "  ❌ Missing: $url"
-    fi
-  done
-done
+# Verify linked pages in D2 diagrams. Reads only D2 fences, prints one line per
+# /products/ link whose page doesn't exist, then how many links it checked.
+python3 - <<'EOF'
+import re, pathlib
+docs = pathlib.Path("src/content/docs")
+fence = re.compile(r"^```d2[^\n]*\n(.*?)^```[ \t]*$", re.M | re.S)
+link = re.compile(r'^\s*(?:[\w.-]+\.)?link\s*:\s*"?(/products/[^"\s]*)"?\s*$', re.M)
+checked = 0
+for mdx in sorted(docs.rglob("*.mdx")):
+    for body in fence.findall(mdx.read_text(encoding="utf-8")):
+        for url in link.findall(body):
+            checked += 1
+            page = url[len("/products/"):].split("#")[0].strip("/")
+            if not ((docs / page / "index.mdx").is_file() or (docs / f"{page}.mdx").is_file()):
+                print(f"{mdx}: missing {url}")
+print(f"checked {checked} diagram links")
+EOF
 ```
+
+The loop this replaced (until tallyfy/documentation#363) reported every link as missing: it
+matched prose and frontmatter as well as diagrams, and it looked for `/products/` pages under
+`src/content/docs/products/`, which doesn't exist.
