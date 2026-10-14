@@ -123,6 +123,17 @@ Decision -> End: No
    ./scripts/validate-d2.sh
    ```
 
+7. **Looking at a diagram as a picture**:
+   SVG output starts no browser, so it's always safe. To look at one diagram, render it to SVG and open the file in a browser:
+   ```bash
+   d2 --layout=elk --theme=104 diagram.d2 /tmp/diagram.svg
+   ```
+   If you need a PNG, never run bare `d2 diagram.d2 diagram.png`. d2 exports PNG and PDF through its own bundled copy of Playwright (1.47.2 in d2 0.7.1). That copy's install step deletes browser folders it thinks nothing needs from the shared `~/Library/Caches/ms-playwright`, including ones other tools on the same machine depend on. On 2026-10-13 one PNG export removed the WebKit build that our browser tests use. Give d2 a browser folder of its own instead:
+   ```bash
+   PLAYWRIGHT_BROWSERS_PATH="$HOME/Library/Caches/ms-playwright-d2" d2 --layout=elk --theme=104 diagram.d2 /tmp/diagram.png
+   ```
+   On a Tallyfy Mac, `~/GitHub/REFERENCE/DIAGRAMS/render-d2.sh diagram.d2 /tmp/diagram.png` sets that folder for you (since 2026-10-14). The first PNG export downloads Chromium into it once.
+
 ## Critical Implementation Notes
 
 **RENDERING CONFIGURATION**: All D2 diagrams are rendered with global theme and configuration settings defined in `/support-docs`. Individual diagrams should focus on content structure, not styling. The global config handles:
