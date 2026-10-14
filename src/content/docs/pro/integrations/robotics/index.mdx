@@ -1,9 +1,9 @@
 ---
 about_tallyfy: false
-description: Integrating robot systems with human workflows requires bridging proprietary
-  control protocols like OPC UA and ROS2 through middleware and edge computing. Strict
-  OT/IT network segregation and safety compliance are essential across manufacturing
-  and logistics environments.
+description: Tallyfy has no integration or partnership with any robot maker. This concept section
+  shows how a written Tallyfy procedure could sit beside robot work, what a link would
+  take, which of eleven robot makers publish an interface outside software can call as
+  of October 2026, and the current robot safety standards.
 id: c5ab1b068b1c8ce832da99d193228210
 lastUpdated: 2026-03-22
 sidebar:
@@ -13,153 +13,63 @@ title: Robotics
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-## Robotics workflow challenges
+:::note[This section describes a concept]
+Tallyfy has no integration or partnership with any robot maker, and nothing here is a product you can buy or switch on. These pages describe a concept and what each maker's own software can be asked to do. Vendor facts link to their source, read in October 2026.
+:::
 
-Coordinating robot systems with human teams is hard. Industrial and commercial robots run on proprietary control systems and communication protocols - connecting them to business workflows requires middleware, protocol translation, and careful architecture planning.
+## How a written procedure could drive robot work
 
-## Common communication protocols
+Tallyfy runs the steps people follow. Write a procedure once as a [template](/products/pro/documenting/templates/), and each launch becomes a [process](/products/pro/tracking-and-tasks/processes/) with tasks, owners, deadlines and an [activity log](/products/pro/tracking-and-tasks/tracker-view/how-can-i-track-process-activities-on-tallyfy/) of who did what.
 
-### OPC UA (Open Platform Communications Unified Architecture)
-Industry standard used by major manufacturers (ABB, KUKA, FANUC, Siemens). It provides secure machine-to-machine communication with built-in data modeling.
+Some robot makers let outside software read a robot's status or send it work. Where they do, a small program your developer writes could join the two, so a robot fault launches the right Tallyfy process. Boston Dynamics describes the same idea for Spot: an application that [creates a work order whenever the robot finds an anomaly](https://dev.bostondynamics.com/docs/concepts/orbit/about_orbit)<a href="https://dev.bostondynamics.com/docs/concepts/orbit/about_orbit" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a>. Tallyfy doesn't build or ship that program.
 
-### ROS/ROS2 (Robot Operating System)
-Open-source robotics middleware common in research and collaborative robots. ROS2 uses DDS (Data Distribution Service) for real-time communication between nodes.
+## What a link would take
 
-### MQTT (Message Queuing Telemetry Transport)
-Lightweight publish-subscribe protocol built for IoT devices. Used for robot telemetry and event-driven communication, with lower bandwidth needs than OPC UA.
+Your developer would need three things. The robot maker has to publish an interface, a documented way for a program to read the robot's status or send it work. Tallyfy's side exists today: another system can [launch a process through the API](/products/pro/launching/triggers/via-api/) or [complete a task](/products/pro/integrations/open-api/code-samples/tasks/complete-task/), and Tallyfy sends a webhook (a message to another system) when a [task is completed or a process launches](/products/pro/integrations/webhooks/).
 
-### Proprietary protocols
-Many manufacturers use proprietary communication methods that need vendor-specific SDKs or edge devices to translate into standard protocols.
+The program has to reach both sides, so plan where it runs with your IT team. NIST's [guide to operational technology security](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-82r3.pdf)<a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-82r3.pdf" rel="nofollow noopener noreferrer" target="_blank"><sup>[2]</sup></a> recommends keeping the networks that run physical equipment apart from the corporate network, with a buffer zone called a DMZ between them.
 
-## Integration architecture
+Before you buy, ask the robot maker in writing what your software may connect to. Some interfaces need an extra controller option, as [FANUC's driver does](https://fanuc-corporation.github.io/fanuc_driver_doc/main/docs/environment/system_requirements.html)<a href="https://fanuc-corporation.github.io/fanuc_driver_doc/main/docs/environment/system_requirements.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[3]</sup></a>.
 
-### Network topology
-Robot systems typically need network segregation between operational technology (OT) and information technology (IT) networks. Integration points usually happen through:
+## Where each robot maker stands
 
-- DMZ (demilitarized zone) with controlled access
-- Edge computing devices bridging OT and IT networks
-- API gateways with rate limiting and authentication
-- Message queues for asynchronous communication
+As of October 2026, these seven have a page of their own:
 
-### Security requirements
-When connecting robots to external systems, you'll need:
+- [Apptronik Apollo humanoid robots](/products/pro/integrations/robotics/apptronik/) - Apptronik makes the [Apollo humanoid robot](https://apptronik.com/apollo/apollo-2)<a href="https://apptronik.com/apollo/apollo-2" rel="nofollow noopener noreferrer" target="_blank"><sup>[4]</sup></a>. It publishes no way for outside software to send it work or read its status, as an [independent API catalogue](https://github.com/api-evangelist/apptronik)<a href="https://github.com/api-evangelist/apptronik" rel="nofollow noopener noreferrer" target="_blank"><sup>[5]</sup></a> also found.
+- [Boston Dynamics Spot, Stretch and Atlas](/products/pro/integrations/robotics/boston-dynamics/) - Boston Dynamics makes [Spot, a mobile robot for industrial inspection](https://bostondynamics.com/products/spot/)<a href="https://bostondynamics.com/products/spot/" rel="nofollow noopener noreferrer" target="_blank"><sup>[6]</sup></a>. Its [Orbit software](https://dev.bostondynamics.com/docs/concepts/orbit/about_orbit)<a href="https://dev.bostondynamics.com/docs/concepts/orbit/about_orbit" rel="nofollow noopener noreferrer" target="_blank"><sup>[7]</sup></a> lets outside software schedule Spot's missions, read the results and get a webhook when Spot completes an action.
+- [Universal Robots collaborative arms](/products/pro/integrations/robotics/universal-robots/) - Universal Robots makes [collaborative robot arms, or cobots](https://www.universal-robots.com/insights/faq/)<a href="https://www.universal-robots.com/insights/faq/" rel="nofollow noopener noreferrer" target="_blank"><sup>[8]</sup></a>. Outside software can [start and stop a program](https://docs.universal-robots.com/PolyScopeX_SDK_Documentation/build/SDK-v0.22/Resources.html)<a href="https://docs.universal-robots.com/PolyScopeX_SDK_Documentation/build/SDK-v0.22/Resources.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[9]</sup></a> and [stream live robot data](https://docs.universal-robots.com/tutorials/communication-protocol-tutorials/rtde-guide.html)<a href="https://docs.universal-robots.com/tutorials/communication-protocol-tutorials/rtde-guide.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[10]</sup></a>.
+- [KUKA industrial robots and cobots](/products/pro/integrations/robotics/kuka/) - KUKA makes [industrial robots](https://www.kuka.com/en-de/products/robot-systems/industrial-robots)<a href="https://www.kuka.com/en-de/products/robot-systems/industrial-robots" rel="nofollow noopener noreferrer" target="_blank"><sup>[11]</sup></a>. Outside software can [read a robot's status over OPC UA](https://opcfoundation.org/products/view/kr-c5/)<a href="https://opcfoundation.org/products/view/kr-c5/" rel="nofollow noopener noreferrer" target="_blank"><sup>[12]</sup></a>, and can send work to a program on the controller through an add-on KUKA sells, such as [KUKA.Ethernet KRL](https://www.kuka.com/en-de/products/robot-systems/software/hub-technologies/kuka-ethernet-krl)<a href="https://www.kuka.com/en-de/products/robot-systems/software/hub-technologies/kuka-ethernet-krl" rel="nofollow noopener noreferrer" target="_blank"><sup>[13]</sup></a>.
+- [Unitree quadruped and humanoid robots](/products/pro/integrations/robotics/unitree/) - Unitree makes [four-legged and humanoid robots](https://www.unitree.com/about/)<a href="https://www.unitree.com/about/" rel="nofollow noopener noreferrer" target="_blank"><sup>[14]</sup></a>. Its [developer kit](https://github.com/unitreerobotics/unitree_sdk2_python)<a href="https://github.com/unitreerobotics/unitree_sdk2_python" rel="nofollow noopener noreferrer" target="_blank"><sup>[15]</sup></a> reads a robot's status and controls it, though [not every edition supports it](https://shop.unitree.com/products/unitree-g1)<a href="https://shop.unitree.com/products/unitree-g1" rel="nofollow noopener noreferrer" target="_blank"><sup>[16]</sup></a>.
+- [ABB industrial robots, cobots and controllers](/products/pro/integrations/robotics/abb/) - ABB Robotics makes [industrial and collaborative robots and controllers](https://www.abb.com/global/en/areas/robotics)<a href="https://www.abb.com/global/en/areas/robotics" rel="nofollow noopener noreferrer" target="_blank"><sup>[17]</sup></a>. Its [Robot Web Services](https://developercenter.robotstudio.com/api/RWS)<a href="https://developercenter.robotstudio.com/api/RWS" rel="nofollow noopener noreferrer" target="_blank"><sup>[18]</sup></a> API can start and stop a robot program, read the controller's state and report changes.
+- [FANUC industrial robots and CRX cobots](/products/pro/integrations/robotics/fanuc/) - FANUC makes [industrial robots](https://www.fanucamerica.com/)<a href="https://www.fanucamerica.com/" rel="nofollow noopener noreferrer" target="_blank"><sup>[19]</sup></a> and [CRX cobots](https://www.fanucamerica.com/products/series/collaborative)<a href="https://www.fanucamerica.com/products/series/collaborative" rel="nofollow noopener noreferrer" target="_blank"><sup>[20]</sup></a>. Its [ROS 2 driver](https://www.fanucamerica.com/solutions/physical-ai/ros-2-driver)<a href="https://www.fanucamerica.com/solutions/physical-ai/ros-2-driver" rel="nofollow noopener noreferrer" target="_blank"><sup>[21]</sup></a> can [read a robot's status and errors, set its signals and send it motion commands](https://fanuc-corporation.github.io/fanuc_driver_doc/main/docs/fanuc_driver/controller_usage.html)<a href="https://fanuc-corporation.github.io/fanuc_driver_doc/main/docs/fanuc_driver/controller_usage.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[22]</sup></a>.
 
-- Network isolation between robot control and business networks
-- Authentication and authorization for all API calls
-- TLS encryption for data in transit
-- Fail-safe mechanisms if connectivity drops
-- Air-gapped operation for safety-critical systems
+### Makers with no page here
 
-## Human-robot collaboration workflows
+As of October 2026, these four make humanoid robots but publish no developer interface we could find, so we found nothing documented for outside software to call.
 
-Modern industrial settings increasingly mix automated and manual work. Coordinating these workflows means connecting robot control systems with human task management.
+- **Agility Robotics.** Agility says its Digit 4 humanoid [has logged more than 65,000 hours of work at customer sites in North America](https://www.agilityrobotics.com/content/agility-unveils-digit-5-humanoid-robot-built-for-cooperatively-safe-work-at-scale)<a href="https://www.agilityrobotics.com/content/agility-unveils-digit-5-humanoid-robot-built-for-cooperatively-safe-work-at-scale" rel="nofollow noopener noreferrer" target="_blank"><sup>[23]</sup></a>, and Digit 5 [is in development](https://www.agilityrobotics.com/solutions/digit-5)<a href="https://www.agilityrobotics.com/solutions/digit-5" rel="nofollow noopener noreferrer" target="_blank"><sup>[24]</sup></a>. It said in 2024 that its Arc fleet software [would provide industry standard APIs](https://www.agilityrobotics.com/content/agility-robotics-brings-operational-visibility-to-deployment-of-digit-fleets-with-the-launch-of-agility-arc-tm)<a href="https://www.agilityrobotics.com/content/agility-robotics-brings-operational-visibility-to-deployment-of-digit-fleets-with-the-launch-of-agility-arc-tm" rel="nofollow noopener noreferrer" target="_blank"><sup>[25]</sup></a>, but we found no documentation for them.
+- **Figure.** Figure says its Figure 03 robot [takes care of household tasks like laundry, cleaning and doing dishes](https://www.figure.ai/figure)<a href="https://www.figure.ai/figure" rel="nofollow noopener noreferrer" target="_blank"><sup>[26]</sup></a>. It said in April 2026 that the robots it builds [go to its research teams, data collection, housework trials and commercial use-case development](https://www.figure.ai/news/ramping-figure-03-production)<a href="https://www.figure.ai/news/ramping-figure-03-production" rel="nofollow noopener noreferrer" target="_blank"><sup>[27]</sup></a>.
+- **Tesla (Optimus).** Tesla's annual report to the SEC calls Optimus ["a general purpose, autonomous humanoid robot in development"](https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm)<a href="https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm" rel="nofollow noopener noreferrer" target="_blank"><sup>[28]</sup></a>. Its July 2026 investor update says production lines [are being installed](https://www.sec.gov/Archives/edgar/data/1318605/000162828026049213/exhibit991.htm)<a href="https://www.sec.gov/Archives/edgar/data/1318605/000162828026049213/exhibit991.htm" rel="nofollow noopener noreferrer" target="_blank"><sup>[29]</sup></a>.
+- **1X.** 1X sells [NEO, a robot for chores around the house](https://www.1x.tech/neo)<a href="https://www.1x.tech/neo" rel="nofollow noopener noreferrer" target="_blank"><sup>[30]</sup></a>, on [pre-order with US deliveries due in 2026](https://www.1x.tech/order)<a href="https://www.1x.tech/order" rel="nofollow noopener noreferrer" target="_blank"><sup>[31]</sup></a>. It wrote in June 2026 of a ["recently announced developer platform"](https://www.1x.tech/discover/tom-sanocki-vp-engineering)<a href="https://www.1x.tech/discover/tom-sanocki-vp-engineering" rel="nofollow noopener noreferrer" target="_blank"><sup>[32]</sup></a>, but we found no developer kit, API or documentation for it.
 
-### Common patterns
+## Safety standards for industrial robots
 
-**Assembly operations** - Robots handle heavy lifting and precise positioning while humans manage delicate components that need dexterity.
+As of October 2026, the standards bodies list these editions of the industrial robot safety standards:
 
-**Quality inspection** - Automated measurement systems run initial checks, routing exceptions to human inspectors.
+- **ISO 10218-1:2025**, Robotics - Safety requirements - Part 1: Industrial robots. [Edition 3, February 2025](https://www.iso.org/standard/73933.html)<a href="https://www.iso.org/standard/73933.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[33]</sup></a>.
+- **ISO 10218-2:2025**, Robotics - Safety requirements - Part 2: Industrial robot applications and robot cells. [Edition 2, February 2025](https://www.iso.org/standard/73934.html)<a href="https://www.iso.org/standard/73934.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[34]</sup></a>.
+- **ISO/TS 15066:2016**, Robots and robotic devices - Collaborative robots. [Edition 1, February 2016](https://www.iso.org/standard/62996.html)<a href="https://www.iso.org/standard/62996.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[35]</sup></a>, which ISO marked in June 2025 to be revised.
+- **ANSI/A3 R15.06-2025**, the US safety standard for industrial robots. A3 [released it in September 2025](https://www.newequipment.com/product-news/automation/news/55315582/new-ansi-a3-r1506-2025-us-standard-updates-safety-rules-for-industrial-robots)<a href="https://www.newequipment.com/product-news/automation/news/55315582/new-ansi-a3-r1506-2025-us-standard-updates-safety-rules-for-industrial-robots" rel="nofollow noopener noreferrer" target="_blank"><sup>[36]</sup></a>. It aligns with ISO 10218 Parts 1 and 2, replaces the 2012 edition and folds in the ISO/TS 15066 guidance.
 
-**Maintenance workflows** - Diagnostic routines generate data that maintenance teams use for troubleshooting and repair.
+## Technical details
 
-### Safety and compliance
+(Skip this unless you're setting up the technical side.)
 
-Industrial robot deployments must follow relevant safety standards:
+Three shared ways to move robot data, as of October 2026:
 
-- ISO 10218 (Safety requirements for industrial robots)
-- ISO/TS 15066 (Collaborative robots)
-- ANSI/RIA R15.06 (North American industrial robot safety)
-
-Audit trails help demonstrate compliance during safety assessments.
-
-## Planning your integration
-
-### Technical requirements
-- API access and authentication
-- Network connectivity and bandwidth
-- Protocol translation capabilities
-- Edge computing or middleware needs
-- Data sync and latency requirements
-
-### Organizational readiness
-- IT and operations team collaboration
-- Clear ownership of robot systems
-- Change management processes
-- Training for maintenance staff
-- Incident response procedures
-
-## Industry applications
-
-### Manufacturing
-Automotive assembly, electronics production, material handling, CNC coordination, quality inspection systems
-
-### Logistics and warehousing
-Autonomous mobile robots (AMRs), automated guided vehicles (AGVs), picking and packing systems, inventory management
-
-### Healthcare
-Laboratory automation, pharmacy dispensing, sample tracking, diagnostic equipment coordination
-
-### Food and beverage
-Packaging lines, batch processing, cleanroom operations, quality control systems
-
-## Common challenges
-
-**Protocol complexity** - Translating between industrial protocols and business systems needs specialized middleware and expertise.
-
-**Network security** - Keeping proper OT/IT segregation while enabling data flow.
-
-**Latency sensitivity** - Real-time robot control and asynchronous workflow updates need different architectural approaches.
-
-**Legacy systems** - Older robot controllers may lack modern connectivity options.
-
-**Vendor lock-in** - Proprietary systems can limit integration flexibility.
-
-### Documentation and knowledge management
-
-Organizations managing robot fleets often struggle with:
-
-- Keeping operational procedures up to date
-- Sharing improvements across multiple robot installations
-- Tracking which procedures were followed for compliance
-- Managing procedure versions as operations evolve
-- Coordinating human and automated tasks
-
-## Vendor resources
-
-Each vendor page below covers workflow management considerations for that robot platform:
-
-- **[Universal Robots](/products/pro/integrations/robotics/universal-robots/)** - Collaborative robot (cobot) platform
-- **[KUKA](/products/pro/integrations/robotics/kuka/)** - Industrial robot systems
-- **[Boston Dynamics](/products/pro/integrations/robotics/boston-dynamics/)** - Mobile inspection robots
-- **[Unitree Robotics](/products/pro/integrations/robotics/unitree/)** - Quadruped and humanoid platforms
-- **[AppTronik Apollo](/products/pro/integrations/robotics/apptronik/)** - Humanoid robot platform
-
-**Note**: Implementation details depend on your organization's requirements, robot configurations, and network architecture.
-
-## Important disclaimer
-
-**Information currency**: This documentation covers general robotics workflow integration concepts. The robotics industry evolves rapidly, with frequent changes in:
-
-- Vendor product capabilities and APIs
-- Communication protocols and standards
-- Safety regulations and compliance requirements
-- Market positioning and company ownership
-
-**Verification required**: Before making technical or business decisions:
-
-- Check current vendor capabilities through official documentation
-- Consult robot manufacturers for specific integration requirements
-- Review current safety standards and compliance obligations
-- Assess your organization's specific needs
-
-**No guarantees**: This documentation doesn't constitute:
-
-- Promises of specific integration capabilities
-- Technical specifications or service level agreements
-- Endorsements of particular vendors or products
-- Professional advice for your specific situation
-
-Contact Tallyfy support to discuss your robotics integration requirements and current capabilities.
+- **OPC UA** is the OPC Foundation's [industrial interoperability standard](https://opcfoundation.org/about/opc-technologies/opc-ua/)<a href="https://opcfoundation.org/about/opc-technologies/opc-ua/" rel="nofollow noopener noreferrer" target="_blank"><sup>[37]</sup></a> for machine data. ABB offers it through its [IoT Gateway](https://www.abb.com/global/en/areas/robotics/products/software/iot-gateway)<a href="https://www.abb.com/global/en/areas/robotics/products/software/iot-gateway" rel="nofollow noopener noreferrer" target="_blank"><sup>[38]</sup></a>, KUKA through [KUKA.DeviceConnector on the KR C5](https://opcfoundation.org/products/view/kr-c5/)<a href="https://opcfoundation.org/products/view/kr-c5/" rel="nofollow noopener noreferrer" target="_blank"><sup>[39]</sup></a> and FANUC as an [OPC UA Server option](https://www.fanucamerica.com/products/software/robot/hmi-device-snpx)<a href="https://www.fanucamerica.com/products/software/robot/hmi-device-snpx" rel="nofollow noopener noreferrer" target="_blank"><sup>[40]</sup></a>. Siemens SIMATIC S7-1200 and S7-1500 controllers [can act as an OPC UA server](https://www.siemens.com/en-us/products/opc-ua/)<a href="https://www.siemens.com/en-us/products/opc-ua/" rel="nofollow noopener noreferrer" target="_blank"><sup>[41]</sup></a>.
+- **ROS 2**, the Robot Operating System, is ["a set of software libraries and tools for building robot applications"](https://docs.ros.org/en/lyrical/index.html)<a href="https://docs.ros.org/en/lyrical/index.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[42]</sup></a>. Its documentation says it's [primarily built on top of DDS](https://docs.ros.org/en/lyrical/ROS-Framework/client-libraries/About-Different-Middleware-Vendors.html)<a href="https://docs.ros.org/en/lyrical/ROS-Framework/client-libraries/About-Different-Middleware-Vendors.html" rel="nofollow noopener noreferrer" target="_blank"><sup>[43]</sup></a>, an industry standard for passing data between programs, and now supports other middleware such as Zenoh.
+- **MQTT** is a lightweight [OASIS standard messaging protocol](https://mqtt.org/)<a href="https://mqtt.org/" rel="nofollow noopener noreferrer" target="_blank"><sup>[44]</sup></a> for the Internet of Things, now at [version 5](https://mqtt.org/mqtt-specification/)<a href="https://mqtt.org/mqtt-specification/" rel="nofollow noopener noreferrer" target="_blank"><sup>[45]</sup></a>. FANUC sells an [MQTT option](https://www.fanucamerica.com/products/software/robot/mqtt)<a href="https://www.fanucamerica.com/products/software/robot/mqtt" rel="nofollow noopener noreferrer" target="_blank"><sup>[46]</sup></a> for its controllers, and ABB's [IoT Gateway](https://www.abb.com/global/en/areas/robotics/products/software/iot-gateway)<a href="https://www.abb.com/global/en/areas/robotics/products/software/iot-gateway" rel="nofollow noopener noreferrer" target="_blank"><sup>[47]</sup></a> supports it.
 
 ## Related articles
 <CardGrid>
