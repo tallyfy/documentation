@@ -1,7 +1,8 @@
 ---
 about_tallyfy: true
-description: Set up automated countdown deadlines that work backwards from important
-  dates so preparation tasks are always completed on time.
+description: A countdown deadline makes a task due a set time before a date someone
+  enters, like 1 day before a meeting. Each automation sets its deadline once per
+  process, and a date with no time counts from 5:00 pm in your organization's timezone.
 id: fedc20f2ebac028de31e13ca48377ef4
 lastUpdated: 2026-09-17
 sidebar:
@@ -19,28 +20,38 @@ This page describes Tallyfy at `go.tallyfy.com`, the app your team uses today. S
 wording can differ in other versions of the Tallyfy interface.
 :::
 
-Tallyfy lets you set [task](/products/pro/tracking-and-tasks/tasks/) deadlines that count backwards from a target date. Your meeting agenda can be automatically due 1 day before the meeting. That's how preparation tasks always finish before the critical date arrives.
+A countdown deadline makes a [task](/products/pro/tracking-and-tasks/tasks/) due a set time before a date you already know. If a meeting is on the 14th, the agenda can be due on the 13th, whenever the process happened to start. Meetings, events, launches, contract renewals and compliance filings all work this way.
 
-:::caution[Read this before you build a countdown around a date that moves]
-Each of these automations runs **once** in a given process. It fires, it sets the deadline, and
-that's the end of it. If the target date changes afterwards, every deadline it already set stays
-exactly where it was.
-
-A countdown is a great fit for a date that's fixed once it's known, like a contract end date. It
-needs more care when the date slips, like a rescheduled meeting. See [when an automation
-runs](/products/pro/documenting/templates/automations/when-automations-run/) for what to do when
-that happens.
+:::caution[Dates that change after launch]
+Each countdown automation runs **once** in a process. If the target date changes after that, the
+deadlines it set stay where they are and you change them by hand. A countdown suits a date that's
+fixed once it's known, like a contract end date.
 :::
 
-## When to use countdown deadlines
+## Set up a countdown deadline
 
-- **Meeting prep** - reminders 1 day before scheduled meetings
-- **Event planning** - setup tasks due 2 weeks before the event
-- **Launch coordination** - marketing materials due 1 week before launch
-- **Contract renewals** - start discussions 30 days before expiration
-- **Compliance** - submit reports 5 days before regulatory due dates
+<Steps>
+1. **Add a date field for the target date**
 
-You're working backwards from a fixed date. Everything lands on time.
+   In your kick-off form[^1] or an early step, add a **Date** [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/), such as "Meeting date" or "Contract end date". It has to be a Date field, because Tallyfy won't save a deadline action that points at a text or number field. Make it required if the countdown matters.
+
+2. **Add the preparation steps**
+
+   Add a step to your [template](/products/pro/documenting/templates/) for each piece of work that has to happen before that date, such as "Send the agenda".
+
+3. **Add a deadline automation**
+
+   The automation points a [deadline action](/products/pro/documenting/templates/automations/actions/deadline-actions/) at one step and counts back from the date field:
+
+   ```automation
+   IF field "Meeting date" is not empty
+   THEN shift deadline of "Send the agenda" by 1 day before field "Meeting date"
+   ```
+</Steps>
+
+You can count back in minutes, hours, days, weeks or months. The same action counts forward too, with "after" in place of "before".
+
+## Several deadlines from one date
 
 ```d2
 # Countdown deadlines from one target date
@@ -95,168 +106,68 @@ Checklist -> Target: 2 hours before {
 }
 ```
 
-Each task has no dependency on the others. They are four independent offsets from one date field, which is why they all point at the same anchor.
+Each preparation step gets its own deadline action, and all of them read the same date field. None of them depends on another. You can build them as separate automations, or add several deadline actions to one automation.
 
-## How to create countdown deadline automations
+## Dates with and without a time
 
-<Steps>
-1. **Add a date field for the target date**
+A date field with no time counts from 5:00 pm on that day, in your organization's timezone. So "1 day before" a meeting on the 14th lands at 5:00 pm on the 13th.
 
-   In your kick-off form[^1] or an early step, add a **Date** field (e.g. "Meeting date", "Event date", "Contract expiration date"). It has to be a real **Date** field: Tallyfy won't save a deadline action pointed at a text or number field. Even with a Date field, guard against it being blank, because if the value is missing when the automation runs, Tallyfy calculates the deadline from right now instead of leaving it alone, which pushes a countdown deadline into the past.
+For a countdown in hours or minutes, turn on **Collect time** on the date field so people enter the time as well. Without it, "2 hours before" a meeting on the 14th means 3:00 pm on the 14th, whatever time the meeting starts.
 
-2. **Add preparation steps**
+## When the deadline is set
 
-   Add steps to your [template](/products/pro/documenting/templates/) for the work that needs to happen before that date (e.g. "Send meeting agenda", "Finalize event venue").
+Tallyfy checks a countdown automation at these moments:
 
-3. **Create deadline automations**
+- When the process launches, if one of its conditions reads a [kick-off form](/products/pro/launching/triggers/kick-off-forms/) field. If the kick-off form is completed after launch, it's checked then.
+- When someone completes or reopens a step that one of its conditions reads.
 
-   Set up automations that [calculate deadlines](/products/pro/documenting/templates/automations/actions/deadline-actions/) backwards from your date field:
+Once the conditions match, the automation runs and won't run again in that process. Completing the step again with a new date doesn't move the deadline, so [set the task's date by hand](/products/pro/tracking-and-tasks/tasks/edit-task/change-a-task-due-date/) instead. [When an automation runs](/products/pro/documenting/templates/automations/when-automations-run/) covers this in more detail.
 
-   **Example - meeting reminder 1 day before:**
-   ```automation
-   IF field "Meeting Date" is not empty
-   THEN shift deadline of "Send meeting reminder" by 1 day before field "Meeting Date"
-   ```
+If the date field is empty when the conditions match, the deadline action does nothing and the task keeps its default deadline. The automation still counts as run, so filling in the date later changes nothing. That's why every example here checks that the date **is not empty**: the automation waits until there's a date to count back from. Give these steps a sensible default deadline as well, in case the date never arrives.
 
-   **Example - event prep 2 weeks before:**
-   ```automation
-   IF field "Event Date" is not empty
-   THEN shift deadline of "Finalize catering order" by 14 days before field "Event Date"
-   ```
-</Steps>
+## A different lead time for each case
 
-## Real-world examples
-
-### Sales funnel
-
-**Kick-off form field**: "Scheduled meeting date"
+When the lead time depends on another answer, add a second condition and build one automation per case:
 
 ```automation
-IF field "Scheduled Meeting Date" is not empty
-THEN shift deadline of "Complete prospect research" by 3 days before field "Scheduled Meeting Date"
+AUTOMATION Room setup for a small meeting
+IF field "Event type" is "Small meeting"
+AND field "Event date" is not empty
+THEN shift deadline of "Room setup" by 1 day before field "Event date"
+
+AUTOMATION Room setup for a conference
+IF field "Event type" is "Large conference"
+AND field "Event date" is not empty
+THEN shift deadline of "Room setup" by 2 weeks before field "Event date"
 ```
 
-```automation
-IF field "Scheduled Meeting Date" is not empty
-THEN shift deadline of "Send meeting agenda" by 1 day before field "Scheduled Meeting Date"
-```
+## Show a step and set its deadline
+
+A step can appear only for some processes and still count down to a date. In this example, step 1 asks for the shipment's location and expected arrival date:
 
 ```automation
-IF field "Scheduled Meeting Date" is not empty
-THEN shift deadline of "Meeting day checklist" by 2 hours before field "Scheduled Meeting Date"
-```
-
-Valid deadline units are minutes, hours, days, weeks, and months.
-
-### Podcast publishing
-
-**Kick-off form field**: "Podcast launch date"
-
-```automation
-IF field "Launch Date" is not empty
-THEN shift deadline of "Upload final audio" by 1 week before field "Launch Date"
-```
-
-```automation
-IF field "Launch Date" is not empty
-THEN shift deadline of "Create social media posts" by 3 days before field "Launch Date"
-```
-
-```automation
-IF field "Launch Date" is not empty
-THEN shift deadline of "Final quality check" by 1 day before field "Launch Date"
-```
-
-### International shipping
-
-**Step 1 fields**: Location (dropdown) and Expected arrival date (date field)
-
-```automation
+AUTOMATION Show the customs check
 IF field "Location" is "International"
 THEN show "Verify customs documentation"
-```
 
-```automation
+AUTOMATION Customs check deadline
 IF field "Location" is "International"
-AND field "Expected Arrival Date" is not empty
-THEN shift deadline of "Verify customs documentation" by 1 week before field "Expected Arrival Date"
+AND field "Expected arrival date" is not empty
+THEN shift deadline of "Verify customs documentation"
+     by 1 week before field "Expected arrival date"
 ```
 
-This automation's condition checks **Location**, not the arrival date, so it doesn't automatically skip a blank date the way the examples above do. Without the second condition, a blank **Expected arrival date** would still let the automation fire, and Tallyfy would calculate the deadline from right now instead of the arrival date, landing it a week in the past and marking the task overdue immediately. Adding `field "Expected Arrival Date" is not empty` stops that: the deadline only shifts once there's a real date to count back from.
+These are two automations because their conditions differ. The customs step should appear as soon as the location is known, while its deadline also needs the arrival date. A single automation would show the step and then be used up before anyone entered the date.
 
-International shipments won't get stuck at customs, as long as the arrival date is filled in.
+## Working days and hours
 
-## Advanced patterns
-
-### Multiple deadlines from one date
-
-Create separate automations that all reference the same date field:
-
-```automation
-IF field "Contract End Date" is not empty
-THEN shift deadline of "Initial renewal discussion" by 60 days before field "Contract End Date"
-```
-```automation
-IF field "Contract End Date" is not empty
-THEN shift deadline of "Prepare renewal proposal" by 45 days before field "Contract End Date"
-```
-```automation
-IF field "Contract End Date" is not empty
-THEN shift deadline of "Send renewal offer" by 30 days before field "Contract End Date"
-```
-
-Each one is a separate automation - they'll all fire independently based on the same date.
-
-### Conditional countdown deadlines
-
-Different lead times based on other field values:
-
-```automation
-IF field "Event Type" is "Small Meeting"
-AND field "Event Date" is not empty
-THEN shift deadline of "Room setup" by 1 hour before field "Event Date"
-
-IF field "Event Type" is "Large Conference"
-AND field "Event Date" is not empty
-THEN shift deadline of "Room setup" by 1 day before field "Event Date"
-```
-
-### Working hours are not applied here
-
-A countdown deadline is set by an automation, and a deadline set by an automation isn't adjusted
-to your organization's [work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)[^2].
-Tallyfy counts back in calendar time and leaves the answer where it lands, so "14 days before the
-event" can land on a Sunday.
-
-Allow for that when you choose the gap. If a task really can't be due at the weekend, pick a gap
-that clears it, or set the deadline on the step itself, where the work week is applied.
-
-## Tips
-
-- **Add buffer** - use 2 days before instead of 1 for critical tasks
-- **Name tasks clearly** - include timing like "Send agenda (1 day before meeting)"
-- **Guard against blank dates** - if the automation's condition doesn't already check the date field, add that check (or make the field required), so a blank date can't push the deadline into the past
-- **Set fallback deadlines** - add default deadlines on steps in case date fields are left empty
-- **Test around weekends** - verify deadlines calculate correctly near non-working days
-
-:::caution[When a countdown deadline gets set, and why it's only once]
-Tallyfy sets a countdown deadline at one of two moments, whichever applies to your automation:
-
-1. When the process launches, if every condition reads a kick-off form field.
-2. When somebody completes the step that carries the date field.
-
-It is set **once**. There's no second pass. Reopening the step, editing the date and completing
-it again doesn't run the automation a second time, so the deadline it already set doesn't move.
-
-If a date changes after the automation has run, change the affected deadlines by hand. See [when
-an automation runs](/products/pro/documenting/templates/automations/when-automations-run/).
-:::
+A deadline set by an automation isn't adjusted to your organization's [work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/)[^2]. Tallyfy counts back in calendar time and leaves the result where it lands, so "14 days before" an event can fall on a Sunday. Pick a gap that clears the weekend, or set the deadline on the step itself, where the work week is applied.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
 
 [^1]: Pre-launch form that captures initial data before a process starts in Tallyfy
-[^2]: Working hours configured in **Settings** > **Organization**, typically Monday-Friday business hours
+[^2]: Working days and hours are set in **Settings** > **Organization** > **Customization**, typically Monday-Friday business hours
 
 ## Related articles
 <CardGrid>
