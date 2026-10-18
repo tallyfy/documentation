@@ -1,7 +1,7 @@
 ---
-description: The batch import endpoint lets you index multiple objects into Tallyfy
-  Answers collections through a single API call. It processes JSON arrays and provides
-  detailed error handling for large-scale data operations.
+description: The batch import endpoint queues a JSON array of objects for indexing
+  into a Tallyfy Answers collection. You upload the array as a file, the service indexes
+  the objects one at a time in the background, and an object whose uid exists is updated.
 id: 78baee7130f6cd6815484eaa83f080c3
 lastUpdated: 2026-03-22
 sidebar:
@@ -11,9 +11,9 @@ title: Index multiple objects
 
 ## Batch importing multiple objects
 
-This endpoint lets you efficiently index multiple objects into Tallyfy Answers in a single API call. It's much faster than making individual object creation requests, especially for large datasets or initial data loading.
+This endpoint is how you add or update objects in Tallyfy Answers. You upload a JSON file holding an array of objects, and the service queues them for indexing.
 
-Large batch imports run in the background. You can monitor progress and cancel operations if needed using the [Tasks](/products/answers/tasks/) endpoints.
+Imports run in the background. You can see which collections have an import and stop one using the [Tasks](/products/answers/tasks/) endpoints.
 
 ### API endpoint
 
@@ -21,15 +21,17 @@ Large batch imports run in the background. You can monitor progress and cancel o
 POST /collections/{collection_name}/batch
 ```
 
+This endpoint needs the API key.
+
 ### Request parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `collection_name` | path | Yes | Name of the collection to import objects into |
 
-### Request body format: JSON array
+### Request body format: a JSON file
 
-The request body must be a JSON array containing multiple document objects. Each object should include the required fields for your collection schema.
+Send the request as `multipart/form-data` with one file field named `data`. The file holds a JSON array of objects. Give each object the seven fields search reads: `uid`, `title`, `url`, `content`, `hierarchy`, `source` and `snippet`.
 
 Here's an example JSON array format for two objects:
 
@@ -40,14 +42,16 @@ Here's an example JSON array format for two objects:
     "title": "Getting Started Guide",
     "content": "Complete guide to getting started...",
     "url": "https://example.com/guide",
+    "hierarchy": {"lvl0": "Documentation", "lvl1": "Getting started"},
     "source": "Documentation",
     "snippet": "Quick start guide for new users"
   },
   {
-    "uid": "article-456", 
+    "uid": "article-456",
     "title": "Advanced Features",
     "content": "Advanced functionality overview...",
     "url": "https://example.com/advanced",
+    "hierarchy": {"lvl0": "Documentation", "lvl1": "Advanced features"},
     "source": "Documentation",
     "snippet": "Deep dive into advanced capabilities"
   }
@@ -56,82 +60,62 @@ Here's an example JSON array format for two objects:
 
 ### Content-Type header
 
-Set the `Content-Type` header to:
-- `application/json`
+Use `multipart/form-data`. `curl -F` sets it for you.
 
 ### Response
 
-A successful request returns a `200 OK` status code and a summary of the import operation:
+A `200 OK` means the import was queued, not finished:
 
 ```json
 {
-  "success": true,
-  "count": 3,
-  "errors": []
+  "valid": true,
+  "message": "Processing data"
 }
 ```
 
-If some objects fail to import while others succeed, you'll receive a `207 Multi-Status[^1]` response:
+There's no completion signal and no per-object error report. The service embeds and indexes the objects one at a time in a background thread, and an object that fails is only logged on the server. To see how far an import has got, compare counts from `GET /collections/{collection_name}/objects/metadata`.
 
-```json
-{
-  "success": true,
-  "count": 2,
-  "errors": [
-    {
-      "line": 2,
-      "error": "Invalid object format at line 2",
-      "object": "{malformed json}"
-    }
-  ]
-}
-```
+An object whose `uid` already exists in the collection is updated in place.
+
+A deploy or restart of the service ends any running import. If that happens, send the same file again. Objects already indexed are updated, not duplicated.
 
 ### Error scenarios
 
 | Status | Description |
 |--------|-------------|
-| 400 | Invalid JSONLines format or request body |
+| 400 | `{"valid": false, "error": "Invalid JSON"}`: the file isn't valid JSON |
+| 400 | `{"valid": false, "error": "JSON should be a list of objects"}`: the file isn't an array of objects |
+| 400 | Invalid collection name format |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
 | 404 | Collection not found |
-| 413 | Request body too large |
+| 422 | The request has no file field named `data` |
+| 500 | `{"valid": false, "error": "Internal server error"}` |
 
 ### Example request using curl
 
 ```bash
 curl -X POST "https://answers.tallyfy.com/collections/docs/batch" \
   -H "Authorization: Bearer your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "uid": "guide-123",
-      "title": "Getting Started",
-      "content": "Complete guide to getting started with our platform...",
-      "url": "https://example.com/guide",
-      "source": "Documentation",
-      "snippet": "Quick start guide for new users"
-    }
-  ]'
+  -F "data=@objects.json;type=application/json"
 ```
+
+Here `objects.json` holds an array like the one above. To add or update a single object, send an array with one object in it.
 
 ### Best practices for batch imports
 
-- **Size limitations**: Keep individual requests under 5MB
-- **Chunking**: For large datasets, break imports into smaller batches of 100-1000 objects[^2]
-- **ID handling**: You can mix objects with and without custom IDs in the same import
-- **Error handling**: Process the errors array in the response to identify and fix failed objects
-- **Parallel imports**: For very large datasets, you can make multiple parallel import requests to different collections
+- **One import at a time per collection**: Starting an import for a collection stops the one still running for it, and the objects it hadn't reached are never indexed. Send one file per collection, and don't send the next until the previous has finished.
+- **ID handling**: Give every object a `uid`. Objects without one can't be updated, deleted on their own, or used for recommendations.
+- **Parallel imports**: You can run imports into different collections at the same time. Each one gets its own background thread.
 
 ### When to use batch import
 
 - Initial data population
 - Regular data synchronization from external systems
-- Bulk updates to multiple objects
+- Bulk updates to multiple objects, by sending them again with their existing `uid` values
 - Periodic content refreshes
+- Adding or updating a single object
 
 import { CardGrid, LinkTitleCard } from "~/components";
-
-[^1]: HTTP status code indicating partial success - some operations succeeded while others failed
-[^2]: Optimal range balances memory usage, network timeout risk, and API processing efficiency
 
 ## Related articles
 <CardGrid>

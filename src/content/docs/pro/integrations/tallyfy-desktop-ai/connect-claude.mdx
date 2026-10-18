@@ -2,7 +2,7 @@
 about_tallyfy: true
 description: Install the Anthropic Claude CLI and sign into your Claude.ai subscription
   so Tallyfy Desktop can drive it. The Install Wizard handles the bash installer with
-  explicit consent, or you can install manually from anthropic.com.
+  explicit consent, or you can run the same installer yourself.
 id: 803155bc24752bfb217ed377ab5e7e47
 lastUpdated: 2026-08-15
 sidebar:
@@ -13,13 +13,17 @@ title: Connect Claude to Tallyfy Desktop
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
+:::note[Not released yet]
+This page describes Tallyfy Desktop v2.0.0, which hasn't been released yet. The version you can download today, v1.0.0, doesn't include these AI features.
+:::
+
 :::note[Subscription, not API key]
 Claude in Tallyfy Desktop uses OAuth via your Claude.ai account (Pro, Max, Team, or Enterprise plan). The app never asks for an `ANTHROPIC_API_KEY` and won't accept one. If you don't have a Claude subscription, sign up at [claude.ai](https://claude.ai)<a href="https://claude.ai" rel="nofollow noopener noreferrer" target="_blank"><sup>[1]</sup></a> first.
 :::
 
 ## What gets installed
 
-Tallyfy Desktop drives Claude through Anthropic's official `claude` command-line tool (Claude Code). On first launch, the desktop app checks whether `claude` is on your `PATH` and whether you've signed in. If either is missing, it offers to install or guide you.
+Tallyfy Desktop drives Claude through Anthropic's official `claude` command-line tool (Claude Code). Each time it starts, the desktop app checks whether `claude` is on your `PATH` and whether you've signed in. If either is missing, Claude shows as "(not installed)" in the **Provider** dropdown of the **AI Chat** tab, with an **Install** button beside it.
 
 The install command per platform is baked into the desktop app source code:
 
@@ -33,9 +37,9 @@ Binaries land under `~/.local/bin/` on macOS and Linux, and under `%LOCALAPPDATA
 
 ## Prerequisites
 
-- A Tallyfy account (you'll sign in to Tallyfy Desktop first, before any AI tab works)
+- A Tallyfy account (you'll sign in to Tallyfy Desktop first, before the **AI Chat** tab works)
 - A Claude.ai subscription on Pro, Max, Team, or Enterprise plan
-- A modern web browser for the OAuth sign-in step (the desktop app opens it for you)
+- A modern web browser for the OAuth sign-in step (`claude login` opens it for you)
 
 ## Option A: Install Wizard (recommended)
 
@@ -43,43 +47,44 @@ This is the path the desktop app guides you through. The wizard shows the exact 
 
 <Steps>
 
-1. **Open the Claude tab**
+1. **Pick Claude in the AI Chat tab**
 
-   In Tallyfy Desktop, click the **Claude** tab. If the CLI isn't installed, the Install Wizard appears.
+   In Tallyfy Desktop, open the **AI Chat** tab and choose **Claude** from the **Provider** dropdown. If Claude isn't ready to use, it shows as "Claude (not installed)" with an **Install** button beside the dropdown. Click **Install** to open the Install Wizard.
 
 2. **Read the consent screen**
 
    The wizard shows:
    - The provider being installed (Claude, Anthropic)
    - The exact command that will run (the `curl ... | bash` line for your platform)
-   - A risks list (network egress, disk writes under `~/.local/bin/`, no system modification)
-   - A "Hold Shift to install" button
+   - The command's SHA256 digest, which the app checks again before it runs anything
+   - A risks list (downloads a script from `claude.ai` over HTTPS, writes binaries under `~/.local/bin/`, doesn't touch `/usr/local`, `/etc`, or system services)
+   - An **Install** button that reads **Hold Shift to enable** until you press Shift
 
    ![Install Wizard with the consent screen for Claude](https://screenshots.tallyfy.com/desktop-ai/install-wizard-consent.png)
 
-3. **Hold Shift for three seconds**
+3. **Hold Shift and click Install**
 
-   The button activates only while you hold the Shift key for three seconds. This intentional friction prevents accidental installs. Release the key to cancel.
+   The **Install** button works only while you hold the Shift key, so an install can't start by accident. Hold Shift and click **Install**. To back out instead, click **Cancel**.
 
 4. **Watch the progress log**
 
-   The wizard streams the installer's output in real time. You'll see download progress, the binary unpacking, and a final "Installed Claude vX.Y.Z" line.
+   The wizard streams the installer's output in real time, first under **Installing**, then under **Verifying install**.
 
    ![Install Wizard with the progress log showing a successful Claude install](https://screenshots.tallyfy.com/desktop-ai/install-wizard-progress.png)
 
 5. **Verify**
 
-   The wizard runs `claude --version` and shows the result. If you see a version number, the binary works.
+   The wizard runs `claude --version` and shows the result as "Installed Claude:" followed by the version. If you see a version number, the binary works. Click **Continue** to close the wizard.
 
 6. **Sign in with Claude.ai**
 
-   Click **Sign in with Claude**. The desktop app opens Claude's OAuth flow in your default browser. Approve the connection. The browser will redirect back to a confirmation page; close it when prompted.
+   The wizard doesn't sign you in. Open a terminal and run `claude login`. It opens Claude's OAuth flow in your default browser. Approve the connection. The browser will redirect back to a confirmation page; close it when prompted.
 
-   The token is stored under `~/.claude/.credentials.json` (and in macOS Keychain on Darwin systems). The desktop app reads it from there; you don't paste it anywhere.
+   The token is stored under `~/.claude/.credentials.json` (and in macOS Keychain on Darwin systems). The desktop app checks for that file to see whether you're signed in; you don't paste the token anywhere.
 
-7. **Test the connection**
+7. **Restart and test the connection**
 
-   Back in the Claude tab, type `hi` and press Enter. You should see Claude's streamed response within a few seconds, with the model name in the header.
+   Quit and reopen Tallyfy Desktop so it detects Claude. In the **AI Chat** tab, choose **Claude**, type `hi`, and click **Send** (or press Cmd+Enter on macOS, Ctrl+Enter on Windows and Linux). You should see Claude's streamed response within a few seconds. The terminal panel under the chat names the provider and model when the run starts.
 
 </Steps>
 
@@ -104,7 +109,7 @@ If you'd rather install Claude outside the desktop app, that works too. Tallyfy 
 
 3. **Restart Tallyfy Desktop**
 
-   Quit the app fully (Cmd+Q on macOS, File then Quit on Windows/Linux) and reopen it. The Claude tab will detect the new binary and skip the Install Wizard.
+   Quit the app fully (Cmd+Q on macOS, File then Quit on Windows/Linux) and reopen it. Claude no longer shows "(not installed)" in the **Provider** dropdown, and the **Install** button goes away.
 
 </Steps>
 
@@ -112,10 +117,10 @@ If you'd rather install Claude outside the desktop app, that works too. Tallyfy 
 
 Once Claude is connected:
 
-1. Click the **Claude** tab.
-2. The model picker in the top-right shows the default Claude model (Sonnet 5 in v2.0.0).
-3. Type your message and press Enter. You'll see the streamed response appear chunk by chunk.
-4. The chat header shows the cost and token usage on completion.
+1. Open the **AI Chat** tab and choose **Claude** from the **Provider** dropdown.
+2. The **Model** dropdown starts on **(default)**, which leaves the model choice to the Claude CLI. You can pick **Claude Opus 5.5**, **Claude Sonnet 5.5**, or **Claude Haiku 5.5** instead.
+3. Type your message and click **Send** (or press Cmd+Enter on macOS, Ctrl+Enter on Windows and Linux). Enter on its own adds a new line. You'll see the streamed response appear chunk by chunk.
+4. When the run ends, its cost shows in the [Terminal Jobs](/products/pro/integrations/tallyfy-desktop-ai/terminal-jobs/) tab.
 
 Because the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) is auto-injected, Claude already knows about your tasks, processes, templates, and team. Try:
 
@@ -123,7 +128,7 @@ Because the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) is auto
 - "Find the customer onboarding template"
 - "Create a task to review next quarter's hiring plan, due Friday"
 
-That last one will trigger the [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/), which offers a one-click button to create the task in Tallyfy.
+If Claude's reply to that last one says it will create the task, the [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) shows under the reply with a button to create it in Tallyfy.
 
 ## Verifying the install yourself
 
@@ -140,7 +145,7 @@ claude --version
 test -f ~/.claude/.credentials.json && echo "signed in" || echo "not signed in"
 ```
 
-The desktop app caches the detection result for 60 minutes. Press **Cmd+Shift+R** (or **Ctrl+Shift+R** on Windows/Linux) inside the Claude tab to force a re-detection after an install or login.
+The desktop app keeps each detection result for 60 minutes and checks again every time it starts. After an install or sign-in, quit and reopen Tallyfy Desktop so it picks up the change.
 
 ## Troubleshooting
 
@@ -151,11 +156,11 @@ The installer writes to `~/.local/bin/` (or `%LOCALAPPDATA%\claude\bin\` on Wind
 - **macOS / Linux**: `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc` (or `~/.bashrc`), then restart Tallyfy Desktop.
 - **Windows**: open System Properties, click Environment Variables, add `%LOCALAPPDATA%\claude\bin` to your user `Path`.
 
-Then press Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux) inside the Claude tab to retry detection.
+Then quit and reopen Tallyfy Desktop so it checks again.
 
 ### OAuth browser window doesn't open
 
-Some browsers block popup windows from desktop apps. Quit the browser, reopen it, then click **Sign in with Claude** again. If it still doesn't open, run `claude login` directly in a terminal as a workaround.
+Some browsers block windows that other apps open. Quit the browser, reopen it, then run `claude login` again in a terminal.
 
 ### "Permission denied" on macOS
 
@@ -165,21 +170,20 @@ If the install script can't write to `~/.local/bin/`, your shell might be sandbo
 
 Claude's per-account quota varies by plan. If you hit a quota wall, the streamed response stops and an error event appears in the chat. Wait a few minutes and retry, or upgrade your Claude.ai plan. Tallyfy Desktop doesn't add quota on top of Anthropic's; the limit is whatever your subscription says.
 
-### The model picker is empty
+### Claude still shows "(not installed)"
 
-This usually means the OAuth token expired. Click the user menu in the desktop app, choose **Sign out of Claude**, then click **Sign in with Claude** again.
+Tallyfy Desktop checks for the CLI and your sign-in when it starts. Quit and reopen it after you install or run `claude login`. If Claude still shows "(not installed)", run the checks under [Verifying the install yourself](#verifying-the-install-yourself).
 
 ## What Claude can do that the others can't
 
 Claude is the most capable provider in Tallyfy Desktop v2.0.0:
 
-- **Tool use** - Claude can call MCP tools (Tallyfy's auto-injected MCP server) during the chat, not just at the end. You'll see `tool-use-start` and `tool-use-end` events stream in the chat.
-- **Thinking** - Claude streams its reasoning in a separate channel that's visible in the chat (collapsible).
-- **Cost reporting** - Claude reports the exact USD cost of each run on completion.
-- **Browser automation** - the `claude --chrome` flag drives a sandboxed Chrome instance for browser-bound workflows. The desktop repo is private, but its `docs/COMPUTER-USE-DEFERRED.md` covers what this can and can't do. Ask support if you need the detail.
-- **Attachments** - drag a file into the chat and Claude reads it (limited to text and images in v1).
+- **Tool use** - Claude can call MCP tools (Tallyfy's auto-injected MCP server) while it answers. Each call shows in the chat as a card with the tool's name and status; open it to see the input and output.
+- **Thinking** - Claude streams its reasoning in a separate channel. It shows in the chat as a **Thinking** section, collapsed until you open it.
+- **Cost reporting** - Claude reports the cost of each run in US dollars when it finishes, and Terminal Jobs shows it.
+- **Browser automation** - turn on the **Chrome** switch in the **AI Chat** tab and Claude runs with the `claude --chrome` flag, which drives a real Chrome browser through the Claude for Chrome extension. The desktop repo is private, but its `docs/COMPUTER-USE-DEFERRED.md` covers what this can and can't do. Ask support if you need the detail.
 
-The other providers cover subsets of these. See the [overview](/products/pro/integrations/tallyfy-desktop-ai/) for the full capability matrix.
+The other providers cover subsets of these. Each of their connect guides ends with a table of what that provider supports, and the [overview](/products/pro/integrations/tallyfy-desktop-ai/) compares all four.
 
 ## Related articles
 <CardGrid>

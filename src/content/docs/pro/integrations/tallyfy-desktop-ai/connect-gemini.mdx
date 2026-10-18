@@ -13,13 +13,17 @@ title: Connect Gemini to Tallyfy Desktop
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
+:::note[Not released yet]
+This page describes Tallyfy Desktop v2.0.0, which hasn't been released yet. The version you can download today, v1.0.0, doesn't include these AI features.
+:::
+
 :::note[Subscription, not API key]
 Gemini in Tallyfy Desktop uses OAuth via your Google account. The app never asks for a `GOOGLE_API_KEY` or `GEMINI_API_KEY` and won't accept either. A Google account is required (Workspace or personal Gmail both work); your usage counts against the free or paid Gemini quota tied to that account.
 :::
 
 ## What gets installed
 
-Tallyfy Desktop drives Gemini through Google's official `gemini` command-line tool (the `@google/gemini-cli` npm package). On first launch, the desktop app checks whether `gemini` is on your `PATH` and whether you've signed in. If either is missing, it offers to install or guide you.
+Tallyfy Desktop drives Gemini through Google's official `gemini` command-line tool (the `@google/gemini-cli` npm package). Each time it starts, the desktop app checks whether `gemini` is on your `PATH` and whether you've signed in. If either is missing, Gemini shows as "(not installed)" in the **Provider** dropdown of the **AI Chat** tab, with an **Install** button beside it.
 
 The install command per platform is baked into the desktop app source code:
 
@@ -42,9 +46,9 @@ The binary lands in your global npm prefix. You'll need Node.js 18+ already inst
 
 <Steps>
 
-1. **Open the Gemini tab**
+1. **Pick Gemini in the AI Chat tab**
 
-   Click the **Gemini** tab in Tallyfy Desktop. If the CLI isn't installed, the Install Wizard appears.
+   In Tallyfy Desktop, open the **AI Chat** tab and choose **Gemini** from the **Provider** dropdown. If Gemini isn't ready to use, it shows as "Gemini (not installed)" with an **Install** button beside the dropdown. Click **Install** to open the Install Wizard.
 
 2. **Read the consent screen**
 
@@ -53,23 +57,23 @@ The binary lands in your global npm prefix. You'll need Node.js 18+ already inst
    - After install, run `gemini` once to complete the interactive OAuth flow
    - Default model is `gemini-2.5-flash` (chosen to avoid subscription quota issues hit by `gemini-3-pro-preview`)
 
-3. **Hold Shift for three seconds**
+3. **Hold Shift and click Install**
 
-   The button activates while you hold Shift. Release to cancel.
+   The **Install** button works only while you hold Shift. Until then it reads **Hold Shift to enable**. To back out instead, click **Cancel**.
 
 4. **Watch the progress log**
 
-   The wizard streams `npm install` output. You'll see the package install and a verification run of `gemini --version`.
+   The wizard streams `npm install` output, then runs `gemini --version` to check the install. When the check passes, it shows "Installed Gemini:" followed by the version. Click **Continue** to close the wizard.
 
 5. **Sign in with Google**
 
-   Click **Sign in with Google**. The desktop app runs `gemini` interactively for the first time, which kicks off Google's OAuth flow in your browser. Pick your account, approve the scopes, and return to the desktop app.
+   The wizard doesn't sign you in. Open a terminal and run `gemini` once, which kicks off Google's OAuth flow in your browser. Pick your account, approve the scopes, and return to the terminal.
 
-   The token is stored under `~/.gemini/oauth_creds.json`. The desktop app reads it from there.
+   The token is stored under `~/.gemini/oauth_creds.json`. The desktop app checks for that file to see whether you're signed in.
 
-6. **Test the connection**
+6. **Restart and test the connection**
 
-   Type `hi` in the Gemini tab and press Enter. You should see Gemini's streamed response within a few seconds.
+   Quit and reopen Tallyfy Desktop so it detects Gemini. In the **AI Chat** tab, choose **Gemini**, type `hi`, and click **Send** (or press Cmd+Enter on macOS, Ctrl+Enter on Windows and Linux). You should see Gemini's streamed response within a few seconds.
 
 </Steps>
 
@@ -93,7 +97,7 @@ The binary lands in your global npm prefix. You'll need Node.js 18+ already inst
 
 3. **Restart Tallyfy Desktop**
 
-   Quit fully and reopen. The Gemini tab will detect the binary and the credentials, then skip the wizard.
+   Quit fully and reopen. Gemini no longer shows "(not installed)" in the **Provider** dropdown.
 
 </Steps>
 
@@ -101,9 +105,9 @@ The binary lands in your global npm prefix. You'll need Node.js 18+ already inst
 
 Once Gemini is connected:
 
-1. Click the **Gemini** tab.
-2. The model picker shows the default (`gemini-2.5-flash` in v2.0.0).
-3. Type your message and press Enter. Gemini streams NDJSON events, so you'll see the response appear chunk by chunk with token-count stats on completion.
+1. Open the **AI Chat** tab and choose **Gemini** from the **Provider** dropdown.
+2. The **Model** dropdown starts on **(default)**, which uses `gemini-2.5-flash`. You can also pick **Gemini 2.5 Pro** or **Gemini 2.5 Flash**.
+3. Type your message and click **Send**. Gemini streams NDJSON events, so you'll see the response appear chunk by chunk. When it finishes, Gemini reports token counts, which you can see in the run's events in the [Terminal Jobs](/products/pro/integrations/tallyfy-desktop-ai/terminal-jobs/) tab.
 
 Because the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) is auto-injected, Gemini knows about your tasks, processes, templates, and team. Try:
 
@@ -111,11 +115,11 @@ Because the [Tallyfy MCP server](/products/pro/integrations/mcp-server/) is auto
 - "Find all overdue tasks assigned to me"
 - "Launch the customer feedback survey for last month's signups"
 
-The [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) works the same way it does with Claude; intent is detected and the widget surfaces inline.
+The [Task Intent Widget](/products/pro/integrations/tallyfy-desktop-ai/task-intent-widget/) works with Gemini too: it watches Gemini's reply and shows inline when it spots an intent.
 
 ## Why `gemini-2.5-flash` is the default
 
-The Gemini CLI's default model is `gemini-3-pro-preview`. In testing, that model hits "You have exhausted your capacity on this model" on most accounts after only a few prompts. Tallyfy Desktop ships with `gemini-2.5-flash` as the default to avoid that friction. You can switch to any other Gemini model from the model picker; if you hit the quota wall, switch back to `flash`.
+The Gemini CLI's default model is `gemini-3-pro-preview`. In the desktop team's testing, that model returned "You have exhausted your capacity on this model" on the test account. Tallyfy Desktop ships with `gemini-2.5-flash` as the default to avoid that friction. You can switch to **Gemini 2.5 Pro** from the **Model** dropdown; if you hit the quota wall, switch back to **Gemini 2.5 Flash**.
 
 ## Verifying the install yourself
 
@@ -130,7 +134,7 @@ gemini --version
 test -f ~/.gemini/oauth_creds.json && echo "signed in" || echo "not signed in"
 ```
 
-Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux) in the Gemini tab forces a re-detection.
+The desktop app keeps each detection result for 60 minutes and checks again every time it starts, so quit and reopen it after an install or sign-in.
 
 ## Troubleshooting
 
@@ -138,7 +142,7 @@ Cmd+Shift+R (Ctrl+Shift+R on Windows/Linux) in the Gemini tab forces a re-detect
 
 You're hitting Google's subscription quota. The CLI auto-retries with backoff (10s, 20s, 40s) up to five attempts. If the retries don't work:
 
-1. Switch to `gemini-2.5-flash` in the model picker; it has a higher free-tier limit
+1. Switch to **Gemini 2.5 Flash** in the **Model** dropdown; it has a higher free-tier limit
 2. Wait a few minutes for the quota to reset
 3. Upgrade your Google AI plan if you need higher throughput
 
@@ -153,23 +157,23 @@ Same fix as Codex: switch to a user-owned npm prefix or use nvm. See the [Codex 
 Google sometimes blocks OAuth requests from new clients. The fix:
 
 1. Sign into your Google account in the same browser first
-2. Then click **Sign in with Google** in Tallyfy Desktop
+2. Then run `gemini` again in a terminal
 
-If the error persists, run `gemini` directly in a terminal; the CLI gives a more specific error message there.
+If the error persists, read the error message the CLI prints in the terminal; it's more specific than the browser page.
 
 ### "Tools unavailable" warning at the start of a chat
 
-Gemini supports MCP, but the CLI loads MCP servers from a config file at `~/.gemini/settings.json`. Tallyfy Desktop writes a temporary MCP config per run (with your Tallyfy session token) and passes it to Gemini via the standard mechanism. If you see "Tools unavailable," check that you're on `gemini-cli` 0.17 or later: `gemini --version`. Older versions had bugs in MCP loading; upgrade with `npm install -g @google/gemini-cli@latest`.
+Gemini supports MCP, but the CLI loads MCP servers from a config file at `~/.gemini/settings.json`. Tallyfy Desktop writes a temporary MCP config per run (with your Tallyfy session token) and passes it to Gemini via the standard mechanism. If you see "Tools unavailable," check that you're on `gemini-cli` 0.17 or later: `gemini --version`. Tallyfy Desktop was tested with 0.17.1. Upgrade with `npm install -g @google/gemini-cli@latest`.
 
-## What Gemini covers in v1
+## What Gemini covers in v2.0.0
 
 | Capability | Status |
 |---|---|
 | Streaming text responses | Yes (NDJSON, full streaming with deltas) |
-| MCP tool use | Yes |
+| MCP tool use | Yes (tool calls don't show as separate cards in the chat) |
 | Cost reporting | No (only token counts) |
 | Thinking events | No |
-| File attachments | Yes |
+| File attachments | No (the chat box takes text only) |
 | Browser automation | No |
 | Tallyfy context injection | Yes (via MCP, like Claude) |
 | Task Intent Widget | Yes |

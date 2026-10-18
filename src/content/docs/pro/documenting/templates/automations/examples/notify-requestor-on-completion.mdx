@@ -1,7 +1,8 @@
 ---
 about_tallyfy: true
-description: Automatically notify the person who launched a process when it completes
-  using an Assignee Picker field and an Email Auto-Send automation.
+description: Tallyfy can email the person who asked for a process once it's done.
+  Capture them in an Assignee Picker field on the kick-off form, then use a Replace
+  Assignees automation to give them a final Email Auto-Send step.
 id: 869041c427cfc5e16251e8e1718ae489
 lastUpdated: 2026-09-12
 sidebar:
@@ -16,14 +17,9 @@ import { Audience } from "~/components";
 
 ## Notify the requestor when a process completes
 
-Capture who launched a process using an Assignee Picker field, then use an automation to send them a notification when it's done. The person who started the process always knows the outcome - no chasing required.
+Capture who launched a process using an Assignee Picker field, then use an automation to send them a notification when it's done.
 
-### Common use cases
-
-- **Service requests** - let employees know their IT, HR, or facilities requests are done
-- **Approval workflows** - tell requestors whether they've been approved or rejected
-- **Order processing** - send confirmations when everything ships
-- **Document processing** - deliver finished documents to whoever submitted them
+Use it to tell employees their IT, HR or facilities request is done, tell requestors whether they were approved or rejected, confirm an order once everything ships, or send finished documents back to whoever submitted them.
 
 ### Prerequisites
 
@@ -40,17 +36,17 @@ Capture who launched a process using an Assignee Picker field, then use an autom
    - Make the field required
    - Place it at the top of the form
 
-   :::tip[Auto-populate option]
-   Pre-select "Launcher" as the default value. Most people are requesting things for themselves anyway.
+   :::note[No default for this field]
+   An Assignee Picker field can't have a default value, so it can't pre-select the launcher. Whoever launches the process picks themselves, or a colleague if they're asking on someone else's behalf.
    :::
 
 2. **Create the notification step**
 
    Add a final step in your template for the completion notification:
-   - **Step type**: Pick "Email Auto-Send" (this sends automatically when the deadline passes)
+   - **Step type**: Pick "Email Auto-Send" (it sends by itself at the step's deadline)
    - **Step name**: Something like "Notify Requestor of Completion"
    - **Content**: Include completion details, attachments, and next steps
-   - **Deadline**: Set it after your last real step completes
+   - **Deadline**: Set it a short gap after your last real step, and longer if that step's data needs processing before the email goes out
 
 3. **Configure the automation**
 
@@ -64,7 +60,7 @@ Capture who launched a process using an Assignee Picker field, then use an autom
 
 4. **Add completion details using variables**
 
-   Use form field aliases wrapped in `{{ }}` to pull in process data:
+   In the step's content, insert each form field you want with the **`{ }`** button rather than typing it, so the variable stays linked to its field. Each one shows as the field's alias wrapped in `{{ }}`:
    ```
    Hello {{kick_off_form_requestor_name}},
 
@@ -78,50 +74,45 @@ Capture who launched a process using an Assignee Picker field, then use an autom
    ```
 </Steps>
 
+Before going live, launch a test process and pick yourself in the Assignee Picker, so the notification comes to you.
+
 ### Alternative approaches
 
 #### Multiple notification recipients
 
 1. Add multiple Assignee Picker fields (e.g. "Requestor" and "CC Recipients")
 2. Create separate notification steps for each group
-3. Set up automations to route each notification correctly
+3. Add a **Replace Assignees** automation for each notification step, with that group's Assignee Picker field as the source
 
 #### Conditional notifications based on outcomes
 
 1. Add a dropdown field for process outcome ("Approved", "Rejected", "Pending")
 2. Create a notification step per outcome
-3. Use conditional visibility automations so only the right notification fires
+3. Set each notification step to **Hide by default**, then add one automation per outcome that shows the matching step, so only that notification goes out
 
 #### Webhooks for advanced notifications
 
-1. Add a webhook automation on the final step completion
+1. Add an automation that fires a webhook (a message Tallyfy sends to a web address you choose) when the final step is completed
 2. Connect it to [middleware](/products/pro/integrations/middleware/) (Zapier, Make, Power Automate) to:
    - Send formatted HTML emails
    - Pull attachments from other systems
    - Trigger SMS or Slack messages
 
-### Best practices
-
-- **Clear labeling** - name your Assignee Picker field so people know exactly what to pick
-- **Test first** - always run a test process before going live
-- **Include context** - use variables to pack notifications with useful details
-- **Set timing carefully** - if your final data needs processing, add a buffer before the notification deadline
-
 ### Troubleshooting
 
 **Notification not sending?**
 - Check the Assignee Picker field has someone selected
-- Verify the automation is active
+- Check your organization isn't on a free plan whose trial has ended, because automations don't run then
 - Confirm the step type is "Email Auto-Send" - it shouldn't be a regular task
-- Email Auto-Send steps trigger when the deadline passes
+- An Email Auto-Send step waits for its deadline, so check the deadline has come, or click **SEND RIGHT NOW** to send it before then
 
 **Wrong person getting notified?**
 - Double-check you selected the right Assignee Picker field in the automation
 - Verify what users are selecting in the form
 
 **Missing data in the notification?**
-- Check that your variable aliases match the actual form field aliases
-- Referenced fields must be filled before the notification step fires - they can't be empty
+- Check that your variable aliases match the actual form field aliases. A variable that shows as raw `{{ }}` text has lost its link, so delete it and insert it again with the **`{ }`** button
+- A variable whose field is still empty when the email sends shows nothing, so make those fields required, or put them on steps that finish before the email's deadline
 
 ### Example: IT service request completion
 
@@ -139,7 +130,7 @@ Capture who launched a process using an Assignee Picker field, then use an autom
    - Type: Email Auto-Send
    - Deadline: 30 minutes after "Upload documentation" completes
    - Content: request details plus attached docs
-   - Automation: assigns the step to whoever launched the process
+   - Automation: replaces the step's assignees with whoever was picked in "Select your name"
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

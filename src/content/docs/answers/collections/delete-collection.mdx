@@ -20,8 +20,10 @@ Deleting a collection permanently removes all objects within it. This can't be u
 ### API endpoint
 
 ```
-DELETE /v1/collections/{collection_name}
+DELETE /collections/{collection_name}
 ```
+
+This endpoint needs the API key.
 
 ### Path parameters
 
@@ -31,29 +33,33 @@ DELETE /v1/collections/{collection_name}
 
 ### Response
 
-A successful deletion returns a `200 OK` status code with a confirmation response:
+The service returns a `200 OK` status code with this response:
 
 ```json
 {
-  "name": "products",
-  "status": "deleted"
+  "message": "Collection is deleted successfully"
 }
 ```
+
+It returns this even when the collection didn't exist or the delete failed, so a `200` doesn't prove anything was removed. To check, [get the collection](/products/answers/collections/get-collection/) afterwards and expect a `404`.
 
 ### Error scenarios
 
 | Status | Description |
 |--------|-------------|
-| 404 | Collection not found |
 | 400 | Invalid collection name format |
-| 403 | Permission denied (if applicable) |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
 
 ### Example request
 
 ```bash
-curl -X DELETE https://go.tallyfy.com/api/collections/products \
-  -H "X-Answers-API-Key: your_api_key"
+curl -X DELETE https://answers.tallyfy.com/collections/products \
+  -H "Authorization: Bearer your_api_key"
 ```
+
+### Before you delete
+
+If a batch import is still running for the collection, stop it first with `DELETE /tasks/{collection_name}` (see [Tasks](/products/answers/tasks/)). Deleting the collection doesn't stop the import.
 
 ### When to delete a collection
 
@@ -66,9 +72,10 @@ Consider deleting a collection when:
 ### Alternatives to deletion
 
 Instead of permanently deleting a collection, you might consider these alternatives:
-- Export the data before deletion for backup purposes
+- Export the data first with `GET /collections/{collection_name}/objects`, which returns every object's properties
+- Delete every object but keep the collection with `DELETE /collections/{collection_name}/objects`
 - Create a new collection with only the objects you want to keep
-- Use application-level filtering[^2] to hide certain objects from users
+- Use application-level filtering to hide certain objects from users
 
 ### Best practices
 
@@ -76,7 +83,7 @@ Instead of permanently deleting a collection, you might consider these alternati
 - Consider implementing a confirmation step in your application
 - Back up important data before deletion
 - Use descriptive logging to track deletion operations
-- Verify permissions carefully to prevent unauthorized deletions
+- Keep the API key out of anything that doesn't need it, since it can delete collections
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

@@ -13,8 +13,12 @@ title: Connect Ollama to Tallyfy Desktop
 
 import { Steps, CardGrid, LinkTitleCard } from "~/components";
 
+:::note[Not released yet]
+This page describes Tallyfy Desktop v2.0.0, which hasn't been released yet. The version you can download today, v1.0.0, doesn't include these AI features.
+:::
+
 :::note[No subscription, no cloud]
-Ollama runs entirely on your local machine. There's no account, no OAuth flow, and no subscription. Your prompts and responses never leave your computer. The only thing Tallyfy Desktop sends to the cloud is the metadata for the Tallyfy task that wraps each run (provider, model, prompt summary, duration).
+Ollama runs entirely on your local machine. There's no account, no OAuth flow, and no subscription. Your prompts and the model's replies never go to an AI company's servers. The only thing Tallyfy Desktop sends to the cloud is the Tallyfy task that tracks each run (provider, model, the first 100 characters of your prompt, status, duration).
 :::
 
 ## What gets installed
@@ -41,9 +45,9 @@ After install, Ollama runs as a background service that starts on login (macOS, 
 
 <Steps>
 
-1. **Open the Ollama tab**
+1. **Pick Ollama in the AI Chat tab**
 
-   Click the **Ollama** tab in Tallyfy Desktop. If Ollama isn't installed or the daemon isn't running, the Install Wizard appears.
+   In Tallyfy Desktop, open the **AI Chat** tab and choose **Ollama** from the **Provider** dropdown. If Ollama isn't installed or the daemon isn't running, it shows as "Ollama (not installed)" with an **Install** button beside the dropdown. Click **Install** to open the Install Wizard.
 
 2. **Read the consent screen**
 
@@ -52,23 +56,23 @@ After install, Ollama runs as a background service that starts on login (macOS, 
    - **Linux**: creates a systemd unit `ollama.service` (requires `sudo` for service registration)
    - **Windows**: installs via winget (Windows Package Manager); the service listens on `127.0.0.1:11434`
 
-3. **Hold Shift for three seconds**
+3. **Hold Shift and click Install**
 
-   The button activates while you hold Shift.
+   The **Install** button works only while you hold Shift. Until then it reads **Hold Shift to enable**. To back out instead, click **Cancel**.
 
 4. **Watch the progress log**
 
-   The wizard streams installer output. On macOS you'll see Homebrew's download and link steps, plus the `brew services start ollama` line. On Linux you'll see the install script's output. On Windows you'll see winget's progress.
+   The wizard streams installer output. On macOS you'll see Homebrew's download and link steps, plus the `brew services start ollama` line. On Linux you'll see the install script's output. On Windows you'll see winget's progress. Then the wizard runs `ollama --version`, and when that passes it shows "Installed Ollama:" followed by the version. Click **Continue** to close the wizard.
 
 5. **Pull the default model**
 
-   After install, the wizard prompts you to pull a default model. The Tallyfy Desktop default is `llama3.2:1b` (1.2 billion parameters, around 1.3 GB on disk). The pull runs in the wizard with a progress bar.
+   The wizard doesn't download a model. In a terminal, run `ollama pull llama3.2:1b`. That's the Tallyfy Desktop default (1.2 billion parameters, around 1.3 GB on disk), used when the **Model** dropdown is on **(default)**.
 
    You can pull a bigger or smaller model later; this is just the cold-start choice.
 
-6. **Test the connection**
+6. **Restart and test the connection**
 
-   Type `hi` in the Ollama tab and press Enter. You should see the streamed response within a few seconds (latency depends on your CPU/GPU).
+   Quit and reopen Tallyfy Desktop so it detects Ollama. In the **AI Chat** tab, choose **Ollama**, type `hi`, and click **Send** (or press Cmd+Enter on macOS, Ctrl+Enter on Windows and Linux). You should see the streamed response within a few seconds (latency depends on your CPU/GPU).
 
 </Steps>
 
@@ -100,7 +104,7 @@ After install, Ollama runs as a background service that starts on login (macOS, 
 
 4. **Restart Tallyfy Desktop**
 
-   Quit fully and reopen. The Ollama tab will detect the daemon and the model.
+   Quit fully and reopen. Ollama no longer shows "(not installed)" in the **Provider** dropdown.
 
 </Steps>
 
@@ -108,28 +112,28 @@ After install, Ollama runs as a background service that starts on login (macOS, 
 
 Once Ollama is connected:
 
-1. Click the **Ollama** tab.
-2. The model picker shows the models you've pulled. Pick one.
-3. Type your message and press Enter.
+1. Open the **AI Chat** tab and choose **Ollama** from the **Provider** dropdown.
+2. The **Model** dropdown starts on **(default)**, which uses `llama3.2:1b`. It also offers **Llama 3.1** (`llama3.1`) and **Qwen 2.5 Coder** (`qwen2.5-coder`). Whichever you pick must already be pulled.
+3. Type your message and click **Send**.
 
 First responses are slower because Ollama loads the model into RAM on the first request. After that, it stays loaded for a few minutes and responses are fast.
 
-## What Ollama can and can't do in v1
+## What Ollama can and can't do in v2.0.0
 
 Ollama runs local open-source models, which have real limits compared to Claude, Codex, or Gemini:
 
 | Capability | Status |
 |---|---|
 | Streaming text responses | Yes (NDJSON streaming) |
-| MCP tool use | Degraded (no native MCP; falls back to system-prompt prefix with Tallyfy context) |
+| MCP tool use | No |
 | Cost reporting | N/A (always 0; local compute) |
 | Thinking events | No |
 | File attachments | No |
 | Browser automation | No |
-| Tallyfy context injection | Yes (via system-prompt prefix) |
+| Tallyfy context injection | No (Ollama gets only your prompt, so it can't read or change your Tallyfy data) |
 | Task Intent Widget | Yes |
 
-The Task Intent Widget still works because it watches the model's text output for intent patterns; it doesn't need MCP. So a small local model can still trigger a task creation when you ask for one.
+The Task Intent Widget still works because it watches the model's text output for intent patterns; it doesn't need MCP. So a small local model can still trigger a task creation when its reply proposes one.
 
 ## Choosing a model
 
@@ -143,7 +147,7 @@ A few common choices, in increasing size and capability:
 - `llama3.1:8b` (~5 GB) - higher quality, slower; 16+ GB RAM recommended
 - `qwen2.5-coder:7b` (~5 GB) - tuned for code; useful if you're using Ollama for development tasks
 
-Pull any of these with `ollama pull <model>`, then pick it from the model picker. Larger models give better answers; smaller models give faster ones. There's no subscription cost, just disk and RAM.
+The **Model** dropdown in v2.0.0 offers only **(default)** for `llama3.2:1b`, **Llama 3.1** (`llama3.1`), and **Qwen 2.5 Coder** (`qwen2.5-coder`). Pull the one you want under that exact name, such as `ollama pull llama3.1`, before you pick it. Larger models give better answers; smaller models give faster ones. There's no subscription cost, just disk and RAM.
 
 ## Privacy guarantee
 
@@ -151,9 +155,9 @@ The whole point of Ollama is privacy. Tallyfy Desktop preserves this:
 
 1. **Your prompts** go from the desktop app to `127.0.0.1:11434` on the same machine. They never touch the internet.
 2. **Model responses** come back from the same local daemon.
-3. **Tallyfy task metadata** (provider="ollama", model="...", prompt summary, duration) gets sent to Tallyfy as a row in the "AI Runs" checklist. The same metadata as any other run.
+3. **The Tallyfy task** for the run (provider, model, the first 100 characters of your prompt as its title, status, duration) gets sent to Tallyfy as a task in the `__AI_RUNS__` checklist. That's the same as for any other run.
 
-If you want to run truly offline (no network at all, even for Tallyfy), the desktop app will queue the Tallyfy task creation and retry when network comes back. The AI run itself completes immediately.
+If you run with no network at all, the AI run still works. Tallyfy Desktop doesn't queue the Tallyfy task to send later: if Tallyfy can't be reached when a run starts, that run has no task.
 
 ## Verifying the install yourself
 
@@ -177,7 +181,7 @@ If the daemon isn't running:
 - **Linux**: `sudo systemctl start ollama`
 - **Windows**: open Services, find "Ollama", and start it
 
-Then press Cmd+Shift+R (Ctrl+Shift+R) in the Ollama tab to retry detection.
+Then quit and reopen Tallyfy Desktop so it checks again.
 
 ## Troubleshooting
 
@@ -191,15 +195,15 @@ The Ollama service might be stopped. Run the platform-specific start command abo
 
 ### Out-of-memory error mid-chat
 
-You pulled a model bigger than your RAM. Switch to a smaller model from the picker, or pull a quantized variant (e.g., `llama3.1:8b-q4_0` instead of `llama3.1:8b`).
+You picked a model bigger than your RAM. Switch the **Model** dropdown back to **(default)**, which uses the small `llama3.2:1b`.
 
 ### Very slow first response
 
-Ollama loads the model from disk on the first request. For larger models this can take 10-30 seconds. Subsequent requests are fast. If you have a GPU (Apple Silicon, NVIDIA CUDA), Ollama uses it automatically; check `ollama ps` to see which device the model is loaded on.
+Ollama loads the model from disk on the first request. For larger models this takes longer. Subsequent requests are fast. If you have a GPU (Apple Silicon, NVIDIA CUDA), Ollama uses it automatically; check `ollama ps` to see which device the model is loaded on.
 
 ### "Model not found" when picking a model
 
-You haven't pulled it yet. From a terminal: `ollama pull <model>`. The download progress appears in the terminal; the model becomes available in Tallyfy Desktop once it finishes (you may need Cmd+Shift+R to refresh the picker).
+You haven't pulled it yet. From a terminal: `ollama pull <model>`. The download progress appears in the terminal; the model becomes available in Tallyfy Desktop once it finishes. Pull it under the same name the **Model** dropdown uses, such as `ollama pull llama3.1`.
 
 ## Related articles
 <CardGrid>

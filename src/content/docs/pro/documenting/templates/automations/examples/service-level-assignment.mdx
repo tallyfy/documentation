@@ -14,27 +14,22 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
-Use Tallyfy [automations](/products/pro/documenting/templates/automations/) to route [tasks](/products/pro/tracking-and-tasks/tasks/) to different team members based on customer service levels. An automation reads a kick-off form field and matches the right expertise to each customer's tier, without anyone deciding by hand.
+Use Tallyfy [automations](/products/pro/documenting/templates/automations/) to route [tasks](/products/pro/tracking-and-tasks/tasks/) to different team members based on customer service levels. An automation reads the customer's tier from a kick-off form field and assigns the person or group you picked for that tier, so nobody has to route each one by hand.
 
 ## When you'd use service-based routing
 
-- **Tiered support** - Enterprise customers get a dedicated team; free users get standard support
-- **Sales processes** - High-value deals go to senior closers
-- **Professional services** - Complex projects get senior consultants; simple ones go to junior staff
-- **Subscription management** - Enterprise onboarding gets your best people; free trials go to anyone
+Use it wherever the customer's tier decides who does the work. A support team might give enterprise customers a dedicated team and send free users to standard support. Sales teams hand high-value deals to senior closers. In professional services, complex projects go to senior consultants and simple ones to junior staff. Subscription onboarding works the same way, with your best people on enterprise accounts and free trials left to whoever is available.
 
 ## Setting up service-based assignment
 
 ### Basic service level routing
 
-Here's a real example - routing tasks based on service packages.
-
-**Scenario**: You're onboarding clients, and Platinum customers need your best account manager.
+**Scenario**: You're onboarding clients who each buy one of three service packages, and Platinum customers need your best account manager.
 
 1. **Add a service selection field to your [kick-off form](/products/pro/launching/triggers/kick-off-forms/)[^1]**:
    - Field type: Dropdown or Radio
    - Options: "Basic", "Professional", "Platinum"
-   - Label: "Select service package"
+   - Label: "Service Package"
 
 2. **Create an assignment automation for each level**:
 
@@ -64,7 +59,7 @@ Here's a real example - routing tasks based on service packages.
 
 ### Advanced patterns
 
-#### Workload-balanced assignment
+#### Sharing the work with a group
 
 Don't pile everything on one person. Assign to a group instead, and name each step the
 automation should cover:
@@ -76,37 +71,36 @@ THEN replace assignees on "Prepare proposal" with group "Senior Account Managers
 AND replace assignees on "Account setup" with group "Senior Account Managers"
 ```
 
-When you assign to a group, Tallyfy distributes work across its members. Each action names one
-step, so add an action for every step you want the group to pick up.
+When you assign a group, every member of it becomes an assignee. One of them completing the task
+is enough, unless the step's **All assignees must complete this task** setting is turned on. Each
+action names one step, so add an action for every step you want the group to pick up.
 
 #### Multi-criteria assignment
 
 Combine multiple conditions when service level alone isn't enough:
 
 ```automation
-IF field "Service Package" is "Enterprise"
+IF field "Service Package" is "Platinum"
 AND field "Industry" is "Healthcare"
-THEN replace assignees on "Compliance review" with "Healthcare Specialist Team"
+THEN replace assignees on "Compliance review" with group "Healthcare Specialist Team"
 ```
 
-This matches expertise to both customer tier and industry, using the same [replace assignees](/products/pro/documenting/templates/automations/actions/asignment-actions/) action as the rules above.
+Both conditions must be true, so only Platinum customers in healthcare get the specialist team. It uses the same [replace assignees](/products/pro/documenting/templates/automations/actions/asignment-actions/) action as the automations above.
 
-#### Progressive expertise escalation
+#### Extra review steps for higher tiers
 
-Higher tiers often need extra approval steps, shown or hidden with [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/):
+Use [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/) to show an approval step only to the tiers that need it:
 
 ```automation
 IF field "Service Package" is "Basic"
 THEN hide "Executive review"
 
-IF field "Service Package" is "Enterprise"
+IF field "Service Package" is "Platinum"
 THEN show "Executive review"
-AND add assignees to "Executive review" with "C-Suite"
+AND add assignees to "Executive review" with group "C-Suite"
 ```
 
 ## Example: technical support tiers
-
-Here's how a support team can route tickets by customer tier.
 
 **Kick-off form fields**:
 - Customer tier (dropdown): "Free", "Starter", "Growth", "Enterprise"
@@ -114,12 +108,13 @@ Here's how a support team can route tickets by customer tier.
 
 **The automations**:
 
+Give **Initial response** a default deadline of 48 hours after launch in its [step timings](/products/pro/documenting/templates/edit-templates/step-timings/). A deadline action can't count from the launch itself, so the faster tiers count back from that step's own deadline.
+
 1. **Free tier, community support**:
    ```automation
    AUTOMATION Free tier support
    IF field "Customer Tier" is "Free"
    THEN add assignees to "Initial response" with group "Community Managers"
-   AND shift deadline of "Initial response" by 48 hours from launch
    ```
 
 2. **Starter tier, standard support**:
@@ -127,7 +122,7 @@ Here's how a support team can route tickets by customer tier.
    AUTOMATION Starter tier support
    IF field "Customer Tier" is "Starter"
    THEN add assignees to "Initial response" with group "Tier 1 Support"
-   AND shift deadline of "Initial response" by 24 hours from launch
+   AND shift deadline of "Initial response" by 24 hours before its own deadline
    ```
 
 3. **Growth tier, priority support**:
@@ -135,7 +130,7 @@ Here's how a support team can route tickets by customer tier.
    AUTOMATION Growth tier support
    IF field "Customer Tier" is "Growth"
    THEN add assignees to "Initial response" with group "Tier 2 Support"
-   AND shift deadline of "Initial response" by 4 hours from launch
+   AND shift deadline of "Initial response" by 44 hours before its own deadline
    ```
 
 4. **Enterprise, dedicated support**:
@@ -143,19 +138,18 @@ Here's how a support team can route tickets by customer tier.
    AUTOMATION Enterprise tier support
    IF field "Customer Tier" is "Enterprise"
    THEN add assignees to "Initial response" with group "Enterprise Success Team"
-   AND shift deadline of "Initial response" by 1 hours from launch
+   AND shift deadline of "Initial response" by 47 hours before its own deadline
    AND show "Executive escalation"
    ```
 
-Each customer gets what they're paying for. Your team stays organized.
+Free keeps the 48-hour default, so Starter's first response is due 24 hours after launch, Growth's 4 hours and Enterprise's 1 hour. These automations read only kick-off form fields, so Tallyfy [runs them once, at launch](/products/pro/documenting/templates/automations/when-automations-run/). Changing the customer tier after launch doesn't reassign the task, so reassign it by hand if the wrong tier was picked.
 
 ## Best practices
 
-- **Clear service definitions** - Document what each tier includes so your team knows the expectations
-- **Backup assignments** - Use groups instead of individuals so coverage doesn't break during vacations
-- **Time zones** - Enterprise customers in different regions shouldn't wait for your local team to start
-- **Monthly review** - Check assignment patterns to spot uneven workload before it causes burnout
-- **Transparent routing** - Tell customers upfront how their tier affects response speed
+- **Assign groups, not individuals.** Every group member is an assignee, so the task doesn't stall while one person is on vacation.
+- **Cover enterprise time zones.** Enterprise customers in other regions shouldn't wait for your local team to start work, so give them a group with people in their time zone.
+- **Check workload monthly.** Filter the [Tasks view](/products/pro/tracking-and-tasks/tasks-view/) by assignee to spot uneven workload before it causes burnout.
+- **Write down what each tier includes**, such as its response time, and tell customers before they buy, so your team and your customers expect the same thing.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
