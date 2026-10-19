@@ -29,13 +29,16 @@ put, even when the thing it was calculated from changes later.
 Launch the same template again and you get a fresh process with a clean slate, so every
 automation is eligible to run once more. The once-only rule is per process, not per template.
 
-## The two moments Tallyfy checks
+## The three moments Tallyfy checks
 
-Tallyfy doesn't watch your process continuously. It checks automations at two moments, and only
-those two.
+Tallyfy doesn't watch your process continuously. It checks automations at three moments, and only
+those three.
 
 **When the process launches.** Tallyfy looks at every automation with at least one condition on
 a kick-off form field, because the kick-off answers are the only answers that exist yet.
+
+**When the kick-off form is completed after launch.** Tallyfy runs the same check as at launch,
+for the automations that haven't run yet.
 
 **When a task is completed or reopened.** Tallyfy looks at the automations whose conditions
 involve that task or the form fields on it. This is why an automation reading a step's form field
@@ -43,10 +46,16 @@ doesn't fire the moment somebody types in the field. It fires when the task carr
 is completed.
 
 ```d2
-# The two moments Tallyfy checks an automation
+# The three moments Tallyfy checks an automation
 direction: right
 
 Launch: Launch {
+  shape: rectangle
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Kickoff: Kick-off form done {
   shape: rectangle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
@@ -77,6 +86,9 @@ Never: Skipped after that {
 }
 
 Launch -> Check: Kick-off automations {
+  style.stroke: "#225930"
+}
+Kickoff -> Check: Kick-off automations {
   style.stroke: "#225930"
 }
 Done -> Check: Step automations {
