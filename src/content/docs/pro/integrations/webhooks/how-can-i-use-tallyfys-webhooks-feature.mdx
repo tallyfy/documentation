@@ -76,14 +76,14 @@ One webhook gives you everything that's happened so far. You don't need separate
 
 The JSON payload contains detailed event information. Key sections for **task completion** webhooks include:
 
-- **`this_task`**: The task that triggered the webhook - includes `id`, `title`, `alias`, `status`, `summary`, `deadline`, `position`, `captures` (form field values), `owners` (assigned users and guests), `completed_at`, `completed_by`, and `assets` (attached files with download links).
-- **`next_task`**: The first incomplete task that isn't auto-skipped, ordered by position. Includes the same fields as `this_task` (minus assets). Returns an empty object if all tasks are done.
+- **`this_task`**: The task that triggered the webhook - includes `id`, `title`, `alias`, `status`, `summary`, `deadline`, `position`, `captures` (form field values), `owners` (assigned users and guests), `completed_at`, `completed_by`, and `assets`. `assets` lists files attached to the process, each with a download link, so it isn't limited to this task's files. For every file uploaded into a form field, read the file fields in `form-fields`, where each file uploaded to Tallyfy carries its `id` and `filename`. The download link is built from that `id`.
+- **`next_task`**: The first incomplete task that isn't auto-skipped, ordered by position. Includes the same fields as `this_task` (minus assets). Returns an empty array `[]` if all tasks are done.
 - **`process`**: The overall process instance - includes `id`, `organization_id`, `name`, `summary`, `status`, `progress`, `created_at`, `ClientURL`, `prerun` (kick-off form values), `process_forms` (all form field values across all tasks), and `tags`.
 - **`template`**: The source template - includes `id`, `title`, `alias`, and `summary`.
 - **`form-fields`**: A flat map of all form field values across all tasks and the kick-off form, keyed by alias.
 - **`process-tasks`**: A map of task aliases to task IDs for the entire process.
 - **`guest-links`**: URLs for each guest assignee to access their tasks.
-- **`launcher`** and **`completer`**: Info about who launched the process and who completed the task.
+- **`launcher`** and **`completer`**: Both carry the person whose action sent the webhook. For a task completion, that's the person who completed the task, not the person who launched the process.
 
 For **process launch/completion** webhooks, the payload includes process data, `process-tasks`, `ko-form-fields` (kick-off values), `guest-links`, and `launcher`.
 
@@ -99,9 +99,9 @@ Tallyfy lets you choose between two date formats for webhook data. You select th
 ![Date format human-readable](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-date-format-human-readable.png)
 ![Date format ISO](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-date-format-iso.png)
 
-### Security header
+### Organization ID header
 
-Tallyfy webhooks include an `X-Tallyfy-orgID` header containing your unique organization ID. Your receiving system can check this header to validate that the request genuinely came from your Tallyfy account.
+Tallyfy webhooks include an `X-Tallyfy-orgID` header containing your organization ID. It tells your receiving system which Tallyfy organization sent the request. It doesn't secure anything: the organization ID appears in Tallyfy links such as guest links, so anyone who knows it can send the same header.
 
 ![X-Tallyfy-OrgID header](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-x-tallyfy-orgid-header.png)
 

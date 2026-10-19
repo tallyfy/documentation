@@ -2,7 +2,7 @@
 about_tallyfy: true
 description: Tallyfy webhooks POST JSON data to external URLs when workflow events
   like step completions or process launches happen. Configure them at template or
-  step level, with built-in security through the X-Tallyfy-orgID header.
+  step level. Each request carries an X-Tallyfy-orgID header that identifies the sending organization.
 id: f590764433995ecdf06adf92bd5492cf
 lastUpdated: 2026-10-07
 sidebar:
@@ -156,7 +156,7 @@ Failure_Handler -> Tallyfy: Failure logged {
 **What to notice:**
 - **Two trigger types** - Template-level webhooks fire on any step completion, process launch, or process completion. Step-level webhooks only fire for that specific step.
 - **Priority** - If a step has its own webhook URL, it's used instead of the template-level webhook for that step's completion event.
-- **Security** - The `X-Tallyfy-orgID` header is included in every webhook request. Always validate this in your receiving system.
+- **Organization ID header** - Every webhook request carries an `X-Tallyfy-orgID` header. It identifies the organization that sent it, but it doesn't secure anything.
 
 ### Setting up template-level webhooks
 
@@ -258,7 +258,7 @@ For maximum control, especially if you have dev resources, consider using Tallyf
 
 ### Security
 
-Tallyfy includes the `X-Tallyfy-orgID` header in all webhook requests. Validate this header against your organization's ID to confirm the webhook is legitimate - you don't want to process random webhook spam.
+Tallyfy includes the `X-Tallyfy-orgID` header in all webhook requests. It identifies the sender: compare it with your organization ID to see which Tallyfy organization a request came from. It doesn't prove the request came from Tallyfy, because the organization ID appears in Tallyfy links such as guest links, and anyone who knows it can send the same header. The [payload structure page](/products/pro/integrations/webhooks/webhook-payload-structure/) lists every header Tallyfy sends.
 
 ![X-Tallyfy-OrgID header](https://screenshots.tallyfy.com/tallyfy/pro/webhooks-x-tallyfy-orgid-header.png)
 
@@ -276,7 +276,7 @@ Webhooks can fire multiple times for the same event. For example, if a task is c
 4. **Check for HTTPS** - Many receivers require HTTPS, not HTTP
 5. **Look for auth requirements** - Your receiver might be rejecting unauthenticated requests
 6. **Verify step completion** - Webhooks only fire when steps are actually completed (not just opened)
-7. **Return a 200 status code** - Your endpoint should answer each webhook with a 200
+7. **Return a 2xx status code within 10 seconds** - Anything else, or no answer in time, counts as a failed attempt
 8. **Check your server logs** - Look there for the incoming webhook event
 
 :::tip[Testing webhooks]
@@ -284,13 +284,13 @@ Webhooks can fire multiple times for the same event. For example, if a task is c
 :::
 
 :::note[Webhook delivery behavior]
-Tallyfy attempts each webhook delivery once. If the receiving server is unreachable or returns an error, the delivery isn't retried. Currently, webhook delivery failures aren't visible in the Tallyfy UI. We're building a customer-visible System Log that will show webhook delivery attempts, successes, and failures - coming soon.
+Tallyfy makes up to 3 attempts at each webhook delivery. An attempt fails when your server can't be reached, takes longer than 10 seconds to answer, or answers with anything other than a 2xx status. After a failed first attempt, Tallyfy waits 30 seconds and tries again. After a failed second attempt, it waits 300 seconds (5 minutes) and tries one last time before giving up. Deliveries, retries, and failures are recorded for the [System Log](/products/pro/settings/org-settings/system-log/), whose screens ship with the new Tallyfy client and aren't generally available yet.
 :::
 
 ### Best practices
 
 - Use HTTPS URLs for webhook destinations - HTTP is asking for trouble
-- Validate the `X-Tallyfy-orgID` header in your receiving system
+- Read the `X-Tallyfy-orgID` header to see which organization sent a request, but don't treat it as proof that Tallyfy sent it
 - Test webhooks before relying on them in production
 - Monitor webhook delivery using your middleware platform's logs
 - Build retry logic into your receiving system for reliability
