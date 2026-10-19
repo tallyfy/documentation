@@ -78,7 +78,9 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | Event | Category | Meaning |
 |-------|----------|---------|
 | `webhook_sent` | Webhook | A webhook was sent successfully (HTTP 2xx). |
-| `webhook_failed` | Webhook | A webhook failed. The full URL and HTTP status are visible in the row. |
+| `webhook_retry` | Webhook | An attempt to send a webhook failed, and Tallyfy will try again. The row shows the destination host and the HTTP status. |
+| `webhook_failed` | Webhook | A webhook failed and Tallyfy gave up after 3 attempts. The row shows the destination host and the HTTP status (0 when Tallyfy couldn't connect), not the full URL. |
+| `webhook_blocked` | Webhook | Tallyfy refused a webhook URL as unsafe or unresolvable, so nothing was sent. |
 | `email_sent` | Email | Server attempted to send an email (per-recipient delivery is on the Email tab). |
 | `email_send_failed` | Email | Server-side send attempt failed before reaching the email provider. |
 | `smtp_send_failed` | Email | The configured SMTP transport rejected the message. |
@@ -213,7 +215,7 @@ For privacy and security, the following are deliberately excluded:
 * Internal monitoring events (uptime probes, capacity forecasts, queue health checks). These would be noise.
 * API keys, OAuth tokens, passwords, and session cookies. These are stripped before any event is written. We never log secrets.
 
-Webhook URLs are returned in full because customers want to debug their own integrations. If you put a secret in a webhook URL query string, that secret will appear in the log. Use webhook signing headers instead of URL parameters for secrets.
+Webhook rows record the destination host, not the full URL. When Tallyfy can't connect, the error message it records can still contain the full URL, query string included, so keep secrets out of webhook URLs.
 
 ## Common questions
 
