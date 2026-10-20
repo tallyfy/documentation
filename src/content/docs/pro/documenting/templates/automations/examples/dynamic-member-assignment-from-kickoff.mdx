@@ -14,15 +14,13 @@ import { Audience } from "~/components";
 
 <Audience to="editor" />
 
-Assignee picker fields in kick-off forms[^1] let the person launching a process choose who handles specific [tasks](/products/pro/tracking-and-tasks/tasks/). A Tallyfy automation[^2] then assigns those chosen people when the process launches, so nothing is hard-coded.
+Assignee picker fields in kick-off forms[^1] let the person launching a process choose who handles specific [tasks](/products/pro/tracking-and-tasks/tasks/). A Tallyfy automation[^2] then assigns those chosen people when the process launches, so you don't have to set fixed assignees on those steps in the template.
 
 ## When to use this
 
 - A coordinator launches client onboarding and picks which account manager handles that client
 - A manager starts a new hire process and selects the right HR specialist (Sarah for tech hires, Mike for sales)
 - Someone requests a purchase approval and picks their assistant to gather documentation
-
-Task assignment stays flexible. The launcher decides who gets what.
 
 ## Setting it up
 
@@ -38,23 +36,32 @@ Task assignment stays flexible. The launcher decides who gets what.
 
 2. **Create an automation for each assignment**
 
-   Each assignee picker field needs its own rule. Tallyfy supports three [assignment verbs](/products/pro/documenting/templates/automations/actions/asignment-actions/): **Add Assignees** (keeps existing ones), **Replace Assignees** (swaps them out), and **Clear assignees** (removes all).
+   Each assignee picker field needs its own automation. Tallyfy supports three [assignment verbs](/products/pro/documenting/templates/automations/actions/asignment-actions/): **Add Assignees** (keeps existing ones), **Replace Assignees** (swaps them out), and **Clear assignees** (removes all).
+
+   Each action applies to one step, so an automation that covers several steps has one action per step.
 
    **Example 1: Replace assignees on multiple steps**
-   ```
-   IF (Primary Agent field) is not empty
-   THEN Replace assignee(s) for steps 1, 2, and 3 with (Primary Agent field)
+   ```automation
+   AUTOMATION Primary agent takes steps 1 to 3
+   IF field "Select primary agent" is not empty
+   THEN replace assignees on "Step 1" with field "Select primary agent"
+   AND replace assignees on "Step 2" with field "Select primary agent"
+   AND replace assignees on "Step 3" with field "Select primary agent"
    ```
 
    **Example 2: Add an assistant to specific steps**
+   ```automation
+   AUTOMATION Assistant joins steps 4 to 10
+   IF field "Choose project assistant (optional)" is not empty
+   THEN add assignees to "Step 4" with field "Choose project assistant (optional)"
+   AND add assignees to "Step 5" with field "Choose project assistant (optional)"
    ```
-   IF (Project Assistant field) is not empty
-   THEN Add assignee (Project Assistant field) to steps 4 through 10
-   ```
+
+   Add one more action like these for each further step, up to step 10.
 
 3. **Use groups as fallback assignments**
 
-   If someone doesn't pick anyone, you still need those tasks covered:
+   If the launcher leaves a picker empty, an automation can assign a group to those steps instead:
    ```automation
    IF field "Technical Reviewer" is empty
    THEN add assignees to "Technical Review" with group "Technical Review Team"
@@ -73,17 +80,11 @@ AND field "Senior Manager" is not empty
 THEN replace assignees on "Final Approval" with field "Senior Manager"
 ```
 
-Urgent requests go to the senior manager you picked. Regular ones follow the normal approval chain.
+Urgent requests go to the senior manager you picked. For any other priority, or when nobody was picked, the automation doesn't run and **Final Approval** keeps the assignees set on that step in the template.
 
 ### Multiple pickers for different stages
 
-Use separate assignee picker fields when different process stages need different people:
-
-- **Initial stages**: Assigned to the "Project Lead" picker selection
-- **Middle stages**: Handed to the "Technical Expert" picker selection
-- **Final stages**: Goes to the "Quality Reviewer" picker selection
-
-Each picker controls its own set of steps independently.
+Give each stage its own assignee picker field and its own automation, which targets only that stage's steps. For example, a "Project Lead" picker can cover the first steps, a "Technical Expert" picker the middle steps, and a "Quality Reviewer" picker the final steps.
 
 :::tip[Best practices]
 - Mark assignee picker fields as required if tasks can't proceed without someone assigned

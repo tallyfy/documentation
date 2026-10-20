@@ -1,7 +1,7 @@
 ---
 description: Collections in Tallyfy Answers group similar objects together, like database
-  tables. They support searching, filtering, and managing data with automatic schema
-  detection and full CRUD operations.
+  tables. You can create, get and delete a collection, list or delete every object
+  in it, and count its objects by source. Property types are detected as you index.
 id: 639f99e36dca2b8c1e9e627de38762ea
 lastUpdated: 2026-03-22
 sidebar:
@@ -27,27 +27,29 @@ A Tallyfy Answers collection is:
 
 Tallyfy Answers collections give you several key features:
 
-- **Dynamic schema detection[^1]**: Tallyfy Answers automatically detects data types from your objects
+- **Automatic property types[^1]**: Each property's type is set the first time an object carrying it is indexed
 - **Efficient organization**: Group related objects to make management easier
 - **Searchability**: Search across all objects within a collection
-- **Scale**: Collections can hold thousands of objects[^2]
-- **Metadata**: Store and get information about the collection itself
+- **Schema**: Get the collection's detected schema
 
 ### What operations can you perform on collections?
 
 Here's what you can do with Tallyfy Answers collections:
 
 - [Create a collection](/products/answers/collections/create-collection/) - Set up a new data container
-- [Get a collection](/products/answers/collections/get-collection/) - Retrieve details about a specific collection
-- [Get all collections](/products/answers/collections/get-all-collections/) - List all your collections
-- [Update a collection](/products/answers/collections/update-collection/) - Modify collection properties
+- [Get a collection](/products/answers/collections/get-collection/) - Get the collection's detected schema
 - [Delete a collection](/products/answers/collections/delete-collection/) - Remove a collection and its objects
+- List every object in a collection with `GET /collections/{collection_name}/objects`. It needs the API key and returns every object in one response, with no paging.
+- Delete every object but keep the collection with `DELETE /collections/{collection_name}/objects`. It needs the API key.
+- Count objects per source with `GET /collections/{collection_name}/objects/metadata`. It needs no key and returns a list such as `[{"product": "Docs", "count": 42}]`, or `[]` for a collection that's empty or doesn't exist.
+
+There's no endpoint that lists your collections or changes a collection after it's created.
 
 ### What are the best practices for using collections?
 
 Think about these guidelines when working with Tallyfy Answers collections:
 
-- Use clear, descriptive names for your collections
+- Use clear, descriptive names for your collections, made of lowercase letters and digits
 - Group similar objects with consistent structures
 - Create separate collections for very different data types
 - Plan your collection structure before bringing in large datasets
@@ -61,8 +63,7 @@ import PageTree from '@/components/PageTree.astro';
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-[^1]: Uses PostgreSQL JSONB to analyze object properties and infer types like string, number, boolean, date automatically
-[^2]: Default pagination at 15 items with configurable max limit for API performance optimization
+[^1]: Answers stores objects in Weaviate, which detects each new property's type the first time it sees it
 
 ## Related articles
 <CardGrid>

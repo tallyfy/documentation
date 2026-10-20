@@ -16,21 +16,21 @@ import { Audience } from "~/components";
 
 ## Decision with waiting step
 
-This pattern requires three [automations](/products/pro/documenting/templates/automations/), not two. It handles "Is something ready?" - either proceed immediately or wait until it is.
+This pattern needs three [automations](/products/pro/documenting/templates/automations/). It handles "Is something ready?" - either proceed immediately or wait until it is.
 
 ### The pattern
 
 - **YES** - skip waiting, go directly to the next step
 - **NO** - show a waiting step, then continue when it's done
 
-Most people create two automations (one for YES, one for NO) and stop there. That's the mistake.
+One automation for YES and one for NO only handle the decision. A third automation shows the next step once the waiting step is completed.
 
 ### Example: payment confirmation
 
 Say you have three steps:
 1. **Decision step** - "Has the customer paid?" (YES/NO [field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/))
-2. **Waiting step** - "Hold until payment received" (hidden by default)
-3. **Confirmation step** - "Record payment evidence" (hidden by default)
+2. **Waiting step** - "Hold until payment received" (starts hidden, because an automation shows it)
+3. **Confirmation step** - "Record payment evidence" (starts hidden, because an automation shows it)
 
 ### All three automations
 
@@ -43,7 +43,7 @@ THEN hide "Hold until payment received"
 AND show "Record payment evidence"
 ```
 
-Customer paid? Skip the wait, go straight to confirmation.
+A customer who has already paid skips the wait and goes straight to confirmation.
 
 **Automation 2 - NO path** (customer hasn't paid yet):
 ```automation
@@ -52,18 +52,18 @@ THEN show "Hold until payment received"
 AND hide "Record payment evidence"
 ```
 
-Haven't paid? Show the waiting step. Hide confirmation for now.
+For an unpaid customer, the waiting step appears and confirmation stays hidden until automation 3 shows it.
 
-**Automation 3 - Waiting complete** (the one people forget):
+**Automation 3 - Waiting complete** (payment has now arrived):
 ```automation
 IF step "Hold until payment received" is completed
 THEN show "Record payment evidence"
 ```
 
-That's the critical piece. When the waiting step finishes, it reveals the confirmation step.
+When someone completes the waiting step, this automation shows the confirmation step.
 
 :::warning[Common mistake]
-Without automation 3, the confirmation step stays hidden forever after the waiting step completes. The NO path dead-ends.
+Without automation 3, the confirmation step stays hidden after the waiting step is completed, unless someone [shows it by hand](/products/pro/tracking-and-tasks/tasks/manually-show-hide-tasks/). The NO path dead-ends.
 :::
 
 ### Why you need all three
@@ -74,9 +74,7 @@ Here's what happens with only two automations:
 |----------|--------------|
 | YES selected | Works fine - confirmation step appears |
 | NO selected | Waiting step appears, confirmation hidden |
-| Waiting step completed | **Nothing!** Confirmation stays hidden |
-
-Automation 3 closes the loop on the NO path.
+| Waiting step completed | No automation reads the waiting step, so confirmation stays hidden |
 
 import { CardGrid, LinkTitleCard } from "~/components";
 

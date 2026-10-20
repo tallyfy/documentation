@@ -1,7 +1,7 @@
 ---
-description: Tallyfy Answers processes long-running operations like batch imports
-  in the background without blocking API requests. Monitor task progress and cancel
-  jobs as needed.
+description: Tallyfy Answers runs batch imports in the background, so the import request
+  doesn't wait for every object to be indexed. The Tasks endpoints show which collections
+  have had an import and stop one, which also clears it from the list.
 id: f2511c9fefe0458377406515600958b5
 lastUpdated: 2026-03-22
 sidebar:
@@ -11,24 +11,29 @@ title: Tasks
 
 ## How do background tasks work in Tallyfy Answers?
 
-Tallyfy Answers uses background task processing to handle long-running operations without blocking your API requests. This ensures that large batch imports and data processing jobs don't cause timeouts or performance issues.
+Tallyfy Answers runs batch imports in the background, so the import request returns without waiting for every object to be indexed. Batch imports are the only background task.
 
 ### What are background tasks?
 
-Background tasks in Tallyfy Answers handle:
+Each [batch import](/products/answers/objects/index-multiple-objects/) runs as one task, named after its collection. A collection has at most one task: starting a new import for it stops the one already running.
 
-- **Batch Document Imports** - Processing large collections of documents for indexing
-- **Data Processing Jobs** - Converting and analyzing content for search optimization
-- **Collection Updates** - Making bulk changes to existing data
-- **Maintenance Operations** - System cleanup and optimization tasks
+### How do you list tasks?
 
-### How do you monitor running tasks?
-
-View all currently running background tasks:
+List every collection that has had an import since the service last started:
 
 ```bash
 GET /tasks
 ```
+
+This endpoint needs the API key. It returns collection names only, with no status, progress or timing:
+
+```json
+{
+  "message": ["docs"]
+}
+```
+
+Finished imports stay on the list. A task leaves it only when you stop it or a new import for that collection replaces it, so the list doesn't tell you whether an import is still running.
 
 **Example:**
 ```bash
@@ -38,49 +43,42 @@ curl "https://answers.tallyfy.com/tasks" \
 
 ### How do you cancel a running task?
 
-Stop a specific background task by name:
+Stop the import for a collection by naming the collection:
 
 ```bash
-DELETE /tasks/{task_name}
+DELETE /tasks/{collection_name}
 ```
 
 **Example:**
 ```bash
-curl -X DELETE "https://answers.tallyfy.com/tasks/batch_import_docs" \
+curl -X DELETE "https://answers.tallyfy.com/tasks/docs" \
   -H "Authorization: Bearer your_api_key"
 ```
 
-### What task information is available?
+The service replies with one of these:
 
-When you list running tasks, you'll see:
+- `200` with `{"message": "Task stopped for collection: docs"}`
+- `404` with `{"message": "No task found for collection: docs"}`
+- `403` when the `Authorization` header is missing or doesn't match the API key
 
-- **Task Name** - Unique identifier for the background operation
-- **Status** - Current state of the task (running, queued, completed)
-- **Progress** - How much of the task has been completed
-- **Start Time** - When the task began processing
-- **Estimated Completion** - Predicted time remaining
+Objects indexed before you stop an import stay in the collection.
 
 ### When should you use task management?
 
 Task management is useful for:
 
-1. **Large Imports** - Monitor progress of bulk document uploads
-2. **System Maintenance** - Check status of scheduled operations
-3. **Troubleshooting** - Cancel stuck or problematic tasks
-4. **Resource Management** - Prevent system overload by managing concurrent operations
-5. **User Experience** - Provide progress updates for long-running operations
+1. **Troubleshooting** - Stop a stuck or unwanted import
+2. **Deleting a collection** - Stop its import first, because deleting the collection doesn't stop it
+3. **Clearing the list** - Stop finished tasks to remove them from the list
 
 ### What are best practices for task management?
 
-- **Monitor Long Operations** - Check task status for imports over 1000 documents[^1]
+- **Check progress with counts** - The task list has no progress data, so compare counts from `GET /collections/{collection_name}/objects/metadata` during a long import
 - **Cancel Stuck Tasks** - Remove tasks that appear frozen or taking too long
-- **Plan Large Imports** - Schedule big data loads during low-usage periods[^2]
-- **Regular Cleanup** - Cancel completed or failed tasks to keep the queue clean
+- **Re-send after a restart** - The task list lives in memory, so a restart or deploy of the service empties it and ends any running import. Send the file again, and objects already indexed are updated, not duplicated.
+- **Regular Cleanup** - Stop finished tasks to clear them from the list. There's no queue.
 
 import { CardGrid, LinkTitleCard } from "~/components";
-
-[^1]: Processing time varies: ~5-10 mins per 1000 docs depending on content size and complexity
-[^2]: Typically weekends or 2-6 AM in your org's primary timezone for optimal performance
 
 ## Related articles
 <CardGrid>

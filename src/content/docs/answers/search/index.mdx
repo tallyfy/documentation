@@ -1,7 +1,7 @@
 ---
 description: Tallyfy Answers search combines AI semantic understanding with traditional
-  keyword matching to deliver relevant results through natural language queries and
-  exact term searches with smart filtering and instant results.
+  keyword matching, so natural language questions and exact terms both find relevant
+  objects. It needs no API key and offers optional source filtering and an AI overview.
 id: 0e1daca3353c2d7389130f80e696e101
 lastUpdated: 2026-03-22
 sidebar:
@@ -20,9 +20,8 @@ Search allows you to find specific objects within your Tallyfy Answers collectio
 Tallyfy Answers uses **hybrid search technology[^1]** that combines:
 
 - **Semantic Understanding** - Understands the meaning and context of your search query
-- **Keyword Matching** - Finds exact terms and phrases in your documents
-- **Smart Filtering** - Filter results by source or collection type
-- **Instant Results** - Get relevant results as you type
+- **Keyword Matching** - Finds exact terms and phrases in each object's title, content and snippet
+- **Source Filtering** - Filter results by source
 
 ### How do you perform a search?
 
@@ -32,23 +31,47 @@ Here's how to search:
 GET /collections/{collection_name}/search/{query}
 ```
 
+Search needs no API key. The query goes in the URL path, so URL-encode it: a space becomes `%20`.
+
 **Optional parameters:**
-- `source` - Filter results by specific data source
-- `origin` - Filter by content origin
+- `source` - Limit results to one or more sources. Each name is a capital letter followed by lowercase letters, and several names are joined by commas with no spaces, such as `Pro` or `Pro,Answers`. Any other value gets a `400`.
+- `limit` - How many results to return, up to 20. A larger value is treated as 20, and a value below 1 gets a `422`. Leave it out to get the default, which is 5 unless Tallyfy has changed it.
+- `ai_overview` - Set to `true` to ask for a short AI overview of the top results, written by Claude. It's written in the background, an organization can have it turned off, and there's a daily limit, so a response may not include one.
+- `user_session_id`, `org_id` and `user_id` - Optional identifiers recorded with the search. `org_id` also decides whether that organization's policy allows an AI overview.
+
+If you leave out `source`, search uses a default source list set on the server, which is `Pro` unless Tallyfy has changed it. Objects with any other `source` won't appear, so pass `source` whenever you search your own collection.
 
 **Example:**
 ```bash
-curl "https://answers.tallyfy.com/collections/docs/search/workflow automation" \
-  -H "Authorization: Bearer your_api_key"
+curl "https://answers.tallyfy.com/collections/docs/search/workflow%20automation?source=Documentation"
 ```
+
+### What does a search return?
+
+A search returns `200 OK` with these fields:
+
+| Field | Description |
+|-------|-------------|
+| `results` | Matching objects, best match first |
+| `results[].id` | The object's `uid` |
+| `results[].title`, `url`, `content`, `source` | Copied from the object. A root-relative `url`, such as `/docs/guide`, gets a trailing slash. A full URL comes back unchanged. |
+| `results[].hierarchy` | A list of the values in the object's `hierarchy`, in key order. When there are two or more, the last one is left out. |
+| `results[].snippet` | An extract of `content` around your search terms, with each term wrapped in `<mark>` |
+| `results[].score` | The relevance score from reranking, or `null` when results weren't reranked |
+| `total` | How many results this search can return, up to 20. If `results` holds fewer, a larger `limit` gets more. |
+| `query` | Your query as you sent it |
+| `normalized_query` | Present only when punctuation was removed from your query. It's what was searched. |
+| `ai_overview` | `false` when you didn't ask for an overview, it isn't allowed, or the daily limit is reached. While one is being written, it's an object with `status` set to `generating` and a `cache_key`. When a finished overview is cached, it holds that overview. It can be missing when the query doesn't suit an overview. |
+| `session_id` | An id for this search, present when the service recorded it |
+
+A query made only of punctuation gets a `400`. A collection that doesn't exist gets a `200` with no results, the same as a search that matched nothing.
 
 ### What search features are available?
 
 - **Natural Language Queries** - Ask questions like "How do I automate workflows?"
 - **Multi-word Search** - Search with full sentences or phrases
 - **Source Filtering** - Narrow results to specific content sources
-- **Related Suggestions** - Get recommendations for similar content
-- **Real-time Results** - See results update as you refine your query
+- **Related Suggestions** - Get recommendations for similar content from the [find similar objects](/products/answers/search/find-similar-objects/) endpoint, which needs the API key
 
 
 import PageTree from '@/components/PageTree.astro';

@@ -1,6 +1,7 @@
 ---
-description: Create collections in Tallyfy Answers using a POST request to the /v1/collections
-  endpoint. Each collection needs a unique name and supports automatic data type detection.
+description: Create collections in Tallyfy Answers with a POST request to the /collections
+  endpoint. Each collection needs a unique name made of lowercase letters and digits,
+  and property types are detected as you index objects into it.
 id: c00c95a81bcc2b804677256661c011ce
 lastUpdated: 2026-03-22
 sidebar:
@@ -17,36 +18,35 @@ Each collection requires a unique name, and Tallyfy Answers automatically detect
 ### API endpoint
 
 ```
-POST /v1/collections
+POST /collections
 ```
+
+This endpoint needs the API key.
 
 ### Request body
 
-Your request body should contain a JSON object with these collection properties:
+Your request body should contain a JSON object with this collection property:
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | Yes | Unique name for the collection (can include letters, numbers, hyphens, and `_`) |
-| `description` | string | No | Optional description explaining the collection's purpose |
+| `name` | string | Yes | Unique name for the collection, using lowercase letters and digits only |
 
 Example request body:
 
 ```json
 {
-  "name": "products",
-  "description": "Collection of product information including names, descriptions, and pricing"
+  "name": "products"
 }
 ```
 
 ### Response
 
-A successful request returns a `201 Created[^1]` status code and a JSON response containing:
+A successful request returns a `200 OK` status code and this JSON response:
 
 ```json
 {
-  "name": "products",
-  "description": "Collection of product information including names, descriptions, and pricing",
-  "created_at": "2023-08-15T14:32:21Z"
+  "message": "Collection is created successfully",
+  "status": 200
 }
 ```
 
@@ -54,24 +54,25 @@ A successful request returns a `201 Created[^1]` status code and a JSON response
 
 | Status | Description |
 |--------|-------------|
-| 400 | Invalid request format or collection name |
-| 409 | Collection name already exists |
+| 400 | The name has characters other than lowercase letters and digits. The message says "only lowercase letters", but digits are allowed too. |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
+| 422 | `{"error": "Collection already exists", "status": 422}`. The service returns this for any failure to create the collection, not only a duplicate name. |
+| 422 | The request body has no `name` |
 
 ### Example request
 
 ```bash
-curl -X POST https://go.tallyfy.com/api/collections \
-  -H "X-Answers-API-Key: <your_api_key>" \
+curl -X POST https://answers.tallyfy.com/collections \
+  -H "Authorization: Bearer <your_api_key>" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "products",
-    "description": "Collection of product information"
+    "name": "products"
   }'
 ```
 
-### What data types does Tallyfy Answers support?
+### How are property types detected?
 
-Tallyfy Answers automatically detects these data types when you index objects:
+You don't declare types. Creating a collection adds one text property, `uid`, which identifies each object. The rest are added as you index: Tallyfy Answers stores objects in Weaviate, which sets each new property's type from the first value it sees. For example:
 
 <table>
   <thead>
@@ -85,27 +86,29 @@ Tallyfy Answers automatically detects these data types when you index objects:
     <tr>
       <td>string</td>
       <td>"Wireless Headphones"</td>
-      <td>Text values that can be searched and filtered</td>
+      <td>Text</td>
     </tr>
     <tr>
       <td>list of strings</td>
       <td>["electronics", "audio"]</td>
-      <td>Arrays of text values for multi-value fields</td>
+      <td>A list of text values for multi-value fields</td>
     </tr>
   </tbody>
 </table>
 
+Nested objects work too. The `hierarchy` field that search reads is one.
+
 ### What are collection naming best practices?
 
-- Use lowercase letters, numbers, hyphens, and `_`
+- Use lowercase letters and digits only
+- Start the name with a letter, because the service turns it into a Weaviate class name
+- Don't name a collection `queries`, since search keeps its own data in a collection with that name
 - Choose descriptive names that reflect the content (e.g., "products", "users", "articles")
 - Don't use spaces or special characters
 - Keep collection names concise but meaningful
 - Use consistent naming conventions across all collections
 
 import { CardGrid, LinkTitleCard } from "~/components";
-
-[^1]: HTTP status indicating successful resource creation. It's distinct from 200 OK, which applies to updates.
 
 ## Related articles
 <CardGrid>
