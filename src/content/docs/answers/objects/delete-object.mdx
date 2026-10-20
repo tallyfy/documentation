@@ -1,8 +1,9 @@
 ---
-description: Use the DELETE endpoint to permanently remove objects from Tallyfy Answers
-  collections by unique ID. Returns deletion confirmation, with no recovery option.
+description: Use the DELETE endpoint to permanently remove an object from a Tallyfy
+  Answers collection by its uid, the identifier you gave it at import. The service
+  confirms with a message, and there's no way to recover a deleted object.
 id: 2a2332d47cdc76ea67573c1335afd1ee
-lastUpdated: 2026-03-22
+lastUpdated: 2026-10-19
 sidebar:
   order: 4
 title: Delete an object
@@ -15,52 +16,54 @@ This endpoint permanently removes a specific object from a Tallyfy Answers colle
 ### API endpoint
 
 ```
-DELETE /v1/collections/{collection_name}/objects/{object_id}
+DELETE /collections/{collection_name}/objects/{object_id}
 ```
+
+This endpoint needs the API key.
 
 ### Request parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `collection_name` | path | Yes | Name of the collection containing the object |
-| `object_id` | path | Yes | Unique identifier of the object to delete |
+| `object_id` | path | Yes | The object's `uid`, the identifier you set when you imported it |
 
 ### Response
 
-A successful deletion returns a `200 OK` status code with a confirmation response:
+The service returns a `200 OK` status code with this response:
 
 ```json
 {
-  "id": "product-123",
-  "status": "deleted"
+  "message": "Object is deleted successfully"
 }
 ```
+
+It deletes every object in the collection with that `uid`. It doesn't check that a matching object existed first, so a `200` doesn't prove anything was removed.
 
 ### Error scenarios
 
 | Status | Description |
 |--------|-------------|
-| 404 | Object or collection not found |
-| 400 | Invalid object ID format |
-| 403 | Permission denied (if applicable) |
+| 400 | Invalid collection name format |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
 
 ### Example request
 
 ```bash
-curl -X DELETE https://go.tallyfy.com/api/collections/products/objects/product-123 \
-  -H "X-Answers-API-Key: your_api_key"
+curl -X DELETE https://answers.tallyfy.com/collections/products/objects/product-123 \
+  -H "Authorization: Bearer your_api_key"
 ```
 
 ### Important considerations
 
-:::warning[Permanent Action]
+:::warning[Permanent action]
 Object deletion is permanent and can't be undone. There's no "trash" or "recycle bin" for deleted objects.
 :::
 
-- Verify you have the correct object ID before deletion
+- Verify you have the correct `uid` before deletion
 - Consider archiving objects in your application logic instead of deleting them if you might need them later
-- Deleting an object removes it from search results immediately
-- If you need to delete multiple objects, you'll need to make separate API calls for each one
+- Deleting an object removes it from search results
+- To delete several objects, call this endpoint once for each. To empty a collection, `DELETE /collections/{collection_name}/objects` removes every object and keeps the collection.
 - Consider implementing confirmation workflows in your application before calling this endpoint
 
 ### Alternative approaches
@@ -77,7 +80,7 @@ import { CardGrid, LinkTitleCard } from "~/components";
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Collections > Delete a collection</b>" href="/products/answers/collections/delete-collection/" > The DELETE endpoint permanently removes collections and all their objects from Tallyfy Answers... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Get an object</b>" href="/products/answers/objects/get-object/" > Retrieve a specific object from a Tallyfy Answers collection using its unique identifier... </LinkTitleCard>
-<LinkTitleCard header="<b>Answers > Objects</b>" href="/products/answers/objects/" > Objects are JSON data records in Tallyfy Answers that belong to collections. They can be... </LinkTitleCard>
-<LinkTitleCard header="<b>Collections > Get a collection</b>" href="/products/answers/collections/get-collection/" > Retrieve information about a specific collection in Tallyfy Answers using its unique name. The... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Objects</b>" href="/products/answers/objects/" > Objects are the JSON records you store in a Tallyfy Answers collection. They're indexed in... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. You can... </LinkTitleCard>
+<LinkTitleCard header="<b>Collections > Create a collection</b>" href="/products/answers/collections/create-collection/" > Create collections in Tallyfy Answers with a POST request to the /collections endpoint. Each... </LinkTitleCard>
 </CardGrid>

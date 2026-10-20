@@ -1,10 +1,9 @@
 ---
-description: Tallyfy Answers authentication requires an API key in the Authorization
-  Bearer header with centralized identity management through account.tallyfy.com that
-  supports multi-organization switching and follows security best practices for key
-  storage and usage.
+description: Tallyfy Answers checks one API key, sent as a Bearer token in the Authorization
+  header. Managing collections and objects, batch import, recommendations and tasks
+  need it, while search doesn't. A missing or wrong key gets a 403 Forbidden response.
 id: 2a9dcb7b1adcee1e8bcf234b01876312
-lastUpdated: 2026-03-22
+lastUpdated: 2026-10-19
 sidebar:
   order: 2
 title: Authentication
@@ -12,66 +11,52 @@ title: Authentication
 
 ## Authentication with Tallyfy Answers
 
-All API requests to Tallyfy Answers require authentication using an API key. This API key validates your identity and permissions when accessing Tallyfy Answers endpoints.
+Send the API key Tallyfy gave you in the `Authorization` header. Managing collections and objects, batch import, recommendations and tasks need the key.
 
-Tallyfy uses a centralized identity and access management system[^1] at [account.tallyfy.com](https://account.tallyfy.com) for all products.
-
-This system handles sign up, sign in, SSO, and account management functions like password recovery across all Tallyfy products.
-
-If your account is a member of multiple organizations, you can easily switch between them.
-
-Click your name/profile picture in the top-right corner and select "Switch organization" to access other roles and organizations associated with your account.
+Search doesn't need it, and neither do the routes for featured objects, per-source object counts and AI overview status. So a search box in a browser can call Tallyfy Answers without exposing your key.
 
 ### Required API key header
 
-Add the following header to all your Tallyfy Answers API requests:
+Add the following header to every Tallyfy Answers API request that needs the key:
 
 ```
 Authorization: Bearer your_api_key
 ```
 
-Replace `your_api_key` with the actual API key provided to your Tallyfy account.
+Replace `your_api_key` with the API key Tallyfy gave you. The service compares the whole header value with its key, so keep the word `Bearer` and the single space before the key.
 
 ### Obtaining a Tallyfy Answers API key
 
-To get a Tallyfy Answers API key:
-
-1. Log in to your Tallyfy Answers account
-2. Navigate to the **API Settings** section
-3. Click **Generate API Key**
-4. Copy the generated key for use in your applications
+Tallyfy issues your key when you're onboarded. There's no screen or endpoint that creates keys, so [contact Tallyfy](/products/pro/miscellaneous/support/how-can-i-contact-tallyfys-support-team/) for it.
 
 ### API key security best practices
 
 - Don't share your Tallyfy API key in public repositories or client-side code
 - Store your API key in environment variables or secure configuration files
-- Regenerate your API key if you suspect it's been compromised
-- Use different API keys for development and production environments
+- Ask Tallyfy to rotate the key if you suspect it's been compromised
 
 ### Example authenticated request
 
 ```bash
-curl -X GET https://go.tallyfy.com/api/answers/collections/my_collection \
+curl -X GET https://answers.tallyfy.com/collections/mycollection \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json"
 ```
 
 ### Troubleshooting authentication errors
 
-If you receive a `401 Unauthorized[^2]` response, check that:
-- Your Tallyfy Answers API key is valid and active
-- You've correctly included the `Authorization: Bearer` header
-- Your account has the necessary permissions for the requested operation
+If you receive a `403 Forbidden` response with the body `{"error": "Forbidden"}`, check that:
+- You're using the API key Tallyfy gave you
+- You've included the `Authorization: Bearer` header, with one space before the key
+
+A `400` that says the collection name is invalid comes before the key check. It means the name in the URL has characters other than lowercase letters and digits.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-[^1]: Handles SSO, multi-org switching, and unified auth across all Tallyfy products via OAuth 2.0
-[^2]: HTTP status code returned when API key is missing, invalid, or lacks required permissions
-
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Objects > Get an object</b>" href="/products/answers/objects/get-object/" > Retrieve a specific object from a Tallyfy Answers collection using its unique identifier... </LinkTitleCard>
-<LinkTitleCard header="<b>Answers > Search</b>" href="/products/answers/search/" > Tallyfy Answers search combines AI semantic understanding with traditional keyword matching to... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Delete an object</b>" href="/products/answers/objects/delete-object/" > Use the DELETE endpoint to permanently remove objects from Tallyfy Answers collections by unique... </LinkTitleCard>
 <LinkTitleCard header="<b>Collections > Delete a collection</b>" href="/products/answers/collections/delete-collection/" > The DELETE endpoint permanently removes collections and all their objects from Tallyfy Answers... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Search</b>" href="/products/answers/search/" > Tallyfy Answers search combines AI semantic understanding with traditional keyword matching, so... </LinkTitleCard>
+<LinkTitleCard header="<b>Collections > Create a collection</b>" href="/products/answers/collections/create-collection/" > Create collections in Tallyfy Answers with a POST request to the /collections endpoint. Each... </LinkTitleCard>
+<LinkTitleCard header="<b>Objects > Delete an object</b>" href="/products/answers/objects/delete-object/" > Use the DELETE endpoint to permanently remove an object from a Tallyfy Answers collection by its... </LinkTitleCard>
 </CardGrid>
