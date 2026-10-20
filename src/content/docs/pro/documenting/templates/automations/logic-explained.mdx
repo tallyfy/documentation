@@ -1,10 +1,11 @@
 ---
 about_tallyfy: true
 description: Tallyfy automations pair an If with a Then instead of using flowcharts.
-  They watch user inputs and adjust workflows by showing or hiding steps, reassigning
-  tasks, and changing deadlines using AND/OR conditions evaluated left to right.
+  They check user inputs at launch and when a task is completed or reopened, then
+  adjust workflows by showing or hiding steps, reassigning tasks, and changing deadlines
+  using AND/OR conditions evaluated left to right.
 id: 3bd51229002b255387d0462f9b9dbafb
-lastUpdated: 2026-09-12
+lastUpdated: 2026-10-19
 sidebar:
   order: 3
 title: Logic operations explained
@@ -16,10 +17,10 @@ import { Audience } from "~/components";
 
 ## How automation logic works
 
-Tallyfy [automations](/products/pro/documenting/templates/automations/) watch what users enter and adjust your workflow automatically. You pair a condition with an action, and the process adapts itself to whatever comes up.
+Tallyfy [automations](/products/pro/documenting/templates/automations/) pair a condition with an action. Tallyfy checks conditions at launch, against the kick-off form, and again whenever a task is completed or reopened. If the condition is true, the action changes the process, for example by showing a step or moving a deadline. Each automation runs at most once per process ([when an automation runs](/products/pro/documenting/templates/automations/when-automations-run/)).
 
 :::tip[Why simple logic instead of flowcharts]
-Flowcharts get complicated fast, especially for big processes. An If paired with a Then reads like a sentence, so *anyone* can follow it without technical training. You build processes that collect user input and change their flow based on responses.
+Tallyfy changes a process's path with If and Then pairs instead of a flowchart. Each pair reads like a sentence, so people without technical training can follow it.
 :::
 
 import { AutomationTypes } from "~/components";
@@ -37,27 +38,27 @@ THEN [do this action]
 
 #### The condition (IF part)
 
-Conditions check what users enter and watch for specific responses.
+Conditions check a step's status, such as completed or approved, or the answer in a form field.
 
 **Examples:**
 - IF a user selects "Urgent" in a [form field](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/)
 - IF a [task](/products/pro/tracking-and-tasks/tasks/) is approved by a manager
-- IF a task is completed on time, late, or early
+- IF a task is completed or reopened
 - IF a form field contains (or doesn't contain) a specific value
 
 #### The action (THEN part)
 
-Actions change your process based on what conditions find.
+Actions run when the conditions are true.
 
 **Examples:**
 - THEN show or hide steps
 - THEN assign the [task](/products/pro/tracking-and-tasks/tasks/) to a different person or team
 - THEN adjust deadlines
-- THEN trigger a webhook to an external system
+- THEN trigger a webhook to an external system (you can add this one only through the API today)
 
 ### Combining multiple conditions
 
-Tallyfy lets you combine conditions with **AND** or **OR**, just like you'd explain rules to a colleague.
+Tallyfy lets you combine conditions with **AND** or **OR**.
 
 #### Using AND logic
 
@@ -93,7 +94,7 @@ Tallyfy evaluates conditions **left to right[^1]**: the exact order you add them
 
 #### How evaluation works
 
-Given this rule:
+Given this automation:
 ```
 IF [condition 1] AND [condition 2] OR [condition 3]
 THEN [do this action]
@@ -108,38 +109,38 @@ The action triggers if:
 - Both condition 1 AND condition 2 are true, **OR**
 - Condition 3 is true by itself
 
-Tallyfy doesn't use operator precedence like programming languages (where AND would evaluate before OR). Conditions run in the order you add them. It's straightforward and predictable.
+Tallyfy doesn't use operator precedence like programming languages (where AND would evaluate before OR). Conditions run in the order you add them. In the example above both methods give the same answer, but they differ when OR comes first. Tallyfy reads `[condition 1] OR [condition 2] AND [condition 3]` as "1 or 2, and also 3", so condition 3 must always be true. A programming language would read it as "1, or else 2 and 3", so condition 1 alone would be enough.
 
 #### Best practice for complex logic
 
 Don't cram everything into one massive automation. Split it into several, each doing one thing.
 
-This keeps your logic readable, easier to troubleshoot, and avoids confusion about evaluation order. You'll thank yourself later.
+An automation that uses only AND, or only OR, gives the same answer in any order, so evaluation order stops mattering. Smaller automations are also easier to troubleshoot.
 
 ### How empty values affect conditions
 
-Empty or missing form field values can cause unexpected automation behavior. Here's how Tallyfy treats them:
+Tallyfy compares an empty form field like any other value:
 
 #### Empty field evaluation
 
-- **Text fields**: An empty field is "not equal" to any specific value
-- **Dropdowns**: No selection counts as different from any option
-- **Numbers**: Empty number fields don't match `greater_than` or `less_than` conditions
-- **Multiselect/file fields**: An empty list doesn't match any `contains` or `equals` check
+- **Text fields**: An empty field never matches **contains** and always matches **does not contain**
+- **Dropdowns**: No selection matches **is not** for every option and never matches **is**
+- **Number fields** (short text with numeric validation): An empty field matches neither **is greater than** nor **is less than**
+- **Checklist and file fields**: An empty list never matches **contains** or **is**
 
 #### Common troubleshooting scenario
 
 **Problem**: A step shows up even though conditions don't seem true.
 
-**Likely cause**: You're using OR logic with "not equal" conditions.
-- "Field A is NOT 'Option 1'" evaluates to TRUE when the field is empty
-- "Field B is NOT 'Option 2'" also evaluates to TRUE when empty
+**Likely cause**: You're using OR logic with **is not** conditions.
+- "Field A is not 'Option 1'" evaluates to TRUE when the field is empty
+- "Field B is not 'Option 2'" also evaluates to TRUE when empty
 - With OR, if ANY condition is true, the action triggers
 
 **Fix this by**:
 1. Making the field required so it's never empty
 2. Adding an explicit "is not empty" check
-3. Using positive conditions ("equals") instead of negative ones ("not equals")
+3. Using positive conditions (**is**) instead of negative ones (**is not**)
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
@@ -148,8 +149,8 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Conditionals > Conditionals (IF) explained</b>" href="/products/pro/documenting/templates/automations/conditionals/conditionals-explained/" > Conditionals are the IF part of Tallyfy automations. They check whether step statuses or form... </LinkTitleCard>
-<LinkTitleCard header="<b>Automations > Conditionals</b>" href="/products/pro/documenting/templates/automations/conditionals/" > Tallyfy's conditional logic lets workflows make automatic decisions using simple "IF X happens"... </LinkTitleCard>
+<LinkTitleCard header="<b>Automations > Conditionals</b>" href="/products/pro/documenting/templates/automations/conditionals/" > Tallyfy's conditional logic is the IF half of an automation. It checks kick-off and step form... </LinkTitleCard>
 <LinkTitleCard header="<b>Templates > Automations</b>" href="/products/pro/documenting/templates/automations/" > A Tallyfy automation pairs conditions with actions on a template, so running processes adapt to... </LinkTitleCard>
-<LinkTitleCard header="<b>Power Automate > Conditional logic in Power Automate</b>" href="/products/pro/integrations/middleware/power-automate/using-conditional-logic-in-power-automate/" > Power Automate's conditional logic lets flows make decisions based on Tallyfy data - using... </LinkTitleCard>
+<LinkTitleCard header="<b>Conditionals > Conditionals (IF) explained</b>" href="/products/pro/documenting/templates/automations/conditionals/conditionals-explained/" > Conditionals are the IF part of Tallyfy automations. They check whether step statuses or form... </LinkTitleCard>
+<LinkTitleCard header="<b>Tutorials > Create an automation</b>" href="/products/pro/tutorials/how-can-tallyfy-automate-and-streamline-my-processes/" > Tallyfy automations pair an If with a Then to adapt workflows at runtime. You can hide and... </LinkTitleCard>
 </CardGrid>

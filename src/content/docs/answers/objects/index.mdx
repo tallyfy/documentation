@@ -1,9 +1,9 @@
 ---
-description: Objects are JSON data records in Tallyfy Answers that belong to collections.
-  They can be indexed, retrieved, and searched using custom or auto-generated unique
-  identifiers.
+description: Objects are the JSON records you store in a Tallyfy Answers collection.
+  They're indexed in batches, searched, and deleted by their uid, a unique identifier
+  you give each object, and search needs seven fields on every one.
 id: ec3d59e464a42d837dec86d70db1d515
-lastUpdated: 2026-09-12
+lastUpdated: 2026-10-19
 sidebar:
   order: 4
 title: Objects
@@ -11,64 +11,59 @@ title: Objects
 
 ## What are objects in Tallyfy Answers?
 
-Objects are the fundamental data records in Tallyfy Answers.
-
-Each object represents a single item that can be indexed, retrieved, and searched within your collections.
+Objects are the items you want Tallyfy Answers to find, such as products or documentation pages. You index objects in batches, search them, and delete them by their `uid`.
 
 ### How do objects work in Tallyfy Answers?
 
-An object in Tallyfy Answers:
-- Contains data in JSON format
-- Belongs to a specific collection
-- Has a unique identifier (either custom or auto-generated)
-- Can store multiple properties and values
-- Is fully searchable once indexed
+An object is a JSON record that belongs to one collection. Give each object a unique `uid`. Once it's indexed, search can find it.
 
 ### How do object identifiers work?
 
-Tallyfy Answers handles object identifiers in two ways:
+Tallyfy Answers identifies each object by a `uid` field that you set:
 
-1. **Custom IDs**: If your object includes an `id` field of type string, Tallyfy Answers will use this as the identifier:
-   ```json
-   {
-     "id": "product-123",
-     "name": "Wireless Headphones",
-     "price": 79.99
-   }
-   ```
+```json
+{
+  "uid": "product-123",
+  "name": "Wireless Headphones",
+  "price": 79.99
+}
+```
 
-2. **Auto-generated IDs**: If no `id` field is provided, Tallyfy Answers will automatically generate a unique identifier:
-   ```json
-   {
-     "name": "Wireless Headphones",
-     "price": 79.99
-   }
-   ```
+Always send a `uid`. An object without one is still stored, but you can't update it by importing it again, delete it on its own, or use it as the reference for similar-object recommendations. It also appears in search results with `"id": null`.
 
-The `id` field is special and doesn't need to be explicitly defined in your Tallyfy Answers collection schema.
+Don't put the identifier in a field named `id`. The service only reads `uid`, and Weaviate's documentation lists `id` as a reserved property name, so an object carrying one may fail to index.
+
+You don't need to define the `uid` field yourself. Creating a collection adds it as a text property.
 
 ### How flexible is object structure?
 
-Unlike traditional databases, Tallyfy Answers doesn't require you to predefine a rigid schema before adding objects.
+You don't have to define a schema before adding objects. Tallyfy Answers detects properties and data types automatically as you index objects, so adding a new property later needs no schema change.
 
-The system detects properties and data types automatically as you index objects, so adding a new property later needs no schema change.
+### Which fields does search need?
+
+Search, recommendations and featured objects read seven fields from every object. Include all of them, or search on that collection can come back empty or fail:
+
+- `uid`: the object's unique identifier
+- `title`: the title shown in results
+- `url`: the link a result opens
+- `content`: the main text
+- `hierarchy`: an object such as `{"lvl0": "Documentation", "lvl1": "Getting started"}`
+- `source`: a name such as `Docs`, which [search](/products/answers/search/) can filter on
+- `snippet`: a short summary
 
 ### What operations can you perform on objects?
 
-With Tallyfy Answers, you can perform these object operations:
-- [Index a single object](/products/answers/objects/index-single-object/)
-- [Index multiple objects in bulk](/products/answers/objects/index-multiple-objects/)
-- [Retrieve specific objects](/products/answers/objects/get-object/)
+- [Index objects with batch import](/products/answers/objects/index-multiple-objects/)
+- List every object in a collection with `GET /collections/{collection_name}/objects`. It needs the API key and returns `{"message": [...], "status": 200}`, with every object's properties in one response and no paging. For a collection that doesn't exist it still answers HTTP 200, with `{"error": "Collection not found", "status": 404}` in the body.
 - [Delete objects](/products/answers/objects/delete-object/)
-- Search for objects within collections
+- [Search for objects within collections](/products/answers/search/)
 
 ### What are the best practices for objects?
 
-- Use consistent property names across similar objects
-- Choose meaningful custom IDs when possible
-- Structure nested data appropriately for searching
-- Consider batching multiple objects[^1] for more efficient indexing
-- Include all relevant data for search in your objects
+- Use the same property names across similar objects. Tallyfy Answers detects properties as you index, so `price` in one object and `cost` in another become two separate properties.
+- Use the ID your own system already has, such as a product code, as the `uid`. You can then update or delete the object later by that ID.
+- Index objects with [batch import](/products/answers/objects/index-multiple-objects/), which is the only way to add them.
+- Put descriptive text in each object. Search and [similar-object recommendations](/products/answers/search/find-similar-objects/) compare the text inside your objects, so a record with only a name and a price gives them little to match.
 
 Browse all Tallyfy Answers object management operations below:
 
@@ -78,12 +73,10 @@ import PageTree from '@/components/PageTree.astro';
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-[^1]: Bulk indexing via the import endpoint reduces API calls and improves performance vs single operations
-
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. They... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Get an object</b>" href="/products/answers/objects/get-object/" > Retrieve a specific object from a Tallyfy Answers collection using its unique identifier... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Index a single object</b>" href="/products/answers/objects/index-single-object/" > Add a single object to a Tallyfy Answers collection in real time through a POST request with... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Delete an object</b>" href="/products/answers/objects/delete-object/" > Use the DELETE endpoint to permanently remove objects from Tallyfy Answers collections by unique... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. You can... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Search</b>" href="/products/answers/search/" > Tallyfy Answers search combines AI semantic understanding with traditional keyword matching, so... </LinkTitleCard>
+<LinkTitleCard header="<b>Search > Find similar objects</b>" href="/products/answers/search/find-similar-objects/" > Use the Tallyfy Answers recommendation endpoint to find objects similar to a reference object... </LinkTitleCard>
+<LinkTitleCard header="<b>Objects > Delete an object</b>" href="/products/answers/objects/delete-object/" > Use the DELETE endpoint to permanently remove an object from a Tallyfy Answers collection by its... </LinkTitleCard>
 </CardGrid>

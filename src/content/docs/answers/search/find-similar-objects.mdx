@@ -1,8 +1,10 @@
 ---
 description: Use the Tallyfy Answers recommendation endpoint to find objects similar
-  to a reference object. Results are ranked by vector distance and similarity score.
+  to a reference object, named by its uid. Results come only from objects with the
+  same source as the reference object, and they're ordered by similarity, closest
+  first.
 id: c634f5acf64b028208a85a3a18ce6f84
-lastUpdated: 2026-03-22
+lastUpdated: 2026-10-19
 sidebar:
   order: 1
 title: Find similar objects
@@ -12,16 +14,16 @@ title: Find similar objects
 
 The recommendation endpoint lets you find objects similar to a specified reference object.
 
-This similarity search uses vector embeddings to find objects with related characteristics. It's useful for recommendation systems, content discovery, and finding related items.
+This similarity search uses vector embeddings[^1] to find objects with related characteristics. It's useful for recommendation systems, content discovery, and finding related items.
 
 ### How does similarity search work in Tallyfy Answers?
 
 Here's how Tallyfy Answers uses semantic similarity to find related objects:
 
-1. Tallyfy converts each object's text content into vector embeddings (numerical representations)
+1. Tallyfy converts each whole object, as JSON text, into a vector embedding (a numerical representation)
 2. When searching for similar objects, Tallyfy compares vector distances
 3. Objects with closer vector distances are more similar
-4. Tallyfy ranks results by similarity score from most to least similar
+4. Only objects with the same `source` as the reference object are compared, and the closest come back first
 
 ### API endpoint
 
@@ -29,12 +31,14 @@ Here's how Tallyfy Answers uses semantic similarity to find related objects:
 GET /collections/{collection_name}/recommend/{object_id}
 ```
 
+This endpoint needs the API key.
+
 ### Path parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `collection_name` | string | Yes | Name of the collection to search in |
-| `object_id` | string | Yes | ID of the reference object to find similar objects to |
+| `object_id` | string | Yes | The `uid` of the reference object to find similar objects to |
 
 ### Query parameters
 
@@ -44,36 +48,21 @@ GET /collections/{collection_name}/recommend/{object_id}
 
 ### Response
 
-A successful request returns a `200 OK` status code and a JSON response containing:
+A successful request returns a `200 OK` status code and a JSON response like this one, for the reference object `article-123`:
 
 ```json
 {
-  "results": [
+  "message": [
     {
-      "id": "product-456",
-      "score": 0.89,
-      "document": {
-        "name": "Bluetooth Speaker",
-        "description": "Portable waterproof speaker with 20-hour battery life",
-        "price": 129.99,
-        "categories": ["electronics", "audio"]
-      }
-    },
-    {
-      "id": "product-789",
-      "score": 0.72,
-      "document": {
-        "name": "Wireless Earbuds",
-        "description": "Premium noise-canceling earbuds with charging case",
-        "price": 99.99,
-        "categories": ["electronics", "audio"]
-      }
+      "title": "Advanced Features",
+      "url": "https://example.com/advanced",
+      "hierarchy": {"lvl0": "Documentation", "lvl1": "Advanced features"},
+      "snippet": "Deep dive into advanced capabilities",
+      "source": "Documentation",
+      "uid": "article456"
     }
   ],
-  "meta": {
-    "limit": 10,
-    "found": 2
-  }
+  "status": 200
 }
 ```
 
@@ -81,19 +70,27 @@ A successful request returns a `200 OK` status code and a JSON response containi
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `results` | array | List of similar objects with similarity scores |
-| `results[].id` | string | Unique identifier of the similar object |
-| `results[].score` | float | Similarity score (0.0-1.0)[^2] where higher is more similar |
-| `results[].document` | object | Full content of the similar object |
-| `meta.limit` | integer | Maximum number of results requested |
-| `meta.found` | integer | Total number of similar objects found |
+| `message` | array | Similar objects, closest first. The closest match, normally the reference object itself, is left out. |
+| `message[].title` | string | The object's `title` |
+| `message[].url` | string | The object's `url`. A root-relative path gets a trailing slash, and a full URL comes back unchanged. |
+| `message[].hierarchy` | object | The object's `hierarchy`, as stored |
+| `message[].snippet` | string | The object's `snippet` |
+| `message[].source` | string | The object's `source`, the same as the reference object's |
+| `message[].uid` | string | The object's `uid` with any hyphens removed, so `article-456` comes back as `article456` |
+| `status` | integer | `200` |
+
+Because hyphens are removed, a returned `uid` may not match the stored one. Use the `uid` you imported when you pass an object to this endpoint.
+
+There's no similarity score in the response.
 
 ### Error scenarios
 
 | Status | Description |
 |--------|-------------|
 | 404 | Collection or reference object not found |
-| 400 | Invalid parameters or filter syntax |
+| 400 | Invalid collection name format |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
+| 422 | `limit` is outside 1 to 20 |
 
 ### Example request
 
@@ -112,20 +109,18 @@ curl -X GET "https://answers.tallyfy.com/collections/docs/recommend/article-123?
 
 ### What are best practices for similarity search?
 
-- Start with a lower `min_score` threshold and adjust based on result quality
-- Use the `filter` parameter to combine similarity with business rules
+- Results always come from objects with the same `source` as the reference object, so give related objects the same `source`
 - You'll get better recommendations if your objects contain rich, descriptive text
 - Include diverse object attributes to improve similarity matching accuracy
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-[^1]: Multi-dimensional numerical arrays representing text meaning, typically 768-1536 dimensions
-[^2]: Cosine similarity scoring where perfect match equals 1.0, high similarity above 0.8, low below 0.5
+[^1]: Lists of numbers that represent what a text means. Tallyfy Answers makes them with Voyage AI's voyage-3 model.
 
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. They... </LinkTitleCard>
-<LinkTitleCard header="<b>Objects > Get an object</b>" href="/products/answers/objects/get-object/" > Retrieve a specific object from a Tallyfy Answers collection using its unique identifier... </LinkTitleCard>
-<LinkTitleCard header="<b>Answers > Search</b>" href="/products/answers/search/" > Tallyfy Answers search combines AI semantic understanding with traditional keyword matching to... </LinkTitleCard>
-<LinkTitleCard header="<b>Answers > Objects</b>" href="/products/answers/objects/" > Objects are JSON data records in Tallyfy Answers that belong to collections. They can be... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Search</b>" href="/products/answers/search/" > Tallyfy Answers search combines AI semantic understanding with traditional keyword matching, so... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Objects</b>" href="/products/answers/objects/" > Objects are the JSON records you store in a Tallyfy Answers collection. They're indexed in... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. You can... </LinkTitleCard>
+<LinkTitleCard header="<b>Overview</b>" href="/products/answers/" > Tallyfy Answers is a hosted search service that matches the JSON objects you send it by meaning... </LinkTitleCard>
 </CardGrid>

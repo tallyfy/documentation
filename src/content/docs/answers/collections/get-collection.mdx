@@ -1,8 +1,9 @@
 ---
 description: Retrieve information about a specific collection in Tallyfy Answers using
-  its unique name. The response includes metadata, schema details, and object counts.
+  its unique name. The response holds the collection's schema, with its class name
+  and the properties detected from the objects you've indexed.
 id: 7b1e54682365776ba3df26ac215b5a93
-lastUpdated: 2026-03-22
+lastUpdated: 2026-10-19
 sidebar:
   order: 2
 title: Get a collection
@@ -10,13 +11,15 @@ title: Get a collection
 
 ## Retrieving collection details
 
-This endpoint lets you fetch information about a specific collection in Tallyfy Answers using its unique name. You'll get collection metadata, schema information, and object counts in the response.
+This endpoint returns the schema of a specific collection in Tallyfy Answers, found by its unique name. The schema lists the properties detected from the objects you've indexed. It doesn't include an object count.
 
 ### API endpoint
 
 ```
-GET /v1/collections/{collection_name}
+GET /collections/{collection_name}
 ```
+
+This endpoint needs the API key.
 
 ### Path parameters
 
@@ -26,42 +29,29 @@ GET /v1/collections/{collection_name}
 
 ### Response
 
-On success, you'll receive a `200 OK` status code and a JSON response containing:
+On success, you'll receive a `200 OK` status code. `message` holds the collection's class definition as Weaviate, the database behind Tallyfy Answers, returns it. The class name comes back title-cased, so `products` becomes `Products`, and each property carries a Weaviate data type. A shortened example:
 
 ```json
 {
-  "name": "products",
-  "description": "Collection of product information",
-  "schema": {
-    "name": {
-      "type": "string"
-    },
-    "description": {
-      "type": "string"
-    },
-    "price": {
-      "type": "number"
-    },
-    "categories": {
-      "type": "string[]"
-    }
+  "message": {
+    "class": "Products",
+    "properties": [
+      { "name": "uid", "dataType": ["text"] },
+      { "name": "title", "dataType": ["text"] }
+    ]
   },
-  "object_count": 142,
-  "created_at": "2023-08-15T14:32:21Z",
-  "updated_at": "2023-09-01T09:45:33Z"
+  "status": 200
 }
 ```
+
+Weaviate adds more settings to the class definition than this example shows.
 
 ### Response fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | string | The collection's unique identifier |
-| `description` | string | Optional description of the collection |
-| `schema` | object | Schema that's auto-detected based on indexed objects[^1] |
-| `object_count` | number | Total number of objects in the collection |
-| `created_at` | string | ISO timestamp when the collection was created |
-| `updated_at` | string | ISO timestamp when the collection was last modified |
+| `message` | object | The collection's class definition from Weaviate, including its title-cased name and its properties |
+| `status` | number | `200` |
 
 ### Error scenarios
 
@@ -69,29 +59,30 @@ On success, you'll receive a `200 OK` status code and a JSON response containing
 |--------|-------------|
 | 404 | Collection not found |
 | 400 | Invalid collection name format |
+| 403 | The `Authorization` header is missing or doesn't match the API key |
+| 503 | The service couldn't reach its database. Try again. |
 
 ### Example request
 
 ```bash
-curl -X GET https://go.tallyfy.com/api/collections/products \
-  -H "X-Answers-API-Key: your_api_key"
+curl -X GET https://answers.tallyfy.com/collections/products \
+  -H "Authorization: Bearer your_api_key"
 ```
 
 ### Common uses
 
 - Checking a collection's current schema
-- Verifying the number of objects in a collection
-- Retrieving collection metadata before performing operations
+- Retrieving collection details before performing operations
 - Confirming a collection exists before adding objects
+
+To count the objects in a collection, use `GET /collections/{collection_name}/objects/metadata` instead. It needs no key and returns a count per source. It answers `[]` for a collection that doesn't exist, the same as for an empty one.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
-[^1]: Schema types are inferred from first 100 objects; explicit schemas can override auto-detection
-
 ## Related articles
 <CardGrid>
-<LinkTitleCard header="<b>Objects > Get an object</b>" href="/products/answers/objects/get-object/" > Retrieve a specific object from a Tallyfy Answers collection using its unique identifier... </LinkTitleCard>
-<LinkTitleCard header="<b>Collections > Create a collection</b>" href="/products/answers/collections/create-collection/" > Create collections in Tallyfy Answers using a POST request to the /v1/collections endpoint. Each... </LinkTitleCard>
-<LinkTitleCard header="<b>Collections > Get all collections</b>" href="/products/answers/collections/get-all-collections/" > The GET /v1/collections endpoint retrieves all collections in your Tallyfy Answers account... </LinkTitleCard>
-<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. They... </LinkTitleCard>
+<LinkTitleCard header="<b>Answers > Collections</b>" href="/products/answers/collections/" > Collections in Tallyfy Answers group similar objects together, like database tables. You can... </LinkTitleCard>
+<LinkTitleCard header="<b>Collections > Create a collection</b>" href="/products/answers/collections/create-collection/" > Create collections in Tallyfy Answers with a POST request to the /collections endpoint. Each... </LinkTitleCard>
+<LinkTitleCard header="<b>Collections > Delete a collection</b>" href="/products/answers/collections/delete-collection/" > The DELETE endpoint permanently removes collections and all their objects from Tallyfy Answers... </LinkTitleCard>
+<LinkTitleCard header="<b>Objects > Delete an object</b>" href="/products/answers/objects/delete-object/" > Use the DELETE endpoint to permanently remove an object from a Tallyfy Answers collection by its... </LinkTitleCard>
 </CardGrid>

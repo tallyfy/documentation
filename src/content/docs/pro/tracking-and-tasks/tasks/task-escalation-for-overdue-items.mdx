@@ -5,7 +5,7 @@ description: Tallyfy escalates a late task by pairing it with an expiring step t
   Date the expiring step from the process launch, never from the step it watches,
   or the escalation never fires at all.
 id: 79972e7278a70f21b9d0d91271ee9540
-lastUpdated: 2026-09-12
+lastUpdated: 2026-10-19
 sidebar:
   order: 20
 title: Escalating overdue tasks
@@ -17,19 +17,19 @@ import { Steps } from '@astrojs/starlight/components';
 
 Tallyfy has no account-wide escalation switch. You build escalation onto one specific step instead, using a pair of steps: the real one, plus a second step that expires a little later. When the second one expires, an [automation](/products/pro/documenting/templates/automations/) fires and does whatever you told it to do to the real step.
 
-Building it per step is the point. In a 40 step process you attach escalation to the two or three steps where being late actually costs you something, so nobody gets buried in alerts about the other 37.
+Because you build it per step, you add escalation only where being late costs you something. In a 40 step process that might be two or three steps, and nobody gets alerts about the other 37.
 
 :::note[What counts as overdue]
-A task is overdue once its **deadline** passes, which is when the work should be **finished**. That's different from its start time, which only suggests when to begin. Only the deadline decides overdue status.
+A task is overdue once its **deadline** passes, which is when the work should be **finished**. That's different from its start time, which only suggests when to begin.
 :::
 
-### Why an expiring step is the trick
+### Why the pattern needs an expiring step
 
-Tallyfy automations react to a step changing state. Someone completes it, approves it, rejects it, acknowledges it. There's no "when a deadline passes, do something" trigger sitting in the list for you to pick.
+Tallyfy checks automations at three moments: when a process launches, when the kick-off form is completed after launch, and when a task is completed or reopened. So an automation can react to someone completing, approving, rejecting or acknowledging a step, but there's no "when a deadline passes, do something" trigger for you to pick. [When an automation runs](/products/pro/documenting/templates/automations/when-automations-run/) has the detail.
 
-One step type gets around that. An [Expiring step](/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/) completes itself the moment its deadline arrives, with nobody touching it. That makes it the only clock in Tallyfy you can hang an automation on. Set one to expire shortly after the real work was due, and you've built yourself a deadline trigger.
+An [Expiring step](/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/) completes itself once its deadline passes, with nobody touching it, and that completion is one of the moments Tallyfy checks automations. Set one to expire shortly after the real work was due, and you've built yourself a deadline trigger.
 
-### The pattern, with a real example
+### The pattern, with an example
 
 Say your month-end close template has this step:
 
@@ -43,7 +43,7 @@ Then one automation: **IF** "Escalate journal entries" is expired, **THEN** add 
 
 On day 6 the expiring step completes itself, the automation fires, and the manager lands on the task. If Jelena posted the entries on day 4, nothing happens at all.
 
-The gap between day 5 and day 6 is your grace period. You set it purely by choosing the expiring step's date. Want three days of slack instead of one? Date it day 8.
+The gap between day 5 and day 6 is your grace period. You set it purely by choosing the expiring step's date. For three days of slack instead of one, date it day 8.
 
 ### How to set it up
 
@@ -56,7 +56,7 @@ You'll need rights to edit the template.
 
 3. Set the new step's type to **Expiring**.
 
-4. On the **Basics** tab, click the **Timings** row to expand it, then set its deadline relative to **Process Launch**, a little later than the real step's deadline. This choice decides whether the whole thing works, so read the caution below before you pick anything else.
+4. On the **Basics** tab, click the **Timings** row to expand it, then set its deadline relative to **Process Launch**, a little later than the real step's deadline. Don't pick **Another Step**. The caution below explains why.
 
 5. Leave the expiring step unassigned. Nobody has to do anything with it.
 
@@ -64,7 +64,7 @@ You'll need rights to edit the template.
 
 7. For the **IF** condition, pick your expiring step and choose **is expired**.
 
-8. For the **THEN** action, pick what should happen, then set **Apply to** to the real step. Not the expiring one.
+8. For the **THEN** action, pick what should happen, then set **Apply to** to the real step, not the expiring one.
 
 9. Save the template.
 </Steps>
@@ -73,10 +73,10 @@ To check your work, launch a test process and deliberately leave the real step a
 
 ### Set the expiring step's deadline from the process launch
 
-:::caution[This one setting decides whether escalation works at all]
+:::caution[Dating it from another step stops it expiring]
 In the expiring step's **Timings** row (on the **Basics** tab), choose **Process Launch**. Don't choose **Another Step**.
 
-Picking **Another Step** is the intuitive move. You're watching "Post month-end journal entries", so dating the escalation "1 day after Post month-end journal entries" reads like the obvious answer. It isn't. Tallyfy deliberately holds back a step whose deadline depends on another step until that other step is finished. So your escalation sits and waits for the work to be done, which is the exact moment you no longer need it.
+Dating the escalation "1 day after Post month-end journal entries" looks natural, since that's the step you're watching. But Tallyfy deliberately holds back a step whose deadline depends on another step until that other step is finished. Your escalation would wait for the work to be done, and by then you no longer need it.
 
 **Do this:** expiring step due 6 days after **Process Launch**, real step due 5 days after **Process Launch**.
 
@@ -90,33 +90,35 @@ We ran two identical processes side by side and left the real work undone in bot
 | **Process Launch** | It expired on time and the manager was added. Escalation worked. |
 | **Another Step** | It never expired at all, even after a full extra cycle. No escalation. |
 
-If you build this pattern and nothing ever happens, this is almost always the reason.
+If you build this pattern and nothing ever happens, check this setting first.
 
 ### Any automation action can hang off it
 
-Adding a manager is the most common choice, not the only one. "Is expired" is an ordinary condition, so every [automation action](/products/pro/documenting/templates/automations/actions/) is available to you:
+Adding a manager is one option. "Is expired" is an ordinary condition, so every [automation action](/products/pro/documenting/templates/automations/actions/) is available to you:
 
 - **Change who's assigned.** Add people to the step, replace everyone on it, or clear the assignees. See [assignment actions](/products/pro/documenting/templates/automations/actions/asignment-actions/).
 - **Change a deadline.** Push the due date out or pull it in. See [deadline actions](/products/pro/documenting/templates/automations/actions/deadline-actions/).
 - **Show or hide a step.** Reveal a normally hidden "Explain the delay" step only when something runs late. See [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/).
-- **Reopen a completed step.** Send work back for another pass. See [status actions](/products/pro/documenting/templates/automations/actions/status-actions/).
-- **Fire a webhook.** A webhook (an automatic message Tallyfy sends to another system the instant something happens) hands the event to a tool you already run. See [webhooks](/products/pro/integrations/webhooks/).
+- **Reopen a completed step.** Send finished work back for another pass. A reopen only works on a step that's already complete, so point it at an earlier step, not the late one. See [status actions](/products/pro/documenting/templates/automations/actions/status-actions/).
+- **Fire a webhook.** A webhook (an automatic message Tallyfy sends to another system the instant something happens) hands the event to a tool you already run. The template editor can't add a webhook action yet, so today it's only possible through the [API](/products/pro/integrations/open-api/). In the editor, turn on the expiring step's own **Emit a webhook when this task is completed?** setting instead. See [webhooks](/products/pro/integrations/webhooks/).
 
 :::tip[Webhooks give you the wording]
-The standard assignment email does the job, but it's still a standard assignment email. A webhook hands the event to your own system, so your team writes the escalation message itself and sends it wherever people already look, whether that's email or chat. That's usually a kinder note than an automatic one, and people read it.
+Adding an assignee sends Tallyfy's standard assignment email. A webhook hands the event to your own system instead, so your team writes the escalation message itself and sends it wherever people already look, whether that's email or chat.
 :::
 
-### It cancels itself when the work gets done
+### When the work is done on time
 
-There's nothing to remember and nothing to switch off. Finish the real step before the expiring step's deadline and no escalation happens.
+Finish the real step before the expiring step's deadline and no escalation happens. You don't have to switch anything off.
 
-Here's why. Tallyfy won't apply an automation action to a step that's already complete. The expiring step still expires and the automation still fires, but the action has nothing left to do, because there's nobody left to chase.
+That's because assignment, deadline and visibility actions skip a step that's already complete. The expiring step still expires and the automation still fires, but the action has nothing left to do.
 
 We tested that with two identical processes. One was left alone, one had the real work completed early. The one left alone got the manager added. The one where the work was done didn't.
 
+Webhook and reopen actions are the exception. A webhook doesn't look at the real step, and a reopen only ever acts on a finished step, so both still run when the expiring step expires, even if the work was done on time.
+
 ### How quickly escalation happens
 
-Tallyfy checks for expiring steps every 5 minutes, so escalation arrives within about five minutes of the deadline rather than on the exact second. For chasing a late journal entry that's plenty. If you need something to react in seconds, this pattern isn't the right tool.
+Tallyfy checks for expiring steps every 5 minutes, so escalation arrives within about five minutes of the deadline rather than on the exact second. If you need something to react in seconds, this pattern isn't the right tool.
 
 ### A simpler condition is on the way
 
@@ -133,27 +135,16 @@ You can also comment on any late task to ask for an update, or watch a process t
 
 ## Following up when something is late
 
-Threat-based reminders ("this task is overdue!") tend to backfire. They dent motivation and make performance worse. Asking what's in the way works better.
+When you chase late work, ask what's holding it up rather than why it isn't done. Say why the date matters, for example "The auditors need this by Friday", and suggest a next step instead of ordering one.
 
-- **Ask about blockers first.** "What's holding this up?" gets you further than "Why isn't this done?"
-- **Say why it matters.** "The auditors need this by Friday" gives someone a reason, not just a date.
-- **Offer rather than order.** "You might want to try..." lands better than "You must...".
-- **Be consistent.** Check for late work on a regular rhythm instead of at random.
-- **Write it down.** Use [comments](/products/pro/tracking-and-tasks/tasks/how-can-i-manage-comments-in-tallyfy/) on the task so the conversation stays with the work.
-- **Set a new date you believe in.** If you're extending a deadline, pick one that can genuinely be met.
-
-:::tip[The point of a follow-up]
-A good follow-up removes an obstacle. A weak one just points out that something is late.
-:::
+Keep the conversation in [comments](/products/pro/tracking-and-tasks/tasks/how-can-i-manage-comments-in-tallyfy/) on the task, so it stays with the work. If you extend the deadline, pick a new date that can be met.
 
 ## Stopping the pile-up in the first place
-
-Escalation is a repair job. These four habits stop the damage instead, and they beat chasing people every month.
 
 - **Use expiring steps for FYI items.** They complete themselves at the deadline, so announcements and optional reading never turn into overdue clutter.
 - **Bundle small work into one step.** One step with five form fields beats five separate steps that can each go late.
 - **Set deadlines you've actually hit before.** Base them on how long the work really takes, not on the best case.
-- **Drop steps that are always late and never matter.** If a step goes overdue every month and nothing bad follows, it isn't really a step.
+- **Drop steps that are always late and never matter.** If a step goes overdue every month and nothing bad follows, take it out of the template.
 
 There's more in the guide on [how to avoid task debt](/products/pro/tutorials/how-to/how-to-avoid-task-debt/).
 
@@ -161,8 +152,8 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
+<LinkTitleCard header="<b>How To > Avoiding task debt</b>" href="/products/pro/tutorials/how-to/how-to-avoid-task-debt/" > Task debt builds when incomplete tasks pile up faster than your team finishes them. In Tallyfy... </LinkTitleCard>
 <LinkTitleCard header="<b>How To > Ensure task completion</b>" href="/products/pro/tutorials/how-to/ensure-task-completion/" > Tallyfy keeps tasks and approvals on track with automated reminders, clear deadlines, and... </LinkTitleCard>
-<LinkTitleCard header="<b>How To > Avoiding task debt</b>" href="/products/pro/tutorials/how-to/how-to-avoid-task-debt/" > Task debt builds when incomplete tasks pile up faster than your team finishes them. Tallyfy... </LinkTitleCard>
-<LinkTitleCard header="<b>How To > Improve accountability</b>" href="/products/pro/tutorials/how-to/make-people-accountable-for-tasks/" > Tallyfy makes task accountability clear through transparent dashboards, automatic reminders, and... </LinkTitleCard>
 <LinkTitleCard header="<b>Actions > Automate deadline shifts on tasks</b>" href="/products/pro/documenting/templates/automations/actions/deadline-actions/" > Tallyfy's deadline actions automatically shift task due dates forward or backward when a... </LinkTitleCard>
+<LinkTitleCard header="<b>How To > Improve accountability</b>" href="/products/pro/tutorials/how-to/make-people-accountable-for-tasks/" > Tallyfy makes task accountability clear through transparent dashboards, automatic reminders, and... </LinkTitleCard>
 </CardGrid>
