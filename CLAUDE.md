@@ -180,6 +180,8 @@ It must score **below the threshold** (default 45) with no AI-tell words. `--fil
 
 Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
+## 📝 Hover Annotations (Footnotes) Guidelines
+
 **Moved:** the hover annotation guidelines. Source of truth: `REFERENCE/claude-md/annotations-and-navigation.md`, section
 "📝 Hover Annotations (Footnotes) Guidelines". Read it before adding a footnote or hover annotation;
 edit it there, not here.
@@ -192,6 +194,8 @@ edit it there, not here.
 You are working with Tallyfy's comprehensive product documentation. Your role is to act as a workflow expert and exceptionally skilled technical writer creating documentation for Tallyfy - a workflow and business process management SaaS platform.
 
 **Primary Mission**: Write clear, concise articles that help non-technical users understand how to use specific Tallyfy features. Every piece of content must serve the singular goal of making users successful with the product while following all humanizing rules to ensure natural, human-like writing.
+
+## PROJECT OVERVIEW
 
 **Moved:** the project overview. Source of truth: `REFERENCE/claude-md/project.md`, section
 "PROJECT OVERVIEW". Read it before a first change in this repo;
@@ -213,6 +217,7 @@ python scripts/generate-related-articles.py --dir [directory] --answers_api_key 
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [repo root] --collection_name tyfy --answers_api_key [key] --base_url [answers url] [--dry-run]   # Remove index entries whose page is gone
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
+# Dated 2026-10-21 (#384): the count lines moved to REFERENCE/claude-md/project.md, so the script now rewrites that file, not this one.
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
 ```
 
@@ -419,11 +424,19 @@ edit it there, not here.
 ## LINKING & REFERENCES
 
 **Moved:** the linking rules and the deployment pipeline. Source of truth: `REFERENCE/claude-md/linking-and-deployment.md`, section
-"LINKING & REFERENCES". Read it before adding a link, and before any push;
-edit it there, not here.
+"LINKING & REFERENCES". Read it before adding a link, before any push or merge into `staging` or
+`main`, and before any promotion to production; edit it there, not here.
 
-- Before any push, to know what deploys: section "Deployment Pipeline Architecture".
+- Before any push or merge into `staging` or `main`, to know what deploys: section "Deployment Pipeline Architecture".
+- Before promoting `staging` to `main`, in full or in part: section "Deploying staging to production".
+- Before adding, releasing or relying on a promotion hold: section "Holding a path back from production (`.github/promotion-holds.txt`)".
+- After a promotion, before saying it is live or purging the cache: section "Verifying deployment".
 - Before adding an external link: section "External Link Requirements".
+
+Always in force: merging into `main` publishes to tallyfy.com/products. The `sync` job deletes or
+reverts anything published that `main` lacks. So before any promotion, check that `main` is not
+behind what is published, and read the promotion diff by hand, because a hold cannot block a
+deletion.
 
 ## ACCESSIBILITY & INCLUSIVITY
 
@@ -440,6 +453,8 @@ edit it there, not here.
 - Proper heading structure for navigation
 - State required prior knowledge explicitly
 
+## SEO & AI OPTIMIZATION
+
 **Moved:** SEO and AI optimization. Source of truth: `REFERENCE/claude-md/seo-dates-and-automation.md`, section
 "SEO & AI OPTIMIZATION". Read it before changing titles, descriptions or structured data;
 edit it there, not here.
@@ -454,6 +469,7 @@ edit it there, not here.
 - Preventative measures when applicable
 - Link to support resources for complex issues
 
+## LAST UPDATED DATES SYSTEM
 
 **Moved:** the last updated dates system. Source of truth: `REFERENCE/claude-md/seo-dates-and-automation.md`, section
 "LAST UPDATED DATES SYSTEM". Read it before changing how dates are shown;

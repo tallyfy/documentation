@@ -243,3 +243,10 @@ find . -name '*.mdx' -type f -exec dirname {} \; | sort -u | wc -l    # director
 **Workflow Integration**:
 - Run the script after creating or deleting articles, and commit the result with them.
 - Use `--check` in review to confirm a branch has not left the counts stale.
+
+Dated 2026-10-21 (#384): "this file" in the text above meant CLAUDE.md, where these lines sat
+until they moved here on 2026-10-21. The script now rewrites this file,
+`REFERENCE/claude-md/project.md`, and CLAUDE.md holds none of its count lines. A fourth refusal
+joins the three above: the script exits non-zero, in `--check` too, when this file has lost the
+"including N .mdx files" line, every "Location:" line or the "Core areas:" line. After the move it
+found none of them and still reported success, so these counts would have gone stale unnoticed.

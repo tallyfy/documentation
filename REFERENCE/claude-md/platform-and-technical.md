@@ -2,6 +2,8 @@
 > (owner decision 2026-10-20). Edit here; that CLAUDE.md keeps only a pointer. A section
 > the text below names by title is found through that CLAUDE.md, which keeps its heading
 > or names it in a pointer.
+> Dated 2026-10-21 (#384): the pipeline table's pointer to "Holding a path back from
+> production" said "below"; it now names `linking-and-deployment.md`, which holds that text.
 
 # The platform and technical requirements
 
@@ -184,7 +186,7 @@ The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but aut
 |---|---|---|---|---|
 | `generate-ids.yml` | both branches (push to either) | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 50 pages per run | Adds an `id` to any page with none, an empty one, or the all-zero placeholder; never changes an existing id | No - auto-assigned |
 | `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
-| `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" below |
+| `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" in `linking-and-deployment.md` |
 | `generate-snippets` | **staging only** | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 10 pages per run | Sets `description` on any page with none or a blank one | **Yes** - it never overwrites an existing description, a new page's included |
 | `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search) | Nothing in files (uploads to Answers API) | N/A |
 | `check-deleted-files` | both branches | Every push: lists the branch's Answers index and deletes entries whose uid no page in the tree carries, since 2026-10-03 (owner decision 218, #296); at most 25 per run, refuses when more than a fifth of the index looks orphaned, reads each delete back | Nothing in files | N/A |
