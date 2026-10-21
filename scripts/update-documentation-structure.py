@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Keep DOCUMENTATION_STRUCTURE.md and CLAUDE.md honest about how many .mdx files exist.
+"""Keep DOCUMENTATION_STRUCTURE.md and REFERENCE/claude-md/project.md honest about how many .mdx
+files exist. (project.md holds the count lines that sat in CLAUDE.md until 2026-10-21, #384.)
 
 Run it after adding, removing or moving documentation files. It rewrites every count it can
 attribute to a real directory, and it prints every count-shaped figure it could NOT attribute,
@@ -18,6 +19,9 @@ Four properties are load-bearing, so do not remove them:
      lives inside the repository it edits, so it can always find it.
   2. It exits non-zero on a zero count or a missing target. A count of zero must never reach
      either file. That is the failure that would turn a harmless no-op into real damage.
+     It also exits non-zero when project.md has lost one kind of count line it maintains
+     (REQUIRED_LINES): after the lines moved out of CLAUDE.md the script found none of them
+     and still reported success (#384).
   3. It reconciles the arithmetic before writing: every parent equals the sum of its children
      plus its own loose files, and the top-level rows sum to the stated total. A partial update
      is the failure mode this catches, and nothing else catches it.
@@ -43,7 +47,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "src" / "content" / "docs"
 STRUCTURE_FILE = REPO_ROOT / "DOCUMENTATION_STRUCTURE.md"
-CLAUDE_FILE = REPO_ROOT / "CLAUDE.md"
+# The headline and per-area count lines moved from CLAUDE.md to project.md on 2026-10-21 (#384).
+PROJECT_FILE = REPO_ROOT / "REFERENCE" / "claude-md" / "project.md"
+# Each kind must be found at least once in PROJECT_FILE, or the script writes nothing and
+# exits 1, so a count line that moves again cannot go stale behind a success message.
+REQUIRED_LINES = {
+    "total": 'the "including N .mdx files across M directories" line',
+    "location": 'a "Location: `/src/content/docs/<dir>/` (N files)" line',
+    "core": 'the "Core areas: <dir>/ (N files), ..." line',
+}
 
 # "├── answers/         (17 files)  - description", nested rows carrying "│   " prefixes,
 # and bare file rows such as "404.mdx  (1 file)".
@@ -286,8 +298,9 @@ def rewrite_structure(text, total_files, total_dirs, recursive, loose):
     return out, rw
 
 
-def rewrite_claude(text, total_files, total_dirs, recursive, loose):
-    rw = Rewriter(CLAUDE_FILE.name, recursive, loose)
+def rewrite_project(text, total_files, total_dirs, recursive, loose):
+    rw = Rewriter(PROJECT_FILE.name, recursive, loose)
+    rw.found = dict.fromkeys(REQUIRED_LINES, 0)
     out = []
     for i, line in enumerate(text.split("\n"), 1):
         original = line
@@ -297,10 +310,12 @@ def rewrite_claude(text, total_files, total_dirs, recursive, loose):
                           f"including {total_files} .mdx files across {total_dirs} directories", line)
         if n:
             rw.note(i)
+            rw.found["total"] += n
 
         # "  - Location: `/src/content/docs/answers/` (17 files)"
         m = re.search(r"Location: `/src/content/docs/(?P<path>[^`]+)` \((?P<count>\d+) (?P<noun>files?)", line)
         if m:
+            rw.found["location"] += 1
             key = m.group("path").strip("/")
             actual = rw.lookup(key, i, "Location line")
             if actual is not None:
@@ -315,8 +330,12 @@ def rewrite_claude(text, total_files, total_dirs, recursive, loose):
                     rw.unresolved.append(f"{rw.label}:{i}  core area '{m.group('name')}' -> no directory")
                     return m.group(0)
                 return f"{m.group('name')}/ ({plural(actual)})"
-            line = re.sub(r"(?P<name>[a-z0-9-]+)/ \(\d+ files?\)", core, line)
-            rw.note(i)
+            # Only a line carrying at least one "<dir>/ (N files)" figure counts, so prose that
+            # merely names the "Core areas:" line cannot stand in for it.
+            line, n = re.subn(r"(?P<name>[a-z0-9-]+)/ \(\d+ files?\)", core, line)
+            if n:
+                rw.note(i)
+                rw.found["core"] += 1
 
         if line != original or original.strip():
             out.append(line)
@@ -340,7 +359,7 @@ def main():
         print("Refusing to write a zero count. Check the path before rerunning.", file=sys.stderr)
         return 1
 
-    for target in (STRUCTURE_FILE, CLAUDE_FILE):
+    for target in (STRUCTURE_FILE, PROJECT_FILE):
         if not target.is_file():
             print(f"FATAL: target not found: {target}", file=sys.stderr)
             return 1
@@ -360,11 +379,20 @@ def main():
     structure_lines, srw = rewrite_structure(
         structure_before, total_files, total_dirs, recursive, loose)
 
-    claude_before = CLAUDE_FILE.read_text()
-    claude_lines, crw = rewrite_claude(claude_before, total_files, total_dirs, recursive, loose)
+    project_before = PROJECT_FILE.read_text()
+    project_lines, prw = rewrite_project(project_before, total_files, total_dirs, recursive, loose)
+
+    missing = [desc for kind, desc in REQUIRED_LINES.items() if not prw.found[kind]]
+    if missing:
+        print(f"FATAL: {PROJECT_FILE} no longer holds these count lines, so nothing was written:",
+              file=sys.stderr)
+        for desc in missing:
+            print(f"  - {desc}", file=sys.stderr)
+        print("If they moved, point PROJECT_FILE at their new home.", file=sys.stderr)
+        return 1
 
     structure_after = "\n".join(structure_lines)
-    claude_after = "\n".join(claude_lines)
+    project_after = "\n".join(project_lines)
 
     # Only restamp when a count actually moved, so a second immediate run is a true no-op (AC2).
     if structure_after != structure_before:
@@ -374,10 +402,10 @@ def main():
 
     changed = [f.name for f, before, after in
                ((STRUCTURE_FILE, structure_before, structure_after),
-                (CLAUDE_FILE, claude_before, claude_after)) if before != after]
+                (PROJECT_FILE, project_before, project_after)) if before != after]
 
     if args.check:
-        report(srw, crw, structure_lines, claude_lines)
+        report(srw, prw, structure_lines, project_lines)
         if changed:
             print(f"\nCHECK FAILED: {', '.join(changed)} would be rewritten.")
             return 1
@@ -385,16 +413,16 @@ def main():
         return 0
 
     STRUCTURE_FILE.write_text(structure_after)
-    CLAUDE_FILE.write_text(claude_after)
-    print(f"  maintained {len(srw.owned) + len(crw.owned)} line(s) carrying counts")
+    PROJECT_FILE.write_text(project_after)
+    print(f"  maintained {len(srw.owned) + len(prw.owned)} line(s) carrying counts")
     print(f"  changed: {', '.join(changed) if changed else 'nothing, both files were already correct'}")
-    report(srw, crw, structure_lines, claude_lines)
+    report(srw, prw, structure_lines, project_lines)
     return 0
 
 
-def report(srw, crw, structure_lines, claude_lines):
-    unresolved = srw.unresolved + crw.unresolved
-    stale = srw.audit(structure_lines) + crw.audit(claude_lines)
+def report(srw, prw, structure_lines, project_lines):
+    unresolved = srw.unresolved + prw.unresolved
+    stale = srw.audit(structure_lines) + prw.audit(project_lines)
     if not unresolved and not stale:
         print("\nEvery count-shaped figure in both files was reached and verified.")
         return
