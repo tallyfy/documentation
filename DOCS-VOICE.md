@@ -85,6 +85,10 @@ Each of these is the same information with the promise removed.
 - Instead of labelling the register: delete the label. The sentence underneath is already plain,
   which is why the label reads as filler. "Twelve kinds of problem:" says everything the longer
   version said.
+- Instead of building every paragraph as topic sentence, explanation, example and a closing
+  sentence that restates the topic: open on the fact the reader needs and stop once it is given.
+  Repeated down a page, that four-beat shape reads as machine-written even when every sentence
+  passes. The checker cannot see it, so the writer has to (added 2026-10-22, owner decision, #391).
 
 Good sentences that people mistake for tells, and which the checker deliberately leaves alone:
 "Here's how to create a template." "Here's where to click." A question in a heading. A checklist

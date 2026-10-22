@@ -279,7 +279,7 @@ This is the ONLY script required - Claude cannot manipulate images directly.
 ### Running the Compositor
 
 ```bash
-python3 scripts/logo_compositor.py \
+python3 .claude/skills/article-image-generator/scripts/logo_compositor.py \
   --image /path/to/generated-image.jpg \
   --output /path/to/final-image.jpg \
   --position "x,y"  # From visual analysis coordinates
@@ -292,7 +292,7 @@ python3 scripts/logo_compositor.py \
 
 ### Script Location
 
-The logo compositor is at: `scripts/logo_compositor.py`
+The logo compositor is at: `.claude/skills/article-image-generator/scripts/logo_compositor.py` (run it from the repo root)
 
 It handles:
 1. Downloading logo from URL (or using cached `assets/tallyfy-logo.png`)
