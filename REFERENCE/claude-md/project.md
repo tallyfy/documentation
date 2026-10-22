@@ -250,3 +250,8 @@ until they moved here on 2026-10-21. The script now rewrites this file,
 joins the three above: the script exits non-zero, in `--check` too, when this file has lost the
 "including N .mdx files" line, every "Location:" line or the "Core areas:" line. After the move it
 found none of them and still reported success, so these counts would have gone stale unnoticed.
+
+Dated 2026-10-22 (#389): the fourth refusal is now per line. The script stops when any one
+expected line is gone: the total line, the "Location:" line for `pro/`, `answers/` or `denizen/`,
+or the "Core areas:" line. Before this it stopped only when all three "Location:" lines were gone,
+so one moved away on its own would have gone stale.
