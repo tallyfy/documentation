@@ -1,9 +1,9 @@
 ---
 about_tallyfy: true
-description: Organization admins can hold their own encryption key for Tallyfy Vault.
-  Set it, rotate it, or destroy it with the kill switch. The salt that derives the
-  key is shown once and never again, and destroying the key makes your organization's
-  stored sign-ins unreadable for good.
+description: Tallyfy Vault encrypts your organization's stored sign-ins automatically,
+  with nothing to set up. Admins can rotate the key to get a recovery salt, shown once
+  and never again, or destroy it with the kill switch, which makes the stored sign-ins
+  unreadable for good.
 id: efe80d9c8b7862c17cfc222f622d093d
 lastUpdated: 2026-09-17
 sidebar:
@@ -18,32 +18,34 @@ import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Holding the key that protects your connections
 
-Tallyfy Vault encrypts every organization's stored sign-ins. Your organization can supply the key rather than letting Tallyfy pick one. You set it, you rotate it when you want to, and you can destroy it.
+Tallyfy Vault encrypts every organization's stored sign-ins automatically. It creates your organization's key the first time Vault stores anything for you, so there's nothing to set up and nothing to wait for.
+
+If you'd rather hold a key you have the recovery salt for, press **Rotate key**. It replaces the automatic key with a new one and shows you that key's recovery salt once. You can also destroy the key.
 
 These controls sit under **Settings** then **Connections**, and you need the admin role to see them.
 
 ### Your key, in short
 
-The key is worked out from a **salt**, and Tallyfy shows you that salt exactly once, at the moment you set or rotate it. Write it down somewhere safe while it's on screen. Tallyfy keeps only a wrapped copy so unattended work can still run, and it will never show you the salt again or store it in a form anyone can read.
+The automatic key has no recovery salt you can see. A key made by **Rotate key** is worked out from a **salt**, and Tallyfy shows you that salt exactly once, at the moment the key is made. Write it down somewhere safe while it's on screen. Tallyfy keeps only a wrapped copy so unattended work can still run, and it will never show you the salt again or store it in a form anyone can read.
 
-Asking Tallyfy about the key only ever tells you about the key, never the key itself: whether one exists, which version it's on, and when it was set or last rotated.
-
-### Setting the key
-
-**Set** establishes your organization's key and returns the salt in the response. Save it. From that point your connections are encrypted under your key.
+Asking Tallyfy about the key only ever tells you about the key, never the key itself: whether one exists, which version it's on, and when it was created or last rotated.
 
 ### Rotating the key
 
-**Rotate** issues a new salt, shown once like the first, and re-encrypts your organization's database under the new key.
+**Rotate key** replaces your current key with a new one. It makes a new recovery salt, shows it once, and re-encrypts your organization's database under the new key. It's also how you swap the automatic key for one you hold the salt for.
 
 While that's running, your organization shows a short **Please wait** state, and anything asking for a connection gets a "rotation in progress" answer and tries again shortly. If a rotation is interrupted, Vault puts the previous state back when it restarts rather than leaving you with a database that's half one key and half the other.
 
+### Setting a key when there's none
+
+**Set organization key** only shows when your organization has no key yet. That's rare, because Tallyfy creates one as soon as Vault first stores anything for you. It creates the key and shows its recovery salt once, like **Rotate key** does.
+
 ### Destroying the key
 
-**Delete** is the kill switch. It destroys the wrapped copy, which makes your organization's encrypted store unreadable.
+**Delete key** is the kill switch. It destroys the wrapped copy, which makes your organization's encrypted store unreadable.
 
 :::note[This cannot be undone]
-There is no recovery path, and that's the point of the control. After a delete, anything asking for a connection gets a clear "key destroyed" answer until an admin sets a new key. Your people then reconnect their apps from scratch.
+There is no recovery path, and that's the point of the control. After a delete, anything asking for a connection gets a clear "key destroyed" answer, and the key can't be set or rotated again. Stored sign-ins and new connections both stop working in that organization for good.
 :::
 
 Reach for it when you believe something has gone badly wrong and you want your stored sign-ins to stop being readable immediately.
