@@ -21,7 +21,8 @@ Four properties are load-bearing, so do not remove them:
      either file. That is the failure that would turn a harmless no-op into real damage.
      It also exits non-zero when project.md has lost one kind of count line it maintains
      (REQUIRED_LINES): after the lines moved out of CLAUDE.md the script found none of them
-     and still reported success (#384).
+     and still reported success (#384). Each line is required on its own, so losing one of
+     the three "Location:" lines stops it too, not only losing all three.
   3. It reconciles the arithmetic before writing: every parent equals the sum of its children
      plus its own loose files, and the top-level rows sum to the stated total. A partial update
      is the failure mode this catches, and nothing else catches it.
@@ -49,11 +50,15 @@ DOCS_DIR = REPO_ROOT / "src" / "content" / "docs"
 STRUCTURE_FILE = REPO_ROOT / "DOCUMENTATION_STRUCTURE.md"
 # The headline and per-area count lines moved from CLAUDE.md to project.md on 2026-10-21 (#384).
 PROJECT_FILE = REPO_ROOT / "REFERENCE" / "claude-md" / "project.md"
-# Each kind must be found at least once in PROJECT_FILE, or the script writes nothing and
+# Each line must be found at least once in PROJECT_FILE, or the script writes nothing and
 # exits 1, so a count line that moves again cannot go stale behind a success message.
+# The "Location:" lines are required one by one, keyed by directory: when they counted as
+# one kind, moving one of the three away still left the kind found and the script exited 0.
+REQUIRED_LOCATIONS = ("pro", "answers", "denizen")
 REQUIRED_LINES = {
     "total": 'the "including N .mdx files across M directories" line',
-    "location": 'a "Location: `/src/content/docs/<dir>/` (N files)" line',
+    **{f"location:{d}": f'the "Location: `/src/content/docs/{d}/` (N files)" line'
+       for d in REQUIRED_LOCATIONS},
     "core": 'the "Core areas: <dir>/ (N files), ..." line',
 }
 
@@ -315,8 +320,8 @@ def rewrite_project(text, total_files, total_dirs, recursive, loose):
         # "  - Location: `/src/content/docs/answers/` (17 files)"
         m = re.search(r"Location: `/src/content/docs/(?P<path>[^`]+)` \((?P<count>\d+) (?P<noun>files?)", line)
         if m:
-            rw.found["location"] += 1
             key = m.group("path").strip("/")
+            rw.found[f"location:{key}"] = rw.found.get(f"location:{key}", 0) + 1
             actual = rw.lookup(key, i, "Location line")
             if actual is not None:
                 line = line.replace(f"({m.group('count')} {m.group('noun')}", f"({plural(actual)}", 1)
@@ -388,7 +393,10 @@ def main():
               file=sys.stderr)
         for desc in missing:
             print(f"  - {desc}", file=sys.stderr)
-        print("If they moved, point PROJECT_FILE at their new home.", file=sys.stderr)
+        print("If they moved, point PROJECT_FILE at their new home. If a product directory was",
+              file=sys.stderr)
+        print("retired on purpose, take it out of REQUIRED_LOCATIONS in the same change.",
+              file=sys.stderr)
         return 1
 
     structure_after = "\n".join(structure_lines)

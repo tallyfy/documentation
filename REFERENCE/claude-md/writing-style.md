@@ -16,7 +16,7 @@ All AI-generated technical documentation must appear natural, human-written, and
 **Direct & Clear Communication**:
 - **Write as if explaining to a colleague**: Use first and second person naturally
 - **Conversational approach**: Include "you", "you're", "can't", "won't", "it's" throughout
-- **Global accessibility**: Simple language understandable by a 20-year-old
+- **Global accessibility**: Simple language at roughly an 8th-grade reading level (the target in CLAUDE.md, "Write for business readers, not engineers")
 - **Professional but friendly**: Avoid overly formal or academic language
 - **No fluff or filler**: Every sentence must provide genuine value
 
@@ -31,8 +31,7 @@ All AI-generated technical documentation must appear natural, human-written, and
 **Burstiness and Flow Variation**:
 - **Dramatic length variation**: Follow complex 30-word sentences with punchy 5-word ones
 - **Natural speech patterns**: Mix detailed explanations with conversational breaks
-- **Rhythm markers**: Every 3-4 paragraphs, include one notably short sentence (under 8 words)
-  - Examples: "That's it." "Problem solved." "Here's how." "Simple." "Done."
+- **No rhythm quotas**: Let a sentence be short when what it says is short. Never add a one-word punch line to meet a count; a manufactured closer reads as machine-written (changed 2026-10-22, #391)
 - **Conversational pacing**: Allow for natural pauses and emphasis through structure
 
 **Strategic Sentence Patterns**:
@@ -50,30 +49,14 @@ All AI-generated technical documentation must appear natural, human-written, and
 #### Language Humanization Techniques
 
 **Conversational Elements**:
-- **Strategic fragments**: Use sparingly (1-2 per article) for emphasis
-  - "Want to automate task assignments? Simple. Just configure the automations."
-  - "The result? Significant reduction in process completion time."
+- **Strategic fragments**: Use sparingly (1-2 per article) for emphasis, and never as a question you answer in the next breath, which `DOCS-VOICE.md` bans as a self-answered question (examples removed 2026-10-22, #391)
 - **Conversational asides in parentheses**: Add brief, helpful context
   - "(yes, it's that straightforward)"
   - "(not just specific people)"
   - "(this takes about 5 minutes)"
-- **Rhetorical questions**: Use to introduce new sections or concepts
-- **Natural connectors**: "Now here's the thing...", "But here's what's interesting..."
+- **Questions**: A question in a heading, or a checklist of questions put to the reader, is fine. A question you answer yourself, and a connector that promises something interesting is coming, are both banned in `DOCS-VOICE.md` (changed 2026-10-22, #391)
 
-**Emotional Variation in Technical Content**:
-- **Express appropriate emotions**:
-  - Relief: "Finally, no more manual data entry"
-  - Satisfaction: "This is where it gets good"
-  - Understanding: "We know this part can be tricky"
-- **Micro-reactions to common pain points**:
-  - "(we've all been there)" after describing a tedious process
-  - "Yes, it's really that simple" after a surprisingly easy solution
-- **Enthusiasm markers**: Show genuine excitement about powerful features
-  - "Here's my favorite part..."
-  - "This next feature? Game-changer."
-- **Empathetic acknowledgments**: Recognize user challenges
-  - "If you're thinking this sounds complex, stay with me"
-  - "Nobody likes reading error messages, but..."
+**Emotional Variation in Technical Content**: Removed 2026-10-22 (#391). Its examples were the moves `DOCS-VOICE.md` bans: promising a good part is coming, saying a thing is hard instead of saying what it is, answering your own question, and performing a conversation with the reader. Warmth in docs comes from plain help: say what the reader gets, then what to click.
 
 **Rhythm and Emphasis Tools**:
 - **Spaced hyphens for natural speech**: Use ( - ) not em-dashes (—) or en-dashes (–)
