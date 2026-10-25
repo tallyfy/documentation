@@ -113,6 +113,7 @@ REQUIRED_RULE_IDS = frozenset({
     "revelation-turns-out",
     "difficulty-hard-part",
     "difficulty-where-it-gets",
+    "difficulty-hurdle",
     "exclusivity-most-people-dont",
     "exclusivity-what-they-dont-tell",
     "exclusivity-few-realize",
@@ -124,8 +125,12 @@ REQUIRED_RULE_IDS = frozenset({
     "intimacy-you-might-think",
     "conclusion-signpost",
     "conclusion-key-takeaway",
+    "conclusion-important-to-note",
     "inflation-verb-hard",
     "inflation-verb-soft",
+    "inflation-bespoke",
+    "inflation-looking-to",
+    "inflation-fast-paced",
     "vague-attribution",
     "participial-tail",
     "glyph-dash",
@@ -1037,6 +1042,8 @@ FIXTURES = {
         "Tallyfy handles the hard part of keeping procedures alive.",
     "difficulty-where-it-gets":
         "That works fine until you add approvals, and this is where it gets tricky.",
+    "difficulty-hurdle":
+        "Getting sign-off is the first hurdle when you roll out a new process.",
     "exclusivity-most-people-dont":
         "Most teams never realize that a template can be paused.",
     "exclusivity-what-they-dont-tell":
@@ -1060,10 +1067,18 @@ FIXTURES = {
         "In conclusion, the deadline field is the one to set first.",
     "conclusion-key-takeaway":
         "The key takeaway is that steps become tasks only at launch.",
+    "conclusion-important-to-note":
+        "It's important to note that deadlines shift when a step moves.",
     "inflation-verb-hard":
         "Tallyfy will supercharge your onboarding and revolutionize handovers.",
     "inflation-verb-soft":
         "Templates empower your team to transform how work gets tracked.",
+    "inflation-bespoke":
+        "We build a bespoke template for each client.",
+    "inflation-looking-to":
+        "If you're looking to automate approvals, start with a template.",
+    "inflation-fast-paced":
+        "In today's fast-paced business world, every team needs a written process.",
     "vague-attribution":
         "Studies show that written procedures cut errors by half.",
     "participial-tail":
@@ -1086,6 +1101,9 @@ FIXTURES = {
 #   - "billing", "pricing" and "onboarding" end in "ing" and are not participial tails.
 #   - "9 - 5" is a numeric range, not a dash.
 #   - "not just" appears in its ordinary sense, with no "but Y" completing the contrast.
+#   - "looking to the right" and "looking to Tallyfy for" are the ordinary sense of "looking to".
+#     Only a lowercase verb after it is the sales phrase (#392).
+#   - "today's date" is ordinary. Only "today's fast-paced" is the opener (#392).
 CLEAN_CONTROL = """---
 description: 'Set up a template once, then launch it whenever the work comes in. Steps become
   tasks at launch, and deadlines keep everyone on the same page.'
@@ -1106,6 +1124,10 @@ ten minutes.
 
 Support is open 9 - 5 if you get stuck. Tasks are not just for one team, so invite anyone who
 needs to see the work.
+
+If you can't find the Launch button, try looking to the right of the template name. New admins
+often end up looking to Tallyfy for the record of who did what. A date field can default to
+today's date.
 
 | Field | What it does |
 | --- | --- |

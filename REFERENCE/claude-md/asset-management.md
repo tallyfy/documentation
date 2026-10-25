@@ -13,6 +13,8 @@ All documentation screenshots and media assets are hosted on Cloudflare R2 stora
 
 **🧭 Every session, know this:** `documentation_assets.csv` is the catalog of every documentation image. To find an existing image by what it shows, grep the `ai_caption_alt` / `ai_caption_descriptive` columns. To reference an image in an article, use its `production_url` (the alt text is injected automatically at build). To add a new image, first look for one to reuse (next paragraph), then run `orchestrator.py upload ...` (uploads + inventories; caption it in the same Claude Code session via native vision). To see what's missing or stale, run `orchestrator.py audit`.
 
+**A caption in the CSV always wins over alt text written in the page.** The build replaces a markdown image's alt text with its `ai_caption_alt` whenever the CSV has one. It keeps the page's alt only when the image has no row or an empty caption, and a JSX `<img>` always keeps its own. Measured on 2026-10-22, 353 of the 388 markdown images on `main` carried page alt text that differed from the CSV and never rendered. So to change what a screen reader hears, edit the CSV row, not the page. The owner chose this on 2026-10-22 over letting page alt text win, because the CSV captions were written by looking at each image (tallyfy/documentation#387).
+
 **Look for an existing image before you add one.** Search `documentation_assets.csv` by what the image shows, in the `ai_caption_alt`, `ai_caption_descriptive` and `ai_caption_seo` columns. Search it by where the image is used, in `article_ids`, which holds each article's frontmatter `id` or its path slug. One plain search from the repo root covers all four columns:
 
 ```bash

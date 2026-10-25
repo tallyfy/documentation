@@ -2,6 +2,8 @@
 > (owner decision 2026-10-20). Edit here; that CLAUDE.md keeps only a pointer. A section
 > the text below names by title is found through that CLAUDE.md, which keeps its heading
 > or names it in a pointer.
+> Dated 2026-10-21 (#384): three bold labels below became level 4 headings, with the same
+> words, so CLAUDE.md can name them in pointers.
 
 # The linking rules and the deployment pipeline
 
@@ -34,7 +36,7 @@
 ⚠️ **Runs take turns now, and a third push can still drop work (#296).** Since #311 (2026-10-02), `documentation-pipeline.yml` and `generate-ids.yml` carry a concurrency group per branch with `cancel-in-progress: false`, so runs take turns. GitHub keeps one waiting run per group, so a third push while one run works and one waits drops the waiting one. Whole-tree jobs are covered by the next run, but `generate-ids`, `generate-snippets` and `check-deleted-files` lose that commit's work (#296 stays open for that case). Until it is decided, still prefer merging into `staging` one at a time.
 Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree on every run, with no stored state, so the run that replaces a dropped one does the dropped run's work. Read only before the change, staging held one page still on the all-zero placeholder id since 2026-01-15 (`pro/integrations/mcp-server/google-gemini/index.mdx`), the staging index held 3 entries for no page and the production index 1. A first run on the whole tree therefore had 1 id and 0 descriptions to write on staging, and 4 index deletes: the 3 orphans plus the placeholder page's old entry once that page has its id.
 
-**Deploying staging to production:**
+#### Deploying staging to production
 
 **Current practice (2026-09-23): a full promotion is a pull request from `staging` into `main`, merged as a true merge commit after an independent check of the running staging site.** #283 (`d4fab7fc`) and #294 (`6fcb47e6`) both landed that way, each with two parents in `git rev-list --parents -n1`. Merge with `gh pr merge <n> --repo tallyfy/documentation --merge`. A subset ship, such as #263 or #268, is a different operation: a squash pull request into `main` carrying only named changes. The commands below are the underlying git, kept for reference; steps 4 and 5 still apply after the pull request merges.
 
@@ -121,7 +123,7 @@ never reached a customer only because the build that would have published it was
 not to ship content through the support-docs promotion, which is the other half of the same rule;
 the mechanical guard for that half is `tallyfy/support-docs#270`.
 
-**Holding a path back from production (`.github/promotion-holds.txt`):**
+#### Holding a path back from production (`.github/promotion-holds.txt`)
 
 Sometimes content is ready to write but not ready to publish, usually because the screen it
 describes isn't in production yet. Put the path on hold instead of relying on someone
@@ -177,7 +179,7 @@ issue (#88, #118).
   same self-test runs in CI on every promotion, so the gate proves it can go red rather than
   only ever being seen passing.
 
-**Verifying deployment:**
+#### Verifying deployment
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
 - Production: `curl -s https://tallyfy.com/products/pro/ | head -50`
 - Check CF Pages build: GitHub Actions logs show sync status

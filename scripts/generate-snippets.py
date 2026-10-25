@@ -68,6 +68,9 @@ BLACKLIST_REPLACEMENTS = {
 	'beacon': 'example',
 	'plethora': 'many',
 	'bespoke': 'custom',
+	# ai-tells.txt rule difficulty-hurdle (tallyfy/documentation#392)
+	'hurdle': 'obstacle',
+	'hurdles': 'obstacles',
 	'reimagine': 'rethink',
 	'envision': 'imagine',
 	'pinnacle': 'peak',
@@ -206,6 +209,10 @@ CRITICAL WRITING RULES - Follow these exactly:
    the range set under "Article Structure Rules" in CLAUDE.md.
 
 5. NO FLUFF: Every word must add value. No empty benefit statements or vague promises.
+
+6. BANNED PHRASES (the docs AI-tell gate blocks publishing on these): "looking to"
+   (write "want to"), "it's important to note", "in today's fast-paced", hurdle,
+   bespoke.
 """
 
 # Configure logging
