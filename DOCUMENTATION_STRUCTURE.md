@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-10-27 19:01:13 -->
+<!-- Last updated: 2026-10-19 18:34:09 -->
 # Documentation Structure Guide
 
 This file provides a comprehensive overview of the documentation organization to help with navigation, updates, and content creation.
@@ -11,10 +11,10 @@ This file provides a comprehensive overview of the documentation organization to
 ├── answers/         (13 files)  - Tallyfy Answers AI search documentation
 ├── changelog/       (6 files)   - product changelog
 ├── denizen/         (2 files)   - Tallyfy Denizen localization documentation
-└── pro/             (692 files) - Tallyfy Pro main product documentation (90% of all content)
+└── pro/             (691 files) - Tallyfy Pro main product documentation (90% of all content)
 ```
 
-**Total**: 714 .mdx files across 148 directories
+**Total**: 713 .mdx files across 148 directories
 
 > Measured **2026-08-06**. These figures read 585 and 99 until then, having drifted 27% low, and
 > `changelog/` and `404.mdx` were missing from the tree entirely. Re-derive rather than trust:
@@ -27,7 +27,7 @@ This file provides a comprehensive overview of the documentation organization to
 Ordered by size, largest first, so the biggest areas are the ones you see.
 
 ```
-pro/                                   (692 files)
+pro/                                   (691 files)
 ├── integrations/          (293 files) - Third-party connections
 │   ├── open-api/          (78 files)  - REST API documentation
 │   ├── vendors/           (46 files)  - Per-vendor integration guides
@@ -49,8 +49,8 @@ pro/                                   (692 files)
 │
 ├── changelog/             (128 files) - Release notes (date-organized)
 │
-├── documenting/           (82 files)  - Creating and managing content
-│   ├── templates/         (57 files)  - Process templates and blueprints
+├── documenting/           (81 files)  - Creating and managing content
+│   ├── templates/         (56 files)  - Process templates and blueprints
 │   ├── members/           (9 files)   - User management and permissions
 │   ├── guests/            (7 files)   - External user management
 │   ├── documents/         (6 files)   - Document templates
@@ -146,7 +146,7 @@ grep -r "form\|field\|data\|variable" /src/content/docs/pro --include="*.mdx"
 ## 🎯 Quick Navigation Map
 
 ### Most Commonly Updated Areas
-1. **Templates & Workflows**: `pro/documenting/templates/` (57 files)
+1. **Templates & Workflows**: `pro/documenting/templates/` (56 files)
 2. **Task Management**: `pro/tracking-and-tasks/tasks/` (23 files)
 3. **Process Management**: `pro/tracking-and-tasks/processes/` (13 files)
 4. **Integrations**: `pro/integrations/` (293 total files; per-vendor guides live under
