@@ -29,6 +29,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# An MDX comment: `{/*` up to the first `*/}`, across lines. It never matches a plain
+# `{org_id}` path placeholder, which the API pages are full of.
+MDX_COMMENT_RE = re.compile(r'\{/\*.*?\*/\}', re.DOTALL)
+
+
 def clean_markdown(markdown_content: str) -> str:
 	"""
     Clean markdown content by removing Mermaid diagrams, code blocks, components, and formatting.
@@ -81,8 +86,11 @@ def clean_markdown(markdown_content: str) -> str:
 		# Step 6: Clean up any leftover triple backticks
 		content = re.sub(r'```.*', '', content)
 
-		# Step 7: Remove HTML-style comments
+		# Step 7: Remove HTML-style comments, and MDX comments ({/* ... */}), which are
+		# authoring notes a reader never sees. Without this they were indexed and could come
+		# back as a search snippet (tallyfy/documentation#415).
 		content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+		content = re.sub(MDX_COMMENT_RE, ' ', content)
 
 		# Step 8: Clean up consecutive empty lines (including extra newlines from Mermaid removal)
 		content = re.sub(r'\n{3,}', '\n\n', content)
@@ -524,5 +532,33 @@ def main():
 		sys.exit(1)
 
 
+def _self_test() -> int:
+	"""Check clean_markdown's comment handling without touching the network.
+	Exit 0 when every case passes, 1 when any fails."""
+	archive_tag = (
+		"{/* The slug says archive-tag but tags have no archive. It stays because this repo has "
+		"no redirect mechanism; the page states it in the body instead (tallyfy/documentation#277). */}\n\n"
+		"## Endpoint\n\n`DELETE /organizations/{org_id}/tags/{tag_id}`\n"
+	)
+	cases = [
+		("archive-tag comment is dropped", archive_tag, ["Endpoint", "{org_id}", "{tag_id}"], ["slug says", "{/*", "*/}"]),
+		("multi-line comment is dropped", "Before\n{/* line one\nline two */}\nAfter", ["Before", "After"], ["line one", "line two"]),
+		("inline comment keeps both words", "alpha {/* hidden */} omega", ["alpha omega"], ["hidden"]),
+		("two comments, text between kept", "a {/* x */} middle {/* y */} b", ["middle"], ["x */", "y */"]),
+		("no comment, placeholders untouched", "Use {org_id} and {tag_id} here.", ["{org_id}", "{tag_id}"], []),
+		("HTML comment still dropped", "keep <!-- gone --> this", ["keep this"], ["gone"]),
+	]
+	failed = 0
+	for name, src, must, must_not in cases:
+		out = clean_markdown(src)
+		bad = [m for m in must if m not in out] + [m for m in must_not if m in out]
+		print(("PASS " if not bad else "FAIL ") + name + ("" if not bad else f": {bad!r} in {out!r}"))
+		failed += bool(bad)
+	print(f"{len(cases) - failed}/{len(cases)} passed")
+	return 1 if failed else 0
+
+
 if __name__ == "__main__":
+	if "--self-test" in sys.argv[1:]:
+		sys.exit(_self_test())
 	main()
