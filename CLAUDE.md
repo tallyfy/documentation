@@ -218,6 +218,8 @@ python scripts/generate-snippets.py --dir [repo root] --token [api-key] --prompt
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [repo root] --collection_name tyfy --answers_api_key [key] --base_url [answers url] [--dry-run]   # Remove index entries whose page is gone
+python scripts/answers-connector.py --dir [docs dir] --collection_name tyfy --answers_api_key [key] --base_urls [one answers url]   # Upload the whole tree to Answers search; --self-test checks the cleaning. Name one host: the default is both
+# Full re-index of one host (#415): dispatch generate-ids.yml on that branch (staging feeds staging search, main feeds production search); the pipeline it starts uploads the whole tree.
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 # Dated 2026-10-21 (#384): the count lines moved to REFERENCE/claude-md/project.md, so the script now rewrites that file, not this one.
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
