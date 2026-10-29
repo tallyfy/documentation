@@ -178,7 +178,7 @@ Before committing any article, run:
 python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
 ```
 
-It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, as `ai-tell-check.py` does, and a run that scores no file exits 2 (#259). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
+It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, and a run that scores no file exits 2 (#259). `ai-tell-check.py --files` takes one comma-separated value instead, such as `--files a.mdx,b.mdx`; paths passed as separate arguments stop it with exit 2 (#434). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
@@ -243,6 +243,7 @@ The script:
 - Extracts internal links (markdown `[text](/products/...)` and href `href="/products/..."` patterns)
 - Validates each link points to an existing file
 - Reports broken links by file with full paths
+- Checks a link's `#anchor` against the target page's headings: a missing anchor is a warning, and `--strict-anchors` makes it a failure. `--self-test` proves both (#434)
 
 ### Validate Markdown Structure
 
