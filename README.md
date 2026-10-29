@@ -46,6 +46,8 @@ npm install
 npm run dev
 ```
 
+Dated 2026-10-29 (#432): this repository has no `package.json` and never had one, so these two commands fail here. The site is built and previewed from the private `support-docs` repository, whose `package.json` has the `dev` script.
+
 #### 6. Commit Your Changes
 
 ```bash
@@ -578,6 +580,7 @@ For developers working with D2 diagrams:
 - **Source files**: Located in MDX files throughout `/src/content/docs/`
 - **Build process**: Diagrams are rendered during the Cloudflare Pages build
 - **Local development**: Run `npm run dev` to see diagrams rendered locally
+  - Dated 2026-10-29 (#432): run it in the `support-docs` repository. This one has no `package.json`.
 - **Syntax reference**: See the D2 documentation section above for proper syntax
 
 ### AI Assistant Reference

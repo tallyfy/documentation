@@ -9,21 +9,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚨 CRITICAL: Repository Separation Rules
+## Repository Separation Rules
 
-**ABSOLUTE RULE - WHERE TO MAKE CHANGES:**
+**Where to make changes:**
 
-### ✅ Changes that go in THIS repository (/documentation):
-- **ALL article content** (.mdx files in src/content/docs/)
-- **ALL documentation text updates**
-- **ALL D2 diagrams in articles**
-- **ALL images and screenshots for articles**
-- **ALL frontmatter changes** (titles, descriptions, etc.)
-- **ALL content fixes** (typos, broken links, outdated information)
+### Changes that go in this repository (/documentation):
+- **All article content** (.mdx files in src/content/docs/)
+- **All documentation text updates**
+- **All D2 diagrams in articles**
+- **All images and screenshots for articles**
+- **All frontmatter changes** (titles, descriptions, etc.)
+- **All content fixes** (typos, broken links, outdated information)
 - **Python scripts** for content processing
 - **Documentation-specific automation**
 
-### ❌ NEVER make these changes in /documentation:
+### Never make these changes in /documentation:
 - Astro configuration changes
 - Starlight theme modifications
 - CSS framework changes
@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Build system modifications
 - Deployment configuration
 
-### 📍 Changes that go in /support-docs repository ONLY:
+### Changes that go in /support-docs repository only:
 - **Astro configuration** (astro.config.mjs)
 - **Starlight framework settings**
 - **Global CSS and styling** (including D2 diagram styles)
@@ -40,18 +40,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Framework dependencies** in package.json
 - **Worker configuration** (Cloudflare Workers)
 
-**WHY THIS MATTERS**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
+**Why this matters**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
 
-**CRITICAL - NEVER MANUALLY SYNC CONTENT**: 
-- **NEVER copy MDX files from /documentation to /support-docs manually**
-- **NEVER run sync commands between the repositories**
-- **NEVER edit content directly in /support-docs**
-- Content synchronization happens AUTOMATICALLY through CI/CD pipelines
+**Never manually sync content**:
+- **Never copy MDX files from /documentation to /support-docs manually**
+- **Never run sync commands between the repositories**
+- **Never edit content directly in /support-docs**
+- Content synchronization happens automatically through CI/CD pipelines
 - Manual syncing breaks the automated deployment process
 
-**ENFORCEMENT**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
+**Enforcement**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
 
-## 🚨 CRITICAL: Humanizing Rules Integration
+## Humanizing Rules Integration
 
 ### Adapted humanization rules for documentation
 
@@ -211,6 +211,7 @@ edit it there, not here.
 # Development
 npm install                    # Install dependencies
 npm run dev                   # Start development server
+# Dated 2026-10-29 (#432): this repo has no package.json and never had one, so the two npm lines above fail here. Build and preview the site from tallyfy/support-docs, whose package.json has the dev script.
 
 # Content Automation (Python scripts)
 python scripts/generate-ids.py --dir [repo root] [--dry-run]       # Give every page lacking one an id (whole tree, #296)
@@ -323,11 +324,11 @@ edit it there, not here.
   <lite-vimeo videoid="905736219"></lite-vimeo>
   ```
 
-### Code Block Language Identifiers (CRITICAL)
+### Code Block Language Identifiers
 
 **Syntax highlighting uses Shiki** (200+ languages supported via VS Code engine). Using unsupported languages causes build failures.
 
-#### ✅ APPROVED Languages (Use These)
+#### Approved Languages (Use These)
 
 **Primary (High Confidence)**:
 - `javascript`, `typescript`, `json`, `yaml`, `python`, `bash`, `shell`
@@ -343,7 +344,7 @@ edit it there, not here.
 **Plain Text (No Highlighting)**:
 - `text`, `txt`, `plain` - Use for unsupported formats or sample outputs
 
-#### ❌ NEVER USE (Not Supported - Cause Build Failures)
+#### Never Use (Not Supported - Cause Build Failures)
 
 | Invalid | Use Instead | Reason |
 |---------|-------------|--------|
@@ -379,7 +380,7 @@ edit it there, not here.
   ```markdown
   1. **Step 1:** Configure your settings.
      
-     ![Screenshot description](mdc:image-url.png)
+     ![Screenshot description](https://screenshots.tallyfy.com/image-url.png)
   ```
 
 ## INSTRUCTIONAL CONTENT
@@ -401,7 +402,8 @@ edit it there, not here.
   - Annotations (arrows, circles) for key elements
   - High quality, legible text
   - Cropped to relevant portions
-- **Alt text format**: `![Tallyfy dashboard showing workflow](mdc:image.png)`
+- **Alt text format**: `![Tallyfy dashboard showing workflow](https://screenshots.tallyfy.com/image.png)`
+  - Dated 2026-10-29 (#432): until then this example and the Steps example above used an `mdc:` prefix (`mdc:image.png`), which no article image uses.
 
 ### Examples & Code
 - Use realistic scenarios (e.g., "ACME Corp")
@@ -492,7 +494,7 @@ edit it there, not here.
 
 ## 📊 D2 Diagram Guidelines
 
-**ALL D2 DIAGRAM CONTENT HAS BEEN MOVED**: See `/documentation/D2-DIAGRAMS.md` for complete D2 diagram guidelines, including:
+**All D2 diagram content has been moved**: See `/documentation/D2-DIAGRAMS.md` for complete D2 diagram guidelines, including:
 - When to use diagrams (only 10-15% of articles)
 - Mandatory notation rules and syntax requirements
 - Color palettes and styling guidelines
@@ -569,12 +571,12 @@ This repo is public. All its CI runs on GitHub-hosted runners and it sets no `CI
 
 ## PR Review Intelligence
 
-### Code Change Minimization (ABSOLUTE PRIORITY)
+### Code Change Minimization (highest priority)
 
-**Fundamental Principle**: Every PR must implement the MINIMAL content changes necessary to properly address the issue.
+**Fundamental Principle**: Every PR must implement the minimal content changes necessary to properly address the issue.
 
 **Review Requirements**:
-- **MINIMIZE CHANGES** - only modify what's necessary to fix the content issue
+- **Minimize changes** - only modify what's necessary to fix the content issue
 - **No Scope Creep** - implement only what's specified in the issue
 - **Preserve Existing Structure** - follow established documentation patterns
 - **Targeted Fixes** - address the specific problem without rewriting entire articles

@@ -1,6 +1,6 @@
 ---
 name: article-image-generator
-description: Creates sophisticated HBR-style editorial illustrations for any content using AI understanding and visual analysis. Use when creating conceptual illustrations, analyzing generated images, or compositing logos. Works with any brand configuration. AI-native approach - Claude reasons about content rather than using rigid templates.
+description: Creates HBR-style editorial illustrations for an article. Use when creating a conceptual illustration, analyzing a generated image, or compositing a logo onto one.
 dependencies: [pillow, requests]
 ---
 
@@ -11,6 +11,7 @@ dependencies: [pillow, requests]
 Creates sophisticated conceptual editorial illustrations in the premium style of Harvard Business Review covers, The Economist feature art, or McKinsey Quarterly visuals. These flagship images convey authority, trust, and intellectual sophistication.
 
 **Design Philosophy:**
+- **AI-native approach** - Claude reasons about content rather than using rigid templates, using AI understanding and visual analysis
 - **AI Understanding > Scripts** - Claude reasons about content, not template substitution
 - **Generic & Portable** - Works for any content repo with any brand (see `config/brand.yaml`)
 - **Visual AI First** - Claude's native vision analyzes and validates images
@@ -27,7 +28,7 @@ Creates sophisticated conceptual editorial illustrations in the premium style of
 ## Workflow Overview
 
 ```
-1. User provides article → Claude THINKS deeply → Creates unique prompt
+1. User provides article → Claude answers the five questions in Phase 1 → Creates unique prompt
 2. User generates image in any AI tool (Nano Banana Pro, Midjourney, etc.)
 3. User shows image to Claude → Visual AI analyzes quality, position, colors
 4. Logo compositing script runs (the ONLY script needed)
@@ -38,12 +39,12 @@ Creates sophisticated conceptual editorial illustrations in the premium style of
 
 ## Phase 1: Deep Content Understanding
 
-### Deep Systematic Thinking Framework
+### Five Questions About the Article
 
-When given an article to illustrate, engage in deep thinking about the content:
+When given an article to illustrate, answer these five questions about the content, in order:
 
 ```
-THINK DEEPLY AND SYSTEMATICALLY: What is the essence of this article?
+What is the essence of this article? Answer each question below.
 
 1. CORE PROBLEM: What frustration or pain does this article address?
    - Identify the specific human challenge
@@ -383,7 +384,7 @@ article-image-generator/
 
 ## Portability
 
-This skill is designed to work with ANY content repository and ANY brand.
+This skill is designed to work with ANY content repository and ANY brand. It makes illustrations for any content. Works with any brand configuration.
 
 ### To Use with Different Brand
 

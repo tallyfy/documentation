@@ -1,6 +1,6 @@
 ---
 name: pangram-check
-description: Check a finished blog post, article or docs page with Pangram, the AI-text detector, and rewrite only the passages it flags until it reads as human-written. Use after drafting or editing a piece and before it ships, when someone asks for a Pangram or AI-detection check, or when a passage still sounds machine-written after this repo's own voice checks pass. Needs a browser already signed in to pangram.com. It never logs in and does not use the Pangram API.
+description: Scans a finished blog post, article or docs page with Pangram, the AI-text detector, and rewrites only the passages it flags. Use after drafting or editing and before it ships, when asked for a Pangram or AI-detection check, or when text still sounds machine-written after this repo's own voice checks pass. Needs a browser already signed in to pangram.com.
 ---
 
 # Pangram check
@@ -9,7 +9,7 @@ Pangram reads a piece of text and says how much of it looks AI-written. This ski
 
 ## Before you start
 
-- You need a browser signed in to pangram.com. Codex reaches Chrome through its Chrome extension or its `chrome` MCP server; Claude Code uses Claude in Chrome. If the dashboard asks you to log in, stop and say so. Do not try to sign in.
+- You need a browser signed in to pangram.com. Codex reaches Chrome through its Chrome extension or its `chrome` MCP server; Claude Code uses Claude in Chrome. If the dashboard asks you to log in, stop and say so. Do not try to sign in. It never logs in.
 - This repo's free checks pass first (see "Where content lives here" at the end). Pangram is for what those checks cannot see.
 - Only send text meant for publication. Never paste customer or client names that are not already public, internal notes, private material quoted in a draft, or anything that looks like a credential.
 
@@ -30,7 +30,7 @@ Scan a whole piece once. Five 120-word scans cost 10 credits, while one 600-word
 3. Confirm the result belongs to this text: the result view shows the start of what you pasted, and a new entry appears in the scan history. If either is missing, report "could not measure" and stop. Reading a stale result from an earlier scan is the mistake to guard against here.
 4. Write down what Pangram shows, word for word: the overall label, the AI percentage, and every highlighted segment with its color (red for AI-generated, yellow for AI-assisted, green for human). Copy the label as Pangram words it. Its labels change between versions, so never map them onto your own pass or fail.
 5. If the label says human and nothing is highlighted red or yellow, go to step 8.
-6. Rewrite only the highlighted passages, following this repo's voice rules. Make the changes a person would make:
+6. Rewrite only the highlighted passages until it reads as human-written, following this repo's voice rules. Make the changes a person would make:
    - change the sentence structure and the order of ideas, not single words (swapping synonyms makes the prose worse);
    - add a real specific from the source material, such as a named step, a number you can cite, or a concrete example from the product;
    - cut a sentence that only restates the one before it.
@@ -52,7 +52,7 @@ Scan a whole piece once. Five 120-word scans cost 10 credits, while one 600-word
 
 ## Later
 
-Pangram also has an API that handles long documents by splitting them. This version of the skill does not use it.
+Pangram also has an API that handles long documents by splitting them. This version of the skill does not use the Pangram API.
 
 ## Where content lives here
 
