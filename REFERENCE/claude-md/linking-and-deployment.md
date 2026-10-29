@@ -217,7 +217,8 @@ issue (#88, #118).
 - **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
-  - Format: `[templates](mdc:products/pro/documenting/templates)`, `[tasks](mdc:products/pro/tracking-and-tasks/tasks)`
+  - Format: `[templates](/products/pro/documenting/templates/)`, `[tasks](/products/pro/tracking-and-tasks/tasks/)`
+  - Dated 2026-10-29 (#433): until then this example used an `mdc:` prefix (`mdc:products/pro/documenting/templates`). Eight article links copied it, and `scripts/validate-internal-links.py` checks only links that start `/products/`, so none was caught.
   - Only link when it adds value for understanding the current topic
 - Link only first occurrence in a section
 - Use descriptive anchor text (not "click here")
