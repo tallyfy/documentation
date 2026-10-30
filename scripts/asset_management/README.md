@@ -209,7 +209,7 @@ scripts/asset_management/
 
 1. `.env` file in this directory
 2. Environment variables
-3. Parent `/cloudflare_credentials.json`
+3. The nearest `cloudflare_credentials.json` in any folder above this one, which is the GitHub root (`~/GitHub/cloudflare_credentials.json`) from the main checkout or from any worktree. `python3 config.py --self-test` proves the search from both depths (#443).
 
 ### Required Credentials
 

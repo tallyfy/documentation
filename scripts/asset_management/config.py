@@ -3,11 +3,11 @@
 Configuration loader for asset management system.
 
 Supports loading credentials from:
-1. .env file in this directory
-2. Parent directory cloudflare_credentials.json
-3. Environment variables
+1. Environment variables
+2. .env file in this directory (load_dotenv never overrides a variable already set)
+3. The nearest cloudflare_credentials.json in any folder above this one (the GitHub root)
 
-Priority: .env > environment > cloudflare_credentials.json
+Priority: environment > .env > cloudflare_credentials.json
 """
 
 import os
@@ -15,6 +15,28 @@ import json
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+
+
+CREDENTIALS_FILENAME = 'cloudflare_credentials.json'
+
+
+def find_credentials_file(start: Path) -> Optional[Path]:
+    """Return the nearest cloudflare_credentials.json in `start` or any folder above it.
+
+    The file lives at the GitHub root (`~/GitHub/cloudflare_credentials.json`), above every
+    checkout. Until tallyfy/documentation#443 this looked only 4 folders up, which reaches the
+    GitHub root from the main checkout but stops at `.claude` from a worktree such as
+    `documentation/.claude/worktrees/<name>/`, so every upload from a worktree refused. Walking
+    every parent up to the filesystem root finds it from any depth. Never reads the file.
+    """
+    current = start
+    while True:
+        candidate = current / CREDENTIALS_FILENAME
+        if candidate.is_file():
+            return candidate
+        if current.parent == current:
+            return None
+        current = current.parent
 
 
 class Config:
@@ -75,17 +97,8 @@ class Config:
         self.inventory_csv = Path(csv_path)
 
     def _find_credentials_file(self) -> Optional[Path]:
-        """Find cloudflare_credentials.json in parent directories."""
-        current = Path(__file__).parent
-
-        # Search up to 4 levels
-        for _ in range(4):
-            current = current.parent
-            cred_file = current / 'cloudflare_credentials.json'
-            if cred_file.exists():
-                return cred_file
-
-        return None
+        """Find cloudflare_credentials.json in a parent directory of this script."""
+        return find_credentials_file(Path(__file__).resolve().parent)
 
     def validate(self) -> tuple[bool, list[str]]:
         """
@@ -110,11 +123,11 @@ class Config:
     def print_config(self):
         """Print current configuration (masking sensitive values)."""
         print(f"Configuration loaded from: {self.source}")
-        print(f"  Account ID: {self.account_id[:8]}..." if self.account_id else "  Account ID: NOT SET")
+        print("  Account ID: set" if self.account_id else "  Account ID: NOT SET")
         print(f"  R2 Token: {'*' * 20}" if self.r2_token else "  R2 Token: NOT SET")
         print(f"  R2 Bucket: {self.r2_bucket}")
         print(f"  R2 Public URL: {self.r2_public_url}")
-        print(f"  R2 Endpoint: {self.r2_endpoint}")
+        print("  R2 Endpoint: set (from the account ID)" if self.r2_endpoint else "  R2 Endpoint: NOT SET")
         print(f"  Inventory CSV: {self.inventory_csv}")
         print(f"  CSV exists: {self.inventory_csv.exists()}")
 
@@ -123,7 +136,53 @@ class Config:
 config = Config()
 
 
+def _self_test() -> int:
+    """Prove find_credentials_file finds the file from deep and shallow folders, and not when absent.
+
+    Every case uses folders it builds in a temporary directory and never reads the file it finds.
+    Returns 0 when every case passes, 1 when one fails.
+    """
+    import tempfile
+
+    failures = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve() / 'GitHub'
+        main_checkout = root / 'documentation' / 'scripts' / 'asset_management'
+        worktree = (root / 'documentation' / '.claude' / 'worktrees' / 'name'
+                    / 'scripts' / 'asset_management')
+        nested = root / 'temporary' / 'tables' / 'wt' / 'documentation-1' / 'scripts' / 'asset_management'
+        no_creds = Path(tmp).resolve() / 'elsewhere' / 'scripts' / 'asset_management'
+        for folder in (main_checkout, worktree, nested, no_creds):
+            folder.mkdir(parents=True)
+        creds = root / CREDENTIALS_FILENAME
+        creds.write_text('{}')
+
+        cases = [
+            ('main checkout, 3 folders below the file', main_checkout, creds),
+            ('worktree, 6 folders below the file', worktree, creds),
+            ('nested worktree under temporary/, 6 folders below', nested, creds),
+        ]
+        # The absent case only proves something if nothing above the temp dir has the file.
+        if find_credentials_file(Path(tmp).resolve()) is None:
+            cases.append(('no file anywhere above', no_creds, None))
+        else:
+            print('  [skip] a credentials file exists above the temp dir, so the absent case cannot run')
+        for name, start, expected in cases:
+            got = find_credentials_file(start)
+            ok = got == expected
+            failures += 0 if ok else 1
+            print(f"  [{'ok' if ok else 'FAIL'}] {name}: expected {expected is not None}, got {got is not None}")
+
+    print(f"SELF-TEST {'PASSED' if failures == 0 else 'FAILED'}: {len(cases) - failures} of {len(cases)} case(s)")
+    return 0 if failures == 0 else 1
+
+
 if __name__ == '__main__':
+    import sys
+
+    if '--self-test' in sys.argv[1:]:
+        sys.exit(_self_test())
+
     # Test configuration loading
     config.print_config()
 
