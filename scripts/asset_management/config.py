@@ -3,11 +3,11 @@
 Configuration loader for asset management system.
 
 Supports loading credentials from:
-1. .env file in this directory
-2. The nearest cloudflare_credentials.json in any folder above this one (the GitHub root)
-3. Environment variables
+1. Environment variables
+2. .env file in this directory (load_dotenv never overrides a variable already set)
+3. The nearest cloudflare_credentials.json in any folder above this one (the GitHub root)
 
-Priority: .env > environment > cloudflare_credentials.json
+Priority: environment > .env > cloudflare_credentials.json
 """
 
 import os
@@ -127,7 +127,7 @@ class Config:
         print(f"  R2 Token: {'*' * 20}" if self.r2_token else "  R2 Token: NOT SET")
         print(f"  R2 Bucket: {self.r2_bucket}")
         print(f"  R2 Public URL: {self.r2_public_url}")
-        print(f"  R2 Endpoint: {self.r2_endpoint}")
+        print("  R2 Endpoint: set (from the account ID)" if self.r2_endpoint else "  R2 Endpoint: NOT SET")
         print(f"  Inventory CSV: {self.inventory_csv}")
         print(f"  CSV exists: {self.inventory_csv.exists()}")
 
@@ -139,7 +139,7 @@ config = Config()
 def _self_test() -> int:
     """Prove find_credentials_file finds the file from deep and shallow folders, and not when absent.
 
-    Builds its own folders in a temporary directory, so it never touches real credentials.
+    Every case uses folders it builds in a temporary directory and never reads the file it finds.
     Returns 0 when every case passes, 1 when one fails.
     """
     import tempfile
