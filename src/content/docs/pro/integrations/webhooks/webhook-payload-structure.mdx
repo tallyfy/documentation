@@ -36,6 +36,23 @@ Process-level and task-level payloads both carry a top-level `event` field that 
 
 Template webhooks send the first three, and step webhooks send `task.completed`. The other four go only to webhooks set up through Tallyfy's watcher API, such as the organization-wide subscription a middleware connector registers for its instant triggers. Comment and issue events go only to organization-wide subscriptions.
 
+## Top secret tasks
+
+A top secret task is one that only administrators and the people assigned to it, directly or through a group, can see. Most webhooks leave out every top secret task in the process except the one the event is about. Two kinds keep them all: organization-wide subscriptions, and watches that belong to an administrator.
+
+So template webhooks, step webhooks and automation webhooks leave them out, and so does a watch that belongs to a member or a guest. A member's watch leaves them out even when that member is assigned to the other top secret task.
+
+A task that's left out is missing from these fields:
+
+- `process-tasks` doesn't list its alias or ID.
+- `form-fields` and `process.process_forms` don't carry its form field values.
+- `this_task.assets` (`trigger_task.assets` in an automation webhook) doesn't list the files uploaded into its form fields.
+- `guest-links` doesn't list a guest who's assigned only to that task.
+- `collaborators`, in a process-level payload, doesn't list a person who's assigned only to that task.
+- `next_task` skips it and names the next task instead.
+
+`this_task` always describes the task the event is about, even when it's top secret. A watch on a task, process or member gets a `task.completed` or `task.assigned` event about a top secret task only when the watch's owner can see that task.
+
 ## Process-level webhook payload
 
 Process-level webhooks fire when someone launches a new process or when a process completes. They include the full process state and all kick-off form data.
