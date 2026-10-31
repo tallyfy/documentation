@@ -1,10 +1,10 @@
 ---
 about_tallyfy: true
 description: Tallyfy webhook payloads deliver JSON data in two formats. Process-level
-  payloads contain full process state and kick-off form data when processes launch
-  or complete. Task-level payloads contain completed task details along with all accumulated
-  form fields, a next_task reference pointing to the first visible incomplete task,
-  and guest-links that provide direct access URLs for external collaborators.
+  payloads contain process state and kick-off form data. Task-level payloads contain
+  the completed task, the form fields collected so far, a next_task reference and
+  guest-links. Most webhooks leave out top secret tasks other than the one the event
+  is about.
 id: cc0413cd0b5c6311cce80303a5e640cd
 lastUpdated: 2026-10-19
 sidebar:
@@ -36,9 +36,26 @@ Process-level and task-level payloads both carry a top-level `event` field that 
 
 Template webhooks send the first three, and step webhooks send `task.completed`. The other four go only to webhooks set up through Tallyfy's watcher API, such as the organization-wide subscription a middleware connector registers for its instant triggers. Comment and issue events go only to organization-wide subscriptions.
 
+## Top secret tasks
+
+A top secret task is one that only administrators and the people assigned to it, directly or through a group, can see. Most webhooks leave out every top secret task in the process except the one the event is about. Two kinds keep them all: organization-wide subscriptions, and watches that belong to an administrator.
+
+So template webhooks, step webhooks and automation webhooks leave them out, and so does a watch that belongs to a guest or to a member who isn't an administrator. That member's watch leaves them out even when they're assigned to the other top secret task.
+
+A task that's left out is missing from these fields:
+
+- `process-tasks` doesn't list its alias or ID.
+- `form-fields` and `process.process_forms` don't carry its form field values.
+- `this_task.assets` (`trigger_task.assets` in an automation webhook) doesn't list the files uploaded into its form fields.
+- `guest-links` doesn't list a guest who's assigned only to that task.
+- `collaborators`, in a process-level payload, doesn't list a person who's assigned only to that task.
+- `next_task` skips it and names the next task the webhook may show, or is empty (`[]`) when there isn't one.
+
+`this_task` always describes the task the event is about, even when it's top secret. A watch on a task, process or member gets a `task.completed` or `task.assigned` event about a top secret task only when the watch's owner can see that task.
+
 ## Process-level webhook payload
 
-Process-level webhooks fire when someone launches a new process or when a process completes. They include the full process state and all kick-off form data.
+Process-level webhooks fire when someone launches a new process or when a process completes. They include the full process state, apart from top secret tasks the webhook leaves out, and all kick-off form data.
 
 ### Top-level structure
 
@@ -166,9 +183,9 @@ Each `prerun` value's shape depends on the field type. The per-type list lives o
 
 ## Task-level webhook payload
 
-Task-level webhooks fire when a specific task completes. Watcher webhooks also send this payload for the other task events in [the event field](#the-event-field) table. It contains detailed info about the task, all process data collected so far, and the next task that needs attention.
+Task-level webhooks fire when a specific task completes. Watcher webhooks also send this payload for the other task events in [the event field](#the-event-field) table. It contains detailed info about the task, all process data collected so far apart from any [top secret tasks](#top-secret-tasks) the webhook leaves out, and the next task that needs attention.
 
-**What's `next_task`?** It's the first visible incomplete task ordered by position number. "Visible" means it wasn't auto-skipped by an automation. "Incomplete" means it hasn't been completed yet (includes tasks that are in-progress). Returns an empty array `[]` if all tasks in the process are done.
+**What's `next_task`?** It's the first visible incomplete task ordered by position number. "Visible" means it wasn't auto-skipped by an automation, and it isn't a top secret task the webhook leaves out. "Incomplete" means it hasn't been completed yet (includes tasks that are in-progress). Returns an empty array `[]` if there's no such task.
 
 ### Top-level structure
 
@@ -198,7 +215,8 @@ Task Webhook Payload
 │   └── Map of task alias/id => task ID
 │
 ├── form-fields
-│   └── ALL form fields from ALL tasks (flat structure)
+│   └── ALL form fields from ALL tasks (flat structure),
+│       apart from top secret tasks the webhook leaves out
 │       └── {field_alias: value}
 │
 ├── template
@@ -209,7 +227,8 @@ Task Webhook Payload
 │   ├── status, progress, created_at
 │   ├── ClientURL (link to process in Tallyfy)
 │   ├── prerun (kick-off form values)
-│   ├── process_forms (all fields by step_id)
+│   ├── process_forms (all fields by step_id, apart from
+│   │   top secret tasks the webhook leaves out)
 │   │   └── {step_id: {timeline_id: {alias, label, value}}}
 │   └── tags
 │
@@ -391,7 +410,7 @@ Task Webhook Payload
 https://go.tallyfy.com/api/organizations/{org_id}/file/{file_id}/dl
 ```
 
-Don't treat `assets` as the full list of uploaded files. For that, read the file fields in `form-fields`: each file uploaded to Tallyfy appears there with its `id` and `filename`. Build the download link from that `id`, in the same form as above. The link is stable and doesn't expire. To fetch a file, send the same headers as any other API call, as shown in [Download file](/products/pro/integrations/open-api/code-samples/files/download-file/).
+Don't treat `assets` as the full list of uploaded files. For that, read the file fields in `form-fields`: each file uploaded to Tallyfy appears there with its `id` and `filename`, apart from files in a [top secret task](#top-secret-tasks) the webhook leaves out. Build the download link from that `id`, in the same form as above. The link is stable and doesn't expire. To fetch a file, send the same headers as any other API call, as shown in [Download file](/products/pro/integrations/open-api/code-samples/files/download-file/).
 
 ## Request headers
 
@@ -408,7 +427,7 @@ Tallyfy adds the last two whenever it can sign the delivery.
 
 ## Guest links
 
-The `guest-links` object provides direct access URLs for all guest assignees in a process. You can use it to send personalized emails or SMS notifications to guests with direct links to their assigned tasks. There's no need to generate separate links - they're included automatically.
+The `guest-links` object provides direct access URLs for all guest assignees in a process, apart from a guest assigned only to a top secret task the webhook leaves out. You can use it to send personalized emails or SMS notifications to guests with direct links to their assigned tasks. There's no need to generate separate links - they're included automatically.
 
 ### Structure
 
@@ -423,7 +442,7 @@ The `guest-links` object provides direct access URLs for all guest assignees in 
 ### Key details
 
 - **Included in both webhook types** - process-level and task-level
-- **All unique guests** - every unique guest assigned anywhere in the process
+- **All unique guests** - every unique guest assigned anywhere in the process, except a guest assigned only to a [top secret task](#top-secret-tasks) the webhook leaves out
 - **Direct access** - links bypass login, so guests click and see their tasks
 - **Persistent codes** - guest codes stay stable across the process lifecycle
 
@@ -459,7 +478,7 @@ Task-specific form fields use the complete structure with timeline IDs as keys:
 
 ### In `form-fields` - flat structure
 
-All process form fields use a simplified flat structure with aliases as keys:
+Process form fields use a simplified flat structure with aliases as keys:
 
 ```json
 "form-fields": {
@@ -568,7 +587,7 @@ for (const [email, linkData] of Object.entries(guestLinks)) {
 
 ### Extracting all collected data
 
-Get all form data collected across the entire process:
+Get all form data collected across the entire process, apart from any [top secret tasks](#top-secret-tasks) the webhook leaves out:
 
 ```javascript
 // Flat structure - simplest for most integrations
@@ -589,7 +608,7 @@ Use the `next_task` object to prepare for upcoming steps:
 ```javascript
 const nextTask = webhookPayload.next_task;
 
-// next_task is an empty array [] when all tasks are done
+// next_task is an empty array [] when no task is left that the webhook may show
 if (nextTask && nextTask.title === "Execute Contract") {
   // Prepare contract execution system
   // Notify legal team

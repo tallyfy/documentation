@@ -93,6 +93,8 @@ For each favorited item, you can control how and how often you're notified.
 
 You can mix frequencies across items. Get instant alerts for critical items and daily digests for less urgent ones. The events that trigger notifications stay the same - only the delivery timing changes.
 
+If you're not an administrator, a webhook from your watch leaves out top secret tasks other than the one the event is about. Top secret tasks are the ones that only administrators and their assignees can see. [Top secret tasks](/products/pro/integrations/webhooks/webhook-payload-structure/#top-secret-tasks) lists what's left out.
+
 ### How do I manage watched items?
 
 The Favorites section is your hub for managing watched items:
@@ -100,6 +102,17 @@ The Favorites section is your hub for managing watched items:
 *   Change notification settings (frequency and target) per item
 *   Filter the list by item type
 *   Unfavorite items by clicking the star again
+
+## For developers
+
+(Skip this unless you're setting up the technical side.)
+
+You can also create, change and remove watches through the [API](/products/pro/integrations/open-api/). Only an administrator can use `POST /organizations/{org}/users/{user_id}/add-watcher` to create a watch for another member. Only the watch's owner, an administrator or Tallyfy Support can change or remove a watch. A refused request gets a `403` response with one of these messages:
+
+*   Creating a watch through `add-watcher` with a `user_id` other than your own: `Access denied: you can create a watch only for yourself.`
+*   Changing someone else's watch, through `PUT /organizations/{org}/users/{user_id}/update-watcher/{watcher_id}`: `Access denied: only the watch's owner or an admin may update it.`
+*   Removing someone else's watch, through `DELETE /organizations/{org}/remove-watcher/{watcher_id}`: `Access denied: only the watch's owner or an admin may remove it.`
+*   Removing a watch that someone else has on you, through the same `DELETE` call, even if you're an administrator: `You can't restrict others from watching you`
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
