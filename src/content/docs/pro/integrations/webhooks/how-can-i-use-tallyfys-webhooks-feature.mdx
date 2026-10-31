@@ -1,8 +1,9 @@
 ---
 about_tallyfy: true
 description: Tallyfy webhooks push JSON data to external systems when processes launch,
-  complete, or when tasks finish. Each payload carries all form fields and metadata
-  collected up to that point.
+  complete, or when tasks finish. Each payload carries the form fields and metadata
+  collected up to that point. Most webhooks leave out top secret tasks other than
+  the one the event is about.
 id: c080803b3620e0a4ed20cbb75a4d16a1
 lastUpdated: 2026-10-19
 sidebar:
@@ -70,19 +71,21 @@ When a webhook fires, it carries ALL information collected in the process up to 
 - Process metadata, guest links, and context
 
 One webhook gives you everything that's happened so far. You don't need separate webhooks for each piece of data.
+
+Top secret tasks are tasks that only administrators and their assignees can see. Template and step webhooks leave them out, with their form fields and files, unless the top secret task is the one that fired the webhook. [Top secret tasks](/products/pro/integrations/webhooks/webhook-payload-structure/#top-secret-tasks) lists each field this changes.
 :::
 
 #### Webhook payload structure
 
 The JSON payload contains detailed event information. Key sections for **task completion** webhooks include:
 
-- **`this_task`**: The task that triggered the webhook - includes `id`, `title`, `alias`, `status`, `summary`, `deadline`, `position`, `captures` (form field values), `owners` (assigned users and guests), `completed_at`, `completed_by`, and `assets`. `assets` lists files attached to the process, each with a download link, so it isn't limited to this task's files. For every file uploaded into a form field, read the file fields in `form-fields`, where each file uploaded to Tallyfy carries its `id` and `filename`. The download link is built from that `id`.
-- **`next_task`**: The first incomplete task that isn't auto-skipped, ordered by position. Includes the same fields as `this_task` (minus assets). Returns an empty array `[]` if all tasks are done.
-- **`process`**: The overall process instance - includes `id`, `organization_id`, `name`, `summary`, `status`, `progress`, `created_at`, `ClientURL`, `prerun` (kick-off form values), `process_forms` (all form field values across all tasks), and `tags`.
+- **`this_task`**: The task that triggered the webhook - includes `id`, `title`, `alias`, `status`, `summary`, `deadline`, `position`, `captures` (form field values), `owners` (assigned users and guests), `completed_at`, `completed_by`, and `assets`. `assets` lists files attached to the process, each with a download link, so it isn't limited to this task's files. For every file uploaded into a form field, read the file fields in `form-fields`, where each file uploaded to Tallyfy carries its `id` and `filename`, apart from files in a [top secret task](/products/pro/integrations/webhooks/webhook-payload-structure/#top-secret-tasks) the webhook leaves out. The download link is built from that `id`.
+- **`next_task`**: The first incomplete task that isn't auto-skipped or a top secret task the webhook leaves out, ordered by position. Includes the same fields as `this_task` (minus assets). Returns an empty array `[]` if there's no such task.
+- **`process`**: The overall process instance - includes `id`, `organization_id`, `name`, `summary`, `status`, `progress`, `created_at`, `ClientURL`, `prerun` (kick-off form values), `process_forms` (all form field values across all tasks, apart from top secret tasks the webhook leaves out), and `tags`.
 - **`template`**: The source template - includes `id`, `title`, `alias`, and `summary`.
-- **`form-fields`**: A flat map of all form field values across all tasks and the kick-off form, keyed by alias.
-- **`process-tasks`**: A map of task aliases to task IDs for the entire process.
-- **`guest-links`**: URLs for each guest assignee to access their tasks.
+- **`form-fields`**: A flat map of all form field values across all tasks and the kick-off form, keyed by alias, apart from top secret tasks the webhook leaves out.
+- **`process-tasks`**: A map of task aliases to task IDs for the entire process, apart from top secret tasks the webhook leaves out.
+- **`guest-links`**: URLs for each guest assignee to access their tasks, apart from a guest assigned only to a top secret task the webhook leaves out.
 - **`launcher`** and **`completer`**: Both carry the person whose action sent the webhook. For a task completion, that's the person who completed the task, not the person who launched the process.
 
 For **process launch/completion** webhooks, the payload includes process data, `process-tasks`, `ko-form-fields` (kick-off values), `guest-links`, and `launcher`.
