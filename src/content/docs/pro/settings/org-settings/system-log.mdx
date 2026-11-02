@@ -42,8 +42,6 @@ The System Log is an admin-only view of every customer-relevant event captured f
 
 Three things are tracked: server-side system events, email delivery events, and AI usage events. The log is read-only. You can't edit or delete entries from it.
 
-The rest of this page covers how to open the log, what each of the three tabs shows, how to find and export events, and a few things worth knowing about retention and privacy.
-
 ## Open the system log
 
 Open the left sidebar and click **System Logs**. The page opens to the **System** tab by default. Use the tabs at the top to switch between System, Email, and AI Usage views.
@@ -98,7 +96,7 @@ Captures events that happen inside Tallyfy's backend on behalf of your organizat
 | `kickoff_form_made_public` | Security | An Administrator published a kickoff form publicly. |
 | `process_auto_archived` | Process | Tallyfy's bot user auto-archived a completed process per your archive policy. |
 | `task_auto_completed` | Process | Tallyfy's bot user auto-completed a task per your auto-complete rules. |
-| `login_succeeded` | Auth | A user signed in successfully. This is the row an auditor asks for first, and it is the counterpart to `login_failed` above. |
+| `login_succeeded` | Auth | A user signed in successfully. |
 | `oauth_authorize` | Auth | An outside AI app started the OAuth handshake to connect to Tallyfy. |
 | `consent_approved` | Auth | A user approved an outside AI app's request for access to your organization. |
 | `token_issued` | Auth | An access token was issued to an outside AI app after consent. |
@@ -153,18 +151,16 @@ Every tab has the same filter controls along the top. The filter panel collapses
 
 ### Export to CSV
 
-Click **Export CSV** in the toolbar. The export uses your current filters and streams rows to a downloaded file. There's no row cap. A 90-day window for a busy org typically exports in a few seconds.
+Click **Export CSV** in the toolbar. The export uses your current filters. Up to 10,000 rows download straight away. A larger export, up to 50,000 rows, is prepared in the background before it downloads. If more than 50,000 rows match, narrow the filters and export again.
 
 The CSV includes the same columns visible in the table plus the full message body. Use it for compliance archives or to share specific failures with engineering.
 
 ### Reading the log through the API
 
-The same events are available through Tallyfy's API, and there is one default worth knowing before
-you write anything against it.
+The same events are available through Tallyfy's API.
 
-🔴 **If you omit `from`, you get the last 24 hours and nothing older.** The default is applied by the
+**If you omit `from`, you get the last 24 hours and nothing older.** The default is applied by the
 service, silently, so a call with no date range returns a short list that looks like the whole log.
-It is the first thing most callers hit.
 
 Send an explicit `from` (and `to`, if you want to bound the other end) on every call. Both accept a
 date. The screens in the new client always send a `from` for this reason, which is why they show 90
@@ -195,7 +191,7 @@ If you want to hide pre-auth events from a search, toggle off **Include pre-auth
 
 Every time someone opens or exports the System Log, Tallyfy records a `system_log_viewed` event. It shows up in the System tab itself under the **Audit access** category, with the user, timestamp, log type, and the filters that were applied. Filter on that category to see log reads on their own.
 
-This is on purpose: if your org needs to know who's been auditing, you can answer that question from inside the same UI. This record of log views is visible to all Administrators and exports normally with CSV.
+This record of log views is visible to all Administrators and exports normally with CSV.
 
 ### How long events are kept
 
@@ -205,8 +201,7 @@ charts are kept for three years.
 
 **The 90 days you see on screen is not the retention period.** It is the window the date-range
 picker opens on. Set an earlier start date and you get the older events, because they are still
-there. An earlier version of this page called 90 days a hard cap, which was wrong and wrong in the
-worst direction: it told administrators their audit trail had been deleted when it had not.
+there.
 
 If you need a history longer than 18 months for compliance, export the CSV on a schedule and archive
 it in your own storage. Events older than 18 months are removed and cannot be recovered.
