@@ -79,7 +79,7 @@ Write a server-side script and schedule it with cron (Linux/Mac) or Task Schedul
 1. Write a script that calls `POST /organizations/{org}/runs` with your `checklist_id`.
 2. Schedule it using cron or another task scheduler.
 3. Add logging and error handling.
-4. Test before going live.
+4. Run the script once by hand, and check that the process appears in Tallyfy before the schedule takes over.
 </Steps>
 
 **Example - Node.js script launching every Monday at 9 AM:**
@@ -111,20 +111,20 @@ cron.schedule('0 9 * * 1', async () => {
 If you're already using an ERP, HRIS, or another system with scheduling, you can have it call the Tallyfy API directly or go through middleware.
 
 <Steps>
-1. Identify which system already runs tasks on a schedule.
+1. Pick the system that already knows when the work is due, such as your HRIS for a new hire's start date or your ERP for month-end close.
 2. Set up an [integration](/products/pro/integrations/) from that system to Tallyfy.
 3. Map data from the source system to Tallyfy [form fields](/products/pro/tracking-and-tasks/tasks/what-are-form-fields-in-tallyfy/).
-4. Test the end-to-end flow.
+4. Let it run once, and check that the process launches with the right form field values.
 </Steps>
 
 ### Common use cases
 
 | Process type | Frequency | Example |
 |---|---|---|
-| Compliance audits | Monthly | Launch inspection process on the 1st of each month |
-| Financial reporting | Weekly | Launch expense approval every Friday at 4 PM |
-| Team updates | Daily | Launch standup checklist each morning at 9 AM |
-| Maintenance checks | Quarterly | Launch facility inspection on the first day of each quarter |
+| Compliance audits | Monthly | An inspection checklist on the 1st of each month |
+| Financial reporting | Weekly | Expense approvals at 4 PM every Friday |
+| Team updates | Daily | A standup checklist at 9 AM, Monday to Friday |
+| Maintenance checks | Quarterly | A facility inspection every three months, from the first day of a quarter |
 
 :::note[Process naming]
 For scheduled [processes](/products/pro/tracking-and-tasks/processes/), include the date in the name for easy tracking. Example: "Monthly Compliance Check - January 2026"
@@ -137,11 +137,36 @@ For scheduled [processes](/products/pro/tracking-and-tasks/processes/), include 
 Scheduled jobs use the API's `recurring-jobs` endpoints. Send the same headers as on any other call: `Authorization: Bearer`, `X-Tallyfy-Client: APIClient` and `Accept: application/json`.
 
 - `GET /organizations/{org}/recurring-job-types` lists the kinds of job. Use the id of the `launch-process` type.
-- `POST /organizations/{org}/recurring-jobs` creates a job. `start_date` is the day of the first run. `schedule` takes `recurring_type` (`hourly`, `daily`, `weekly`, `monthly` or `yearly`), `interval` and `start_time` (`HH:MM`). For a one-time job, send a `daily` schedule with `max_occurrences` set to `1`. `data` takes the template's `checklist_id`, the `name` each launched process gets, and optional `prerun` values for the kick-off form.
+- `POST /organizations/{org}/recurring-jobs` creates a job. The body needs the job's own `name` (up to 50 characters), `recurring_job_type_id`, `start_date`, `schedule` and `data`. `end_date` and `max_occurrences` are optional, and stop a repeating job.
+- `start_date` is the first day the job can run, today or later. It isn't always the day of the first run. A daily job whose `start_time` has already passed that day moves forward by its `interval` in days, so with an interval of 1 it first runs the next day. A weekly or monthly job first runs on its first matching day on or after `start_date`.
+- `schedule` needs `recurring_type` (`hourly`, `daily`, `weekly`, `monthly` or `yearly`) and `start_time` (`HH:MM`), and takes `interval`. A weekly schedule also needs `days_of_week` (1 for Monday to 7 for Sunday). A monthly one needs `day_of_month`, or `week_of_month` with one day in `days_of_week`.
+- `data` takes the template's `checklist_id`, the `name` each launched process gets, and optional `prerun` values for the kick-off form.
 - `GET`, `PUT` and `DELETE /organizations/{org}/recurring-jobs/{id}` read, change and delete a job. `GET /organizations/{org}/recurring-jobs/{id}/history` returns its run history.
 - `PUT /organizations/{org}/recurring-jobs/{id}/owner` with the body `{"user_id": 123}` changes the owner. Only an org admin can call it. It answers `422` and changes nothing when the new owner isn't an active member who can launch the template.
 
 `start_date` and `start_time` are read in the organization's time zone. The owner is kept in the job's `data.created_by`, and updating a job with `PUT /organizations/{org}/recurring-jobs/{id}` never changes it.
+
+A one-time job is a `daily` schedule with `max_occurrences` set to `1`, and its date and time must still be ahead. `max_occurrences` goes at the top level of the body, beside `start_date`. Inside `schedule` it's ignored, and the job runs every day. This body launches one process at 9 AM on December 31:
+
+```json
+{
+  "name": "Year-end audit",
+  "recurring_job_type_id": 12,
+  "start_date": "2026-12-31",
+  "max_occurrences": 1,
+  "schedule": {
+    "recurring_type": "daily",
+    "interval": 1,
+    "start_time": "09:00"
+  },
+  "data": {
+    "checklist_id": "YOUR_TEMPLATE_ID",
+    "name": "Year-end audit 2026"
+  }
+}
+```
+
+Replace `12` with the id of the `launch-process` type from `GET /organizations/{org}/recurring-job-types`.
 
 Through the [MCP server](/products/pro/integrations/mcp-server/tool-list/), `schedule_process_launch` creates a job and `change_scheduled_job_owner` changes its owner.
 

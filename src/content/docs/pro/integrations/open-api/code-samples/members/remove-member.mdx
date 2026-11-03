@@ -24,7 +24,7 @@ You'll need admin permissions. Bot users can't be removed through this endpoint.
 
 ### Separate permanent deletion flow
 
-Tallyfy also has a separate way to delete a member for good. It takes two steps and uses different endpoints:
+Deleting a member for good takes two calls to other endpoints, in this order:
 
 1. **Disable**: `DELETE /organizations/{org_id}/users/{user_id}/disable`
 2. **Permanently delete**: `DELETE /organizations/{org_id}/users/{user_id}/delete`
@@ -48,14 +48,16 @@ Replace `{org_id}` with your organization ID. Replace `{user_id}` with the membe
 
 Example: `?with_reassignment=true&to=1002`
 
-The person in `to` takes over everything at once:
+The person in `to` takes over everything at once, but only when the member owns or belongs to a template or process, is assigned to a template step, or has unfinished tasks. Otherwise the call just deactivates them, nothing moves and no email goes out. If the member only owns scheduled jobs, change each job's owner before you remove them.
+
+When there is work to hand over, this moves:
 
 - The templates the member created, owns or is a member of, and their template step assignments.
 - The processes they started, own or are a member of.
 - The tasks they created, and every task assigned to them.
 - Their scheduled jobs, where the new person can run them. A job the new person can't run stays with the removed member, and its runs fail.
 
-The person taking over gets an email. The member's group memberships end, and any access they had to specific templates or processes isn't handed over.
+The person taking over then gets an email. Either way, the member's group memberships end, and any access they had to specific templates or processes isn't handed over.
 
 ### Body
 
