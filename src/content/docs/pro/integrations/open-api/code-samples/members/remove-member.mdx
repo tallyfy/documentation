@@ -44,18 +44,17 @@ Replace `{org_id}` with your organization ID. Replace `{user_id}` with the membe
 ### Query parameters (optional)
 
 - `with_reassignment` (boolean) - `true` or `1` hands the member's work to the person in `to` before removal. `false`, `0` or leaving it out deactivates the member without handing anything over, and then you don't need `to`.
-- `to` (integer) - Required when `with_reassignment` is `true`. The user ID of the person taking over. It must be an active member of this organization, and not the member you're removing. Otherwise you get `422`, nobody is removed and nothing moves.
+- `to` (integer) - Required when `with_reassignment` is `true`. The user ID of the person taking over. It must be an active member of this organization, not the organization's bot, and not the member you're removing. Otherwise you get `422`, nobody is removed and nothing moves.
 
 Example: `?with_reassignment=true&to=1002`
 
-The person in `to` takes over everything at once, but only when the member owns or belongs to a template or process, is assigned to a template step, or has unfinished tasks. Otherwise the call just deactivates them, nothing moves and no email goes out. If the member only owns scheduled jobs, change each job's owner before you remove them.
+When you name someone in `to`, the member's scheduled jobs move to them, wherever that person can run them. A job they can't run stays with the removed member, and its runs fail.
 
-When there is work to hand over, this moves:
+Everything else moves, and the email goes out, only when the member owns or belongs to a template or process, is assigned to a template step, or has unfinished tasks. Otherwise nothing else moves and no email goes out. When there is work to hand over, this moves to the person in `to`:
 
 - The templates the member created, owns or is a member of, and their template step assignments.
 - The processes they started, own or are a member of.
 - The tasks they created, and every task assigned to them.
-- Their scheduled jobs, where the new person can run them. A job the new person can't run stays with the removed member, and its runs fail.
 
 The person taking over then gets an email. Either way, the member's group memberships end, and any access they had to specific templates or processes isn't handed over.
 
@@ -402,7 +401,7 @@ You'll get `200 OK`. The removed member's data comes back in a `data` object.
 |--------|--------------|------------|
 | 422 | `You can't remove a bot user from this organization!` | Bot users can't be removed through this endpoint. |
 | 422 | `Cannot modify the default administrator. Please assign another member as default administrator first.` | The member is an administrator and no other active administrator exists. Make another member an administrator first. |
-| 422 | A validation error on `to` | `to` isn't an active member of this organization, or it's the member you're removing. Nobody is removed and nothing moves. |
+| 422 | A validation error on `to` | `to` isn't an active member of this organization, is the organization's bot, or is the member you're removing. Nobody is removed and nothing moves. |
 | 404 | User not found | Check that the user ID exists in this organization. |
 
 ## Related articles
