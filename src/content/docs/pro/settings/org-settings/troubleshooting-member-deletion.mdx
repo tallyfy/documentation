@@ -22,7 +22,7 @@ Can't delete a member from your Tallyfy organization? You must disable a member 
 ### Quick diagnosis
 
 1. **Check member status** - Active, Disabled, or Invited?
-2. **Check admin role** - Default Admin or Administrator?
+2. **Check their role** - Are they an Administrator?
 3. **Count admins** - How many active admins in the organization?
 4. **Note the exact error** - What message appears?
 
@@ -33,21 +33,17 @@ Can't delete a member from your Tallyfy organization? You must disable a member 
 Tallyfy requires a two-step process - disable first, then delete:
 1. Go to **Settings** > **Organization** > **Members**
 2. Click the member's name
-3. Click **Deactivate Member**
-4. Reassign their tasks when prompted
+3. Click **Deactivate account**, followed by their name
+4. If the **Automatic conflict resolution** page opens, hand their work to one person, or skip the handover
 5. Then permanently delete them
 
 #### "Cannot modify the default administrator."
 
 The full error reads: *"Cannot modify the default administrator. Please assign another member as default administrator first."*
 
-To fix this:
-1. Click a different administrator's profile
-2. Select **Make Default Administrator**
-3. Go back to the original member
-4. Proceed with deactivation
+It appears when the member is an Administrator and no other active Administrator exists. To fix it, promote another member to Administrator, then deactivate the original member. If the member you're removing is the default administrator, Tallyfy passes that role to another active Administrator for you.
 
-No other admins? Promote a Standard member to Administrator first.
+You'll also see it on the **Automatic conflict resolution** page if the member is the default administrator and you hand their work to someone who isn't an Administrator. That person would become the default administrator, so pick an Administrator.
 
 #### "Bot users cannot be disabled."
 
@@ -70,9 +66,8 @@ If you try to disable the only administrator, you'll get the "Cannot modify the 
 
 #### Can't find a deactivated member
 
-Tallyfy hides deactivated members by default:
 1. Go to the **Members** list
-2. Filter by **Show: All** or **Show: Deactivated**
+2. Use the **Status** column's filter and choose **Deactivated**
 3. Search by name or email
 
 #### Bulk member removal
@@ -86,11 +81,11 @@ For multiple deletions via API:
 
 #### Email and name changes
 
-When permanently deleted, Tallyfy:
+When you permanently delete someone who doesn't belong to any other Tallyfy organization, Tallyfy:
 - Appends "(Deleted)" directly to the last name (no space) - e.g. `Smith` becomes `Smith(Deleted)`
 - Changes email to `{email}.deleted.{user_id}` - e.g. `john@company.com` becomes `john@company.com.deleted.12345`
 
-This prevents conflicts if you re-invite that person later.
+This prevents conflicts if you re-invite that person later. If they belong to another organization, their name and email don't change.
 
 #### What happens to member data
 
@@ -98,7 +93,7 @@ This prevents conflicts if you re-invite that person later.
 - Login access
 - Active sessions
 
-Permanent deletion removes the person's whole Tallyfy account, not only their place in your organization. If they belong to other Tallyfy organizations, they lose access to those too.
+If the person also belongs to another Tallyfy organization, permanent deletion only removes them from yours. Their account and their other organizations aren't touched. If they don't belong anywhere else, their whole Tallyfy account is deleted.
 
 **Kept for compliance**:
 - Task completion history (name shows with "(Deleted)")
@@ -106,9 +101,11 @@ Permanent deletion removes the person's whole Tallyfy account, not only their pl
 - Comments and attachments
 - Audit trail entries
 
-#### Task reassignment
+#### Handing over their work
 
-Tasks never fall to "Tallyfy Bot". The bot can't be assigned tasks at all (see [member statuses](/products/pro/settings/org-settings/understanding-member-statuses/)). When a deactivation skips reassignment, which is what an API deletion does if you don't pass a reassignment target, those tasks keep the deactivated member as their owner. Nothing moves on its own, so reassign them yourself when you're ready.
+One person takes over everything. On the **Automatic conflict resolution** page you pick one active member. Tallyfy moves the templates the member created, owns or belongs to, and their template step assignments. It also moves the processes they started, own or belong to, the tasks they created, and every task assigned to them. Their [scheduled jobs](/products/pro/launching/triggers/via-recurring-schedule/) move too, if the new person can run them. The new person gets an email. The member is taken out of all their groups, and any access they had to specific templates or processes stays with them.
+
+Work never falls to "Tallyfy Bot". The bot can't be assigned tasks at all (see [member statuses](/products/pro/settings/org-settings/understanding-member-statuses/)). When a deactivation skips the handover, on the page or through the API without `with_reassignment=true`, the work stays with the deactivated member. Nothing moves on its own, so reassign it yourself when you're ready. Their scheduled jobs fail until you change each job's owner, so change the owners before you deactivate them.
 
 ### API deletion
 
@@ -124,16 +121,13 @@ Tasks never fall to "Tallyfy Bot". The bot can't be assigned tasks at all (see [
 DELETE /organizations/{org}/users/{user_id}?with_reassignment=true&to={new_user_id}
 ```
 
-This call reassigns tasks to the specified member and then deactivates the member. It doesn't delete them. To delete them permanently, call `DELETE /organizations/{org}/users/{user_id}/delete` afterwards.
+This call hands the member's templates, processes, tasks and scheduled jobs to the specified member and then deactivates the member. `to` must be an active member of your organization, other than the member you're removing. It doesn't delete them. To delete them permanently, call `DELETE /organizations/{org}/users/{user_id}/delete` afterwards.
 
 ### Edge cases
 
 #### Organization with a single member
 - You can't delete the last member
 - Contact support for organization closure
-
-#### Circular admin dependencies
-If Admin A backs up Admin B and vice versa, add a third admin temporarily to break the cycle.
 
 ### Recovery
 
