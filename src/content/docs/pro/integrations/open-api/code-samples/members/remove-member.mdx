@@ -43,12 +43,12 @@ Replace `{org_id}` with your organization ID. Replace `{user_id}` with the membe
 
 ### Query parameters (optional)
 
-- `with_reassignment` (boolean) - `true` or `1` hands the member's work to the person in `to` before removal. `false`, `0` or leaving it out deactivates the member without handing anything over, and then you don't need `to`.
+- `with_reassignment` (boolean) - `true` or `1` hands the member's work to the person in `to` as part of the removal. `false`, `0` or leaving it out deactivates the member without handing anything over, and then you don't need `to`. Any other value gets `422`, and nobody is removed.
 - `to` (integer) - Required when `with_reassignment` is `true`. The user ID of the person taking over. It must be an active member of this organization, not the organization's bot, and not the member you're removing. Otherwise you get `422`, nobody is removed and nothing moves.
 
 Example: `?with_reassignment=true&to=1002`
 
-When you name someone in `to`, the member's scheduled jobs move to them, wherever that person can run them. A job they can't run stays with the removed member, and its runs fail.
+When `with_reassignment` is `true`, the member's scheduled jobs move to the person in `to` once the removal is done, but only the jobs that person can run. Any other job stays with the removed member, and its runs fail.
 
 Everything else moves, and the email goes out, only when the member owns or belongs to a template or process, is assigned to a template step, or has unfinished tasks. Otherwise nothing else moves and no email goes out. When there is work to hand over, this moves to the person in `to`:
 
@@ -397,11 +397,17 @@ You'll get `200 OK`. The removed member's data comes back in a `data` object.
 
 ### Error responses
 
+A validation error comes back as `422`, with its message under `errors` for the field it's about.
+
 | Status | Error message | What to do |
 |--------|--------------|------------|
 | 422 | `You can't remove a bot user from this organization!` | Bot users can't be removed through this endpoint. |
 | 422 | `Cannot modify the default administrator. Please assign another member as default administrator first.` | The member is an administrator and no other active administrator exists. Make another member an administrator first. |
-| 422 | A validation error on `to` | `to` isn't an active member of this organization, is the organization's bot, or is the member you're removing. Nobody is removed and nothing moves. |
+| 422 | `with_reassignment must be true or false.` | Send `true`, `false`, `1` or `0`, or leave it out. Nobody is removed. |
+| 422 | `The member taking over must be an active member of this organization.` | `to` isn't an active member of this organization. Pick one who is. Nobody is removed and nothing moves. |
+| 422 | `The organization bot cannot take over a member's work. Pick a member.` | `to` is the organization's bot. Pick a member instead. Nobody is removed and nothing moves. |
+| 422 | `The member taking over must be someone other than the member being removed.` | `to` is the member you're removing. Pick someone else. Nobody is removed and nothing moves. |
+| 422 | A validation error on `to` | `with_reassignment` is `true`, and `to` is missing or isn't a valid user ID. Nobody is removed. |
 | 404 | User not found | Check that the user ID exists in this organization. |
 
 ## Related articles

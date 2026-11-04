@@ -42,7 +42,7 @@ Before each run, Tallyfy checks that the owner is still an active member who can
 
 #### Changing a job's owner
 
-An org admin can change who a scheduled job runs as, by asking their AI assistant or through the API. The new owner must be an active member who can launch the template. If they can't, Tallyfy refuses the change and the job keeps its current owner.
+An org admin can change who a scheduled job runs as, by asking their AI assistant or through the API. The new owner must be an active member who can launch the template, and Tallyfy Bot can't be an owner. If the person you pick doesn't qualify, Tallyfy refuses the change and the job keeps its current owner.
 
 #### When the owner leaves your organization
 
@@ -142,9 +142,9 @@ Scheduled jobs use the API's `recurring-jobs` endpoints. Send the same headers a
 - `schedule` needs `recurring_type` (`hourly`, `daily`, `weekly`, `monthly` or `yearly`) and `start_time` (`HH:MM`), and takes `interval`. A weekly schedule also needs `days_of_week` (1 for Monday to 7 for Sunday). A monthly one needs `day_of_month`, or `week_of_month` with one day in `days_of_week`.
 - `data` takes the template's `checklist_id`, the `name` each launched process gets, and optional `prerun` values for the kick-off form.
 - `GET`, `PUT` and `DELETE /organizations/{org}/recurring-jobs/{id}` read, change and delete a job. `GET /organizations/{org}/recurring-jobs/{id}/history` returns its run history.
-- `PUT /organizations/{org}/recurring-jobs/{id}/owner` with the body `{"user_id": 123}` changes the owner. Only an org admin can call it. It answers `422` and changes nothing when the new owner isn't an active member who can launch the template.
+- `PUT /organizations/{org}/recurring-jobs/{id}/owner` with the body `{"user_id": 123}` changes the owner. Only an org admin can call it. It answers `422` and changes nothing when the new owner isn't an active member who can launch the template, or is the organization's bot.
 
-`start_date` and `start_time` are read in the organization's time zone. The owner is kept in the job's `data.created_by`, and updating a job with `PUT /organizations/{org}/recurring-jobs/{id}` never changes it.
+`start_date` and `start_time` are read in the organization's time zone. The owner is kept in the job's `data.created_by`, and updating a job with `PUT /organizations/{org}/recurring-jobs/{id}` never changes it. Each job the API returns also carries an `owner` object with the owner's `id`, `full_name` and `email`.
 
 A one-time job is a `daily` schedule with `max_occurrences` set to `1`, and its date and time must still be ahead. `max_occurrences` goes at the top level of the body, beside `start_date`. Inside `schedule` it's ignored, and the job runs every day. This body launches one process at 9 AM on December 31:
 
