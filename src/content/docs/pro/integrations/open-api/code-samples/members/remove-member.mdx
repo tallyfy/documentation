@@ -43,7 +43,7 @@ Replace `{org_id}` with your organization ID. Replace `{user_id}` with the membe
 
 ### Query parameters (optional)
 
-- `with_reassignment` (boolean) - `true` or `1` hands the member's work to the person in `to` as part of the removal. `false`, `0` or leaving it out deactivates the member without handing anything over, and then you don't need `to`. Any other value gets `422`, and nobody is removed.
+- `with_reassignment` (boolean) - `true` or `1` hands the member's work to the person in `to` as part of the removal. `false`, `0` or leaving it out deactivates the member without handing anything over, and then you don't need `to`. Letter case doesn't matter, so `TRUE` works too. Any other value gets `422`, and nobody is removed.
 - `to` (integer) - Required when `with_reassignment` is `true`. The user ID of the person taking over. It must be an active member of this organization, not the organization's bot, and not the member you're removing. Otherwise you get `422`, nobody is removed and nothing moves.
 
 Example: `?with_reassignment=true&to=1002`
@@ -397,7 +397,7 @@ You'll get `200 OK`. The removed member's data comes back in a `data` object.
 
 ### Error responses
 
-A validation error comes back as `422`, with its message under `errors` for the field it's about.
+The first two errors below come back in `message`. The other `422` errors are validation errors, with the message under `errors` for the field it's about.
 
 | Status | Error message | What to do |
 |--------|--------------|------------|
@@ -407,7 +407,7 @@ A validation error comes back as `422`, with its message under `errors` for the 
 | 422 | `The member taking over must be an active member of this organization.` | `to` isn't an active member of this organization. Pick one who is. Nobody is removed and nothing moves. |
 | 422 | `The organization bot cannot take over a member's work. Pick a member.` | `to` is the organization's bot. Pick a member instead. Nobody is removed and nothing moves. |
 | 422 | `The member taking over must be someone other than the member being removed.` | `to` is the member you're removing. Pick someone else. Nobody is removed and nothing moves. |
-| 422 | A validation error on `to` | `with_reassignment` is `true`, and `to` is missing or isn't a valid user ID. Nobody is removed. |
+| 422 | A validation error on `to` | `with_reassignment` is `true`, and `to` is missing or isn't a whole number. Nobody is removed. |
 | 404 | User not found | Check that the user ID exists in this organization. |
 
 ## Related articles
