@@ -1,9 +1,9 @@
 ---
 about_tallyfy: true
 description: Tallyfy's API lets administrators disable a member to block access and
-  remove their groups and individual permissions then enable them again to restore
-  access or permanently delete a disabled member's account across every Tallyfy organization
-  they belong to with no way to undo it.
+  take them out of their groups, enable them again to restore access, or permanently
+  delete a disabled member with no way to undo it. If they belong to another Tallyfy
+  organization, deletion only removes them from yours.
 id: 52bb853f60b7b901a784e79627377b36
 lastUpdated: 2026-09-22
 sidebar:
@@ -24,15 +24,15 @@ All three endpoints need an administrator's access token. Replace `{org_id}` wit
 - `Accept: application/json`
 - `X-Tallyfy-Client: APIClient`
 
-:::caution[Permanent deletion reaches beyond your organization]
-Permanent deletion removes the person's Tallyfy account itself, not only their place in your organization. It doesn't check whether they belong to other Tallyfy organizations, so they lose access to those too. If you only want them out of your organization, disable them and stop there.
+:::caution[What permanent deletion removes]
+If the person also belongs to another Tallyfy organization, permanent deletion only removes them from yours, and their access to the other organizations is unaffected. If they don't belong anywhere else, it deletes their Tallyfy account. If you only want them out of your organization for now, disable them and stop there.
 :::
 
 ## Disable a member
 
 `DELETE /organizations/{org_id}/users/{user_id}/disable`
 
-The member can't use your organization until you enable them again. Disabling also removes them from all their groups, and deletes any template and process permissions given to them individually.
+The member can't use your organization until you enable them again. Disabling also removes them from all their groups. Template and process permissions given to them individually stay on their record, and give them nothing while they're disabled.
 
 You can only disable an administrator while another active administrator exists. If you disable the default administrator, that role passes to one of the other administrators.
 
@@ -42,7 +42,7 @@ The one-call [remove member](/products/pro/integrations/open-api/code-samples/me
 
 `PUT /organizations/{org_id}/users/{user_id}/enable`
 
-This gives a disabled member their access back and puts them back in their groups. It doesn't restore the template and process permissions that disabling deleted, so grant those again if they need them. Tallyfy also emails the member to say their account is active again.
+This gives a disabled member their access back and puts them back in their groups. Template and process permissions given to them individually were kept while they were disabled, so those work again too. Tallyfy also emails the member to say their account is active again.
 
 Enabling can be refused when your organization only allows members to join through single sign-on, or when a trial organization has reached its member limit.
 
@@ -50,7 +50,7 @@ Enabling can be refused when your organization only allows members to join throu
 
 `DELETE /organizations/{org_id}/users/{user_id}/delete`
 
-The member must be disabled first. Tallyfy adds "(Deleted)" to their last name, changes their email to `{email}.deleted.{user_id}`, and deletes their account. Their completed work and history stay in your organization. There's no endpoint to undo this.
+The member must be disabled first. If they don't belong to any other Tallyfy organization, Tallyfy adds "(Deleted)" to their last name, changes their email to `{email}.deleted.{user_id}`, and deletes their account. If they do, Tallyfy only removes them from your organization, and their name, email and other organizations aren't touched. Their completed work and history stay in your organization. There's no endpoint to undo this.
 
 ## Code samples
 
