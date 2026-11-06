@@ -35,9 +35,9 @@ Template creators control this via the **"Can people add one-off tasks to this p
 |---------------------|--------------------------|--------------------|-------------|
 | **Task**            | COMPLETE                 | Yes                | Standard to-do for most actions (data entry, reviews). |
 | **Approve/Reject**  | APPROVE / REJECT         | Yes                | For decisions and approvals. Can trigger [Automations](/products/pro/documenting/templates/automations/). |
-| **Expiring**        | ACKNOWLEDGE              | No (optional)      | Auto-completes at deadline if not acknowledged. Prevents overdue task build-up. |
+| **Expiring**        | ACKNOWLEDGE              | No, it completes itself at the deadline | Auto-completes at deadline if not acknowledged. Prevents overdue task build-up. |
 | **Email Draft**     | SEND                     | Yes                | Email draft for assignee review/edit before manual send. |
-| **Email Auto-Send** | SEND RIGHT NOW / (Auto)  | Yes                | Sends email automatically at deadline, or earlier via **SEND RIGHT NOW**. |
+| **Email Auto-Send** | SEND RIGHT NOW / (Auto)  | No, it sends and completes itself at the deadline | Sends email automatically at deadline, or earlier via **SEND RIGHT NOW**. |
 
 #### Task type
 
@@ -65,7 +65,7 @@ Team members get notified and can engage if they want, but the task won't pile u
 
 #### Email types
 
-*   **Email Auto-Send**: Write the email in the template. It sends automatically at the deadline unless someone clicks **SEND RIGHT NOW** earlier.
+*   **Email Auto-Send**: Write the email in the template. Tallyfy sends it to the people in its **To** field at the step's deadline, unless a member assigned to the step clicks **SEND RIGHT NOW** earlier. [What happens at the deadline](#what-happens-at-the-deadline) shows the timeline.
 *   **Email Draft**: Write a draft in the template. The assignee reviews/edits and clicks **SEND** manually.
 *   **Send Chromeless**: Both email types can send without Tallyfy branding. Enable the **"Send Chromeless"** option to send plain emails without the Tallyfy logo, header, and footer - useful when emails should look like standard messages rather than workflow notifications.
 *   **Email Copies**: Assignees receive a copy of sent emails unless they've disabled email notifications.
@@ -73,6 +73,114 @@ Team members get notified and can engage if they want, but the task won't pile u
 :::note[Receiving email copies]
 Receiving copies depends on the "Receive emails when I'm assigned" setting under **Settings > My Profile > Email Notifications**. See [Manage Email Notifications](/products/pro/settings/personal-settings/how-can-i-manage-email-notifications-in-tallyfy/).
 :::
+
+### Being told about a task, and doing it
+
+Being told about a task and doing it happen at different times. Tallyfy tells you when a task becomes yours. The deadline is when it should be done. A deadline doesn't hold that email back, and it doesn't send you a reminder.
+
+For a Task, Approve/Reject or Expiring step, Tallyfy emails you that it's yours at one of these moments:
+
+- **When a process launches**, if one or more of your steps are visible from the start.
+- **When a rule shows a hidden step** that's assigned to you. The subject starts with "It's your turn".
+- **When someone assigns you** to a task that's already running.
+
+Those emails need **Receive emails when I'm assigned** switched on in your [email notification settings](/products/pro/settings/personal-settings/how-can-i-manage-email-notifications-in-tallyfy/).
+
+When an earlier step is completed and your deadline moves, you'll see the new date in Tallyfy, but no email goes out. There's no reminder email as your deadline gets close, or when it arrives.
+
+Once a deadline passes, the task shows as overdue. Your digest email lists your overdue tasks first, then ones coming up, on the days you've chosen to get it. If someone needs a nudge sooner, you can [send a reminder by hand](/products/pro/tracking-and-tasks/tasks/how-can-i-send-email-reminders-in-tallyfy/). How the deadline itself is counted is in [how a step deadline is worked out](/products/pro/documenting/templates/edit-templates/step-timings/).
+
+#### What happens at the deadline
+
+Expiring and Email Auto-Send are the two step types that do something when their deadline arrives. Tallyfy checks for them every 5 minutes, so each one acts within about 5 minutes after its deadline.
+
+If a step's deadline counts from another step that's still open, it waits. Once that step is completed, Tallyfy works the deadline out again from that moment, and the step acts when the new deadline passes.
+
+An Expiring step, from the moment it becomes yours:
+
+```d2
+# Expiring step: what happens over time
+direction: right
+
+Yours: "Step becomes yours\nYou get an email" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Ack: "You acknowledge it\nCompleted early" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Due: "Deadline arrives\nNo reminder sent" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Auto: "Completes itself\nShown as expired" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Yours -> Ack: Before the deadline {
+  style.stroke: "#225930"
+}
+Yours -> Due: Not acknowledged {
+  style.stroke: "#225930"
+}
+Due -> Auto: Within 5 minutes {
+  style.stroke: "#225930"
+}
+```
+
+**What to notice:**
+- Any assignee can click **ACKNOWLEDGE** before the deadline, and the step is done at once.
+- If nobody does, Tallyfy completes the step at the deadline and marks it expired.
+
+An Email Auto-Send step:
+
+```d2
+# Email Auto-Send step: what happens over time
+direction: right
+
+Active: "Step becomes active" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Early: "SEND RIGHT NOW\nclicked early" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Due: "Deadline arrives" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Sent: "Email sent to recipients\nStep completes itself" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Active -> Early: Optional {
+  style.stroke: "#225930"
+}
+Early -> Sent: At once {
+  style.stroke: "#225930"
+}
+Active -> Due: Nobody sends early {
+  style.stroke: "#225930"
+}
+Due -> Sent: Within 5 minutes {
+  style.stroke: "#225930"
+}
+```
+
+**What to notice:**
+- The recipients are the people in the step's **To** field.
+- A member assigned to the step can click **SEND RIGHT NOW** to send it before the deadline.
+- If nobody does, Tallyfy sends it at the deadline, and the step completes itself.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
