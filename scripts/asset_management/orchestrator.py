@@ -311,6 +311,12 @@ class AssetOrchestrator:
         # The key already had a row, so this upload replaced an image. Until #462 the old
         # captions stayed on whatever the new bytes show, and nothing queued it again.
         captions_cleared = False
+        if previous and article_ids is None:
+            # No --articles given for a key that already has a row: keep the row's article
+            # list. Writing '' here used to blank article_ids and article_count on every
+            # re-upload of an existing key (found under #462).
+            del asset_data['article_ids']
+            del asset_data['article_count']
         if previous:
             changed = image_changed(previous, content_sha256, upload_result.get('etag', ''))
             if keep_captions or changed is False:
@@ -629,6 +635,21 @@ def _self_test() -> int:
         check('replace with new bytes stores the new hash', r.get('content_sha256') == sha256_of(new_file))
         check('replace keeps article_ids', r.get('article_ids') == 'id1,id2')
         check('replace reports the clear', result.get('captions_cleared') is True)
+
+        # 4b. Re-uploading an existing key without --articles keeps its article list;
+        #     with --articles it takes the new one.
+        orch = fresh([captioned_row])
+        run(orch.upload_asset, new_file, 'tallyfy/pro/a.png', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('upload to an existing key without --articles keeps article_ids',
+              r.get('article_ids') == 'id1,id2' and r.get('article_count') == '2',
+              str((r.get('article_ids'), r.get('article_count'))))
+        orch = fresh([captioned_row])
+        run(orch.upload_asset, new_file, 'tallyfy/pro/a.png', article_ids='id9', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('upload to an existing key with --articles sets the new list',
+              r.get('article_ids') == 'id9' and r.get('article_count') == '1',
+              str((r.get('article_ids'), r.get('article_count'))))
 
         # 5. Replacing with the same bytes keeps everything.
         orch = fresh([captioned_row])
