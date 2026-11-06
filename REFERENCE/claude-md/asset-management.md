@@ -189,6 +189,31 @@ reach one step, the staging ingest. `scripts/pipeline-guard.py --check-wiring` f
 workflow a pull request starts names a secret or an environment, if anything but this job names
 the environment, or if the secrets reach any other step.
 
+##### The push gate
+
+The LaunchBrightly app can write to the repository, so it could push to `staging` or `main`
+without a pull request, and GitHub would not let a ruleset stop that without also stopping the
+pipeline's own pushes (owner decision 2026-11-06). So a `push-gate` job runs first in
+`generate-ids.yml` and in `documentation-pipeline.yml`, and every job that holds a secret, an
+environment or a push waits for it. It runs no code from the repository, only an inline script
+in the workflow, the same in both files, which an app without the workflows permission cannot
+change.
+
+It reads the commits from the head of the last successful `generate-ids.yml` run on the branch
+through this run's head, at most 250. A commit stops the run when a bot other than
+github-actions[bot] and tallyfy-workhorse[bot] authored or committed it and no merged pull
+request has it as its merge commit. So a squash-merged LaunchBrightly pull request passes, and a
+LaunchBrightly pull request merged with a merge commit or a rebase does not, because its own
+commits then sit on the branch outside a merge commit: squash-merge them. A push or merge by such
+a bot also stops the run, read from the repository activity API, which records who pushed whatever
+the commit says about who wrote it. When the gate cannot read something, it fails.
+
+On a stop it opens one issue, "Docs pipeline stopped: commits reached <branch> without a pull
+request", listing each commit and who made it, and adds to that issue on later stops. Review the
+commits. To accept them, close the issue as completed and re-run the failed workflow. Closing it
+as not planned keeps the pipeline stopped, and a close by a bot accepts nothing.
+`scripts/pipeline-guard.py --check-wiring` checks the wiring in both workflows.
+
 `screenshots/launchbrightly/pipeline-canary.png` is a plain image that reads "Screenshot
 pipeline canary". No article links it, so its row says `orphaned`. It proves the path end to
 end and is the control for the support-docs build check, so leave it in place.
