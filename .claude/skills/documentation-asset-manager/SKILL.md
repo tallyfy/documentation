@@ -29,6 +29,6 @@ claimed otherwise, and `caption` in particular printed a success tick while writ
 "Failed to initialize orchestrator" and exit 1, even though `caption` and `stats` never talk to R2.
 `config.py` loads the credentials, and `verify` lists any that are missing.
 
-The inventory is `documentation_assets.csv` at the repo root (16 columns). Captions reach the published docs at build time through the support-docs remark plugin, which reads `production_url` and the three `ai_caption_*` columns.
+The inventory is `documentation_assets.csv` at the repo root (26 columns since 2026-11-05, #462; the full list is under "CSV Schema" in `REFERENCE/claude-md/asset-management.md`). Captions reach the published docs at build time through the support-docs remark plugin, which reads `production_url` and the three `ai_caption_*` columns. This is the build-time alt-text injection.
 
 Full architecture, CSV schema, captioning rules, and the build-time alt-text injection are documented in this repo's **`CLAUDE.md` → "DOCUMENTATION ASSET MANAGEMENT"**. The one-off asset-sync Large Job that captioned the backlog is finished and its working folder is gone, so there is no runner to hand work to. Find any image still missing a caption with `python3 orchestrator.py audit` and caption it with `python3 orchestrator.py caption --url ...` inside a Claude Code session. This file is a pointer only - do not add a duplicate script fork here.
