@@ -25,7 +25,7 @@ This is the **ONLY** copy of the inventory. There is no root directory copy. All
 
 **Purpose**: Master catalog of all documentation assets hosted on Cloudflare R2
 
-**Schema** (16 columns):
+**Schema** (26 columns since 2026-11-05, #462). The first 16 are below. The other ten (`source`, `repo_path`, `app_screen`, `app_url`, `location_source`, `captured_at`, `content_sha256`, `markdown_alt`, `source_description`, `source_ref`) are described under "CSV Schema" in `REFERENCE/claude-md/asset-management.md`:
 1. `filename` - Asset filename (e.g., `desktop-light-assign-task.png`)
 2. `r2_key` - Full R2 bucket path (e.g., `tallyfy/pro/desktop-light-assign-task.png`)
 3. `production_url` - Public CDN URL (`https://screenshots.tallyfy.com/{r2_key}`)
