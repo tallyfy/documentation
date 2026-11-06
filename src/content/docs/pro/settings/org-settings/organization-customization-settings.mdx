@@ -64,7 +64,7 @@ Add your company's email domains (e.g., `yourcompany.com`) under **Settings > Or
 ### Notification settings
 
 *   **Default email digest days (Members/Guests)** - Set the default days *new* members and guests receive summary emails. They're free to change their own schedule later.
-*   **Send reminders for tasks whose start date is in the future?** - If **Yes** (the default), daily digest emails include every open task with a deadline, even ones that have not reached their start date yet. If **No**, member and guest digest emails leave out tasks whose start date is still in the future. Each task starts appearing once its start date arrives, and tasks with no start date always appear. Tasks that were never given an explicit start date are currently treated as starting shortly before their deadline, so turning this off is most useful when your templates and one-off tasks set real start dates.
+*   **Show tasks in the daily digest when they are due within** - Pick **No limit**, 3, 7, 14, 30, 60 or 90 days. The default is 30 days. Member and guest digest emails list overdue tasks and tasks due within that many days. A task due later stays in Tallyfy as normal, and it comes into the digest by itself once it's that close to its deadline. Tasks with no deadline never appear in the digest. **No limit** lists every open task that has a deadline. When a limit is set, each digest says how many days it covers in a line at the bottom.
 
 ### Webhook date formatting
 
@@ -73,6 +73,16 @@ Add your company's email domains (e.g., `yourcompany.com`) under **Settings > Or
 ### Saving changes
 
 Click **Save Changes** at the bottom of the page after making changes.
+
+## For developers
+
+(Skip this unless you're setting up the technical side.)
+
+The **Show tasks in the daily digest when they are due within** setting is the organization field `digest_lookahead_days` in the [API](/products/pro/integrations/open-api/). `GET /organizations/{org}` returns it, and `PUT /organizations/{org}` changes it. Only an Administrator can change it, as with every other field on that call. Send the same headers as on any other call: `Authorization: Bearer`, `X-Tallyfy-Client: APIClient` and `Accept: application/json`.
+
+- `null` means no limit.
+- A whole number from 1 to 365 is the number of days. Any other value, such as 0, 366 or text, gets a `422` response.
+- You can set a number that isn't in the dropdown, such as 45. The dropdown then shows that value, and saving other settings on the page keeps it.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
