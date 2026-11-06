@@ -156,8 +156,103 @@ jobs:
         run: python scripts/a11y-lint.py --dir="$PWD"
         shell: bash
 
-  generate-snippets:
+  # Screenshots committed under screenshots/launchbrightly/ and linked from articles by repository
+  # path (tallyfy/documentation#464). On staging it uploads each new or changed image to
+  # screenshots.tallyfy.com under a content-hashed key, reads it back, records it in
+  # documentation_assets.csv and commits only that file. It never deletes from R2. On main it
+  # only checks that every linked image has a row matching its bytes and its public copy; the
+  # support-docs build swaps each repository path for the row's URL.
+  #
+  # The upload credentials live in the r2-screenshots environment and reach one step, the
+  # staging ingest, through that step's env. No workflow a pull request starts names a secret or
+  # an environment. Both are asserted by `scripts/pipeline-guard.py --check-wiring`, which
+  # pr-validate.yml runs.
+  #
+  # generate-snippets and sync wait for this job, so the inventory commit lands before any other
+  # generator pushes and before sync copies the CSV to support-docs. With no screenshots/ folder
+  # it uploads nothing, needs no credential and commits nothing.
+  repo-screenshots:
     needs: validate-markdown
+    runs-on: ubuntu-latest
+    environment: r2-screenshots
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0   # the ingest reads the CSV's whole history for LaunchBrightly commits
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      # A workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run for main
+      # this job exists before main carries the script. Then the verify step below decides.
+      - name: Prove the ingest can refuse (red and green, fake R2)
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "$HEAD_BRANCH" = "main" ] && [ ! -f scripts/asset_management/repo_screenshots.py ]; then
+            echo "main does not carry repo_screenshots.py yet; the verify step decides whether that matters."
+            exit 0
+          fi
+          python -m pip install --upgrade requests python-dotenv
+          python scripts/asset_management/repo_screenshot_rules.py --self-test
+          python scripts/asset_management/repo_screenshots.py --self-test
+        shell: bash
+      - name: Verify repository screenshots (main)
+        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+        env:
+          REF_PATTERN: "[(<\"']/screenshots/"
+        run: |
+          if [ ! -f scripts/asset_management/repo_screenshots.py ]; then
+            rc=0
+            grep -rqE -- "$REF_PATTERN" src/content/docs || rc=$?
+            case "$rc" in
+              0) echo "::error::an article links a /screenshots/ path, and main has no repo_screenshots.py to verify it"
+                 exit 1 ;;
+              1) echo "No article links a /screenshots/ path, so there is nothing to verify."
+                 exit 0 ;;
+              *) echo "::error::could not search the articles (grep exit $rc)"
+                 exit 1 ;;
+            esac
+          fi
+          python scripts/asset_management/repo_screenshots.py verify --online
+        shell: bash
+      # Installed in its own step, so nothing pip runs ever sees the credentials below.
+      - name: Install the S3 client (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        run: python -m pip install --upgrade boto3
+        shell: bash
+      - name: Upload and record repository screenshots (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          git pull --ff-only
+          python scripts/asset_management/repo_screenshots.py ingest
+        shell: bash
+      - name: Commit the inventory (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        run: |
+          if [[ -z $(git status --porcelain -- documentation_assets.csv) ]]; then
+            echo "No inventory change. Nothing to commit."
+            exit 0
+          fi
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -- documentation_assets.csv
+          git commit -m "Inventory repository screenshots" -- documentation_assets.csv
+          git pull --no-rebase
+          git push
+        shell: bash
+
+  generate-snippets:
+    needs: [validate-markdown, repo-screenshots]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -377,7 +472,7 @@ jobs:
     # ai-tell-gate is load-bearing here for the same reason promotion-hold-gate is: this job is
     # what publishes, and `if: !failure()` only considers jobs in `needs`, so a gate left out of
     # this list would go red while the content shipped anyway. Asserted by --check-wiring.
-    needs: [ promotion-hold-gate, ai-tell-gate, validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
+    needs: [ promotion-hold-gate, ai-tell-gate, validate-markdown, repo-screenshots, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
     # The `conclusion == 'success'` term is load-bearing and is asserted by --check-wiring.
     # `!failure() && !cancelled()` alone is a status-function conditional, which replaces the
     # default "skip when a needed job was skipped". Neither term is true when the needs were
