@@ -38,6 +38,8 @@ python3 orchestrator.py sync                              # apply (atomic; refre
 
 `audit` scans `src/content/docs/**` for `screenshots.tallyfy.com` URLs and cross-references the CSV (URL-encoding-aware). `sync` is safe-auto: it only ADDS skeleton rows + refreshes `article_ids`; it never deletes dead/orphaned rows (those are surfaced in the report for human decision).
 
+Since 2026-11-05 (#462) `audit` also finds images an article links by repository path (`/screenshots/...`), matches them to rows by `repo_path`, and lists any path with no row on its own. `sync` leaves those paths alone, because their rows belong to the job that uploads them. A skeleton row `sync` adds gets `source=legacy-unknown`.
+
 **🗂️ Bulk caption backlog.** Captioning hundreds of uncaptioned images is multi-hour and rate-limited, so do NOT try to caption the whole backlog in one session. The one-off asset-sync Large Job that captioned the earlier backlog is finished and its working folder is gone, so there is no runner to hand work to. Work what is left in small batches from `scripts/asset_management/`: `python3 audit_sync.py worklist --limit 10` prints the next uncaptioned image URLs (it skips the blank captures listed in `caption-skip.txt`), and `python3 orchestrator.py caption --url ...` captions one of them inside a Claude Code session. If you already have the three captions, `python3 audit_sync.py set-caption --url ... --alt ... --descriptive ... --seo ...` writes them to the CSV; like `audit` and `sync`, it never builds the R2 uploader. The CSV is the done-ledger, so a batch can stop anywhere and the next `worklist` call picks up where it left off. `python3 orchestrator.py audit` gives the full count of what is still missing.
 
 ### Asset Storage Architecture
@@ -99,6 +101,10 @@ An image that never gets phase 2 ships with empty alt text, so treat the pair as
 drops unknown keys silently. Both now report what actually happened, and `caption` exits non-zero
 when it produced nothing. See tallyfy/documentation#117.
 
+`upload` records `source=manual` and the SHA-256 of the bytes it sent in `content_sha256`. It
+refuses any key under `launchbrightly/`, which is kept for LaunchBrightly images the pipeline
+uploads from `screenshots/launchbrightly/` (#462).
+
 #### Replace Existing Screenshot
 
 ```bash
@@ -108,6 +114,13 @@ python3 orchestrator.py replace \
   --file /path/to/updated-screenshot.png \
   --key "tallyfy/pro/desktop-light-existing-feature.png"
 ```
+
+When the new bytes differ from the old ones, `replace` clears the three caption columns, sets
+`needs_caption=yes` and prints the caption command, so `worklist` and `audit` offer the image
+again. It compares `content_sha256`, or the etag for a row that has no hash yet, and treats the
+image as changed when the row has neither. Pass `--keep-captions` when the swap is cosmetic and
+the captions still describe the image. `upload` to a key that already has a row does the same.
+Until 2026-11-05 (#462) a replaced image kept its old captions and was never queued again.
 
 #### Upload Without Captions (Quick Upload)
 
@@ -162,6 +175,24 @@ text it writes nothing and exits non-zero, rather than reporting success.
 - `ai_caption_descriptive` - Detailed caption
 - `ai_caption_seo` - SEO-optimized caption
 - `needs_caption` - `yes`|`no` (based on file type)
+- `source` - who made the image: `manual` (sent with `orchestrator.py upload` or `replace`), `launchbrightly` (committed under `screenshots/launchbrightly/` for the pipeline to upload; that job is not built yet), or `legacy-unknown` (a row from before 2026-11-05, or a skeleton row `sync` added)
+- `repo_path` - for an image committed to this repository, the root-relative path articles link, such as `/screenshots/launchbrightly/task-list.png`; the support-docs build is to swap it for `production_url`. Empty for an image that lives only on R2
+- `app_screen` - where in the app the image was taken, in plain words, such as `Template editor, step settings`
+- `app_url` - the app URL of that screen, path only
+- `location_source` - who supplied `app_screen` and `app_url`: `launchbrightly`, or `inferred` when it was worked out from the image and its article
+- `captured_at` - when the image was captured, ISO 8601
+- `content_sha256` - SHA-256 of the bytes on R2; `upload` and `replace` write it
+- `markdown_alt` - the alt text written in the article, kept as a fallback
+- `source_description` - the description that came with the image from whoever made it
+- `source_ref` - that maker's own reference for the image, such as a LaunchBrightly recipe id
+
+Dated 2026-11-05 (#462): the schema had the first 16 columns above until then. One migration
+commit added the other ten, set `source=legacy-unknown` on every row, and left the first 16
+fields of every row unchanged byte for byte. A write now keeps any column the file has that
+the scripts don't know, and a key with no column stops the write with an error. Until then
+`asset_inventory.py` wrote only the 16 columns it knew, so both disappeared without a word.
+`python3 asset_inventory.py migrate-columns --check` says whether the file is on the current
+schema, and the PR validation workflow runs it.
 
 **Inventory snapshot** (re-derived 2026-06-02 by `orchestrator.py audit` - run it for live numbers):
 - Total rows: 818
@@ -232,6 +263,11 @@ python3 asset_inventory.py find --filename "desktop-light-assign-task.png"
 
 # Verify configuration
 python3 orchestrator.py verify
+
+# Prove the scripts on temporary files (no credentials, no upload, never the real CSV)
+python3 asset_inventory.py --self-test
+python3 orchestrator.py --self-test
+python3 audit_sync.py --self-test
 ```
 
 ### Troubleshooting Asset Issues
