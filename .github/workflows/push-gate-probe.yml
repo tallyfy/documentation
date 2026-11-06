@@ -1,0 +1,781 @@
+name: Push gate probe (temporary, #464)
+
+# TEMPORARY. Runs the push-gate script, byte for byte, in dry-run mode against the live staging
+# and main branches with this pull request's GITHUB_TOKEN, to prove the token can read every
+# endpoint the gate uses. It writes nothing. The next commit on this branch deletes this file.
+
+on:
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Gate on staging, anchor from the generate-ids run list
+        uses: actions/github-script@v9
+        env:
+          GATE_MODE: pipeline
+          GATE_BRANCH: staging
+          GATE_DRY_RUN: '1'
+          GATE_RUN_ID: ${{ github.run_id }}
+        with:
+          script: |
+            // The push gate (tallyfy/documentation#464). A GitHub App with contents: write can push to staging
+            // or main without a pull request, and a ruleset cannot exempt the pipeline's own pushes, so this
+            // job stops every job after it instead. launchbrightly[bot] (id 270903805) is the app it was
+            // written for, but the rule covers every app bot except the two allowed below.
+            //
+            // It runs no code from the repository: the logic is here, in a workflow file, which an app
+            // without the workflows permission cannot change, and it reads only the GitHub API. The copy in
+            // generate-ids.yml and the copy in documentation-pipeline.yml must stay identical; only their env
+            // differs. `scripts/pipeline-guard.py --check-wiring` asserts both.
+            //
+            // Range: from the head of the last run of generate-ids.yml on this branch that concluded success
+            // (or of the run that started this one, when it succeeded) through this run's head. In the
+            // documentation pipeline the head is the branch tip, because every later job checks out the tip.
+            // At most 250 commits. Runs of documentation-pipeline.yml cannot be the anchor: on workflow_run
+            // the API reports every one of them as staging, at staging's head (measured 2026-11-06).
+            //
+            // A commit stops the run when a bot other than the two allowed authored or committed it and no
+            // merged pull request has it as its merge commit. A push or merge to the branch since the anchor
+            // stops it when a bot other than the two allowed made it, whatever the commit says about its
+            // author, because the repository activity API records who pushed. A person accepts stopped commits
+            // by closing this job's issue as completed. Anything it cannot read fails the job.
+            const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
+            const MAX_COMMITS = 250;
+            const MAX_ACTIVITY_PAGES = 5;
+            const SHA_RE = /^[0-9a-f]{40}$/;
+            const gateEnv = process.env;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = gateEnv.GATE_BRANCH || '';
+            const dryRun = gateEnv.GATE_DRY_RUN === '1';
+            const title = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            class CannotDecide extends Error {}
+            const short = (sha) => String(sha || '').slice(0, 12);
+            const isBotLogin = (login) => /\[bot\]$/i.test(String(login || ''));
+            const disallowed = (login) => Boolean(login) && !ALLOWED_BOTS.includes(String(login).toLowerCase());
+
+            // The app bot a commit names: its GitHub account when that is a bot, else a [bot] name in its git
+            // identity, so a bot's commit with an email GitHub does not link to an account is still seen.
+            function botIn(user, name, email) {
+              if (user && (user.type === 'Bot' || isBotLogin(user.login))) return String(user.login).toLowerCase();
+              const m = `${name || ''} ${email || ''}`.match(/([A-Za-z0-9][A-Za-z0-9-]*\[bot\])/i);
+              return m ? m[1].toLowerCase() : null;
+            }
+
+            async function api(route, params) {
+              try {
+                // A full URL (the activity API's next page) already carries its query; add nothing to it.
+                return route.includes('https://') ? await github.request(route)
+                  : await github.request(route, { owner, repo, ...(params || {}) });
+              } catch (err) {
+                throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
+              }
+            }
+
+            async function findAnchor() {
+              if (dryRun && SHA_RE.test(gateEnv.GATE_ANCHOR_OVERRIDE || '')) {
+                return { sha: gateEnv.GATE_ANCHOR_OVERRIDE, from: 'GATE_ANCHOR_OVERRIDE (dry run only)' };
+              }
+              if (gateEnv.GATE_TRIGGER_CONCLUSION === 'success' && SHA_RE.test(gateEnv.GATE_TRIGGER_HEAD || '')) {
+                return { sha: gateEnv.GATE_TRIGGER_HEAD, from: `the generate-ids run that started this one (${gateEnv.GATE_TRIGGER_RUN_ID})` };
+              }
+              const skip = new Set([String(gateEnv.GATE_RUN_ID || ''), String(gateEnv.GATE_TRIGGER_RUN_ID || '')]);
+              const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                { workflow_id: 'generate-ids.yml', branch, status: 'success', per_page: 20 });
+              const runs = ((data && data.workflow_runs) || []).filter((r) => r.head_branch === branch
+                && r.conclusion === 'success' && !skip.has(String(r.id)) && SHA_RE.test(r.head_sha || ''));
+              if (!runs.length) {
+                throw new CannotDecide(`no earlier successful run of generate-ids.yml on ${branch}, so there is no checked point to start from`);
+              }
+              return { sha: runs[0].head_sha, from: `generate-ids run ${runs[0].id}` };
+            }
+
+            async function findHead() {
+              if (gateEnv.GATE_MODE === 'push') {
+                if (!SHA_RE.test(gateEnv.GATE_HEAD || '')) throw new CannotDecide(`GATE_HEAD ${JSON.stringify(gateEnv.GATE_HEAD)} is not a commit`);
+                return gateEnv.GATE_HEAD;
+              }
+              const { data } = await api('GET /repos/{owner}/{repo}/branches/{branch}', { branch });
+              const sha = data && data.commit && data.commit.sha;
+              if (!SHA_RE.test(sha || '')) throw new CannotDecide(`could not read the tip of ${branch}`);
+              return sha;
+            }
+
+            async function rangeCommits(base, head) {
+              if (base === head) return { status: 'identical', commits: [] };
+              const seen = new Map();
+              let status = '';
+              let total = -1;
+              for (let page = 1; page <= Math.ceil(MAX_COMMITS / 100); page += 1) {
+                const { data } = await api('GET /repos/{owner}/{repo}/compare/{basehead}',
+                  { basehead: `${base}...${head}`, per_page: 100, page });
+                status = data && data.status;
+                total = data ? data.total_commits : -1;
+                if (status === 'identical' || status === 'behind') return { status, commits: [] };
+                if (status !== 'ahead') {
+                  throw new CannotDecide(`${short(base)}...${short(head)} is ${JSON.stringify(status)}, so the branch history was rewritten since the last checked run`);
+                }
+                if (!(total >= 0)) throw new CannotDecide('the compare response has no total_commits');
+                if (total > MAX_COMMITS) throw new CannotDecide(`${total} commits since the last checked run, over the cap of ${MAX_COMMITS}`);
+                const batch = (data && data.commits) || [];
+                for (const c of batch) seen.set(c.sha, c);
+                if (seen.size >= total || !batch.length) break;
+              }
+              if (seen.size !== total) throw new CannotDecide(`read ${seen.size} of ${total} commits in ${short(base)}...${short(head)}`);
+              return { status, commits: [...seen.values()] };
+            }
+
+            function identity(c) {
+              const a = (c.commit && c.commit.author) || {};
+              const k = (c.commit && c.commit.committer) || {};
+              const acct = (u) => (u && u.login ? ` (${u.login})` : '');
+              return `author ${a.name || '?'} <${a.email || '?'}>${acct(c.author)}, committer ${k.name || '?'} <${k.email || '?'}>${acct(c.committer)}`;
+            }
+
+            async function pushesSince(anchorSha) {
+              // Newest first. Every push or merge down to and including the one that produced the anchor.
+              const out = [];
+              let next = null;
+              for (let page = 1; page <= MAX_ACTIVITY_PAGES; page += 1) {
+                const res = next ? await api(`GET ${next}`)
+                  : await api('GET /repos/{owner}/{repo}/activity', { ref: `refs/heads/${branch}`, per_page: 100 });
+                for (const a of (res.data || [])) {
+                  out.push(a);
+                  if (a.after === anchorSha) return out;
+                }
+                const link = String((res.headers && res.headers.link) || '');
+                const m = link.match(/<([^>]+)>;\s*rel="next"/);
+                if (!m) return out;  // the whole history the API keeps, all of it after the anchor
+                next = m[1];
+              }
+              throw new CannotDecide(`more than ${MAX_ACTIVITY_PAGES * 100} pushes since ${short(anchorSha)}, more than this gate reads`);
+            }
+
+            async function acceptedShas() {
+              // A person closing this job's issue as completed accepts every commit the issue lists.
+              const out = new Map();
+              const { data } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
+              for (const issue of (data || [])) {
+                if (issue.pull_request || issue.title !== title) continue;
+                const { data: full } = await api('GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: issue.number });
+                const by = full && full.closed_by;
+                if (!full || full.state_reason !== 'completed' || !by || by.type === 'Bot' || isBotLogin(by.login)) continue;
+                for (const m of String(full.body || '').matchAll(/\b[0-9a-f]{40}\b/g)) {
+                  if (!out.has(m[0])) out.set(m[0], issue.number);
+                }
+              }
+              return out;
+            }
+
+            async function report(lines, anchor, head, range) {
+              const body = [
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch without a pull request, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot]:`,
+                '',
+                ...lines,
+                '',
+                `Range checked: \`${short(anchor.sha)}...${short(head)}\`, ${range.commits.length} commit(s). Run: ${runUrl}`,
+                '',
+                'Every job that holds a secret, an environment or a write token waits for this gate, so nothing after it ran.',
+                '',
+                'To accept these commits, review each one, then close this issue as completed and re-run the failed workflow. Closing it as not planned keeps the pipeline stopped. A close by a bot is ignored.',
+              ].join('\n');
+              if (dryRun) {
+                core.info(`DRY RUN: would open or update the issue "${title}" with:\n${body}`);
+                return;
+              }
+              const { data: open } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+              const existing = (open || []).filter((i) => !i.pull_request && i.title === title);
+              if (existing.length) {
+                const issue = existing[0];
+                const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
+                if (missing.length) {
+                  await api('PATCH /repos/{owner}/{repo}/issues/{issue_number}',
+                    { issue_number: issue.number, body: `${issue.body || ''}\n\nAlso stopped by ${runUrl}:\n\n${missing.join('\n')}` });
+                }
+                core.error(`See #${issue.number}.`);
+              } else {
+                const { data: created } = await api('POST /repos/{owner}/{repo}/issues', { title, body });
+                core.error(`Opened #${created.number}.`);
+              }
+            }
+
+            async function gate() {
+              if (!['push', 'pipeline'].includes(gateEnv.GATE_MODE)) throw new CannotDecide(`GATE_MODE is ${JSON.stringify(gateEnv.GATE_MODE)}`);
+              if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new CannotDecide(`branch ${JSON.stringify(branch)} is not a branch name`);
+              const anchor = await findAnchor();
+              const head = await findHead();
+              const range = await rangeCommits(anchor.sha, head);
+              const found = new Map();
+              const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
+
+              for (const c of range.commits) {
+                const bots = [...new Set([
+                  botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
+                  botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
+                ].filter(disallowed))];
+                if (!bots.length) continue;
+                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
+                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                if (merged) {
+                  core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
+                  continue;
+                }
+                add(c.sha, `${identity(c)}; no merged pull request has it as its merge commit`);
+              }
+
+              const pushes = await pushesSince(anchor.sha);
+              for (const a of pushes) {
+                const who = a.actor && a.actor.login;
+                if (a.actor && (a.actor.type === 'Bot' || isBotLogin(who)) && disallowed(who) && SHA_RE.test(a.after || '')) {
+                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
+                }
+              }
+
+              const accepted = found.size ? await acceptedShas() : new Map();
+              const open = [...found].filter(([sha]) => !accepted.has(sha));
+              for (const [sha] of found) {
+                if (accepted.has(sha)) core.info(`${short(sha)} was accepted by a person in #${accepted.get(sha)}.`);
+              }
+              core.info(`Checked ${short(anchor.sha)}...${short(head)} on ${branch} (${range.status}): ${range.commits.length} commit(s) and ${pushes.length} push(es), starting from ${anchor.from}.`);
+              if (!open.length) {
+                core.info('No commit reached the branch without a pull request.');
+                return;
+              }
+              const lines = open.map(([sha, why]) => `- \`${sha}\`: ${why.join('; ')}`);
+              for (const line of lines) core.error(line);
+              await report(lines, anchor, head, range);
+              core.setFailed(`${open.length} commit(s) reached ${branch} without a pull request. Every job after this gate is stopped.`);
+            }
+
+            try {
+              await gate();
+            } catch (err) {
+              if (err instanceof CannotDecide) core.setFailed(`The push gate could not decide, so nothing after it runs: ${err.message}`);
+              else core.setFailed(`The push gate crashed, so nothing after it runs: ${(err && err.stack) || err}`);
+            }
+      - name: Gate on staging over a real 12-commit range
+        uses: actions/github-script@v9
+        env:
+          GATE_MODE: pipeline
+          GATE_BRANCH: staging
+          GATE_DRY_RUN: '1'
+          GATE_ANCHOR_OVERRIDE: 89db6b10c2a09a2bbe2958277deccbeba7ea212f
+          GATE_RUN_ID: ${{ github.run_id }}
+        with:
+          script: |
+            // The push gate (tallyfy/documentation#464). A GitHub App with contents: write can push to staging
+            // or main without a pull request, and a ruleset cannot exempt the pipeline's own pushes, so this
+            // job stops every job after it instead. launchbrightly[bot] (id 270903805) is the app it was
+            // written for, but the rule covers every app bot except the two allowed below.
+            //
+            // It runs no code from the repository: the logic is here, in a workflow file, which an app
+            // without the workflows permission cannot change, and it reads only the GitHub API. The copy in
+            // generate-ids.yml and the copy in documentation-pipeline.yml must stay identical; only their env
+            // differs. `scripts/pipeline-guard.py --check-wiring` asserts both.
+            //
+            // Range: from the head of the last run of generate-ids.yml on this branch that concluded success
+            // (or of the run that started this one, when it succeeded) through this run's head. In the
+            // documentation pipeline the head is the branch tip, because every later job checks out the tip.
+            // At most 250 commits. Runs of documentation-pipeline.yml cannot be the anchor: on workflow_run
+            // the API reports every one of them as staging, at staging's head (measured 2026-11-06).
+            //
+            // A commit stops the run when a bot other than the two allowed authored or committed it and no
+            // merged pull request has it as its merge commit. A push or merge to the branch since the anchor
+            // stops it when a bot other than the two allowed made it, whatever the commit says about its
+            // author, because the repository activity API records who pushed. A person accepts stopped commits
+            // by closing this job's issue as completed. Anything it cannot read fails the job.
+            const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
+            const MAX_COMMITS = 250;
+            const MAX_ACTIVITY_PAGES = 5;
+            const SHA_RE = /^[0-9a-f]{40}$/;
+            const gateEnv = process.env;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = gateEnv.GATE_BRANCH || '';
+            const dryRun = gateEnv.GATE_DRY_RUN === '1';
+            const title = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            class CannotDecide extends Error {}
+            const short = (sha) => String(sha || '').slice(0, 12);
+            const isBotLogin = (login) => /\[bot\]$/i.test(String(login || ''));
+            const disallowed = (login) => Boolean(login) && !ALLOWED_BOTS.includes(String(login).toLowerCase());
+
+            // The app bot a commit names: its GitHub account when that is a bot, else a [bot] name in its git
+            // identity, so a bot's commit with an email GitHub does not link to an account is still seen.
+            function botIn(user, name, email) {
+              if (user && (user.type === 'Bot' || isBotLogin(user.login))) return String(user.login).toLowerCase();
+              const m = `${name || ''} ${email || ''}`.match(/([A-Za-z0-9][A-Za-z0-9-]*\[bot\])/i);
+              return m ? m[1].toLowerCase() : null;
+            }
+
+            async function api(route, params) {
+              try {
+                // A full URL (the activity API's next page) already carries its query; add nothing to it.
+                return route.includes('https://') ? await github.request(route)
+                  : await github.request(route, { owner, repo, ...(params || {}) });
+              } catch (err) {
+                throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
+              }
+            }
+
+            async function findAnchor() {
+              if (dryRun && SHA_RE.test(gateEnv.GATE_ANCHOR_OVERRIDE || '')) {
+                return { sha: gateEnv.GATE_ANCHOR_OVERRIDE, from: 'GATE_ANCHOR_OVERRIDE (dry run only)' };
+              }
+              if (gateEnv.GATE_TRIGGER_CONCLUSION === 'success' && SHA_RE.test(gateEnv.GATE_TRIGGER_HEAD || '')) {
+                return { sha: gateEnv.GATE_TRIGGER_HEAD, from: `the generate-ids run that started this one (${gateEnv.GATE_TRIGGER_RUN_ID})` };
+              }
+              const skip = new Set([String(gateEnv.GATE_RUN_ID || ''), String(gateEnv.GATE_TRIGGER_RUN_ID || '')]);
+              const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                { workflow_id: 'generate-ids.yml', branch, status: 'success', per_page: 20 });
+              const runs = ((data && data.workflow_runs) || []).filter((r) => r.head_branch === branch
+                && r.conclusion === 'success' && !skip.has(String(r.id)) && SHA_RE.test(r.head_sha || ''));
+              if (!runs.length) {
+                throw new CannotDecide(`no earlier successful run of generate-ids.yml on ${branch}, so there is no checked point to start from`);
+              }
+              return { sha: runs[0].head_sha, from: `generate-ids run ${runs[0].id}` };
+            }
+
+            async function findHead() {
+              if (gateEnv.GATE_MODE === 'push') {
+                if (!SHA_RE.test(gateEnv.GATE_HEAD || '')) throw new CannotDecide(`GATE_HEAD ${JSON.stringify(gateEnv.GATE_HEAD)} is not a commit`);
+                return gateEnv.GATE_HEAD;
+              }
+              const { data } = await api('GET /repos/{owner}/{repo}/branches/{branch}', { branch });
+              const sha = data && data.commit && data.commit.sha;
+              if (!SHA_RE.test(sha || '')) throw new CannotDecide(`could not read the tip of ${branch}`);
+              return sha;
+            }
+
+            async function rangeCommits(base, head) {
+              if (base === head) return { status: 'identical', commits: [] };
+              const seen = new Map();
+              let status = '';
+              let total = -1;
+              for (let page = 1; page <= Math.ceil(MAX_COMMITS / 100); page += 1) {
+                const { data } = await api('GET /repos/{owner}/{repo}/compare/{basehead}',
+                  { basehead: `${base}...${head}`, per_page: 100, page });
+                status = data && data.status;
+                total = data ? data.total_commits : -1;
+                if (status === 'identical' || status === 'behind') return { status, commits: [] };
+                if (status !== 'ahead') {
+                  throw new CannotDecide(`${short(base)}...${short(head)} is ${JSON.stringify(status)}, so the branch history was rewritten since the last checked run`);
+                }
+                if (!(total >= 0)) throw new CannotDecide('the compare response has no total_commits');
+                if (total > MAX_COMMITS) throw new CannotDecide(`${total} commits since the last checked run, over the cap of ${MAX_COMMITS}`);
+                const batch = (data && data.commits) || [];
+                for (const c of batch) seen.set(c.sha, c);
+                if (seen.size >= total || !batch.length) break;
+              }
+              if (seen.size !== total) throw new CannotDecide(`read ${seen.size} of ${total} commits in ${short(base)}...${short(head)}`);
+              return { status, commits: [...seen.values()] };
+            }
+
+            function identity(c) {
+              const a = (c.commit && c.commit.author) || {};
+              const k = (c.commit && c.commit.committer) || {};
+              const acct = (u) => (u && u.login ? ` (${u.login})` : '');
+              return `author ${a.name || '?'} <${a.email || '?'}>${acct(c.author)}, committer ${k.name || '?'} <${k.email || '?'}>${acct(c.committer)}`;
+            }
+
+            async function pushesSince(anchorSha) {
+              // Newest first. Every push or merge down to and including the one that produced the anchor.
+              const out = [];
+              let next = null;
+              for (let page = 1; page <= MAX_ACTIVITY_PAGES; page += 1) {
+                const res = next ? await api(`GET ${next}`)
+                  : await api('GET /repos/{owner}/{repo}/activity', { ref: `refs/heads/${branch}`, per_page: 100 });
+                for (const a of (res.data || [])) {
+                  out.push(a);
+                  if (a.after === anchorSha) return out;
+                }
+                const link = String((res.headers && res.headers.link) || '');
+                const m = link.match(/<([^>]+)>;\s*rel="next"/);
+                if (!m) return out;  // the whole history the API keeps, all of it after the anchor
+                next = m[1];
+              }
+              throw new CannotDecide(`more than ${MAX_ACTIVITY_PAGES * 100} pushes since ${short(anchorSha)}, more than this gate reads`);
+            }
+
+            async function acceptedShas() {
+              // A person closing this job's issue as completed accepts every commit the issue lists.
+              const out = new Map();
+              const { data } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
+              for (const issue of (data || [])) {
+                if (issue.pull_request || issue.title !== title) continue;
+                const { data: full } = await api('GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: issue.number });
+                const by = full && full.closed_by;
+                if (!full || full.state_reason !== 'completed' || !by || by.type === 'Bot' || isBotLogin(by.login)) continue;
+                for (const m of String(full.body || '').matchAll(/\b[0-9a-f]{40}\b/g)) {
+                  if (!out.has(m[0])) out.set(m[0], issue.number);
+                }
+              }
+              return out;
+            }
+
+            async function report(lines, anchor, head, range) {
+              const body = [
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch without a pull request, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot]:`,
+                '',
+                ...lines,
+                '',
+                `Range checked: \`${short(anchor.sha)}...${short(head)}\`, ${range.commits.length} commit(s). Run: ${runUrl}`,
+                '',
+                'Every job that holds a secret, an environment or a write token waits for this gate, so nothing after it ran.',
+                '',
+                'To accept these commits, review each one, then close this issue as completed and re-run the failed workflow. Closing it as not planned keeps the pipeline stopped. A close by a bot is ignored.',
+              ].join('\n');
+              if (dryRun) {
+                core.info(`DRY RUN: would open or update the issue "${title}" with:\n${body}`);
+                return;
+              }
+              const { data: open } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+              const existing = (open || []).filter((i) => !i.pull_request && i.title === title);
+              if (existing.length) {
+                const issue = existing[0];
+                const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
+                if (missing.length) {
+                  await api('PATCH /repos/{owner}/{repo}/issues/{issue_number}',
+                    { issue_number: issue.number, body: `${issue.body || ''}\n\nAlso stopped by ${runUrl}:\n\n${missing.join('\n')}` });
+                }
+                core.error(`See #${issue.number}.`);
+              } else {
+                const { data: created } = await api('POST /repos/{owner}/{repo}/issues', { title, body });
+                core.error(`Opened #${created.number}.`);
+              }
+            }
+
+            async function gate() {
+              if (!['push', 'pipeline'].includes(gateEnv.GATE_MODE)) throw new CannotDecide(`GATE_MODE is ${JSON.stringify(gateEnv.GATE_MODE)}`);
+              if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new CannotDecide(`branch ${JSON.stringify(branch)} is not a branch name`);
+              const anchor = await findAnchor();
+              const head = await findHead();
+              const range = await rangeCommits(anchor.sha, head);
+              const found = new Map();
+              const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
+
+              for (const c of range.commits) {
+                const bots = [...new Set([
+                  botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
+                  botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
+                ].filter(disallowed))];
+                if (!bots.length) continue;
+                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
+                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                if (merged) {
+                  core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
+                  continue;
+                }
+                add(c.sha, `${identity(c)}; no merged pull request has it as its merge commit`);
+              }
+
+              const pushes = await pushesSince(anchor.sha);
+              for (const a of pushes) {
+                const who = a.actor && a.actor.login;
+                if (a.actor && (a.actor.type === 'Bot' || isBotLogin(who)) && disallowed(who) && SHA_RE.test(a.after || '')) {
+                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
+                }
+              }
+
+              const accepted = found.size ? await acceptedShas() : new Map();
+              const open = [...found].filter(([sha]) => !accepted.has(sha));
+              for (const [sha] of found) {
+                if (accepted.has(sha)) core.info(`${short(sha)} was accepted by a person in #${accepted.get(sha)}.`);
+              }
+              core.info(`Checked ${short(anchor.sha)}...${short(head)} on ${branch} (${range.status}): ${range.commits.length} commit(s) and ${pushes.length} push(es), starting from ${anchor.from}.`);
+              if (!open.length) {
+                core.info('No commit reached the branch without a pull request.');
+                return;
+              }
+              const lines = open.map(([sha, why]) => `- \`${sha}\`: ${why.join('; ')}`);
+              for (const line of lines) core.error(line);
+              await report(lines, anchor, head, range);
+              core.setFailed(`${open.length} commit(s) reached ${branch} without a pull request. Every job after this gate is stopped.`);
+            }
+
+            try {
+              await gate();
+            } catch (err) {
+              if (err instanceof CannotDecide) core.setFailed(`The push gate could not decide, so nothing after it runs: ${err.message}`);
+              else core.setFailed(`The push gate crashed, so nothing after it runs: ${(err && err.stack) || err}`);
+            }
+      - name: Gate on main, anchor from the generate-ids run list
+        uses: actions/github-script@v9
+        env:
+          GATE_MODE: pipeline
+          GATE_BRANCH: main
+          GATE_DRY_RUN: '1'
+          GATE_RUN_ID: ${{ github.run_id }}
+        with:
+          script: |
+            // The push gate (tallyfy/documentation#464). A GitHub App with contents: write can push to staging
+            // or main without a pull request, and a ruleset cannot exempt the pipeline's own pushes, so this
+            // job stops every job after it instead. launchbrightly[bot] (id 270903805) is the app it was
+            // written for, but the rule covers every app bot except the two allowed below.
+            //
+            // It runs no code from the repository: the logic is here, in a workflow file, which an app
+            // without the workflows permission cannot change, and it reads only the GitHub API. The copy in
+            // generate-ids.yml and the copy in documentation-pipeline.yml must stay identical; only their env
+            // differs. `scripts/pipeline-guard.py --check-wiring` asserts both.
+            //
+            // Range: from the head of the last run of generate-ids.yml on this branch that concluded success
+            // (or of the run that started this one, when it succeeded) through this run's head. In the
+            // documentation pipeline the head is the branch tip, because every later job checks out the tip.
+            // At most 250 commits. Runs of documentation-pipeline.yml cannot be the anchor: on workflow_run
+            // the API reports every one of them as staging, at staging's head (measured 2026-11-06).
+            //
+            // A commit stops the run when a bot other than the two allowed authored or committed it and no
+            // merged pull request has it as its merge commit. A push or merge to the branch since the anchor
+            // stops it when a bot other than the two allowed made it, whatever the commit says about its
+            // author, because the repository activity API records who pushed. A person accepts stopped commits
+            // by closing this job's issue as completed. Anything it cannot read fails the job.
+            const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
+            const MAX_COMMITS = 250;
+            const MAX_ACTIVITY_PAGES = 5;
+            const SHA_RE = /^[0-9a-f]{40}$/;
+            const gateEnv = process.env;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = gateEnv.GATE_BRANCH || '';
+            const dryRun = gateEnv.GATE_DRY_RUN === '1';
+            const title = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            class CannotDecide extends Error {}
+            const short = (sha) => String(sha || '').slice(0, 12);
+            const isBotLogin = (login) => /\[bot\]$/i.test(String(login || ''));
+            const disallowed = (login) => Boolean(login) && !ALLOWED_BOTS.includes(String(login).toLowerCase());
+
+            // The app bot a commit names: its GitHub account when that is a bot, else a [bot] name in its git
+            // identity, so a bot's commit with an email GitHub does not link to an account is still seen.
+            function botIn(user, name, email) {
+              if (user && (user.type === 'Bot' || isBotLogin(user.login))) return String(user.login).toLowerCase();
+              const m = `${name || ''} ${email || ''}`.match(/([A-Za-z0-9][A-Za-z0-9-]*\[bot\])/i);
+              return m ? m[1].toLowerCase() : null;
+            }
+
+            async function api(route, params) {
+              try {
+                // A full URL (the activity API's next page) already carries its query; add nothing to it.
+                return route.includes('https://') ? await github.request(route)
+                  : await github.request(route, { owner, repo, ...(params || {}) });
+              } catch (err) {
+                throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
+              }
+            }
+
+            async function findAnchor() {
+              if (dryRun && SHA_RE.test(gateEnv.GATE_ANCHOR_OVERRIDE || '')) {
+                return { sha: gateEnv.GATE_ANCHOR_OVERRIDE, from: 'GATE_ANCHOR_OVERRIDE (dry run only)' };
+              }
+              if (gateEnv.GATE_TRIGGER_CONCLUSION === 'success' && SHA_RE.test(gateEnv.GATE_TRIGGER_HEAD || '')) {
+                return { sha: gateEnv.GATE_TRIGGER_HEAD, from: `the generate-ids run that started this one (${gateEnv.GATE_TRIGGER_RUN_ID})` };
+              }
+              const skip = new Set([String(gateEnv.GATE_RUN_ID || ''), String(gateEnv.GATE_TRIGGER_RUN_ID || '')]);
+              const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                { workflow_id: 'generate-ids.yml', branch, status: 'success', per_page: 20 });
+              const runs = ((data && data.workflow_runs) || []).filter((r) => r.head_branch === branch
+                && r.conclusion === 'success' && !skip.has(String(r.id)) && SHA_RE.test(r.head_sha || ''));
+              if (!runs.length) {
+                throw new CannotDecide(`no earlier successful run of generate-ids.yml on ${branch}, so there is no checked point to start from`);
+              }
+              return { sha: runs[0].head_sha, from: `generate-ids run ${runs[0].id}` };
+            }
+
+            async function findHead() {
+              if (gateEnv.GATE_MODE === 'push') {
+                if (!SHA_RE.test(gateEnv.GATE_HEAD || '')) throw new CannotDecide(`GATE_HEAD ${JSON.stringify(gateEnv.GATE_HEAD)} is not a commit`);
+                return gateEnv.GATE_HEAD;
+              }
+              const { data } = await api('GET /repos/{owner}/{repo}/branches/{branch}', { branch });
+              const sha = data && data.commit && data.commit.sha;
+              if (!SHA_RE.test(sha || '')) throw new CannotDecide(`could not read the tip of ${branch}`);
+              return sha;
+            }
+
+            async function rangeCommits(base, head) {
+              if (base === head) return { status: 'identical', commits: [] };
+              const seen = new Map();
+              let status = '';
+              let total = -1;
+              for (let page = 1; page <= Math.ceil(MAX_COMMITS / 100); page += 1) {
+                const { data } = await api('GET /repos/{owner}/{repo}/compare/{basehead}',
+                  { basehead: `${base}...${head}`, per_page: 100, page });
+                status = data && data.status;
+                total = data ? data.total_commits : -1;
+                if (status === 'identical' || status === 'behind') return { status, commits: [] };
+                if (status !== 'ahead') {
+                  throw new CannotDecide(`${short(base)}...${short(head)} is ${JSON.stringify(status)}, so the branch history was rewritten since the last checked run`);
+                }
+                if (!(total >= 0)) throw new CannotDecide('the compare response has no total_commits');
+                if (total > MAX_COMMITS) throw new CannotDecide(`${total} commits since the last checked run, over the cap of ${MAX_COMMITS}`);
+                const batch = (data && data.commits) || [];
+                for (const c of batch) seen.set(c.sha, c);
+                if (seen.size >= total || !batch.length) break;
+              }
+              if (seen.size !== total) throw new CannotDecide(`read ${seen.size} of ${total} commits in ${short(base)}...${short(head)}`);
+              return { status, commits: [...seen.values()] };
+            }
+
+            function identity(c) {
+              const a = (c.commit && c.commit.author) || {};
+              const k = (c.commit && c.commit.committer) || {};
+              const acct = (u) => (u && u.login ? ` (${u.login})` : '');
+              return `author ${a.name || '?'} <${a.email || '?'}>${acct(c.author)}, committer ${k.name || '?'} <${k.email || '?'}>${acct(c.committer)}`;
+            }
+
+            async function pushesSince(anchorSha) {
+              // Newest first. Every push or merge down to and including the one that produced the anchor.
+              const out = [];
+              let next = null;
+              for (let page = 1; page <= MAX_ACTIVITY_PAGES; page += 1) {
+                const res = next ? await api(`GET ${next}`)
+                  : await api('GET /repos/{owner}/{repo}/activity', { ref: `refs/heads/${branch}`, per_page: 100 });
+                for (const a of (res.data || [])) {
+                  out.push(a);
+                  if (a.after === anchorSha) return out;
+                }
+                const link = String((res.headers && res.headers.link) || '');
+                const m = link.match(/<([^>]+)>;\s*rel="next"/);
+                if (!m) return out;  // the whole history the API keeps, all of it after the anchor
+                next = m[1];
+              }
+              throw new CannotDecide(`more than ${MAX_ACTIVITY_PAGES * 100} pushes since ${short(anchorSha)}, more than this gate reads`);
+            }
+
+            async function acceptedShas() {
+              // A person closing this job's issue as completed accepts every commit the issue lists.
+              const out = new Map();
+              const { data } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
+              for (const issue of (data || [])) {
+                if (issue.pull_request || issue.title !== title) continue;
+                const { data: full } = await api('GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: issue.number });
+                const by = full && full.closed_by;
+                if (!full || full.state_reason !== 'completed' || !by || by.type === 'Bot' || isBotLogin(by.login)) continue;
+                for (const m of String(full.body || '').matchAll(/\b[0-9a-f]{40}\b/g)) {
+                  if (!out.has(m[0])) out.set(m[0], issue.number);
+                }
+              }
+              return out;
+            }
+
+            async function report(lines, anchor, head, range) {
+              const body = [
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch without a pull request, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot]:`,
+                '',
+                ...lines,
+                '',
+                `Range checked: \`${short(anchor.sha)}...${short(head)}\`, ${range.commits.length} commit(s). Run: ${runUrl}`,
+                '',
+                'Every job that holds a secret, an environment or a write token waits for this gate, so nothing after it ran.',
+                '',
+                'To accept these commits, review each one, then close this issue as completed and re-run the failed workflow. Closing it as not planned keeps the pipeline stopped. A close by a bot is ignored.',
+              ].join('\n');
+              if (dryRun) {
+                core.info(`DRY RUN: would open or update the issue "${title}" with:\n${body}`);
+                return;
+              }
+              const { data: open } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+              const existing = (open || []).filter((i) => !i.pull_request && i.title === title);
+              if (existing.length) {
+                const issue = existing[0];
+                const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
+                if (missing.length) {
+                  await api('PATCH /repos/{owner}/{repo}/issues/{issue_number}',
+                    { issue_number: issue.number, body: `${issue.body || ''}\n\nAlso stopped by ${runUrl}:\n\n${missing.join('\n')}` });
+                }
+                core.error(`See #${issue.number}.`);
+              } else {
+                const { data: created } = await api('POST /repos/{owner}/{repo}/issues', { title, body });
+                core.error(`Opened #${created.number}.`);
+              }
+            }
+
+            async function gate() {
+              if (!['push', 'pipeline'].includes(gateEnv.GATE_MODE)) throw new CannotDecide(`GATE_MODE is ${JSON.stringify(gateEnv.GATE_MODE)}`);
+              if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new CannotDecide(`branch ${JSON.stringify(branch)} is not a branch name`);
+              const anchor = await findAnchor();
+              const head = await findHead();
+              const range = await rangeCommits(anchor.sha, head);
+              const found = new Map();
+              const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
+
+              for (const c of range.commits) {
+                const bots = [...new Set([
+                  botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
+                  botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
+                ].filter(disallowed))];
+                if (!bots.length) continue;
+                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
+                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                if (merged) {
+                  core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
+                  continue;
+                }
+                add(c.sha, `${identity(c)}; no merged pull request has it as its merge commit`);
+              }
+
+              const pushes = await pushesSince(anchor.sha);
+              for (const a of pushes) {
+                const who = a.actor && a.actor.login;
+                if (a.actor && (a.actor.type === 'Bot' || isBotLogin(who)) && disallowed(who) && SHA_RE.test(a.after || '')) {
+                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
+                }
+              }
+
+              const accepted = found.size ? await acceptedShas() : new Map();
+              const open = [...found].filter(([sha]) => !accepted.has(sha));
+              for (const [sha] of found) {
+                if (accepted.has(sha)) core.info(`${short(sha)} was accepted by a person in #${accepted.get(sha)}.`);
+              }
+              core.info(`Checked ${short(anchor.sha)}...${short(head)} on ${branch} (${range.status}): ${range.commits.length} commit(s) and ${pushes.length} push(es), starting from ${anchor.from}.`);
+              if (!open.length) {
+                core.info('No commit reached the branch without a pull request.');
+                return;
+              }
+              const lines = open.map(([sha, why]) => `- \`${sha}\`: ${why.join('; ')}`);
+              for (const line of lines) core.error(line);
+              await report(lines, anchor, head, range);
+              core.setFailed(`${open.length} commit(s) reached ${branch} without a pull request. Every job after this gate is stopped.`);
+            }
+
+            try {
+              await gate();
+            } catch (err) {
+              if (err instanceof CannotDecide) core.setFailed(`The push gate could not decide, so nothing after it runs: ${err.message}`);
+              else core.setFailed(`The push gate crashed, so nothing after it runs: ${(err && err.stack) || err}`);
+            }
+      - name: The endpoints the gate reads only when it finds a bot commit
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const o = context.repo.owner, r = context.repo.repo;
+            const show = async (label, route, params) => {
+              const res = await github.request(route, { owner: o, repo: r, ...params });
+              core.info(`${label}: HTTP ${res.status}, ${Array.isArray(res.data) ? res.data.length + ' item(s)' : 'object'}`);
+              return res.data;
+            };
+            const prs = await show('commits/{sha}/pulls for the #469 squash merge', 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: '2305c07732290521f1e8c2c5b523ca259f9352c9' });
+            core.info(`  merge_commit_sha matches: ${prs.some((p) => p.merge_commit_sha === '2305c07732290521f1e8c2c5b523ca259f9352c9')}`);
+            await show('issues closed, creator github-actions[bot]', 'GET /repos/{owner}/{repo}/issues', { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
+            await show('issues open, creator github-actions[bot]', 'GET /repos/{owner}/{repo}/issues', { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+            const one = await show('one issue (#464)', 'GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: 464 });
+            core.info(`  closed_by field present: ${'closed_by' in one}, state_reason field present: ${'state_reason' in one}`);
