@@ -154,9 +154,11 @@ that looks wrong.
 | Changed by hand on a running task | Yes |
 | Set by an automation's deadline action | No |
 
-When it is applied, Tallyfy only ever moves a deadline **later**, never earlier. A Saturday
-deadline moves forward into Monday, including when the rule said "before". If you set no working
-days at all, nothing is adjusted and the date stands as calculated.
+When it's applied, a deadline moves later, to the next working time, so a Saturday deadline
+moves forward into Monday. A deadline counted **before** another step is different once that step
+is completed or its deadline changes: Tallyfy works it out again and moves it earlier, to an
+earlier working time, so it still lands before that step. If you set no working days at all,
+nothing is adjusted and the date stands as calculated.
 
 Full detail is in [customize work week](/products/pro/settings/org-settings/how-to-adjust-task-deadlines-to-work-week/).
 
@@ -172,6 +174,75 @@ Full detail is in [customize work week](/products/pro/settings/org-settings/how-
 A step can also carry a start time, which is a hint about when work should begin. It's guidance
 only. Nothing enforces it, and it never decides whether a task counts as overdue. Only the
 deadline does that.
+
+## What the deadline number means
+
+The number in **Timings** is a due date. Tallyfy counts it from the anchor you picked, and the
+task should be done by then.
+
+It doesn't hold anything back. The assignee is told about the task when it becomes theirs,
+whatever the deadline says. It doesn't send a reminder either. So "5 hours after Step A" means
+the task is due 5 hours after Step A is completed. The assignee isn't told 5 hours later, and
+nobody gets a nudge at the 5 hour mark.
+
+Here's one task from launch to overdue, for a step that counts from an earlier step and is
+visible from the start:
+
+```d2
+# One task over time, and which moments send an email
+direction: right
+
+Launch: "Launch, assignee emailed" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Earlier: "New due date, no email" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Due: "Deadline, no reminder" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Late: "Overdue, in digest email" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Launch -> Earlier: Earlier step completed {
+  style.stroke: "#225930"
+}
+Earlier -> Due: The gap you set {
+  style.stroke: "#225930"
+}
+Due -> Late: Next digest day {
+  style.stroke: "#225930"
+}
+```
+
+**What to notice:**
+- The assignee's only "this is yours" email comes at launch, because their step is visible from the start.
+- When the earlier step is completed, Tallyfy works the due date out again from that moment. The assignee sees the new date in Tallyfy, but no email goes out.
+- Nothing is sent at the deadline. After it, the task shows as overdue, and the assignee's [digest email](/products/pro/settings/personal-settings/how-can-i-manage-email-notifications-in-tallyfy/) lists it on the days they get one.
+
+## Email someone the moment an earlier step is done
+
+To have someone emailed as soon as an earlier step is completed, keep their step hidden until
+then. Tallyfy emails people when a rule shows them a hidden step.
+
+<Steps>
+1. Add an [automation](/products/pro/documenting/templates/automations/actions/visibility-actions/) to the template: if the earlier step is completed, then show their step.
+2. In their step's **Timings**, count the deadline from that same earlier step.
+</Steps>
+
+You don't need to hide the step yourself. Tallyfy hides a step at launch when a **Show** action
+targets it. When the earlier step is completed, the rule shows the step, and its assignees get an
+email right away, unless they've switched off **Receive emails when I'm assigned**. For members,
+the subject starts with "It's your turn". Their deadline counts from that moment too, because it
+counts from the step that just finished.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
