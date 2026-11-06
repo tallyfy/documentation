@@ -13,8 +13,9 @@ Read-only. Never edits content. Two modes:
 
   Gate (score just the article(s) a unit touched; used before committing):
     python scripts/simplicity-check.py --files src/content/docs/pro/.../index.mdx --report
-    Several files may be separated by spaces, commas, or both, exactly as
-    scripts/ai-tell-check.py --files takes them.
+    Several files may be separated by spaces, commas, or both. Note that
+    scripts/ai-tell-check.py --files is stricter: it takes one comma-separated
+    value, and paths passed as separate arguments stop it with exit 2 (#434).
 
   Self-test (prove the scope rules below work in both directions):
     python scripts/simplicity-check.py --self-test

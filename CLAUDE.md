@@ -9,21 +9,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚨 CRITICAL: Repository Separation Rules
+## Repository Separation Rules
 
-**ABSOLUTE RULE - WHERE TO MAKE CHANGES:**
+**Where to make changes:**
 
-### ✅ Changes that go in THIS repository (/documentation):
-- **ALL article content** (.mdx files in src/content/docs/)
-- **ALL documentation text updates**
-- **ALL D2 diagrams in articles**
-- **ALL images and screenshots for articles**
-- **ALL frontmatter changes** (titles, descriptions, etc.)
-- **ALL content fixes** (typos, broken links, outdated information)
+### Changes that go in this repository (/documentation):
+- **All article content** (.mdx files in src/content/docs/)
+- **All documentation text updates**
+- **All D2 diagrams in articles**
+- **All images and screenshots for articles**
+- **All frontmatter changes** (titles, descriptions, etc.)
+- **All content fixes** (typos, broken links, outdated information)
 - **Python scripts** for content processing
 - **Documentation-specific automation**
 
-### ❌ NEVER make these changes in /documentation:
+### Never make these changes in /documentation:
 - Astro configuration changes
 - Starlight theme modifications
 - CSS framework changes
@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Build system modifications
 - Deployment configuration
 
-### 📍 Changes that go in /support-docs repository ONLY:
+### Changes that go in /support-docs repository only:
 - **Astro configuration** (astro.config.mjs)
 - **Starlight framework settings**
 - **Global CSS and styling** (including D2 diagram styles)
@@ -40,18 +40,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Framework dependencies** in package.json
 - **Worker configuration** (Cloudflare Workers)
 
-**WHY THIS MATTERS**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
+**Why this matters**: The /support-docs repository contains the Astro/Starlight framework that renders the documentation. The /documentation repository contains ONLY the content. Mixing these concerns breaks the deployment pipeline and causes build failures.
 
-**CRITICAL - NEVER MANUALLY SYNC CONTENT**: 
-- **NEVER copy MDX files from /documentation to /support-docs manually**
-- **NEVER run sync commands between the repositories**
-- **NEVER edit content directly in /support-docs**
-- Content synchronization happens AUTOMATICALLY through CI/CD pipelines
+**Never manually sync content**:
+- **Never copy MDX files from /documentation to /support-docs manually**
+- **Never run sync commands between the repositories**
+- **Never edit content directly in /support-docs**
+- Content synchronization happens automatically through CI/CD pipelines
 - Manual syncing breaks the automated deployment process
 
-**ENFORCEMENT**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
+**Enforcement**: If you accidentally edit the wrong repository, immediately revert those changes before proceeding.
 
-## 🚨 CRITICAL: Humanizing Rules Integration
+## Humanizing Rules Integration
 
 ### Adapted humanization rules for documentation
 
@@ -178,7 +178,7 @@ Before committing any article, run:
 python3 scripts/simplicity-check.py --files src/content/docs/path/to/article.mdx --report
 ```
 
-It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, as `ai-tell-check.py` does, and a run that scores no file exits 2 (#259). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
+It must score **below the threshold** (default 45) with no AI-tell words. `--files` takes paths separated by spaces, commas, or both, and a run that scores no file exits 2 (#259). `ai-tell-check.py --files` takes one comma-separated value instead, such as `--files a.mdx,b.mdx`; paths passed as separate arguments stop it with exit 2 (#434). The script is read-only and scores only the business-facing part of the page, so detail you've correctly demoted into a footnote or technical section doesn't count against you.
 
 Every pull request into `staging` or `main` also gets a readability report in its job summary, from `.github/workflows/readability-report.yml` (#291). It shows the score of each page the pull request changes. It is report only: a score never fails it, and it is not a required check. It goes red only when the checker itself breaks, and then the summary says "checker error". The workflow landed in #292.
 
@@ -211,6 +211,7 @@ edit it there, not here.
 # Development
 npm install                    # Install dependencies
 npm run dev                   # Start development server
+# Dated 2026-10-29 (#432): this repo has no package.json and never had one, so the two npm lines above fail here. Build and preview the site from tallyfy/support-docs, whose package.json has the dev script.
 
 # Content Automation (Python scripts)
 python scripts/generate-ids.py --dir [repo root] [--dry-run]       # Give every page lacking one an id (whole tree, #296)
@@ -218,6 +219,8 @@ python scripts/generate-snippets.py --dir [repo root] --token [api-key] --prompt
 python scripts/generate-related-articles.py --dir [directory] --answers_api_key [key]
 python scripts/markdown-lint.py --dir [directory]
 python scripts/check-deleted-files.py --dir [repo root] --collection_name tyfy --answers_api_key [key] --base_url [answers url] [--dry-run]   # Remove index entries whose page is gone
+python scripts/answers-connector.py --dir [docs dir] --collection_name tyfy --answers_api_key [key] --base_urls [one answers url]   # Upload the whole tree to Answers search; --self-test checks the cleaning. Name one host: the default is both
+# Full re-index of one host (#415): dispatch generate-ids.yml on that branch (staging feeds staging search, main feeds production search); the pipeline it starts uploads the whole tree.
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 # Dated 2026-10-21 (#384): the count lines moved to REFERENCE/claude-md/project.md, so the script now rewrites that file, not this one.
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
@@ -240,6 +243,7 @@ The script:
 - Extracts internal links (markdown `[text](/products/...)` and href `href="/products/..."` patterns)
 - Validates each link points to an existing file
 - Reports broken links by file with full paths
+- Checks a link's `#anchor` against the target page's headings: a missing anchor is a warning, and `--strict-anchors` makes it a failure. `--self-test` proves both (#434)
 
 ### Validate Markdown Structure
 
@@ -320,11 +324,11 @@ edit it there, not here.
   <lite-vimeo videoid="905736219"></lite-vimeo>
   ```
 
-### Code Block Language Identifiers (CRITICAL)
+### Code Block Language Identifiers
 
 **Syntax highlighting uses Shiki** (200+ languages supported via VS Code engine). Using unsupported languages causes build failures.
 
-#### ✅ APPROVED Languages (Use These)
+#### Approved Languages (Use These)
 
 **Primary (High Confidence)**:
 - `javascript`, `typescript`, `json`, `yaml`, `python`, `bash`, `shell`
@@ -340,7 +344,7 @@ edit it there, not here.
 **Plain Text (No Highlighting)**:
 - `text`, `txt`, `plain` - Use for unsupported formats or sample outputs
 
-#### ❌ NEVER USE (Not Supported - Cause Build Failures)
+#### Never Use (Not Supported - Cause Build Failures)
 
 | Invalid | Use Instead | Reason |
 |---------|-------------|--------|
@@ -376,7 +380,7 @@ edit it there, not here.
   ```markdown
   1. **Step 1:** Configure your settings.
      
-     ![Screenshot description](mdc:image-url.png)
+     ![Screenshot description](https://screenshots.tallyfy.com/image-url.png)
   ```
 
 ## INSTRUCTIONAL CONTENT
@@ -398,7 +402,8 @@ edit it there, not here.
   - Annotations (arrows, circles) for key elements
   - High quality, legible text
   - Cropped to relevant portions
-- **Alt text format**: `![Tallyfy dashboard showing workflow](mdc:image.png)`
+- **Alt text format**: `![Tallyfy dashboard showing workflow](https://screenshots.tallyfy.com/image.png)`
+  - Dated 2026-10-29 (#432): until then this example and the Steps example above used an `mdc:` prefix (`mdc:image.png`), which no article image uses.
 
 ### Examples & Code
 - Use realistic scenarios (e.g., "ACME Corp")
@@ -489,7 +494,7 @@ edit it there, not here.
 
 ## 📊 D2 Diagram Guidelines
 
-**ALL D2 DIAGRAM CONTENT HAS BEEN MOVED**: See `/documentation/D2-DIAGRAMS.md` for complete D2 diagram guidelines, including:
+**All D2 diagram content has been moved**: See `/documentation/D2-DIAGRAMS.md` for complete D2 diagram guidelines, including:
 - When to use diagrams (only 10-15% of articles)
 - Mandatory notation rules and syntax requirements
 - Color palettes and styling guidelines
@@ -566,12 +571,12 @@ This repo is public. All its CI runs on GitHub-hosted runners and it sets no `CI
 
 ## PR Review Intelligence
 
-### Code Change Minimization (ABSOLUTE PRIORITY)
+### Code Change Minimization (highest priority)
 
-**Fundamental Principle**: Every PR must implement the MINIMAL content changes necessary to properly address the issue.
+**Fundamental Principle**: Every PR must implement the minimal content changes necessary to properly address the issue.
 
 **Review Requirements**:
-- **MINIMIZE CHANGES** - only modify what's necessary to fix the content issue
+- **Minimize changes** - only modify what's necessary to fix the content issue
 - **No Scope Creep** - implement only what's specified in the issue
 - **Preserve Existing Structure** - follow established documentation patterns
 - **Targeted Fixes** - address the specific problem without rewriting entire articles

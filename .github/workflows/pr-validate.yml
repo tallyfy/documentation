@@ -64,15 +64,33 @@ jobs:
       # update-last-modified imports frontmatter at module level, so its self-test needs it.
       # The three whole-tree reconcile scripts (owner decision 218, #296) need requests too, and
       # their self-tests talk only to a fake API they start on 127.0.0.1.
+      # python-dotenv is for the asset inventory step below: scripts/asset_management/config.py
+      # imports it when the module loads.
       - name: "Pipeline script self-tests (#296, #295)"
         run: |
-          python -m pip install --upgrade python-frontmatter requests
+          python -m pip install --upgrade python-frontmatter requests python-dotenv
           python scripts/pipeline-guard.py --self-test
           python scripts/pipeline-guard.py --check-wiring
           python scripts/update-last-modified.py --self-test
           python scripts/generate-ids.py --self-test
           python scripts/generate-snippets.py --self-test
           python scripts/check-deleted-files.py --self-test
+          python scripts/answers-connector.py --self-test
+        shell: bash
+
+      # The writer of documentation_assets.csv keeps every column and refuses a key it has no
+      # column for; upload and replace record who made an image and re-queue a changed one for
+      # captions; audit and sync handle /screenshots/ paths (#462). Each self-test works on
+      # files in a temporary directory, and the orchestrator's uses a fake uploader, so none
+      # needs a credential or touches the real CSV. requests and python-dotenv come from the
+      # step above. The last line only reads the real CSV: it fails when a row has lost its
+      # source or the header has lost a column, for example after a hand-resolved conflict.
+      - name: "Asset inventory self-tests (#462)"
+        run: |
+          python scripts/asset_management/asset_inventory.py --self-test
+          python scripts/asset_management/orchestrator.py --self-test
+          python scripts/asset_management/audit_sync.py --self-test
+          python scripts/asset_management/asset_inventory.py migrate-columns --check
         shell: bash
 
       # A prose ` -- ` renders as an em dash today, which the writing rules ban,

@@ -18,8 +18,10 @@ MODES
                   A newer commit that touches none of those paths is published, and the
                   report names it. It never gets a run of its own, so refusing on it would
                   hold the gated content back until some later content push. That is a direct
-                  CLAUDE.md edit (staging carries several), or a changelog page, which the
-                  filter excludes on purpose, so no run ever starts for one.
+                  CLAUDE.md edit (staging carries several). Until #475 (2026-11-06) the filter
+                  also excluded changelog pages, so one was published this way too; it now
+                  starts a run of its own. The self-test keeps that exclusion in its own
+                  fixture filter, to test a commit outside the filter.
   --check-wiring  Prove the two workflows that publish are still serialized per branch
                   (tallyfy/documentation#296): documentation-pipeline.yml and
                   generate-ids.yml each carry a `concurrency:` group keyed on the branch the

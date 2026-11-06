@@ -4,7 +4,7 @@ description: Tallyfy form fields collect user input on kick-off forms and indivi
   tasks. Types include short text, long text, dropdowns, checklists, radio buttons,
   dates, file uploads, tables, and assignee pickers.
 id: 855fe44d326ad6b0ccabd182e296c434
-lastUpdated: 2026-10-15
+lastUpdated: 2026-10-29
 sidebar:
   order: 4
 title: Types of form fields
@@ -26,12 +26,19 @@ You can mark most fields as required or optional. Checklists use validation rule
 All field types support adding help text (Guidance Text) below the label to guide users.
 :::
 
+**Turn forms into tasks.** Split one long form so each person fills their part, with a deadline and reminders.
+
+<picture data-zoom-off data-story data-loop-light="https://tallyfy.com/blog-images/positioning/feature-forms-into-tasks-v1-loop-light.svg" data-loop-dark="https://tallyfy.com/blog-images/positioning/feature-forms-into-tasks-v1-loop-dark.svg">
+  <source srcset="https://tallyfy.com/blog-images/positioning/feature-forms-into-tasks-v1-once-dark.svg" media="(prefers-color-scheme: dark)" />
+  <img src="https://tallyfy.com/blog-images/positioning/feature-forms-into-tasks-v1-once-light.svg" alt="A long form is cut into three slices, and each slice goes in turn to its own person as a numbered step that gets a check" loading="lazy" width="600" height="360" style="width: 100%; height: auto; max-width: 600px; margin: 0 auto 1rem; display: block;" />
+</picture>
+
 ### How do different field types work?
 
 #### Short text
 *   Single line for brief input (up to 200 characters).
 *   **Options**: Validation rules (numeric, email, URL, alpha, alpha_num, alpha_dash), min/max length, prefix/suffix (e.g., $, kg).
-*   **Tip**: Store [file request links](mdc:products/pro/integrations/document-management/file-request-links/) from your document management system for secure external file collection.
+*   **Tip**: Store [file request links](/products/pro/integrations/document-management/file-request-links/) from your document management system for secure external file collection.
     ![Short text form field in Tallyfy](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-short-text-field.png)
 
 #### Long text
@@ -78,7 +85,7 @@ All field types support adding help text (Guidance Text) below the label to guid
 *   Upload file(s) up to 100MB each[^2].
 *   **Options**: Set as required.
 *   Use for collecting docs, images, or reports. Supports multiple file uploads in a single field.
-*   **Alternative**: For sensitive or larger files, use [file request links](mdc:products/pro/integrations/document-management/file-request-links/) from your document management system.
+*   **Alternative**: For sensitive or larger files, use [file request links](/products/pro/integrations/document-management/file-request-links/) from your document management system.
     ![File upload form field in Tallyfy](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-file-upload-field.png)
 
 #### Table
@@ -127,15 +134,40 @@ Without the automation, the selection is just stored data. It won't change any t
 **Can't delete a form field?** If an automation in another step references it, you'll see: "Cannot delete a form field that is being used in a rule in other steps." Delete or change those automations first, then delete the field.
 :::
 
+### Move a field to another step or the kick-off form
+
+In the new Tallyfy client's template editor, you can move a saved field to another step, from a step onto the kick-off form, or from the kick-off form into a step. The new client isn't generally available yet, and the current client at `go.tallyfy.com` can't move fields this way.
+
+{/* GA-SENSITIVE: the sentence above saying the new client isn't generally available becomes wrong at client-v2 general availability. Delete it then. Tracked by tallyfy/work-queue#4459, the reminder for general availability. */}
+
+1. Find the field in its step or on the kick-off form, and click **Move to** beside **Delete**.
+2. In **Move to**, pick **Kick-off form** or a step.
+3. In **Position**, pick **At the top**, or pick which field it goes after. If you leave it as it is, the field goes to the bottom.
+4. Click **Move**.
+
+The field keeps its settings and its ID. [Automations](/products/pro/documenting/templates/automations/) that use it follow it to its new place. [Variables](/products/pro/documenting/templates/variables/) keep working too, because they point at the field's alias, which doesn't change. Processes that are already running keep the field where it was when they launched.
+
+Under **Check these before you move it**, the dialog names every automation that uses the field. It also warns you when:
+
+- An automation will read the field before anyone fills it in.
+- A step's title or description shows the field as a variable before anyone fills it in. The variable will be blank there.
+- You move a kick-off field into a step, and your [auto-naming pattern](/products/pro/tracking-and-tasks/processes/edit-processes/how-can-i-auto-name-a-process-in-tallyfy/) uses it. The pattern only reads kick-off answers, so new process names will be missing that part.
+- Other templates use this template's kick-off form. A kick-off field you move into a step leaves their kick-off forms too, and a step field you move onto the kick-off form appears on theirs.
+
+These are warnings. You can still move the field.
+
+If your template uses another template's kick-off form, you can't move fields onto or off that form here, because the fields belong to the other template. **Kick-off form** isn't offered in **Move to**, and its fields have no **Move to** button. Move them in the template that owns the form.
+
 ### What other field settings are available?
 
 Most fields have these settings:
 
 *   **Name**: The field label (the question your process asks).
-*   **Guidance**: Optional help text below the label. Add this in the **Advanced** section of field settings in the template editor. It appears in italics below the field name when the task is active, and any URLs become clickable links.
+*   **Guidance**: Optional help text below the label. Add this in the **More Settings** section of field settings in the template editor. It appears in italics below the field name when the task is active, and any URLs become clickable links.
 *   **Field Alias[^1]**: Auto-generated internal ID based on the *first* name you give the field. It **doesn't change** even if you rename the field later, so automations and integrations using the alias keep working.
 *   **Required**: Whether this field must be filled before the task can be completed.
-*   **Default Value**: Pre-fill a value (can use variables for text fields). Not available for table, file upload, or assignee picker fields. See [Set default content for form fields](/products/pro/tracking-and-tasks/tasks/how-to-set-default-content-for-form-fields/) for details.
+*   **Validation**: Short text fields have their own **Validation** section. It can make an answer follow a format, such as an email address or a web address starting with http:// or https://. A SharePoint or Teams link counts as a web address. You can also set a length limit.
+*   **Default Content**: Turn on **Enable default value** in the field's **Default Content** section to pre-fill a value (can use variables for text fields). Not available for table, file upload, or assignee picker fields. See [Set default content for form fields](/products/pro/tracking-and-tasks/tasks/how-to-set-default-content-for-form-fields/) for details.
 
 ![Toggle for required and not-required form fields in Tallyfy](https://screenshots.tallyfy.com/tallyfy%2Fpro%2Fdesktop-light-show-not-required-field.png)
 
@@ -149,5 +181,5 @@ import { CardGrid, LinkTitleCard } from "~/components";
 <LinkTitleCard header="<b>Tasks > Choosing the right field type</b>" href="/products/pro/tracking-and-tasks/tasks/choosing-the-right-form-field-type/" > Pick the right form field type in Tallyfy to improve data quality and enable automations. Covers... </LinkTitleCard>
 <LinkTitleCard header="<b>How To > Build effective forms</b>" href="/products/pro/tutorials/how-to/build-effective-forms/" > Tallyfy builds forms directly into workflow steps, so every submission triggers a trackable... </LinkTitleCard>
 <LinkTitleCard header="<b>Tasks > Set default content for form fields</b>" href="/products/pro/tracking-and-tasks/tasks/how-to-set-default-content-for-form-fields/" > Pre-fill form fields with static text, dynamic variables from earlier steps, or system values... </LinkTitleCard>
-<LinkTitleCard header="<b>Use Cases > Import forms into kick-off or step fields</b>" href="/products/pro/integrations/byo-ai/use-cases/import-forms-into-kick-off-or-step-fields/" > Paste field names and types from any PDF, Google Form, or spreadsheet into your AI assistant. It... </LinkTitleCard>
+<LinkTitleCard header="<b>Triggers > Launch via a kick-off form</b>" href="/products/pro/launching/triggers/kick-off-forms/" > Kick-off forms collect information before a Tallyfy template launches and pass that data into... </LinkTitleCard>
 </CardGrid>

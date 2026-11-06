@@ -223,8 +223,10 @@ jobs:
         run: |
           git pull
           python -m pip install --upgrade python-frontmatter requests
+          # main feeds production search only, staging feeds staging search only (owner decision
+          # 2026-10-27, tallyfy/documentation#415). Before this, main also overwrote staging search.
           if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-            python scripts/answers-connector.py --dir="$PWD/src/content/docs" --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }}
+            python scripts/answers-connector.py --dir="$PWD/src/content/docs" --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_urls https://answers.tallyfy.com
           else
             python scripts/answers-connector.py --dir="$PWD/src/content/docs" --collection_name=tyfy --answers_api_key=${{ secrets.ANSWERS_API_KEY }} --base_urls https://staging.answers.tallyfy.com
           fi

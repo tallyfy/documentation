@@ -4,7 +4,7 @@ description: Star processes, tasks, members, and templates to bookmark them for 
   access. Starring also watches items, so you'll get notifications about specific
   events at your chosen frequency.
 id: 87fe3c57b0be0e686add1b85e644f168
-lastUpdated: 2026-03-22
+lastUpdated: 2026-10-31
 sidebar:
   order: 26
 title: Favorites and watching
@@ -93,6 +93,8 @@ For each favorited item, you can control how and how often you're notified.
 
 You can mix frequencies across items. Get instant alerts for critical items and daily digests for less urgent ones. The events that trigger notifications stay the same - only the delivery timing changes.
 
+If you're not an administrator, a webhook from your watch leaves out top secret tasks other than the one the event is about. Top secret tasks are the ones that only administrators and their assignees can see. [Top secret tasks](/products/pro/integrations/webhooks/webhook-payload-structure/#top-secret-tasks) lists what's left out.
+
 ### How do I manage watched items?
 
 The Favorites section is your hub for managing watched items:
@@ -101,12 +103,23 @@ The Favorites section is your hub for managing watched items:
 *   Filter the list by item type
 *   Unfavorite items by clicking the star again
 
+## For developers
+
+(Skip this unless you're setting up the technical side.)
+
+You can also create, change and remove watches through the [API](/products/pro/integrations/open-api/). Only an administrator can use `POST /organizations/{org}/users/{user_id}/add-watcher` to create a watch for another member. Only the watch's owner, an administrator or Tallyfy Support can change or remove a watch. A refused request gets a `403` response with one of these messages:
+
+*   Creating a watch through `add-watcher` with a `user_id` other than your own: `Access denied: you can create a watch only for yourself.`
+*   Changing someone else's watch, through `PUT /organizations/{org}/users/{user_id}/update-watcher/{watcher_id}`: `Access denied: only the watch's owner or an admin may update it.`
+*   Removing someone else's watch, through `DELETE /organizations/{org}/remove-watcher/{watcher_id}`: `Access denied: only the watch's owner or an admin may remove it.`
+*   Removing a watch that someone else has on you, through the same `DELETE` call, even if you're an administrator: `You can't restrict others from watching you`
+
 import { CardGrid, LinkTitleCard } from "~/components";
 
 ## Related articles
 <CardGrid>
 <LinkTitleCard header="<b>Emails Tallyfy Sends > Watching and subscriptions</b>" href="/products/pro/integrations/email/emails-tallyfy-sends/watching-and-subscriptions/" > Tallyfy sends watch-based email alerts when someone edits a document template or acts on a... </LinkTitleCard>
-<LinkTitleCard header="<b>Tracker View > Organize processes</b>" href="/products/pro/tracking-and-tasks/tracker-view/organize-processes/" > Tallyfy lets you organize active processes using folders, favorites, filters, and archiving... </LinkTitleCard>
 <LinkTitleCard header="<b>Edit Templates > Add default watchers to a template</b>" href="/products/pro/documenting/templates/edit-templates/add-default-watchers/" > Default watchers in Tallyfy are members or groups assigned at the template level who... </LinkTitleCard>
-<LinkTitleCard header="<b>Tracking And Tasks > Tracker view</b>" href="/products/pro/tracking-and-tasks/tracker-view/" > Tallyfy's Tracker view is your real-time dashboard for all running processes. View them in board... </LinkTitleCard>
+<LinkTitleCard header="<b>Tracker View > Organize processes</b>" href="/products/pro/tracking-and-tasks/tracker-view/organize-processes/" > Tallyfy lets you organize active processes using folders, favorites, filters, and archiving... </LinkTitleCard>
+<LinkTitleCard header="<b>Emails Tallyfy Sends > Process activity</b>" href="/products/pro/integrations/email/emails-tallyfy-sends/process-activity/" > Tallyfy sends process-level emails covering guest invitations, assignment changes, collaborator... </LinkTitleCard>
 </CardGrid>
