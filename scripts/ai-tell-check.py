@@ -1370,6 +1370,7 @@ WIRING_KNOWN = {
     "check-deleted-files": "only removes Answers entries whose page is no longer in the tree",
     "repo-screenshots": "uploads content-hashed images no page shows until sync, and only "
                         "verifies on main (#464)",
+    "push-gate": "reads the GitHub API and can only stop the run; publishes nothing (#464)",
     "upload-to-tallyfy-answers":
         "indexes article text for search. DELIBERATELY not gated: #191 scopes this gate to "
         "blocking `sync`, which is what puts an article in front of a reader. Widening it to "

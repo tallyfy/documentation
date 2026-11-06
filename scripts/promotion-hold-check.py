@@ -871,6 +871,7 @@ WIRING_EXEMPT = {
                            "cannot publish held content",
     "repo-screenshots": "uploads content-hashed images no page shows until sync, and only "
                         "verifies on main (#464)",
+    "push-gate": "reads the GitHub API and can only stop the run; publishes nothing (#464)",
 }
 
 

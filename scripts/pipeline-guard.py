@@ -33,6 +33,10 @@ MODES
                   in: generate-snippets and sync wait for it, generate-ids.yml starts on a
                   screenshots/ change, and every commit the pipeline makes as "GitHub Action"
                   uses a subject the publish guard knows.
+                  And that a push-gate job runs first in both workflows, unskippable, from an
+                  inline actions/github-script step with no checkout, with the same script in
+                  both, and that every job holding a secret other than GITHUB_TOKEN, an
+                  environment or a `git push` waits for it (a status-function `if:` directly).
   --self-test     Prove --check-wiring and the publish guard each go RED on every defect
                   they exist to catch and GREEN on correct input, using fixture files and
                   scratch git repositories, never the real ones.
@@ -337,6 +341,116 @@ def check_screenshot_trigger(generate_ids, gname):
     return []
 
 
+# ---------------------------------------------------------------------------------------
+# the push gate (tallyfy/documentation#464): a GitHub App with contents: write can push to
+# staging or main directly, and a ruleset cannot exempt the pipeline's own pushes, so a first job
+# stops everything that holds a secret, an environment or a push when that happens
+
+PUSH_GATE_JOB = "push-gate"
+PUSH_GATE_ACTION = "actions/github-script@"
+# secrets.NAME, secrets['NAME'], or the bare context, as in toJSON(secrets).
+_SECRET_USE_RE = re.compile(r"\bsecrets\b(?:\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)|\s*\[\s*['\"]([^'\"]+)['\"]\s*\])?")
+_STATUS_FUNCTION_RE = re.compile(r"\b(?:always|failure|cancelled|success)\s*\(")
+
+
+def _needs_list(job):
+    raw = (job or {}).get("needs") or []
+    return [raw] if isinstance(raw, str) else list(raw)
+
+
+def _needs_closure(jobs, name):
+    seen, todo = set(), list(_needs_list(jobs.get(name)))
+    while todo:
+        n = todo.pop()
+        if n not in seen:
+            seen.add(n)
+            todo += _needs_list(jobs.get(n))
+    return seen
+
+
+def _reads_secret(job):
+    """True when a job uses any secret other than GITHUB_TOKEN, or passes secrets on."""
+    for location, key, value in _walk(job):
+        if key == "secrets":
+            return True
+        if isinstance(value, str):
+            for expr in _expressions(value):
+                for m in _SECRET_USE_RE.finditer(expr):
+                    if (m.group(1) or m.group(2)) != "GITHUB_TOKEN":
+                        return True
+    return False
+
+
+def _pushes(job):
+    for step in (job or {}).get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        for raw in str(step.get("run", "")).splitlines():
+            if re.search(COMMAND_AT + r"git\s+push\b", re.sub(r"(^|\s)#.*$", "", raw)):
+                return True
+    return False
+
+
+def gate_script(doc):
+    """The inline script of a workflow's push-gate job, or None."""
+    gate = (doc.get("jobs") or {}).get(PUSH_GATE_JOB)
+    steps = [s for s in ((gate or {}).get("steps") or []) if isinstance(s, dict)]
+    scripts = [str((s.get("with") or {}).get("script", "")) for s in steps
+               if str(s.get("uses", "")).startswith(PUSH_GATE_ACTION)]
+    return scripts[0] if len(scripts) == 1 else None
+
+
+def check_push_gate(doc, name):
+    """The push gate runs first, unskippable, from inline code only, and every job that holds a
+    secret, an environment or a push waits for it."""
+    jobs = doc.get("jobs") or {}
+    gate = jobs.get(PUSH_GATE_JOB)
+    if not isinstance(gate, dict):
+        return [f"{name} has no {PUSH_GATE_JOB!r} job, so a commit a GitHub App pushed straight to "
+                f"the branch reaches every job that holds a secret (#464)."]
+    problems = []
+    if _needs_list(gate):
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has `needs`; it must be the first job, so a "
+                        f"failure elsewhere cannot skip it.")
+    if gate.get("if") is not None:
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has an `if:`; a gate that can be skipped lets a "
+                        f"status-function job such as sync run without it.")
+    steps = [s for s in (gate.get("steps") or []) if isinstance(s, dict)]
+    if not steps:
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has no steps.")
+    for i, step in enumerate(steps, start=1):
+        script = str((step.get("with") or {}).get("script", "")).strip()
+        if "run" in step or not str(step.get("uses", "")).startswith(PUSH_GATE_ACTION) or not script:
+            problems.append(f"{name} job {PUSH_GATE_JOB!r} step {i} must be {PUSH_GATE_ACTION}... with "
+                            f"an inline script. The gate may not check out or run code from the "
+                            f"repository, which the push it judges could have changed.")
+    perms = gate.get("permissions")
+    if not isinstance(perms, dict) or perms.get("issues") != "write" \
+            or perms.get("contents") not in (None, "read"):
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} needs its own `permissions:` with "
+                        f"`issues: write` and no more than `contents: read`.")
+    for job_name, job in jobs.items():
+        if job_name == PUSH_GATE_JOB or not isinstance(job, dict):
+            continue
+        if not (_reads_secret(job) or "environment" in job or _pushes(job)):
+            continue
+        if PUSH_GATE_JOB not in _needs_closure(jobs, job_name):
+            problems.append(f"{name} job {job_name!r} holds a secret, an environment or a push but does "
+                            f"not wait for {PUSH_GATE_JOB!r}, directly or through `needs`.")
+        elif _STATUS_FUNCTION_RE.search(str(job.get("if", ""))) and PUSH_GATE_JOB not in _needs_list(job):
+            problems.append(f"{name} job {job_name!r} has a status-function `if:`, so it must name "
+                            f"{PUSH_GATE_JOB!r} in its own `needs`, not only through another job.")
+    return problems
+
+
+def check_gate_scripts_match(pipeline, generate_ids, pname, gname):
+    a, b = gate_script(pipeline), gate_script(generate_ids)
+    if a and b and a != b:
+        return [f"the {PUSH_GATE_JOB!r} scripts in {pname} and {gname} differ; they must be identical, "
+                f"with only their env telling them apart."]
+    return []
+
+
 def load_workflows(folder):
     docs = {}
     for entry in sorted(os.listdir(folder)):
@@ -356,6 +470,9 @@ def check_wiring(pipeline_path=PIPELINE, generate_ids_path=GENERATE_IDS):
     problems += check_generated_subjects(pipeline, pname)
     problems += check_generated_subjects(generate_ids, gname)
     problems += check_screenshot_trigger(generate_ids, gname)
+    problems += check_push_gate(pipeline, pname)
+    problems += check_push_gate(generate_ids, gname)
+    problems += check_gate_scripts_match(pipeline, generate_ids, pname, gname)
     problems += check_concurrency(pipeline, pname, PIPELINE_KEY)
     problems += check_concurrency(generate_ids, gname, GENERATE_IDS_KEY)
     pg = (pipeline.get("concurrency") or {}) if isinstance(pipeline.get("concurrency"), dict) else {}
@@ -377,7 +494,9 @@ def check_wiring(pipeline_path=PIPELINE, generate_ids_path=GENERATE_IDS):
         f"neither cancels a run in progress, and every pull after a commit says --no-rebase. "
         f"No pull request workflow can read a secret or an environment, {SCREENSHOT_ENV} and its "
         f"secrets reach only the staging ingest step of {SCREENSHOT_JOB}, which "
-        f"{' and '.join(WAITS_FOR_SCREENSHOTS)} wait for, and every generator commit subject is known.")
+        f"{' and '.join(WAITS_FOR_SCREENSHOTS)} wait for, and every generator commit subject is known. "
+        f"{PUSH_GATE_JOB} runs first in both workflows from one inline script, and every job that "
+        f"holds a secret, an environment or a push waits for it.")
     return 0
 
 
@@ -575,12 +694,24 @@ concurrency:
   group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 jobs:
+  push-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            core.info('the push gate')
   validate-markdown:
     runs-on: ubuntu-latest
     steps:
       - run: python scripts/markdown-lint.py
   repo-screenshots:
-    needs: validate-markdown
+    needs: [validate-markdown, push-gate]
     runs-on: ubuntu-latest
     environment: r2-screenshots
     steps:
@@ -607,6 +738,7 @@ jobs:
     steps:
       - run: python scripts/generate-snippets.py --token ${{ secrets.CLAUDE_API_KEY }}
   update-last-modified:
+    needs: push-gate
     runs-on: ubuntu-latest
     steps:
       - name: Commit and push lastUpdated dates
@@ -616,10 +748,11 @@ jobs:
           git push
           echo "No changes to commit after git pull"
   sync:
-    needs: [validate-markdown, repo-screenshots]
+    needs: [push-gate, validate-markdown, repo-screenshots]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo publish
+      - run: echo publish with ${{ secrets.GH_TOKEN }}
 """
 
 _GOOD_PR = """\
@@ -652,7 +785,20 @@ concurrency:
   group: generate-ids-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  push-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            core.info('the push gate')
   generate-ids:
+    needs: push-gate
     runs-on: ubuntu-latest
     steps:
       - name: Generate IDs script
@@ -926,8 +1072,8 @@ def self_test():
          re.sub(r"(?s)  repo-screenshots:\n.*?(?=  generate-snippets:\n)", "", gp), gi, None,
          "has no 'repo-screenshots' job"),
         ("sync does not wait for the screenshots job (#464)",
-         gp.replace("  sync:\n    needs: [validate-markdown, repo-screenshots]",
-                    "  sync:\n    needs: [validate-markdown]"), gi, None, "job 'sync' does not name"),
+         gp.replace("[push-gate, validate-markdown, repo-screenshots]", "[push-gate, validate-markdown]"),
+         gi, None, "job 'sync' does not name"),
         ("generate-snippets does not wait for the screenshots job (#464)",
          gp.replace("  generate-snippets:\n    needs: [validate-markdown, repo-screenshots]",
                     "  generate-snippets:\n    needs: validate-markdown"), gi, None,
@@ -960,6 +1106,45 @@ def self_test():
          gp, gi, {"other.yml": "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n"
                                "      - run: echo ${{ secrets.R2_ACCESS_KEY_ID }}\n"},
          "names R2_ACCESS_KEY_ID"),
+        ("a job that reads a secret does not wait for push-gate (#464)",
+         gp.replace("  sync:\n", "  leaky:\n    runs-on: ubuntu-latest\n    steps:\n"
+                    "      - run: echo ${{ secrets.ANSWERS_API_KEY }}\n  sync:\n"), gi, None,
+         "job 'leaky' holds a secret, an environment or a push but does not wait for 'push-gate'"),
+        ("a job that pushes does not wait for push-gate (#464)",
+         gp.replace("  update-last-modified:\n    needs: push-gate\n", "  update-last-modified:\n"), gi, None,
+         "job 'update-last-modified' holds a secret, an environment or a push but does not wait"),
+        ("generate-ids pushes without waiting for push-gate (#464)",
+         gp, gi.replace("  generate-ids:\n    needs: push-gate\n", "  generate-ids:\n"), None,
+         "generate-ids.yml job 'generate-ids' holds a secret, an environment or a push"),
+        ("a push-gate step runs a repository script (#464)",
+         gp.replace("            core.info('the push gate')\n",
+                    "            core.info('the push gate')\n      - run: python scripts/push-gate.py\n"), gi, None,
+         "with an inline script. The gate may not check out or run code"),
+        ("the push gate checks out the repository (#464)",
+         gp.replace("    steps:\n      - uses: actions/github-script@v9\n",
+                    "    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/github-script@v9\n"), gi, None,
+         "with an inline script. The gate may not check out or run code"),
+        ("the push gate has needs (#464)",
+         gp.replace("  push-gate:\n    runs-on", "  push-gate:\n    needs: validate-markdown\n    runs-on"), gi, None,
+         "it must be the first job"),
+        ("the push gate has an if (#464)",
+         gp.replace("  push-gate:\n    runs-on", "  push-gate:\n    if: ${{ always() }}\n    runs-on"), gi, None,
+         "has an `if:`"),
+        ("the push gate cannot write issues (#464)",
+         gp.replace("      issues: write\n", ""), gi, None, "`issues: write`"),
+        ("the push gate can write the repository (#464)",
+         gp.replace("      contents: read\n      pull-requests: read\n      issues: write\n",
+                    "      contents: write\n      pull-requests: read\n      issues: write\n"), gi, None,
+         "no more than `contents: read`"),
+        ("the two push-gate scripts differ (#464)",
+         gp, gi.replace("core.info('the push gate')", "core.info('another gate')"), None,
+         "scripts in documentation-pipeline.yml and generate-ids.yml differ"),
+        ("sync reaches push-gate only through another job, under a status-function if (#464)",
+         gp.replace("[push-gate, validate-markdown, repo-screenshots]", "[validate-markdown, repo-screenshots]"),
+         gi, None, "has a status-function `if:`, so it must name 'push-gate'"),
+        ("generate-ids.yml has no push-gate job (#464)",
+         gp, re.sub(r"(?s)  push-gate:\n.*?(?=  generate-ids:\n)", "", gi), None,
+         "generate-ids.yml has no 'push-gate' job"),
     ]
     with tempfile.TemporaryDirectory() as tmp:
         rc, out = wiring(gp, gi, tmp, "good")
