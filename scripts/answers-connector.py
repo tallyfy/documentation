@@ -457,8 +457,10 @@ def main():
 	# Find MDX files. These two lists are DELIBERATE exclusions, not bugs:
 	#   - 404.mdx: the not-found page, never a real doc.
 	#   - pro/changelog/**: release notes are intentionally excluded from search. They are
-	#     also excluded upstream in generate-ids.yml (a path filter), so those files never
-	#     get an `id` and would be skipped here anyway as "missing id".
+	#     also excluded upstream by generate-ids.py (SKIP_PREFIX), so those files never get
+	#     an `id` and would be skipped here anyway as "missing id". Until #475 (2026-11-06)
+	#     generate-ids.yml's path filter excluded them too; it no longer does, so a
+	#     changelog-only push now starts a run and publishes.
 	skip_list = ["404.mdx"]
 	skip_dirs = ["src/content/docs/pro/changelog"]
 
