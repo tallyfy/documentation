@@ -71,7 +71,7 @@ python orchestrator.py replace \
 **Benefits**:
 - Same URL (no documentation updates needed)
 - Preserves article associations
-- Regenerates captions automatically
+- Clears the three captions and queues the image for captioning again when the bytes change; `--keep-captions` keeps them for a cosmetic swap (#462)
 
 ### Generate Captions for Existing Image
 
@@ -128,6 +128,7 @@ The master inventory at `/documentation/documentation_assets.csv` contains:
 - `ai_caption_descriptive` - Detailed caption
 - `ai_caption_seo` - SEO-optimized keywords
 - `needs_caption` - `yes` | `no`
+- Ten more since 2026-11-05 (#462), from `source` to `source_ref`, record who made each image, where in the app it was taken, and when. `REFERENCE/claude-md/asset-management.md` says what each holds.
 
 ## 🎨 AI Caption Generation
 
