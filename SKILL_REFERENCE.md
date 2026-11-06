@@ -357,7 +357,7 @@ stats = inventory.get_stats()
 
 #### CSV Schema
 
-See "Data Schemas" section for complete 16-column schema.
+See "Data Schemas" section for the first 16 columns. The file has 26 since 2026-11-05 (#462); the full list is under "CSV Schema" in `REFERENCE/claude-md/asset-management.md`.
 
 ---
 
@@ -532,6 +532,8 @@ Content-Length: {file_size}
 | 14 | `ai_caption_descriptive` | Text | Detailed caption (2-4 sentences) | `Tallyfy task assignment screen...` |
 | 15 | `ai_caption_seo` | Text | SEO caption (keywords) | `assign tasks Tallyfy workflow...` |
 | 16 | `needs_caption` | Enum | `yes`, `no` | `no` |
+
+Columns 17 to 26 (`source`, `repo_path`, `app_screen`, `app_url`, `location_source`, `captured_at`, `content_sha256`, `markdown_alt`, `source_description`, `source_ref`) were added on 2026-11-05 (#462). They are described under "CSV Schema" in `REFERENCE/claude-md/asset-management.md`.
 
 ---
 
