@@ -42,6 +42,12 @@ Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree 
 
 **Current practice (2026-09-23): a full promotion is a pull request from `staging` into `main`, merged as a true merge commit after an independent check of the running staging site.** #283 (`d4fab7fc`) and #294 (`6fcb47e6`) both landed that way, each with two parents in `git rev-list --parents -n1`. Merge with `gh pr merge <n> --repo tallyfy/documentation --merge`. A subset ship, such as #263 or #268, is a different operation: a squash pull request into `main` carrying only named changes. The commands below are the underlying git, kept for reference; steps 4 and 5 still apply after the pull request merges.
 
+**A subset ship that changes a page's `description` also copies that page's cards onto `main` (owner decision 2026-11-07, #500).** The card teasers in `## Related articles` come from each linked page's description, and the pipeline regenerates them only on `staging`, never on `main`. So after a subset ship changes a description, every card on `main` that links to that page keeps the old text, and tallyfy.com shows it until a full promotion. #484 and #488 left seven such cards saying "automated reminders" and "native notifications" after the pages were corrected; #493 fixed them. This step is the one exception to never editing Related articles by hand, and it applies only on `main`:
+- For each page whose `description` the ship changes, find every `LinkTitleCard` line on `main` whose `href` is that page. Check the page's `description` is identical on `main` and `staging` once the ship is in, so no staging-only text is published.
+- Replace each such line with the line `staging`'s generator wrote for the same `href`, byte for byte, keeping the file's line endings. Where staging has rebuilt a file's whole card block, so that line no longer exists there, copy that file's whole `## Related articles` block from `staging` instead; #493 did this for the reminders page.
+- Check it adds no conflict to the next full promotion: `git merge-tree --write-tree --name-only origin/main origin/staging` and the same with your branch in place of `origin/main` must list the same conflicted paths. Teaser-only edits inside a block staging rebuilt add one, which is how #493's first head was caught.
+- Do it in the ship's own pull request when you can; a separate main-only pull request, as #493 was, works too.
+
 ```bash
 # 1. Ensure staging is clean and pipeline has passed
 git checkout staging && git pull
