@@ -27,6 +27,8 @@
 **How it works:**
 1. Push to this repo triggers `generate-ids.yml` → then `documentation-pipeline.yml`
 2. Pipeline processes content. **On `staging`**: IDs, snippets, related articles, lastUpdated dates are all auto-regenerated. **On `main`**: only validation + Answers upload + deleted-file cleanup + sync run; the 3 regen jobs early-exit (see tallyfy/documentation#56).
+   Dated 2026-11-06 (#464): the `repo-screenshots` job also runs on both. On `staging` it uploads screenshots committed under `screenshots/launchbrightly/` and commits their inventory rows; on `main` it only checks them.
+   Dated 2026-11-06 (#464): a `push-gate` job runs first in both workflows and stops the run, with one issue, when a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot] put commits on the branch outside a merged pull request. See "The push gate" in `asset-management.md`.
 3. Sync job rsyncs `src/content/docs/` to `support-docs` on the mapped branch
 4. Cloudflare Pages auto-builds and deploys `support-docs`
 5. Cloudflare Workers strip `/products` prefix and proxy to the Pages deployment

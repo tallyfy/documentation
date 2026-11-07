@@ -201,8 +201,14 @@ scripts/asset_management/
 ├── orchestrator.py        # Main CLI interface
 ├── r2_uploader.py         # R2 upload functionality
 ├── image_captioner.py     # AI caption generation
-└── asset_inventory.py     # Inventory management
+├── asset_inventory.py     # Inventory management
+├── repo_screenshots.py    # The pipeline's upload of images committed under screenshots/launchbrightly/ (#464)
+└── repo_screenshot_rules.py  # The rules those images meet, shared with scripts/lb-pr-guard.py
 ```
+
+How LaunchBrightly's committed screenshots flow, and why that job uploads with boto3 rather than
+`r2_uploader.py`, is in `REFERENCE/claude-md/asset-management.md` under "Screenshots committed to
+this repository (LaunchBrightly)".
 
 ## 🔒 Security & Credentials
 
