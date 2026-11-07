@@ -212,8 +212,10 @@ issue (#88, #118).
   TOK=$(jq -r .api_token   ../cloudflare_credentials.json)
   curl -s -H "Authorization: Bearer $TOK" \
     "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=1" \
-    | jq -r '.result[] | "\(.short_id) \(.latest_stage.name)/\(.latest_stage.status) skipped=\(.is_skipped) \(.created_on)"'
+    | jq -r '"success=\(.success) rows=\(.result | length)", (.result[] | "\(.short_id) \(.latest_stage.name)/\(.latest_stage.status) skipped=\(.is_skipped) \(.created_on)")'
   ```
+
+  Dated 2026-11-07 (tallyfy/work-queue#4779): the jq line above now prints `success=` and `rows=` before the deployment. Until then it printed only the deployment, so a failed read (no network, a wrong token) printed nothing or only a jq error, the same as a project with no deployment. Trust the row only after `success=true rows=1`.
 
   Read `is_skipped` as well as the stage. A skipped build (commit message carrying `[skip ci]` or a sibling marker) still appears in the deployments list with a `github:push` trigger and looks like a real build, but its stages never start. Two controls, both cheap: `?env=preview` must return *different* rows (the `staging` ones), and a fabricated project name must return `success: false` rather than an empty-looking pass.
 
@@ -221,14 +223,17 @@ issue (#88, #118).
 
   ```bash
   SYNC=<full SHA of the support-docs sync commit>
-  curl -s -H "Authorization: Bearer $TOK" \
+  [ ${#SYNC} -eq 40 ] && curl -s -H "Authorization: Bearer $TOK" \
     "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=10" \
-    | jq -r --arg s "$SYNC" '.result[] | select(.deployment_trigger.metadata.commit_hash == $s) | "\(.short_id) \(.deployment_trigger.type) \(.latest_stage.name)/\(.latest_stage.status)"'
+    | jq -r --arg s "$SYNC" '"success=\(.success) rows=\(.result | length)", (.result[] | select(.deployment_trigger.metadata.commit_hash == $s) | "\(.short_id) \(.deployment_trigger.type) \(.latest_stage.name)/\(.latest_stage.status)")'
+  # Control, same header: a made-up project must print "control success=false rows=0".
+  curl -s -H "Authorization: Bearer $TOK" "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/zq-made-up-$RANDOM/deployments?env=production&per_page=10" | jq -r '"control success=\(.success) rows=\(.result | length)"'
   ```
 
-  A pushed commit normally gets its `github:push` deployment within seconds: 2.5 to 4.1 seconds after the commit on each of the 12 other production pushes from 2026-11-02 to 2026-11-07. So no row for the sync commit after the project's normal build time means Pages missed the push, and nothing builds it until the next push. Derive that build time from the project's recent deployments, as for a hung build above. Then start a deployment by hand. Pages writes need the legacy key: the Bearer `api_token` got `Authentication error` (10000) on this call that day, as it does on a retry (`~/GitHub/REFERENCE/CREDENTIALS.md`).
+  Only `success=true rows=10` with no deployment line under it counts as a miss. Anything else means the read failed, so do not start a build: no output at all (a short SHA, which the length test refuses, or no network), `success=false`, or a jq error. The read covers the 10 newest production deployments, which went back about 31 hours on 2026-11-07, so run it soon after the sync. A pushed commit normally gets its `github:push` deployment within seconds: 2.5 to 4.1 seconds after the commit on each of the 12 other production pushes from 2026-11-02 to 2026-11-07. So a miss after the project's normal build time means Pages missed the push, and nothing builds it until the next push. Derive that build time from the project's recent deployments, as for a hung build above. Then start a deployment by hand. Pages writes need the legacy key: the Bearer `api_token` got `Authentication error` (10000) on this call that day, as it does on a retry (`~/GitHub/REFERENCE/CREDENTIALS.md`).
 
   ```bash
+  AID=$(jq -r .account_id ../cloudflare_credentials.json)
   EMAIL=$(jq -r .account_email ../cloudflare_credentials.json)
   KEY=$(jq -r .api_key ../cloudflare_credentials.json)
   curl -s -X POST -H "X-Auth-Email: $EMAIL" -H "X-Auth-Key: $KEY" -F branch=production \
@@ -236,7 +241,7 @@ issue (#88, #118).
     | jq '{success, id: .result.short_id, commit: .result.deployment_trigger.metadata.commit_hash, errors}'
   ```
 
-  Never print `$EMAIL`, `$KEY` or the raw response. The call builds the branch tip, so check that the returned commit is the sync commit or a later one, then wait for `deploy/success` and for `canonical_deployment` to name it. On 2026-11-05 that was `cf7fd6e7`, an `ad_hoc` deployment, canonical at 19:08:43Z. Run the control first, with the same headers: a made-up project name must return `success: false`. Measured 2026-11-07, it returned error 8000007 while `support-docs` returned `success: true`, so an empty answer for the real project means no deployment, not a failed call. The same miss shows on GitHub, which `gh` can read: Pages writes a `Cloudflare Pages` check run on each support-docs commit it builds, whose `external_id` is the deployment id, and `f08e49b2` had none until the hand-started build. A build skipped by the project's watch paths (`public/*`, `src/*`, `documentation_assets.csv` on 2026-11-07) writes none either.
+  Never print `$EMAIL`, `$KEY` or the raw response. The call builds the branch tip, so check that the returned commit is the sync commit or a later one, then wait for `deploy/success` and for `canonical_deployment` to name it. On 2026-11-05 that was `cf7fd6e7`, an `ad_hoc` deployment, canonical at 19:08:43Z. Before the POST, check the legacy headers work with a read: with them, a GET of `support-docs` deployments returned `success: true` on 2026-11-07, and a made-up project returned `success: false` (error 8000007). The same miss shows on GitHub, which `gh` can read: Pages writes a `Cloudflare Pages` check run on each support-docs commit it builds, whose `external_id` is the deployment id, and `f08e49b2` had none until the hand-started build. A build skipped by the project's watch paths (`public/*`, `src/*`, `documentation_assets.csv` on 2026-11-07) writes none either.
 - **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
