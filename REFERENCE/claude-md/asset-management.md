@@ -178,7 +178,12 @@ When the bytes change, the three captions are cleared and `needs_caption` become
 its row, marked `orphaned`. Any problem (a bad file, a link to a missing file, a failed upload
 or read-back) fails the job before the CSV is written, so `staging` stays as it was and `sync`
 does not publish. The job also refuses to run when any commit to `documentation_assets.csv` was
-authored by LaunchBrightly, because the guard should have stopped it.
+authored by LaunchBrightly, because the guard should have stopped it. A revert does not clear
+that, since the commit stays in history. After reading such a commit and reverting any wrong
+rows, a person adds its full SHA to `scripts/asset_management/launchbrightly-csv-reviewed.txt`,
+and the next run goes ahead. A line there that is not a full SHA stops the job (exit 2). The
+LaunchBrightly PR guard refuses their pull requests that touch `scripts/`, so they cannot add
+to it themselves.
 
 The upload credentials are `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and
 `CLOUDFLARE_ACCOUNT_ID` in the `r2-screenshots` GitHub environment: an R2 token scoped to the

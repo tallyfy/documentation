@@ -10,7 +10,8 @@ documentation_assets.csv (tallyfy/documentation#464).
             It never deletes anything from R2. Any problem stops it before the CSV is written,
             so staging is left as it was: a file that is not an allowed image or sidecar, an
             article linking a /screenshots/ path that is not an accepted image in the tree, a
-            failed upload or read-back, or any commit to the CSV authored by LaunchBrightly.
+            failed upload or read-back, or any commit to the CSV authored by LaunchBrightly
+            that a person has not listed in launchbrightly-csv-reviewed.txt.
             When nothing changed it writes nothing, so the pipeline has nothing to commit.
             --dry-run makes no network call and writes nothing; it prints the rows it would write.
   verify    Run by the pipeline on main, with no credentials. Every linked image must be in the
@@ -50,6 +51,11 @@ from audit_sync import _frontmatter_id
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CSV_NAME = "documentation_assets.csv"
+# Full SHAs of LaunchBrightly commits to the CSV that a person has reviewed (and reverted where
+# needed). Without it, one such commit would refuse every later run, because a revert is a new
+# commit and the old one stays in history (bugbot finding on tallyfy/documentation#471).
+REVIEWED_LIST = "scripts/asset_management/launchbrightly-csv-reviewed.txt"
+_REVIEWED_LINE = re.compile(r"^([0-9a-f]{40})(?:\s+#.*)?$")
 DOCS = "src/content/docs"
 BUCKET = "screenshots"
 CACHE_CONTROL = "public, max-age=31536000, immutable"
@@ -114,19 +120,43 @@ def blob_reader(repo, blob):
     return lambda: _git(repo, "cat-file", "blob", blob, binary=True)
 
 
+def reviewed_lb_csv_commits(repo):
+    """The full SHAs listed in REVIEWED_LIST. A missing file lists none. A line that is not a
+    full lower-case SHA, optionally followed by '# note', cannot run (exit 2), so a typo never
+    reads as a review."""
+    path = Path(repo) / REVIEWED_LIST
+    if not path.exists():
+        return set()
+    shas = set()
+    for n, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = _REVIEWED_LINE.match(line)
+        if not match:
+            raise CannotRun(f"{REVIEWED_LIST} line {n} is not a full 40-character commit SHA "
+                            f"(optionally followed by '# note'): {raw!r}")
+        shas.add(match.group(1))
+    return shas
+
+
 def lb_csv_commits(repo):
-    """Commits to the CSV that LaunchBrightly authored or committed. Its pull requests may not
-    touch the file (scripts/lb-pr-guard.py refuses them), so any such commit means a guard
-    was passed by and the rows cannot be trusted."""
+    """Commits to the CSV that LaunchBrightly authored or committed, and that no person has
+    listed in REVIEWED_LIST. Its pull requests may not touch the file (scripts/lb-pr-guard.py
+    refuses them), so any such commit means a guard was passed by and the rows cannot be
+    trusted until someone has looked."""
     if _git(repo, "rev-parse", "--is-shallow-repository").strip() != "false":
         raise CannotRun("this checkout is shallow, so the CSV's history cannot be read. "
                         "Check out with fetch-depth: 0.")
     out = _git(repo, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce", "--", CSV_NAME)
+    reviewed = reviewed_lb_csv_commits(repo)
     found = []
     for line in out.splitlines():
         sha, *people = line.split("\x1f")
+        if sha in reviewed:
+            continue
         if any("launchbrightly[bot]" in p.lower() for p in people):
-            found.append(f"{sha[:12]} ({people[0]} <{people[1]}>)")
+            found.append(f"{sha} ({people[0]} <{people[1]}>)")
     return found
 
 
@@ -367,7 +397,8 @@ def ingest(repo, inventory, make_uploader, fetch, dry_run=False, now=None):
     if lb:
         msg = (f"REFUSED: {CSV_NAME} has {len(lb)} commit(s) authored or committed by LaunchBrightly "
                f"({', '.join(lb)}). Its pull requests may not touch the inventory, so these rows "
-               f"cannot be trusted. A person must review and revert them before this job runs again.")
+               f"cannot be trusted. A person must review them, revert any rows that are wrong, and add "
+               f"each full SHA on its own line to {REVIEWED_LIST} before this job runs again.")
         log(msg)
         annotate("error", msg)
         return 1
@@ -842,6 +873,33 @@ def self_test():
         check("RED a CSV commit authored by LaunchBrightly is refused before anything uploads",
               rc == 1 and "REFUSED" in out and "launchbrightly[bot]" in out and built == 0
               and s6.csv.read_bytes() == before, out)
+
+        # 11b. The way out the refusal names: a person reverts, the commit stays in history, and
+        # listing its full SHA in REVIEWED_LIST lets the next run go ahead.
+        lb_sha = subprocess.run(["git", "log", "-1", "--format=%H", "--author=launchbrightly"],
+                                cwd=s6.repo, capture_output=True, text=True, check=True).stdout.strip()
+        s6.git("revert", "--no-edit", lb_sha)
+        rc, out, built = run(s6, _FakeR2())
+        check("RED a revert alone does not clear it, because the commit stays in history",
+              rc == 1 and lb_sha in out, out)
+        s6.commit("List a commit that is not the one", files={REVIEWED_LIST: "f" * 40 + "  # wrong\n"})
+        rc, out, built = run(s6, _FakeR2())
+        check("RED listing some other SHA does not clear it", rc == 1 and lb_sha in out, out)
+        near = lb_sha[:12] + ("0" * 28 if lb_sha[12:] != "0" * 28 else "1" * 28)
+        s6.commit("List a SHA that only shares the start", files={REVIEWED_LIST: near + "\n"})
+        rc, out, built = run(s6, _FakeR2())
+        check("RED a SHA that shares only its first 12 characters does not clear it",
+              rc == 1 and lb_sha in out, out)
+        s6.commit("Accept the reviewed commit", files={REVIEWED_LIST: f"# reviewed\n\n{lb_sha}  # reverted\n"})
+        rc, out, built = run(s6, _FakeR2())
+        check("GREEN once its full SHA is listed, the job runs again", rc == 0 and "REFUSED" not in out, out)
+        s6.commit("Typo in the list", files={REVIEWED_LIST: lb_sha[:12] + "\n"})
+        rc, out, built = run(s6, _FakeR2())
+        check("RED a line that is not a full SHA cannot run (exit 2), so a typo never counts as a review",
+              rc == 2 and "line 1" in out and built == 0, out)
+        # Case 14 runs s6 from the command line and needs it refused again: with no list, the
+        # reverted commit is still in history and still unreviewed.
+        s6.commit("Remove the list", remove=(REVIEWED_LIST,))
 
         # 12. A dry run makes no R2 call and writes nothing, and prints the rows it would write.
         s7 = _Scratch(tmp, "dry")
