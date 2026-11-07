@@ -903,6 +903,7 @@ jobs:
           echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
 
       - name: Commit and push changes
+        id: commit-push
         if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
@@ -932,7 +933,74 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
+            # Whether Cloudflare Pages will build this push, for the check below. Pages builds only
+            # when a push changes one of the project's watch paths, which were public/*, src/* and
+            # documentation_assets.csv on 2026-11-07 (tallyfy/work-queue#4779).
+            EXPECT_BUILD=false
+            if git diff --staged --name-only | grep -Eq '^(src/|public/|documentation_assets\.csv$)'; then
+              EXPECT_BUILD=true
+            fi
             git commit -m "Sync docs from tallyfy/documentation" -m "Source commit: $SRC_SHA"
             git pull origin $TARGET_BRANCH --no-rebase || true
+            # Written before the push so the push stays this step's last command, and the step
+            # still fails when the push does. The check below runs only when this step succeeded.
+            echo "pushed_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "expect_build=$EXPECT_BUILD" >> "$GITHUB_OUTPUT"
             git push origin $TARGET_BRANCH
           fi
+
+      # Did Cloudflare Pages build what this job pushed? (tallyfy/work-queue#4779)
+      # On 2026-11-05 this job pushed support-docs f08e49b2 to production and the run was green,
+      # but Pages never created a deployment for it, so tallyfy.com served the old build for about
+      # three hours. Pages writes a "Cloudflare Pages" check run on each support-docs commit it
+      # builds, with the deployment id as its external_id. GH_TOKEN already reads support-docs, so
+      # this needs no Cloudflare secret.
+      #
+      # It runs after the push, so it never stops a publish. Green: Pages built the commit. Red: no
+      # build within the wait, a build still running at the end of it (a hung build), or a build
+      # that failed; the error says what to do. Green with a warning: the check runs could not be
+      # read, so nothing was measured. A re-run cannot help, because the sync is then a no-op.
+      #
+      # Production only. A missed staging build delays only staging, and the wait holds this
+      # branch's place in the concurrency group for the length of a build, about 5 to 7 minutes.
+      # Skipped when the push changed no watch path, because a skipped build writes no check run.
+      - name: Check that Cloudflare Pages built the pushed commit
+        if: ${{ steps.commit-push.outputs.expect_build == 'true' && github.event.workflow_run.head_branch == 'main' }}
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PUSHED_SHA: ${{ steps.commit-push.outputs.pushed_sha }}
+          WAIT_SECONDS: '900'
+        run: |
+          set -u
+          [ -n "$PUSHED_SHA" ] || { echo "::error::no pushed commit was recorded, so the Pages build cannot be checked"; exit 1; }
+          how='See "Verifying deployment" in REFERENCE/claude-md/linking-and-deployment.md for how to start or cancel a build by hand.'
+          deadline=$((SECONDS + WAIT_SECONDS))
+          while :; do
+            if ! body=$(gh api "repos/tallyfy/support-docs/commits/$PUSHED_SHA/check-runs?check_name=Cloudflare%20Pages&per_page=100" 2>"$RUNNER_TEMP/pages-check.err"); then
+              echo "::warning::Could not read the check runs on support-docs $PUSHED_SHA, so whether Cloudflare Pages built it was not measured: $(head -c 300 "$RUNNER_TEMP/pages-check.err")"
+              exit 0
+            fi
+            run=$(jq -c '[.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages")] | sort_by(.started_at) | last // {}' <<< "$body")
+            status=$(jq -r '.status // "none"' <<< "$run")
+            conclusion=$(jq -r '.conclusion // "none"' <<< "$run")
+            deployment=$(jq -r '.external_id // "none"' <<< "$run")
+            if [ "$status" = completed ]; then
+              if [ "$conclusion" = success ]; then
+                echo "Cloudflare Pages built support-docs $PUSHED_SHA: deployment $deployment."
+                exit 0
+              fi
+              echo "::error::Cloudflare Pages finished support-docs $PUSHED_SHA as $conclusion (deployment $deployment), so tallyfy.com still serves the previous build. $how"
+              exit 1
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              if [ "$status" = none ]; then
+                echo "::error::Cloudflare Pages has not built support-docs $PUSHED_SHA after $WAIT_SECONDS seconds. It missed the push, and tallyfy.com still serves the previous build. $how"
+              else
+                echo "::error::Cloudflare Pages is still building support-docs $PUSHED_SHA after $WAIT_SECONDS seconds (deployment $deployment), which looks like a hung build. $how"
+              fi
+              exit 1
+            fi
+            sleep 30
+          done
+        shell: bash
