@@ -14,7 +14,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Integrating with the Tallyfy REST API
 
-Tallyfy's REST API lets you connect workflow features to your own applications and systems.
+Your own applications and systems can launch processes, complete tasks and update form fields in Tallyfy through its REST API. Every call needs three headers, and one of them carries an access token.
 
 :::note[API documentation]
 Full API reference at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
@@ -145,22 +145,19 @@ API -> App: "10. Successful response" {
 Personal access tokens are invalidated when users log out. To reduce disruption:
 
 1. **Automated systems**: Use application tokens instead of personal tokens when possible. Any paid organization can have them, but not during a free trial, and Tallyfy Support sets them up
-2. **User-based integrations**:
-   - Let users know that logging out breaks automations
-   - Add error handling to detect invalidated tokens
-   - Provide clear steps for getting new tokens after logout
-3. **Monitoring**: Log authentication failures to spot patterns early
+2. **User-based integrations**: Tell users that logging out of Tallyfy stops their automations. Your error handling should spot the `401` an invalidated token returns, and show the user how to copy a new token from **Settings > Integrations > REST API**.
+3. **Monitoring**: Log each authentication failure with the user whose token failed. When one user's calls all start failing at once, check whether that person logged out.
 
 #### Token security
 
-- Store tokens with encryption at rest
-- Never expose tokens in client-side code or logs
-- Rotate tokens regularly for sensitive operations
-- Handle token expiration by refreshing automatically
+- Encrypt tokens wherever you store them.
+- Never put a token in client-side code or a log. Anyone who can read it can call the API as its owner until it expires, and a personal access token lasts 6 months.
+- For sensitive operations, replace tokens on your own schedule, before they expire.
+- Refresh expired access tokens automatically.
 
 ### Working with multi-organization users
 
-Tallyfy users can belong to multiple organizations[^1]. This matters for API integrations:
+Tallyfy users can belong to multiple organizations[^1], so your integration has to know which organization each call is for.
 
 #### Organization context in API requests
 
@@ -178,12 +175,7 @@ When building integrations:
 
 #### Multiple organizations
 
-For users belonging to more than one organization:
-
-1. Let users pick which organization to work with
-2. Store multiple organization IDs if your app spans organizations
-3. Permissions and data differ between organizations
-4. You may need updated tokens when switching organizations
+Let each user pick which organization your app works in, and store an ID for every organization your app spans. Permissions and data differ between organizations, and you may need updated tokens when a user switches.
 
 :::tip[Organization switching]
 Users can switch organizations in the Tallyfy UI. Learn more in [Switch between organizations](/products/pro/settings/personal-settings/how-can-i-switch-between-organizations-in-tallyfy/).
@@ -275,10 +267,7 @@ If problems persist, check the response body for specific error messages or cont
 
 #### CORS or preflight issues
 
-For cross-origin challenges:
-- Watch for CORS preflight (`OPTIONS`) requests
-- Check response headers for CORS permissions
-- Verify allowed origins and methods
+CORS errors only come from browsers. Every Tallyfy call carries custom headers, so before a cross-origin call the browser first sends a preflight `OPTIONS` request, and it reuses a passed one for up to 2 hours. If the preflight fails, the real call never goes out. Read the `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers on the preflight response to see what's allowed. A custom header that isn't in that list fails the preflight. A few basic headers, such as `Accept`, don't need to be listed. Server-side code doesn't send preflight requests.
 
 ### Preventing duplicate operations
 
@@ -291,14 +280,12 @@ External systems might send duplicate requests from network retries, user errors
 
 ### Date format standards
 
-When working with dates in the Tallyfy API:
+The API reads dates in one format and returns them in another:
 
 | Direction | Format | Example |
 |-----------|--------|---------|
 | Request (to API) | YYYY-MM-DD HH:MM:SS | 2025-05-15 14:30:00 |
 | Response (from API) | ISO 8601 (Zulu time) | 2025-05-15T14:30:00.000Z |
-
-Make sure your code handles both formats correctly.
 
 ### Descriptions that reference form fields or people
 
@@ -308,11 +295,7 @@ Send the wrong shape and the API still accepts it, so nothing tells you it was w
 
 ### Webhook integration
 
-For event-driven integrations, Tallyfy offers webhooks that don't require polling the API:
-
-- Configure webhooks at the process or step level
-- Get real-time notifications when specific events happen
-- Process the webhook payload to trigger actions in your systems
+Webhooks tell your system when something happens in Tallyfy, so you don't have to poll the API. A webhook set on a template fires when a process launches, when any of its steps is completed, and when the process is completed. A webhook set on one step fires only when that step is completed. Each one POSTs a JSON payload to your URL for your system to act on.
 
 For setup details, see the [webhooks setup guide](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
 
@@ -325,9 +308,9 @@ If your team has developers and clear requirements, an AI assistant can draft wo
 3. Review, test, and deploy the code.
 4. When the rules change, update the spec first, then have the AI revise the code and test it again.
 
-Ask for a clear, maintainable structure with logging and error handling, in your team's preferred language, such as Python or JavaScript.
+Tell it which language your team uses, such as Python or JavaScript. Ask it to log every API call and to handle errors, including a `401` from an expired token.
 
-For example, a logistics team needs shipping workflows that vary by weight, destination, and carrier. A developer describes the rules, and the AI generates the Python code for a first version.
+For example, a logistics team whose shipping steps vary by weight, destination and carrier writes a spec for one shipping template. Weight, destination and carrier are kick-off fields, and rules show each carrier's steps only when that carrier is picked. The AI drafts Python code that launches a process from that template for each shipment, and a developer tests it before it goes live.
 
 [^1]: Organizations in Tallyfy are isolated tenants - each with its own templates, processes, members, and settings
 
