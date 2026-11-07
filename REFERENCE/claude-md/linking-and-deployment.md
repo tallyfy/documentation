@@ -216,6 +216,27 @@ issue (#88, #118).
   ```
 
   Read `is_skipped` as well as the stage. A skipped build (commit message carrying `[skip ci]` or a sibling marker) still appears in the deployments list with a `github:push` trigger and looks like a real build, but its stages never start. Two controls, both cheap: `?env=preview` must return *different* rows (the `staging` ones), and a fabricated project name must return `success: false` rather than an empty-looking pass.
+
+  **A sync commit can get no deployment at all, and then the newest deployment is the old one (2026-11-05, tallyfy/work-queue#4779).** Run 42061445501's `sync` pushed support-docs `f08e49b2` to `production` at 16:11:05Z and the run was green, but Pages never created a deployment for it. The newest production deployment stayed `48ba5bfb` from 2026-11-02, so the curl above printed a finished `deploy/success` row, and tallyfy.com served the old tree for about three hours. So match the commit, not only the stage: the production deployment's `deployment_trigger.metadata.commit_hash` must equal the full SHA of the sync commit.
+
+  ```bash
+  SYNC=<full SHA of the support-docs sync commit>
+  curl -s -H "Authorization: Bearer $TOK" \
+    "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=10" \
+    | jq -r --arg s "$SYNC" '.result[] | select(.deployment_trigger.metadata.commit_hash == $s) | "\(.short_id) \(.deployment_trigger.type) \(.latest_stage.name)/\(.latest_stage.status)"'
+  ```
+
+  A pushed commit normally gets its `github:push` deployment within seconds: 2.5 to 4.1 seconds after the commit on each of the 12 other production pushes from 2026-11-02 to 2026-11-07. So no row for the sync commit after the project's normal build time means Pages missed the push, and nothing builds it until the next push. Derive that build time from the project's recent deployments, as for a hung build above. Then start a deployment by hand. Pages writes need the legacy key: the Bearer `api_token` got `Authentication error` (10000) on this call that day, as it does on a retry (`~/GitHub/REFERENCE/CREDENTIALS.md`).
+
+  ```bash
+  EMAIL=$(jq -r .account_email ../cloudflare_credentials.json)
+  KEY=$(jq -r .api_key ../cloudflare_credentials.json)
+  curl -s -X POST -H "X-Auth-Email: $EMAIL" -H "X-Auth-Key: $KEY" -F branch=production \
+    "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments" \
+    | jq '{success, id: .result.short_id, commit: .result.deployment_trigger.metadata.commit_hash, errors}'
+  ```
+
+  Never print `$EMAIL`, `$KEY` or the raw response. The call builds the branch tip, so check that the returned commit is the sync commit or a later one, then wait for `deploy/success` and for `canonical_deployment` to name it. On 2026-11-05 that was `cf7fd6e7`, an `ad_hoc` deployment, canonical at 19:08:43Z. Run the control first, with the same headers: a made-up project name must return `success: false`. Measured 2026-11-07, it returned error 8000007 while `support-docs` returned `success: true`, so an empty answer for the real project means no deployment, not a failed call. The same miss shows on GitHub, which `gh` can read: Pages writes a `Cloudflare Pages` check run on each support-docs commit it builds, whose `external_id` is the deployment id, and `f08e49b2` had none until the hand-started build. A build skipped by the project's watch paths (`public/*`, `src/*`, `documentation_assets.csv` on 2026-11-07) writes none either.
 - **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body
