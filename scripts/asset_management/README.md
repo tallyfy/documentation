@@ -71,7 +71,7 @@ python orchestrator.py replace \
 **Benefits**:
 - Same URL (no documentation updates needed)
 - Preserves article associations
-- Regenerates captions automatically
+- Clears the three captions and queues the image for captioning again when the bytes change; `--keep-captions` keeps them for a cosmetic swap (#462)
 
 ### Generate Captions for Existing Image
 
@@ -128,6 +128,7 @@ The master inventory at `/documentation/documentation_assets.csv` contains:
 - `ai_caption_descriptive` - Detailed caption
 - `ai_caption_seo` - SEO-optimized keywords
 - `needs_caption` - `yes` | `no`
+- Ten more since 2026-11-05 (#462), from `source` to `source_ref`, record who made each image, where in the app it was taken, and when. `REFERENCE/claude-md/asset-management.md` says what each holds.
 
 ## 🎨 AI Caption Generation
 
@@ -200,8 +201,14 @@ scripts/asset_management/
 ├── orchestrator.py        # Main CLI interface
 ├── r2_uploader.py         # R2 upload functionality
 ├── image_captioner.py     # AI caption generation
-└── asset_inventory.py     # Inventory management
+├── asset_inventory.py     # Inventory management
+├── repo_screenshots.py    # The pipeline's upload of images committed under screenshots/launchbrightly/ (#464)
+└── repo_screenshot_rules.py  # The rules those images meet, shared with scripts/lb-pr-guard.py
 ```
+
+How LaunchBrightly's committed screenshots flow, and why that job uploads with boto3 rather than
+`r2_uploader.py`, is in `REFERENCE/claude-md/asset-management.md` under "Screenshots committed to
+this repository (LaunchBrightly)".
 
 ## 🔒 Security & Credentials
 

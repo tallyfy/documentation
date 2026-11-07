@@ -32,6 +32,7 @@ Usage examples:
 
 import sys
 import argparse
+import hashlib
 import shutil
 import subprocess
 import re
@@ -46,6 +47,8 @@ MAX_IMAGE_DIMENSION = 2000
 # ai_caption_*. asset_inventory writes with extrasaction='ignore', so handing the generator's
 # keys straight to it drops all three SILENTLY and the caller sees success. This map is the
 # single place that translation happens; keep it in step with both sides.
+# Dated 2026-11-05 (#462): the writer now uses extrasaction='raise', so such keys stop the
+# write with an error instead of vanishing. The map is still where the translation happens.
 CAPTION_COLUMNS = {
     'alt_text': 'ai_caption_alt',
     'descriptive': 'ai_caption_descriptive',
@@ -60,6 +63,48 @@ PLACEHOLDER_RE = re.compile(r'^\s*\[CAPTION NEEDED\b', re.IGNORECASE)
 def is_placeholder(value: str) -> bool:
     """True when a caption is the stub's placeholder rather than real text."""
     return bool(PLACEHOLDER_RE.match(value or ''))
+
+
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+
+# R2 keys under this prefix hold LaunchBrightly's screenshots. The pipeline uploads those from
+# screenshots/launchbrightly/ in this repository and owns their inventory rows, so a hand
+# upload there would be overwritten or would contradict the row (#462).
+RESERVED_KEY_PREFIX = 'launchbrightly/'
+
+
+def reserved_key_error(r2_key: str) -> Optional[str]:
+    """The reason a key may not be uploaded by hand, or None when it may."""
+    if (r2_key or '').strip().lstrip('/').lower().startswith(RESERVED_KEY_PREFIX):
+        return (f"refusing to upload to {r2_key!r}: keys under {RESERVED_KEY_PREFIX} are reserved "
+                f"for LaunchBrightly screenshots, which the pipeline uploads from "
+                f"screenshots/launchbrightly/ in this repository. Use another key.")
+    return None
+
+
+def sha256_of(path: Path) -> str:
+    """SHA-256 of a file's bytes, as lowercase hex."""
+    digest = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def image_changed(previous: dict, new_sha256: str, new_etag: str) -> Optional[bool]:
+    """Whether the bytes now on R2 differ from the ones the row described.
+
+    Compares content_sha256 when the row has one, otherwise the R2 etag. Returns None when
+    the row has neither, because then nothing can tell a new image from the same one.
+    """
+    old_sha = (previous.get('content_sha256') or '').strip().lower()
+    if old_sha:
+        return old_sha != new_sha256.lower()
+    old_etag = (previous.get('etag') or '').strip().strip('"').lower()
+    etag = (new_etag or '').strip().strip('"').lower()
+    if old_etag and etag:
+        return old_etag != etag
+    return None
 
 try:
     from r2_uploader import R2Uploader
@@ -162,7 +207,8 @@ class AssetOrchestrator:
         article_ids: Optional[str] = None,
         skip_captions: bool = False,
         overwrite: bool = True,
-        resize: bool = True
+        resize: bool = True,
+        keep_captions: bool = False
     ) -> dict:
         """
         Complete upload workflow: upload → caption → inventory.
@@ -176,6 +222,9 @@ class AssetOrchestrator:
             resize: Shrink an over-2000px image before upload. Pass False for
                     an image whose full height is the point, such as a tall
                     email render, where the shrink makes the text unreadable.
+            keep_captions: When the key already has a row, keep its captions even
+                    if the new bytes differ (a cosmetic swap). Without it, changed
+                    bytes clear the three captions and queue the image again.
 
         Returns:
             dict: Result with success status and details
@@ -183,11 +232,21 @@ class AssetOrchestrator:
         print(f"📤 Starting upload workflow for: {Path(file_path).name}")
         print(f"   R2 key: {r2_key}")
 
+        refusal = reserved_key_error(r2_key)
+        if refusal:
+            print(f"   ❌ {refusal}")
+            return {'success': False, 'step': 'validate', 'error': refusal}
+
         # Step 0: Auto-resize if needed (prevents Claude API 2000px limit errors).
         # ensure_max_dimension returns a temp copy when it resizes, so upload what
         # it hands back rather than the caller's path.
         file_path_obj = Path(file_path)
         upload_path = self.ensure_max_dimension(file_path_obj) if resize else file_path_obj
+        # Hash what goes to R2, which is the resized copy when there is one, so
+        # content_sha256 always describes the bytes the public URL serves.
+        content_sha256 = sha256_of(upload_path)
+        # The row as it stood before this upload, to tell a new image from the same one.
+        previous = self.inventory.find_asset(by_r2_key=r2_key)
 
         # Step 1: Upload to R2
         print("\n[1/3] Uploading to R2...")
@@ -240,18 +299,52 @@ class AssetOrchestrator:
             'article_count': str(len(article_ids.split(',')) if article_ids else 0),
             'last_modified': upload_result.get('last_modified', ''),
             'etag': upload_result.get('etag', ''),
-            'needs_caption': 'yes' if file_path_obj.suffix in ['.png', '.jpg', '.jpeg'] else 'no'
+            'needs_caption': 'yes' if file_path_obj.suffix in ['.png', '.jpg', '.jpeg'] else 'no',
+            # Uploaded by a person through this script (#462).
+            'source': 'manual',
+            'content_sha256': content_sha256,
         }
 
         # Add captions if generated
         asset_data.update(captions)
+
+        # The key already had a row, so this upload replaced an image. Until #462 the old
+        # captions stayed on whatever the new bytes show, and nothing queued it again.
+        captions_cleared = False
+        if previous and article_ids is None:
+            # No --articles given for a key that already has a row: keep the row's article
+            # list. Writing '' here used to blank article_ids and article_count on every
+            # re-upload of an existing key (found under #462).
+            del asset_data['article_ids']
+            del asset_data['article_count']
+        if previous:
+            changed = image_changed(previous, content_sha256, upload_result.get('etag', ''))
+            if keep_captions or changed is False:
+                # Same image, or the caller says the captions still fit: leave the three
+                # captions and the needs_caption flag exactly as the row had them.
+                del asset_data['needs_caption']
+                reason = '--keep-captions' if keep_captions else 'the bytes are unchanged'
+                print(f"   Captions kept ({reason}).")
+            else:
+                if changed is None:
+                    print("   ⚠️  The row has no content_sha256 and no etag, so it cannot tell whether")
+                    print("      the image changed. Treating it as changed.")
+                for column in CAPTION_COLUMNS.values():
+                    asset_data[column] = ''
+                asset_data['needs_caption'] = 'yes' if file_path_obj.suffix.lower() in IMAGE_SUFFIXES else 'no'
+                captions_cleared = True
 
         # Update inventory (create or update)
         self.inventory.update_asset(r2_key, asset_data, create_if_missing=True)
 
         print(f"   ✅ Inventory updated")
 
-        if captions_pending:
+        if captions_cleared:
+            print("   ⚠️  The image changed, so its three captions were cleared and it is queued")
+            print("      for captioning again. Caption it in a Claude Code session:")
+            print(f"     python3 orchestrator.py caption --url {upload_result['url']}")
+            print("      (Pass --keep-captions next time if a swap leaves the captions true.)")
+        elif captions_pending and not (previous and (previous.get('ai_caption_alt') or '').strip()):
             print("   ⚠️  This asset has NO captions yet. Its alt text will be empty until you")
             print("      run the caption command above.")
 
@@ -265,6 +358,8 @@ class AssetOrchestrator:
             # uncaptioned upload read as a captioned one.
             'captions_generated': False,
             'captions_pending': captions_pending,
+            'captions_cleared': captions_cleared,
+            'content_sha256': content_sha256,
         }
 
     def replace_asset(
@@ -272,15 +367,21 @@ class AssetOrchestrator:
         file_path: str | Path,
         r2_key: str,
         regenerate_captions: bool = True,
-        resize: bool = True
+        resize: bool = True,
+        keep_captions: bool = False
     ) -> dict:
         """
         Replace an existing asset.
+
+        When the new bytes differ from the old ones, the three captions are cleared and
+        needs_caption is set to yes, so `audit_sync.py worklist` offers the image again.
+        keep_captions keeps them for a cosmetic swap.
 
         Args:
             file_path: New file to upload
             r2_key: Existing R2 key to replace
             regenerate_captions: Generate new captions for updated file
+            keep_captions: Keep the existing captions even if the bytes changed
 
         Returns:
             dict: Result with success status
@@ -301,7 +402,8 @@ class AssetOrchestrator:
             article_ids=article_ids,
             skip_captions=not regenerate_captions,
             overwrite=True,
-            resize=resize
+            resize=resize,
+            keep_captions=keep_captions
         )
 
     def generate_captions_only(self, url: str) -> dict:
@@ -336,6 +438,7 @@ class AssetOrchestrator:
         # ai_caption_alt/ai_caption_descriptive/ai_caption_seo. asset_inventory writes with
         # extrasaction='ignore', so passing the generator's keys straight through wrote
         # NOTHING and reported success. Translate explicitly (tallyfy/documentation#117).
+        # Since #462 the writer raises on such keys instead (see CAPTION_COLUMNS above).
         row = {
             CAPTION_COLUMNS[key]: value
             for key, value in captions.items()
@@ -409,8 +512,228 @@ class AssetOrchestrator:
         return f"{bytes_value:.1f}TB"
 
 
+class _FakeUploader:
+    """Stands in for R2Uploader in the self-test. It reads the file it is handed and records
+    the key and bytes, and never makes a network call or reads a credential."""
+
+    def __init__(self):
+        self.calls = []
+
+    def upload_file(self, file_path, r2_key, overwrite=True, content_type=None):
+        data = Path(file_path).read_bytes()
+        self.calls.append({'r2_key': r2_key, 'bytes': data})
+        return {
+            'success': True,
+            'url': f'{config.r2_public_url}/{r2_key}',
+            'r2_key': r2_key,
+            # R2 gives a single PUT the MD5 of its bytes as the etag.
+            'etag': hashlib.md5(data).hexdigest(),
+            'size': len(data),
+            'last_modified': '2026-11-05T00:00:00+00:00',
+        }
+
+
+def _self_test() -> int:
+    """Prove upload and replace record provenance and re-queue a changed image (#462).
+
+    Runs AssetOrchestrator against a fake uploader and a CSV in a temporary directory, so
+    it needs no credentials and never uploads anything or touches documentation_assets.csv.
+    Returns 0 when every case passes, 1 when one fails.
+    """
+    import contextlib
+    import csv
+    import io
+    from audit_sync import _row_needs_caption
+
+    results = []
+
+    def check(name, ok, detail=''):
+        results.append(ok)
+        print(f"  [{'ok' if ok else 'FAIL'}] {name}" + (f": {detail}" if detail and not ok else ''))
+
+    old_bytes = b'\x89PNG\r\n\x1a\n old image'
+    new_bytes = b'\x89PNG\r\n\x1a\n new image'
+    captions = {'ai_caption_alt': 'Old alt', 'ai_caption_descriptive': 'Old descriptive',
+                'ai_caption_seo': 'Old seo'}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        old_file, new_file = tmp / 'old.png', tmp / 'new.png'
+        old_file.write_bytes(old_bytes)
+        new_file.write_bytes(new_bytes)
+        csv_path = tmp / 'inventory.csv'
+
+        def fresh(rows):
+            """A new orchestrator over a CSV holding exactly these rows."""
+            # Rows are written as given, not through _fill_defaults, which would reset
+            # needs_caption from the file type and hide what the code under test does.
+            with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=AssetInventory.COLUMNS, lineterminator='\n')
+                writer.writeheader()
+                writer.writerows(dict({c: '' for c in AssetInventory.COLUMNS}, **r) for r in rows)
+            orch = AssetOrchestrator.__new__(AssetOrchestrator)
+            orch.uploader = _FakeUploader()
+            orch.captioner = None
+            orch.inventory = AssetInventory(csv_path)
+            return orch
+
+        def run(fn, *args, **kwargs):
+            with contextlib.redirect_stdout(io.StringIO()):
+                return fn(*args, **kwargs)
+
+        def row(orch, key):
+            return orch.inventory.find_asset(by_r2_key=key) or {}
+
+        captioned_row = dict(captions, r2_key='tallyfy/pro/a.png', needs_caption='no',
+                             article_ids='id1,id2', article_count='2',
+                             content_sha256=sha256_of(old_file))
+
+        # 1. A new upload says it was made by hand and records the hash of what R2 got.
+        orch = fresh([])
+        result = run(orch.upload_asset, new_file, 'tallyfy/pro/new.png', resize=False)
+        r = row(orch, 'tallyfy/pro/new.png')
+        check('upload records source=manual', r.get('source') == 'manual', str(r.get('source')))
+        check('upload records content_sha256 of the bytes sent to R2',
+              len(orch.uploader.calls) == 1
+              and r.get('content_sha256') == hashlib.sha256(orch.uploader.calls[0]['bytes']).hexdigest()
+              == result.get('content_sha256'), str(r.get('content_sha256')))
+
+        # 2. A resized copy is what goes up, so it is what gets hashed.
+        orch = fresh([])
+        resized = tmp / 'resized.png'
+        resized.write_bytes(b'\x89PNG\r\n\x1a\n resized copy')
+        orch.ensure_max_dimension = lambda path: resized
+        run(orch.upload_asset, new_file, 'tallyfy/pro/big.png')
+        check('content_sha256 is the hash of the resized copy that was uploaded',
+              row(orch, 'tallyfy/pro/big.png').get('content_sha256') == sha256_of(resized))
+
+        # 3. Keys under launchbrightly/ are refused before anything is uploaded or written.
+        for key in ('launchbrightly/x.png', '/LaunchBrightly/x.png'):
+            orch = fresh([])
+            before = csv_path.read_bytes()
+            result = run(orch.upload_asset, new_file, key, resize=False)
+            check(f'upload refuses {key!r} without uploading or writing',
+                  result.get('success') is False and orch.uploader.calls == []
+                  and csv_path.read_bytes() == before, str(result))
+        orch = fresh([])
+        result = run(orch.replace_asset, new_file, 'launchbrightly/x.png', resize=False)
+        check('replace refuses a launchbrightly/ key too',
+              result.get('success') is False and orch.uploader.calls == [], str(result))
+        orch = fresh([])
+        result = run(orch.upload_asset, new_file, 'tallyfy/launchbrightly/x.png', resize=False)
+        check('a key that only contains launchbrightly/ further in is allowed',
+              result.get('success') is True and len(orch.uploader.calls) == 1, str(result))
+
+        # 4. Replacing with different bytes clears the captions and queues the image again.
+        orch = fresh([captioned_row])
+        result = run(orch.replace_asset, new_file, 'tallyfy/pro/a.png', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('replace with new bytes clears all three captions',
+              all(r.get(c) == '' for c in CAPTION_COLUMNS.values()), str({c: r.get(c) for c in captions}))
+        check('replace with new bytes sets needs_caption=yes', r.get('needs_caption') == 'yes')
+        check('replace with new bytes puts the image back on the caption worklist', _row_needs_caption(r))
+        check('replace with new bytes stores the new hash', r.get('content_sha256') == sha256_of(new_file))
+        check('replace keeps article_ids', r.get('article_ids') == 'id1,id2')
+        check('replace reports the clear', result.get('captions_cleared') is True)
+
+        # 4b. Re-uploading an existing key without --articles keeps its article list;
+        #     with --articles it takes the new one.
+        orch = fresh([captioned_row])
+        run(orch.upload_asset, new_file, 'tallyfy/pro/a.png', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('upload to an existing key without --articles keeps article_ids',
+              r.get('article_ids') == 'id1,id2' and r.get('article_count') == '2',
+              str((r.get('article_ids'), r.get('article_count'))))
+        orch = fresh([captioned_row])
+        run(orch.upload_asset, new_file, 'tallyfy/pro/a.png', article_ids='id9', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('upload to an existing key with --articles sets the new list',
+              r.get('article_ids') == 'id9' and r.get('article_count') == '1',
+              str((r.get('article_ids'), r.get('article_count'))))
+
+        # 5. Replacing with the same bytes keeps everything.
+        orch = fresh([captioned_row])
+        result = run(orch.replace_asset, old_file, 'tallyfy/pro/a.png', resize=False)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('replace with the same bytes keeps the captions',
+              all(r.get(c) == v for c, v in captions.items()), str({c: r.get(c) for c in captions}))
+        check('replace with the same bytes keeps needs_caption', r.get('needs_caption') == 'no')
+        check('replace with the same bytes reports no clear', result.get('captions_cleared') is False)
+
+        # 6. --keep-captions keeps them through a real change.
+        orch = fresh([captioned_row])
+        run(orch.replace_asset, new_file, 'tallyfy/pro/a.png', resize=False, keep_captions=True)
+        r = row(orch, 'tallyfy/pro/a.png')
+        check('--keep-captions keeps the captions when the bytes change',
+              all(r.get(c) == v for c, v in captions.items()) and r.get('needs_caption') == 'no')
+        check('--keep-captions still stores the new hash', r.get('content_sha256') == sha256_of(new_file))
+
+        # 7. A row from before #462 has no hash, so the etag decides.
+        legacy = dict(captioned_row, content_sha256='', etag=hashlib.md5(old_bytes).hexdigest())
+        orch = fresh([legacy])
+        run(orch.replace_asset, old_file, 'tallyfy/pro/a.png', resize=False)
+        check('no stored hash and the same etag keeps the captions',
+              row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == 'Old alt')
+        orch = fresh([legacy])
+        run(orch.replace_asset, new_file, 'tallyfy/pro/a.png', resize=False)
+        check('no stored hash and a different etag clears the captions',
+              row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == '')
+
+        # 8. Nothing to compare: treat it as changed.
+        orch = fresh([dict(captioned_row, content_sha256='', etag='')])
+        run(orch.replace_asset, old_file, 'tallyfy/pro/a.png', resize=False)
+        check('no hash and no etag clears the captions',
+              row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == '')
+
+        # 9. upload over a key that already has a row is a replace too.
+        orch = fresh([captioned_row])
+        run(orch.upload_asset, new_file, 'tallyfy/pro/a.png', resize=False)
+        check('upload over an existing key with new bytes clears the captions',
+              row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == '')
+
+        # 10. The command line passes the flags through. main() builds its orchestrator by
+        #     name, so it is pointed at the fake one for these runs and restored after.
+        def cli(argv, orch):
+            saved_argv, saved_cls = sys.argv, globals()['AssetOrchestrator']
+            globals()['AssetOrchestrator'] = lambda: orch
+            sys.argv = ['orchestrator.py'] + argv
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main()
+            except SystemExit as exc:
+                return exc.code
+            finally:
+                sys.argv = saved_argv
+                globals()['AssetOrchestrator'] = saved_cls
+            return None
+
+        orch = fresh([captioned_row])
+        code = cli(['replace', '--file', str(new_file), '--key', 'tallyfy/pro/a.png',
+                    '--no-resize', '--keep-captions'], orch)
+        check('replace --keep-captions on the command line keeps the captions',
+              code == 0 and row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == 'Old alt', str(code))
+        orch = fresh([captioned_row])
+        code = cli(['upload', '--file', str(new_file), '--key', 'tallyfy/pro/a.png',
+                    '--no-resize', '--keep-captions'], orch)
+        check('upload --keep-captions on the command line keeps the captions',
+              code == 0 and row(orch, 'tallyfy/pro/a.png').get('ai_caption_alt') == 'Old alt', str(code))
+        orch = fresh([])
+        code = cli(['upload', '--file', str(new_file), '--key', 'launchbrightly/x.png', '--no-resize'], orch)
+        check('upload of a launchbrightly/ key on the command line exits 1 and uploads nothing',
+              code == 1 and orch.uploader.calls == [], str(code))
+
+    passed = sum(results)
+    print(f"SELF-TEST {'PASSED' if passed == len(results) else 'FAILED'}: "
+          f"{passed} of {len(results)} case(s)")
+    return 0 if passed == len(results) else 1
+
+
 def main():
     """Main CLI entry point."""
+    # Checked before argparse, which would otherwise demand a command first.
+    if '--self-test' in sys.argv[1:]:
+        sys.exit(_self_test())
+
     parser = argparse.ArgumentParser(
         description='Documentation Asset Management Orchestrator',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -450,6 +773,8 @@ Examples:
     upload_parser.add_argument('--no-overwrite', action='store_true', help='Fail if file exists')
     upload_parser.add_argument('--no-resize', action='store_true',
                                help='Upload at full size even above 2000px (tall email renders)')
+    upload_parser.add_argument('--keep-captions', action='store_true',
+                               help='If the key already has captions, keep them even when the bytes change')
 
     # Replace command
     replace_parser = subparsers.add_parser('replace', help='Replace existing asset')
@@ -458,6 +783,8 @@ Examples:
     replace_parser.add_argument('--no-captions', action='store_true', help='Skip caption regeneration')
     replace_parser.add_argument('--no-resize', action='store_true',
                                 help='Upload at full size even above 2000px (tall email renders)')
+    replace_parser.add_argument('--keep-captions', action='store_true',
+                                help='Keep the captions even when the bytes change (a cosmetic swap)')
 
     # Caption command
     caption_parser = subparsers.add_parser('caption', help='Generate captions for existing image')
@@ -495,6 +822,8 @@ Examples:
             print(f"URLs referenced in docs: {a['distinct_urls_in_docs']}")
             print(f"Referenced-not-in-inventory: {len(a['referenced_not_in_inventory'])} "
                   f"({len(a['referenced_not_in_inventory_images'])} images)")
+            print(f"Repository image paths: {a['distinct_repo_paths_in_docs']} referenced, "
+                  f"{len(a['repo_paths_not_in_inventory'])} with no row")
             print(f"Dead: {len(a['dead_rows'])} | Orphaned: {len(a['orphaned_rows'])} | "
                   f"Missing captions: {len(a['missing_caption_rows'])}")
             if args.out:
@@ -539,7 +868,8 @@ Examples:
                 article_ids=args.articles,
                 skip_captions=args.skip_captions,
                 overwrite=not args.no_overwrite,
-                resize=not args.no_resize
+                resize=not args.no_resize,
+                keep_captions=args.keep_captions
             )
 
             if result['success']:
@@ -555,7 +885,8 @@ Examples:
                 args.file,
                 args.key,
                 regenerate_captions=not args.no_captions,
-                resize=not args.no_resize
+                resize=not args.no_resize,
+                keep_captions=args.keep_captions
             )
 
             if result['success']:

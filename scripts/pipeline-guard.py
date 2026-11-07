@@ -27,6 +27,18 @@ MODES
                   generate-ids.yml each carry a `concurrency:` group keyed on the branch the
                   run is about, with `cancel-in-progress: false`, and every step that
                   commits and then pulls pulls with --no-rebase.
+                  Since #464 it also proves the R2 upload credentials cannot reach a pull
+                  request: no workflow uses pull_request_target; no workflow a pull request
+                  starts names `secrets` or an `environment`; the r2-screenshots environment
+                  is named by the repo-screenshots job alone; its three secrets reach one step,
+                  the staging-only ingest, through that step's `env`. And that the job is wired
+                  in: generate-snippets and sync wait for it, generate-ids.yml starts on a
+                  screenshots/ change, and every commit the pipeline makes as "GitHub Action"
+                  uses a subject the publish guard knows.
+                  And that a push-gate job runs first in both workflows, unskippable, from an
+                  inline actions/github-script step with no checkout, with the same script in
+                  both, and that every job holding a secret other than GITHUB_TOKEN, an
+                  environment or a `git push` waits for it (a status-function `if:` directly).
   --self-test     Prove --check-wiring and the publish guard each go RED on every defect
                   they exist to catch and GREEN on correct input, using fixture files and
                   scratch git repositories, never the real ones.
@@ -156,12 +168,313 @@ def check_pull_after_commit(doc, name):
     return problems
 
 
+# ---------------------------------------------------------------------------------------
+# the repository screenshots job and its credentials (tallyfy/documentation#464)
+
+SCREENSHOT_JOB = "repo-screenshots"
+SCREENSHOT_ENV = "r2-screenshots"
+SCREENSHOT_SECRETS = ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "CLOUDFLARE_ACCOUNT_ID")
+INGEST_COMMAND = "repo_screenshots.py ingest"
+INGEST_BRANCH_TERM = "github.event.workflow_run.head_branch == 'staging'"
+# Jobs that must wait for the screenshots job: sync publishes the inventory it commits, and
+# generate-snippets starts the chain of generator jobs that push after it.
+WAITS_FOR_SCREENSHOTS = ("generate-snippets", "sync")
+# A path a LaunchBrightly pull request changes, which must start the pipeline.
+SCREENSHOT_SAMPLE_PATH = "screenshots/launchbrightly/example.png"
+PR_TRIGGERS = ("pull_request", "pull_request_target")
+# Any use of the secrets context in an expression: secrets.X, secrets['X'], toJSON(secrets).
+_SECRETS_RE = re.compile(r"\$\{\{[^}]*\bsecrets\b")
+
+
+def _triggers(doc):
+    # PyYAML reads the bare key `on` as the boolean True.
+    on = doc.get("on", doc.get(True))
+    if isinstance(on, str):
+        return {on}
+    if isinstance(on, list):
+        return {str(t) for t in on}
+    if isinstance(on, dict):
+        return {str(t) for t in on}
+    return set()
+
+
+def _walk(node, where=()):
+    """(location, key, value) for every mapping entry and list item, depth first."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield where + (key,), key, value
+            yield from _walk(value, where + (key,))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield where + (i,), None, value
+            yield from _walk(value, where + (i,))
+
+
+def _where(name, location):
+    return f"{name}: " + ".".join(str(p) for p in location)
+
+
+def _environment_name(job):
+    env = (job or {}).get("environment")
+    return env.get("name") if isinstance(env, dict) else env
+
+
+def check_secret_exposure(workflows, pname):
+    """workflows: {file name: parsed doc}; pname: the pipeline's file name. Problems that would
+    let a pull request reach the R2 credentials, as a list of strings."""
+    problems = []
+    env_places = {("jobs", SCREENSHOT_JOB, "environment"), ("jobs", SCREENSHOT_JOB, "environment", "name")}
+    for name, doc in sorted(workflows.items()):
+        triggers = _triggers(doc)
+        if "pull_request_target" in triggers:
+            problems.append(f"{name} runs on pull_request_target, which hands a pull request's code "
+                            f"the repository's secrets. Use pull_request.")
+        if triggers & set(PR_TRIGGERS):
+            for location, key, value in _walk(doc):
+                if key == "environment":
+                    problems.append(f"{_where(name, location)}: a workflow a pull request starts may "
+                                    f"not name an environment")
+                if key == "secrets":
+                    problems.append(f"{_where(name, location)}: a workflow a pull request starts may "
+                                    f"not pass secrets on")
+                if isinstance(value, str) and _SECRETS_RE.search(value):
+                    problems.append(f"{_where(name, location)}: a workflow a pull request starts may "
+                                    f"not read secrets")
+        in_pipeline = name == pname
+        for location, key, value in _walk(doc):
+            if not isinstance(value, str):
+                continue
+            if SCREENSHOT_ENV in value and not (in_pipeline and location in env_places):
+                problems.append(f"{_where(name, location)} names {SCREENSHOT_ENV}; only the "
+                                f"{SCREENSHOT_JOB} job's `environment` may")
+            in_job = in_pipeline and location[:2] == ("jobs", SCREENSHOT_JOB)
+            for secret in SCREENSHOT_SECRETS:
+                if re.search(r"\b" + secret + r"\b", value) and not in_job:
+                    problems.append(f"{_where(name, location)} names {secret}; only the "
+                                    f"{SCREENSHOT_JOB} job's ingest step may")
+    return problems
+
+
+def check_screenshot_job(pipeline, pname):
+    """The repo-screenshots job: its environment, where its secrets go, and who waits for it."""
+    jobs = pipeline.get("jobs") or {}
+    job = jobs.get(SCREENSHOT_JOB)
+    if not isinstance(job, dict):
+        return [f"{pname} has no {SCREENSHOT_JOB!r} job, so screenshots committed under "
+                f"screenshots/launchbrightly/ are never uploaded and the support-docs build "
+                f"cannot resolve their links (#464)."]
+    problems = []
+    if _environment_name(job) != SCREENSHOT_ENV:
+        problems.append(f"{pname} job {SCREENSHOT_JOB!r} does not use the {SCREENSHOT_ENV!r} "
+                        f"environment, which holds its upload credentials.")
+    steps = [s for s in (job.get("steps") or []) if isinstance(s, dict)]
+    ingest = [i for i, s in enumerate(steps) if INGEST_COMMAND in str(s.get("run", ""))]
+    if len(ingest) != 1:
+        problems.append(f"{pname} job {SCREENSHOT_JOB!r} must have exactly one step running "
+                        f"`{INGEST_COMMAND}`; it has {len(ingest)}.")
+    for location, key, value in _walk(job):
+        if not (isinstance(value, str) and _SECRETS_RE.search(value)):
+            continue
+        in_ingest_env = (len(ingest) == 1 and location[:2] == ("steps", ingest[0])
+                         and len(location) == 4 and location[2] == "env")
+        if not in_ingest_env:
+            problems.append(f"{pname} jobs.{SCREENSHOT_JOB}." + ".".join(str(p) for p in location)
+                            + " reads a secret; only the ingest step's `env` may.")
+    if len(ingest) == 1:
+        step = steps[ingest[0]]
+        env = step.get("env") or {}
+        for secret in SCREENSHOT_SECRETS:
+            wanted = "${{ secrets." + secret + " }}"
+            if re.sub(r"\s+", " ", str(env.get(secret, ""))) != wanted:
+                problems.append(f"{pname} job {SCREENSHOT_JOB!r}'s ingest step does not set "
+                                f"{secret}: {wanted} in its `env`.")
+        extra = sorted(k for k, v in env.items() if _SECRETS_RE.search(str(v)) and k not in SCREENSHOT_SECRETS)
+        if extra:
+            problems.append(f"{pname} job {SCREENSHOT_JOB!r}'s ingest step reads other secrets: {extra}.")
+        condition = re.sub(r"\s+", " ", str(step.get("if", ""))).replace('"', "'")
+        if INGEST_BRANCH_TERM not in condition:
+            problems.append(f"{pname} job {SCREENSHOT_JOB!r}'s ingest step must carry "
+                            f"`if: {INGEST_BRANCH_TERM}`, so it uploads from staging only.")
+    for name in WAITS_FOR_SCREENSHOTS:
+        raw = (jobs.get(name) or {}).get("needs") or []
+        needs = [raw] if isinstance(raw, str) else list(raw)
+        if name in jobs and SCREENSHOT_JOB not in needs:
+            problems.append(f"{pname} job {name!r} does not name {SCREENSHOT_JOB!r} in its `needs`, "
+                            f"so it can run before the inventory commit lands.")
+    return problems
+
+
+def check_generated_subjects(doc, name):
+    """Every commit a step makes as GitHub Action uses a subject GENERATED_SUBJECTS knows, or the
+    publish guard reads it as a person's commit and `sync` refuses to publish."""
+    problems = []
+    for job_name, job in (doc.get("jobs") or {}).items():
+        for step in (job or {}).get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            run = "\n".join(re.sub(r"(^|\s)#.*$", "", raw) for raw in str(step.get("run", "")).splitlines())
+            if not re.search(r"user\.name\s+[\"']" + re.escape(GENERATOR_NAME) + r"[\"']", run):
+                continue
+            for line in run.splitlines():
+                if not re.search(COMMAND_AT + r"git\s+commit\b", line):
+                    continue
+                m = re.search(r"\s-m\s+([\"'])(.*?)\1", line)
+                if not m:
+                    problems.append(f"{name} job {job_name!r} commits as {GENERATOR_NAME!r} with no "
+                                    f"readable -m subject: {line.strip()!r}")
+                elif m.group(2) not in GENERATED_SUBJECTS:
+                    problems.append(f"{name} job {job_name!r} commits as {GENERATOR_NAME!r} with the "
+                                    f"subject {m.group(2)!r}, which GENERATED_SUBJECTS in "
+                                    f"pipeline-guard.py does not list, so `sync` would refuse to "
+                                    f"publish after it.")
+    return problems
+
+
+def check_screenshot_trigger(generate_ids, gname):
+    on = generate_ids.get("on", generate_ids.get(True)) or {}
+    paths = ((on.get("push") or {}) if isinstance(on, dict) else {}).get("paths")
+    if paths is None:
+        return []  # no filter: every push starts a run
+    patterns = [_compile_pattern(p) for p in paths]
+    if not starts_a_run([SCREENSHOT_SAMPLE_PATH], patterns):
+        return [f"{gname}'s push `paths:` filter does not match {SCREENSHOT_SAMPLE_PATH}, so a "
+                f"merged LaunchBrightly pull request starts no pipeline run and its images are "
+                f"never uploaded. Add `screenshots/**`."]
+    return []
+
+
+# ---------------------------------------------------------------------------------------
+# the push gate (tallyfy/documentation#464): a GitHub App with contents: write can push to
+# staging or main directly, and a ruleset cannot exempt the pipeline's own pushes, so a first job
+# stops everything that holds a secret, an environment or a push when that happens
+
+PUSH_GATE_JOB = "push-gate"
+PUSH_GATE_ACTION = "actions/github-script@"
+# secrets.NAME, secrets['NAME'], or the bare context, as in toJSON(secrets).
+_SECRET_USE_RE = re.compile(r"\bsecrets\b(?:\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)|\s*\[\s*['\"]([^'\"]+)['\"]\s*\])?")
+_STATUS_FUNCTION_RE = re.compile(r"\b(?:always|failure|cancelled|success)\s*\(")
+
+
+def _needs_list(job):
+    raw = (job or {}).get("needs") or []
+    return [raw] if isinstance(raw, str) else list(raw)
+
+
+def _needs_closure(jobs, name):
+    seen, todo = set(), list(_needs_list(jobs.get(name)))
+    while todo:
+        n = todo.pop()
+        if n not in seen:
+            seen.add(n)
+            todo += _needs_list(jobs.get(n))
+    return seen
+
+
+def _reads_secret(job):
+    """True when a job uses any secret other than GITHUB_TOKEN, or passes secrets on."""
+    for location, key, value in _walk(job):
+        if key == "secrets":
+            return True
+        if isinstance(value, str):
+            for expr in _expressions(value):
+                for m in _SECRET_USE_RE.finditer(expr):
+                    if (m.group(1) or m.group(2)) != "GITHUB_TOKEN":
+                        return True
+    return False
+
+
+def _pushes(job):
+    for step in (job or {}).get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        for raw in str(step.get("run", "")).splitlines():
+            if re.search(COMMAND_AT + r"git\s+push\b", re.sub(r"(^|\s)#.*$", "", raw)):
+                return True
+    return False
+
+
+def gate_script(doc):
+    """The inline script of a workflow's push-gate job, or None."""
+    gate = (doc.get("jobs") or {}).get(PUSH_GATE_JOB)
+    steps = [s for s in ((gate or {}).get("steps") or []) if isinstance(s, dict)]
+    scripts = [str((s.get("with") or {}).get("script", "")) for s in steps
+               if str(s.get("uses", "")).startswith(PUSH_GATE_ACTION)]
+    return scripts[0] if len(scripts) == 1 else None
+
+
+def check_push_gate(doc, name):
+    """The push gate runs first, unskippable, from inline code only, and every job that holds a
+    secret, an environment or a push waits for it."""
+    jobs = doc.get("jobs") or {}
+    gate = jobs.get(PUSH_GATE_JOB)
+    if not isinstance(gate, dict):
+        return [f"{name} has no {PUSH_GATE_JOB!r} job, so a commit a GitHub App pushed straight to "
+                f"the branch reaches every job that holds a secret (#464)."]
+    problems = []
+    if _needs_list(gate):
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has `needs`; it must be the first job, so a "
+                        f"failure elsewhere cannot skip it.")
+    if gate.get("if") is not None:
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has an `if:`; a gate that can be skipped lets a "
+                        f"status-function job such as sync run without it.")
+    steps = [s for s in (gate.get("steps") or []) if isinstance(s, dict)]
+    if not steps:
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} has no steps.")
+    for i, step in enumerate(steps, start=1):
+        script = str((step.get("with") or {}).get("script", "")).strip()
+        if "run" in step or not str(step.get("uses", "")).startswith(PUSH_GATE_ACTION) or not script:
+            problems.append(f"{name} job {PUSH_GATE_JOB!r} step {i} must be {PUSH_GATE_ACTION}... with "
+                            f"an inline script. The gate may not check out or run code from the "
+                            f"repository, which the push it judges could have changed.")
+    perms = gate.get("permissions")
+    if not isinstance(perms, dict) or perms.get("issues") != "write" \
+            or perms.get("contents") not in (None, "read"):
+        problems.append(f"{name} job {PUSH_GATE_JOB!r} needs its own `permissions:` with "
+                        f"`issues: write` and no more than `contents: read`.")
+    for job_name, job in jobs.items():
+        if job_name == PUSH_GATE_JOB or not isinstance(job, dict):
+            continue
+        if not (_reads_secret(job) or "environment" in job or _pushes(job)):
+            continue
+        if PUSH_GATE_JOB not in _needs_closure(jobs, job_name):
+            problems.append(f"{name} job {job_name!r} holds a secret, an environment or a push but does "
+                            f"not wait for {PUSH_GATE_JOB!r}, directly or through `needs`.")
+        elif _STATUS_FUNCTION_RE.search(str(job.get("if", ""))) and PUSH_GATE_JOB not in _needs_list(job):
+            problems.append(f"{name} job {job_name!r} has a status-function `if:`, so it must name "
+                            f"{PUSH_GATE_JOB!r} in its own `needs`, not only through another job.")
+    return problems
+
+
+def check_gate_scripts_match(pipeline, generate_ids, pname, gname):
+    a, b = gate_script(pipeline), gate_script(generate_ids)
+    if a and b and a != b:
+        return [f"the {PUSH_GATE_JOB!r} scripts in {pname} and {gname} differ; they must be identical, "
+                f"with only their env telling them apart."]
+    return []
+
+
+def load_workflows(folder):
+    docs = {}
+    for entry in sorted(os.listdir(folder)):
+        if entry.endswith((".yml", ".yaml")):
+            docs[entry] = load_workflow(os.path.join(folder, entry))
+    return docs
+
+
 def check_wiring(pipeline_path=PIPELINE, generate_ids_path=GENERATE_IDS):
     pipeline = load_workflow(pipeline_path)
     generate_ids = load_workflow(generate_ids_path)
     pname, gname = os.path.basename(pipeline_path), os.path.basename(generate_ids_path)
 
     problems = []
+    problems += check_secret_exposure(load_workflows(os.path.dirname(os.path.abspath(pipeline_path))), pname)
+    problems += check_screenshot_job(pipeline, pname)
+    problems += check_generated_subjects(pipeline, pname)
+    problems += check_generated_subjects(generate_ids, gname)
+    problems += check_screenshot_trigger(generate_ids, gname)
+    problems += check_push_gate(pipeline, pname)
+    problems += check_push_gate(generate_ids, gname)
+    problems += check_gate_scripts_match(pipeline, generate_ids, pname, gname)
     problems += check_concurrency(pipeline, pname, PIPELINE_KEY)
     problems += check_concurrency(generate_ids, gname, GENERATE_IDS_KEY)
     pg = (pipeline.get("concurrency") or {}) if isinstance(pipeline.get("concurrency"), dict) else {}
@@ -180,7 +493,12 @@ def check_wiring(pipeline_path=PIPELINE, generate_ids_path=GENERATE_IDS):
             annotate("error", f"pipeline wiring: {problem}")
         return 1
     log(f"WIRING OK: {pname} is grouped on {PIPELINE_KEY} and {gname} on {GENERATE_IDS_KEY}, "
-        f"neither cancels a run in progress, and every pull after a commit says --no-rebase.")
+        f"neither cancels a run in progress, and every pull after a commit says --no-rebase. "
+        f"No pull request workflow can read a secret or an environment, {SCREENSHOT_ENV} and its "
+        f"secrets reach only the staging ingest step of {SCREENSHOT_JOB}, which "
+        f"{' and '.join(WAITS_FOR_SCREENSHOTS)} wait for, and every generator commit subject is known. "
+        f"{PUSH_GATE_JOB} runs first in both workflows from one inline script, and every job that "
+        f"holds a secret, an environment or a push waits for it.")
     return 0
 
 
@@ -198,6 +516,7 @@ GENERATED_SUBJECTS = {
     "Push Articles With snippet(s)": "generate-snippets",
     "Update lastUpdated dates from Git history": "update-last-modified",
     "Push related articles": "generate-related-articles",
+    "Inventory repository screenshots": "repo-screenshots",
 }
 # What their `git pull --no-rebase` writes when the branch moved under them. Both forms are in
 # this repository's history: "Merge branch 'staging' of https://github.com/tallyfy/documentation
@@ -377,7 +696,51 @@ concurrency:
   group: documentation-pipeline-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 jobs:
+  push-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            core.info('the push gate')
+  validate-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - run: python scripts/markdown-lint.py
+  repo-screenshots:
+    needs: [validate-markdown, push-gate]
+    runs-on: ubuntu-latest
+    environment: r2-screenshots
+    steps:
+      - name: Verify on main
+        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+        run: python scripts/asset_management/repo_screenshots.py verify --online
+      - name: Upload and record on staging
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python scripts/asset_management/repo_screenshots.py ingest
+      - name: Commit the inventory
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        run: |
+          git config --local user.name "GitHub Action"
+          git commit -m "Inventory repository screenshots" -- documentation_assets.csv
+          git pull --no-rebase
+          git push
+  generate-snippets:
+    needs: [validate-markdown, repo-screenshots]
+    runs-on: ubuntu-latest
+    steps:
+      - run: python scripts/generate-snippets.py --token ${{ secrets.CLAUDE_API_KEY }}
   update-last-modified:
+    needs: push-gate
     runs-on: ubuntu-latest
     steps:
       - name: Commit and push lastUpdated dates
@@ -386,6 +749,29 @@ jobs:
           git pull --no-rebase   # a trailing comment is not the flag
           git push
           echo "No changes to commit after git pull"
+  sync:
+    needs: [push-gate, validate-markdown, repo-screenshots]
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo publish with ${{ secrets.GH_TOKEN }}
+"""
+
+_GOOD_PR = """\
+name: PR validation
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  lb-pr-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check what this pull request changes
+        env:
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+        run: python scripts/lb-pr-guard.py
 """
 
 _GOOD_GENERATE_IDS = """\
@@ -393,11 +779,28 @@ name: Tallyfy Answers - Generate IDs
 on:
   push:
     branches: [main, staging]
+    paths:
+      - src/content/docs/**
+      - screenshots/**
+      - '!src/content/docs/pro/changelog/**'
 concurrency:
   group: generate-ids-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  push-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            core.info('the push gate')
   generate-ids:
+    needs: push-gate
     runs-on: ubuntu-latest
     steps:
       - name: Generate IDs script
@@ -481,8 +884,8 @@ def _guard_self_test(tmp, case):
     for subject in GENERATED_SUBJECTS:
         _commit(repo, _BOT, subject)
     rc, out = verdict(repo, head)
-    case("PUBLISH only the four generator commits sit after head_sha",
-         rc == 0 and out.count("  generated  ") == 4, f"rc={rc}")
+    case(f"PUBLISH only the {len(GENERATED_SUBJECTS)} generator commits sit after head_sha",
+         rc == 0 and out.count("  generated  ") == len(GENERATED_SUBJECTS), f"rc={rc}")
 
     repo, head = fresh("generator-merge")
     subprocess.run(["git", "branch", "other"], cwd=repo, check=True, capture_output=True)
@@ -589,15 +992,21 @@ def self_test():
         cases.append(ok)
         log(f"  [{'ok' if ok else 'FAILED'}] {name}{(' - ' + detail) if detail else ''}")
 
-    def wiring(pipeline_text, generate_ids_text, tmp, tag):
-        p = os.path.join(tmp, f"{tag}-pipeline.yml")
-        g = os.path.join(tmp, f"{tag}-generate-ids.yml")
+    def wiring(pipeline_text, generate_ids_text, tmp, tag, extra=None):
+        # One folder per case, because --check-wiring reads every workflow beside the pipeline.
+        folder = os.path.join(tmp, tag)
+        os.makedirs(folder)
+        p = os.path.join(folder, "documentation-pipeline.yml")
+        g = os.path.join(folder, "generate-ids.yml")
         if pipeline_text is not None:
             with open(p, "w", encoding="utf-8") as fh:
                 fh.write(pipeline_text)
         if generate_ids_text is not None:
             with open(g, "w", encoding="utf-8") as fh:
                 fh.write(generate_ids_text)
+        for name, text in dict({"pr-validate.yml": _GOOD_PR}, **(extra or {})).items():
+            with open(os.path.join(folder, name), "w", encoding="utf-8") as fh:
+                fh.write(text)
         import contextlib
         import io
         buf = io.StringIO()
@@ -635,13 +1044,122 @@ def self_test():
          gp.replace("git pull --no-rebase   # a trailing comment is not the flag",
                     "git pull   # --no-rebase"), gi),
     ]
+    env_line = "    environment: r2-screenshots\n"
+    ingest_if = ("        if: ${{ github.event.workflow_run.head_branch == 'staging' }}\n"
+                 "        env:\n")
+    commit_step = "      - name: Commit the inventory\n"
+    # (name, pipeline, generate-ids, extra workflow files, text the report must contain)
+    red_464 = [
+        ("the R2 environment is on another job (#464)",
+         gp.replace(env_line, "").replace("  sync:\n", "  sync:\n" + env_line), gi, None,
+         "only the repo-screenshots job's `environment` may"),
+        ("the screenshots job has no environment (#464)", gp.replace(env_line, ""), gi, None,
+         "does not use the 'r2-screenshots' environment"),
+        ("an R2 secret in the job's own env, where every step sees it (#464)",
+         gp.replace(env_line, env_line + "    env:\n      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}\n"),
+         gi, None, "reads a secret; only the ingest step's `env` may"),
+        ("an R2 secret in a second step (#464)",
+         gp.replace(commit_step, commit_step + "        env:\n"
+                    "          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}\n"),
+         gi, None, "reads a secret; only the ingest step's `env` may"),
+        ("toJSON(secrets) in another step of the job (#464)",
+         gp.replace("run: python scripts/asset_management/repo_screenshots.py verify --online",
+                    "run: echo '${{ toJSON(secrets) }}'"), gi, None, "reads a secret"),
+        ("the ingest step is not limited to staging (#464)",
+         gp.replace(ingest_if, "        env:\n"), gi, None, "so it uploads from staging only"),
+        ("the ingest step lacks one of its secrets (#464)",
+         gp.replace("          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}\n", ""), gi, None,
+         "does not set CLOUDFLARE_ACCOUNT_ID"),
+        ("the pipeline has no repo-screenshots job (#464)",
+         re.sub(r"(?s)  repo-screenshots:\n.*?(?=  generate-snippets:\n)", "", gp), gi, None,
+         "has no 'repo-screenshots' job"),
+        ("sync does not wait for the screenshots job (#464)",
+         gp.replace("[push-gate, validate-markdown, repo-screenshots]", "[push-gate, validate-markdown]"),
+         gi, None, "job 'sync' does not name"),
+        ("generate-snippets does not wait for the screenshots job (#464)",
+         gp.replace("  generate-snippets:\n    needs: [validate-markdown, repo-screenshots]",
+                    "  generate-snippets:\n    needs: validate-markdown"), gi, None,
+         "job 'generate-snippets' does not name"),
+        ("a generator commit subject the publish guard does not know (#464)",
+         gp.replace("Inventory repository screenshots", "Record the screenshots"), gi, None,
+         "which GENERATED_SUBJECTS"),
+        ("generate-ids does not start on a screenshots/ change (#464)",
+         gp, gi.replace("      - screenshots/**\n", ""), None, "does not match screenshots/launchbrightly/"),
+        ("a workflow runs on pull_request_target (#464)",
+         gp, gi, {"pr-validate.yml": _GOOD_PR.replace("pull_request:", "pull_request_target:")},
+         "runs on pull_request_target"),
+        ("a pull request workflow reads a secret (#464)",
+         gp, gi, {"pr-validate.yml": _GOOD_PR.replace("github.event.pull_request.user.id",
+                                                       "secrets.ANSWERS_API_KEY")},
+         "may not read secrets"),
+        ("a pull request workflow names an environment (#464)",
+         gp, gi, {"pr-validate.yml": _GOOD_PR.replace("    runs-on: ubuntu-latest\n",
+                                                       "    runs-on: ubuntu-latest\n    environment: preview\n")},
+         "may not name an environment"),
+        ("a pull request workflow in list form reads a secret (#464)",
+         gp, gi, {"other.yml": "on: [push, pull_request]\njobs:\n  a:\n    runs-on: ubuntu-latest\n"
+                               "    steps:\n      - run: echo ${{ secrets.GH_TOKEN }}\n"},
+         "may not read secrets"),
+        ("a pull request workflow passes secrets to a reusable workflow (#464)",
+         gp, gi, {"other.yml": "on: pull_request\njobs:\n  a:\n    uses: ./.github/workflows/x.yml\n"
+                               "    secrets: inherit\n"},
+         "may not pass secrets on"),
+        ("another workflow names an R2 secret (#464)",
+         gp, gi, {"other.yml": "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n"
+                               "      - run: echo ${{ secrets.R2_ACCESS_KEY_ID }}\n"},
+         "names R2_ACCESS_KEY_ID"),
+        ("a job that reads a secret does not wait for push-gate (#464)",
+         gp.replace("  sync:\n", "  leaky:\n    runs-on: ubuntu-latest\n    steps:\n"
+                    "      - run: echo ${{ secrets.ANSWERS_API_KEY }}\n  sync:\n"), gi, None,
+         "job 'leaky' holds a secret, an environment or a push but does not wait for 'push-gate'"),
+        ("a job that pushes does not wait for push-gate (#464)",
+         gp.replace("  update-last-modified:\n    needs: push-gate\n", "  update-last-modified:\n"), gi, None,
+         "job 'update-last-modified' holds a secret, an environment or a push but does not wait"),
+        ("generate-ids pushes without waiting for push-gate (#464)",
+         gp, gi.replace("  generate-ids:\n    needs: push-gate\n", "  generate-ids:\n"), None,
+         "generate-ids.yml job 'generate-ids' holds a secret, an environment or a push"),
+        ("a push-gate step runs a repository script (#464)",
+         gp.replace("            core.info('the push gate')\n",
+                    "            core.info('the push gate')\n      - run: python scripts/push-gate.py\n"), gi, None,
+         "with an inline script. The gate may not check out or run code"),
+        ("the push gate checks out the repository (#464)",
+         gp.replace("    steps:\n      - uses: actions/github-script@v9\n",
+                    "    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/github-script@v9\n"), gi, None,
+         "with an inline script. The gate may not check out or run code"),
+        ("the push gate has needs (#464)",
+         gp.replace("  push-gate:\n    runs-on", "  push-gate:\n    needs: validate-markdown\n    runs-on"), gi, None,
+         "it must be the first job"),
+        ("the push gate has an if (#464)",
+         gp.replace("  push-gate:\n    runs-on", "  push-gate:\n    if: ${{ always() }}\n    runs-on"), gi, None,
+         "has an `if:`"),
+        ("the push gate cannot write issues (#464)",
+         gp.replace("      issues: write\n", ""), gi, None, "`issues: write`"),
+        ("the push gate can write the repository (#464)",
+         gp.replace("      contents: read\n      pull-requests: read\n      issues: write\n",
+                    "      contents: write\n      pull-requests: read\n      issues: write\n"), gi, None,
+         "no more than `contents: read`"),
+        ("the two push-gate scripts differ (#464)",
+         gp, gi.replace("core.info('the push gate')", "core.info('another gate')"), None,
+         "scripts in documentation-pipeline.yml and generate-ids.yml differ"),
+        ("sync reaches push-gate only through another job, under a status-function if (#464)",
+         gp.replace("[push-gate, validate-markdown, repo-screenshots]", "[validate-markdown, repo-screenshots]"),
+         gi, None, "has a status-function `if:`, so it must name 'push-gate'"),
+        ("generate-ids.yml has no push-gate job (#464)",
+         gp, re.sub(r"(?s)  push-gate:\n.*?(?=  generate-ids:\n)", "", gi), None,
+         "generate-ids.yml has no 'push-gate' job"),
+    ]
     with tempfile.TemporaryDirectory() as tmp:
         rc, out = wiring(gp, gi, tmp, "good")
         case("GREEN correct workflows pass, including a bare pull in a step that commits "
-             "nothing and an echo that mentions git pull", rc == 0, f"rc={rc}")
+             "nothing and an echo that mentions git pull", rc == 0,
+             f"rc={rc}" + ("" if rc == 0 else f" {out[-600:]}"))
         for i, (name, p, g) in enumerate(red):
             rc, out = wiring(p, g, tmp, f"red{i}")
             case(f"RED {name}", rc == 1 and "WIRING FAIL" in out, f"rc={rc}")
+        for i, (name, p, g, extra, needle) in enumerate(red_464):
+            rc, out = wiring(p, g, tmp, f"red464-{i}", extra)
+            ok = rc == 1 and "WIRING FAIL" in out and needle in out
+            case(f"RED {name}", ok, f"rc={rc}" + ("" if ok else f" {out[-600:]}"))
         rc, out = wiring(None, gi, tmp, "missing")
         case("FAIL CLOSED a missing workflow file is exit 2, never a pass", rc == 2, f"rc={rc}")
         rc, out = wiring("jobs: {}\n", gi, tmp, "nojobs")

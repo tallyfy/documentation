@@ -869,6 +869,9 @@ WIRING_EXEMPT = {
     "generate-related-articles": "early-exits on main; writes only to staging",
     "check-deleted-files": "only removes Answers entries whose page is no longer in the tree; "
                            "cannot publish held content",
+    "repo-screenshots": "uploads content-hashed images no page shows until sync, and only "
+                        "verifies on main (#464)",
+    "push-gate": "reads the GitHub API and can only stop the run; publishes nothing (#464)",
 }
 
 
