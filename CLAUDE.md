@@ -593,7 +593,7 @@ This repo is public. All its CI runs on GitHub-hosted runners and it sets no `CI
 ### Common Anti-Patterns to Reject
 
 1. **Scope Creep**: Editing unrelated sections while fixing a specific issue
-2. **Related Articles Edits**: These are auto-generated - NEVER manually modify. The one exception is a `main` pull request that copies `staging`'s generated cards for a page whose description a subset promotion changed (owner decision 2026-11-07, #500; steps in `REFERENCE/claude-md/linking-and-deployment.md`, section "Deploying staging to production"). Check each copied line equals a `staging` line byte for byte.
+2. **Related Articles Edits**: These are auto-generated - NEVER manually modify. The one exception is a `main` pull request that copies `staging`'s generated cards for a page whose description a subset promotion changed (owner decision 2026-11-07, #500; steps in `REFERENCE/claude-md/linking-and-deployment.md`, section "Deploying staging to production"). Check each copied line equals a `staging` line byte for byte, and every page it links to exists on `main` with the same title and description as on `staging`.
 3. **AI-Typical Phrases**: "delve", "leverage", "comprehensive", etc.
 4. **Fabricated Statistics**: All numbers must be from verifiable sources
 5. **Broken Links**: Always validate internal link targets exist
