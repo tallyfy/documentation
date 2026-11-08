@@ -140,9 +140,10 @@
    - **Any manual changes WILL BE OVERWRITTEN**
    - **DO NOT touch even if descriptions seem wrong or spacing is off**
    - **The ONLY exception**: When creating a NEW article that doesn't exist yet
+   - Dated 2026-11-07 (owner decision, #500): one more exception, on `main` only. A subset promotion that changes a page's `description` copies `staging`'s generated cards for that page onto `main`, because nothing regenerates cards on `main`. The steps and the conflict check are in `linking-and-deployment.md`, section "Deploying staging to production". On `staging`, never edit cards.
    
    - **For NEW articles ONLY**: Can include initial sample Related articles section
-   - **For EXISTING articles**: HANDS OFF - no exceptions, no edits, no fixes
+   - **For EXISTING articles**: HANDS OFF - no exceptions, no edits, no fixes (on `staging`; the one `main`-only exception is above)
    - **Required format**:
      ```markdown
      ## Related articles
