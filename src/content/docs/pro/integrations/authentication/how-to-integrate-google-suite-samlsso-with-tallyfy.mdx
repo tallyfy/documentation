@@ -133,60 +133,40 @@ After you finish the integration:
 Here's the full SAML authentication flow after configuration is done.
 
 ```d2
-User: User
-Tallyfy: Tallyfy
-Google: Google Workspace IdP
+# Google Workspace SSO sign-in flow
+direction: down
 
-# Authentication Flow
-User -> Tallyfy: 1. Access SSO URL
-Tallyfy -> Google: 2. Redirect with SAML
-Google -> User: 3. Show login page
-User -> Google: 4. Enter credentials
-Google -> Google: 5. Validate
-
-# Decision point for authentication success
-AuthCheck: Auth OK? {
+Open: "1. User opens your\nSSO login URL"
+Redirect: "2. Tallyfy sends\nthem to Google"
+Login: "3. User signs in\nwith Google"
+OK: "Google accepts\nthe login?" {
   shape: diamond
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
-
-Google -> AuthCheck: 6. Check result
-
-# Success path
-AuthCheck -> Google: Yes
-Google -> Tallyfy: 7. SAML Response
-
-# User provisioning check
-UserCheck: User Exists? {
+Fail: "Sign-in fails\nat Google"
+Back: "4. Google sends a SAML\nresponse to Tallyfy"
+Exists: "Account for\nthis email?" {
   shape: diamond
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
+Create: "5. Tallyfy creates\nthe account"
+SignIn: "6. Tallyfy signs\nthe user in"
 
-Tallyfy -> UserCheck: 8. Check email
-
-# New user provisioning
-UserCheck -> Tallyfy: No
-NewUser: 9a. Create account
-Tallyfy -> NewUser
-NewUser -> Session: 10a. Create session
-
-# Existing user path
-UserCheck -> Tallyfy: Yes
-ExistingUser: 9b. Match user
-Tallyfy -> ExistingUser
-ExistingUser -> Session: 10b. Create session
-
-# Grant access
-Session: Session Created
-Session -> User: 11. Grant access
-
-# Failure path
-AuthCheck -> Google: No
-Google -> User: 12. Auth failed
+Open -> Redirect -> Login -> OK
+OK -> Fail: No
+OK -> Back: Yes
+Back -> Exists
+Exists -> Create: No
+Exists -> SignIn: Yes
+Create -> SignIn
 ```
 
 **Key points:**
-- **Automatic provisioning** - New users from a verified domain are created on first login (step 9a) when auto-join is on. No manual account setup needed.
-- **Attribute mapping** - The email, FirstName, and LastName attributes from step 7 control how accounts are created and matched.
-- **Single authentication point** - Users only authenticate with Google (steps 4-5), never entering Tallyfy passwords.
+- **Automatic provisioning** - New users from a verified domain are created on first login (step 5) when auto-join is on. No manual account setup needed.
+- **Attribute mapping** - The email, FirstName, and LastName attributes in the SAML response (step 4) control how accounts are created and matched.
+- **Single authentication point** - Users only authenticate with Google (step 3), never entering Tallyfy passwords.
 
 ### Troubleshooting
 

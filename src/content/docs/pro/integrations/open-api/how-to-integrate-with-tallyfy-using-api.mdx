@@ -82,61 +82,35 @@ For third-party apps needing client credentials:
 This diagram shows the full OAuth flow for both authentication methods.
 
 ```d2
-direction: right
+# Getting, using and refreshing an API token
+direction: down
 
-App: Your Application {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-Auth: Tallyfy OAuth {
-  shape: rectangle
+Req: "1. App requests a token\nwith its credentials"
+Tok: "2. Tallyfy returns\nthe access token"
+Call: "3. App calls the API with\nBearer token and headers"
+Valid: "Token still\nvalid?" {
+  shape: diamond
   style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
+OK: "4. API sends\nthe response"
+Ref: "5. App sends its\nrefresh token"
+New: "6. Tallyfy returns a\nnew access token"
 
-API: Tallyfy API {
-  shape: rectangle
-  style.fill: "#e1f7e6"
-}
-
-App -> Auth: "1. Request token\n(credentials)" {
-  style.stroke: "#225930"
-}
-Auth -> App: "2. Return access token\n& refresh token" {
-  style.stroke: "#225930"
-}
-App -> API: "3. API request with\nBearer token + headers" {
-  style.stroke: "#225930"
-}
-API -> App: "4. Successful response" {
-  style.stroke: "#225930"
-}
-App -> API: "5. API request\n(expired token)" {
+Req -> Tok -> Call -> Valid
+Valid -> OK: Yes
+Valid -> Ref: "No, 401" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-API -> App: "6. 401 Unauthorized" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-App -> Auth: "7. Refresh token" {
-  style.stroke: "#225930"
-}
-Auth -> App: "8. New access token" {
-  style.stroke: "#225930"
-}
-App -> API: "9. Retry with\nnew token" {
-  style.stroke: "#225930"
-}
-API -> App: "10. Successful response" {
-  style.stroke: "#225930"
-}
+Ref -> New
+New -> Call: Retry
 ```
 
 **What to notice:**
-- Steps 1-4 show initial authentication - use password grant for user context or client credentials for app-only access
-- Step 5 shows required headers for all API requests - both `Authorization` and `X-Tallyfy-Client` headers are mandatory
-- Steps 6-10 show token refresh when a 401 error occurs - your app should handle this retry automatically
+- Steps 1-2 show initial authentication - use password grant for user context or client credentials for app-only access
+- Step 3 shows required headers for all API requests - both `Authorization` and `X-Tallyfy-Client` headers are mandatory
+- Steps 5-6 show token refresh when a 401 error occurs - your app should handle this retry automatically
 
 ### Token management
 

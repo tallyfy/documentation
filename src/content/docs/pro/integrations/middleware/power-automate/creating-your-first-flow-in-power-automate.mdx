@@ -36,95 +36,32 @@ No more copy-pasting from emails. No forgotten leads. The flow catches every mat
 Here's the full path from email arrival to task creation in Tallyfy.
 
 ```d2
+# Email to Tallyfy task flow in Power Automate
 direction: down
 
-# Actors
-E: Email Sender {
-  shape: person
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-O: Outlook Inbox {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-PA: Power Automate {
-  shape: hexagon
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-T: Tallyfy API {
-  shape: rectangle
+S1: "1. Email arrives in\nyour Outlook inbox"
+S2: "2. Subject matches\nthe filter?" {
+  shape: diamond
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
+Skip: "Flow doesn't run"
+S3: "3. Flow starts and reads\nthe subject and body"
+S4: "4. Tallyfy connector\nsends Create a task"
+S5: "5. Tallyfy creates the\ntask and confirms it"
+S6: "6. Run history shows\na green check"
 
-TP: Tallyfy Process {
-  shape: circle
-  style.fill: "#e1f7e6"
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-# Flow
-E -> O: 1. Send email {
-  style.stroke: "#225930"
-}
-
-O -> O: 2. Filter subject {
-  style.stroke: "#225930"
-}
-
-O -> PA: 3. Trigger flow {
-  style.stroke: "#225930"
-}
-
-PA -> PA: 4. Extract data {
-  style.stroke: "#225930"
-}
-
-PA -> PA: 5. Format JSON {
-  style.stroke: "#225930"
-}
-
-PA -> T: 6. API request {
-  style.stroke: "#225930"
-}
-
-T -> T: 7. Validate {
-  style.stroke: "#225930"
-}
-
-T -> TP: 8. Create task {
-  style.stroke: "#225930"
-}
-
-TP -> T: 9. Task ID {
-  style.stroke: "#225930"
-}
-
-T -> PA: 10. Response {
-  style.stroke: "#225930"
-}
-
-PA -> PA: 11. Log success {
-  style.stroke: "#225930"
-}
-
-PA -> PA: 12. Complete {
-  style.stroke: "#225930"
-}
+S1 -> S2
+S2 -> Skip: No
+S2 -> S3: Yes
+S3 -> S4 -> S5 -> S6
 ```
 
 ### What to notice
 
-- **Step 4**: only emails with "New Sales Lead Received" trigger the flow, so you won't create tasks from every email
-- **Steps 6-7**: the connector authenticates via OAuth2 using your Tallyfy Organization ID to connect Power Automate securely
-- **Step 10**: confirms the task was created in Tallyfy with the email content mapped in
+- **Step 2**: only emails with "New Sales Lead Received" trigger the flow, so you won't create tasks from every email
+- **Step 4**: the connector authenticates via OAuth2 using your Tallyfy Organization ID to connect Power Automate securely
+- **Step 5**: confirms the task was created in Tallyfy with the email content mapped in
 
 ## Steps to create the flow
 
