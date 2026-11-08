@@ -51,106 +51,79 @@ This diagram shows how Tallyfy sends webhook data to external systems when event
 # Webhook Event Flow
 direction: down
 
-# Start Event
-Complete_Step: Complete Step {
-  shape: circle
+Event: "Step is completed" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-# Core Components
-Tallyfy: Tallyfy System {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Event_Queue: Event Queue {
-  shape: queue
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Webhook_Handler: Webhook Handler {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-External_System: External System {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-# Webhook Type Decision
-Webhook_Type: Webhook Type? {
+Which: "Step has its\nown URL?" {
   shape: diamond
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-# Success and Failure Paths
-Success_Response: Success {
-  shape: circle
-  style.fill: "#e1f7e6"
+StepURL: "Step's URL" {
+  style.fill: "#f2faf4"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-Failure_Handler: Error Logged {
-  shape: rectangle
+TplURL: "Template's URL,\nif it has one" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Send: "Queued, then\nPOSTed as JSON" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Answer: "2xx within\n10 seconds?" {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Done: "Delivered" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Retry: "Up to 2 retries\n30 s, then 5 min" {
   style.fill: "#fff3cd"
   style.stroke: "#225930"
 }
 
-# Main Flow
-Complete_Step -> Tallyfy: Trigger event {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Tallyfy -> Webhook_Type: Check type {
+Fail: "Failure\nrecorded" {
+  style.fill: "#fff3cd"
   style.stroke: "#225930"
 }
 
-Webhook_Type -> Event_Queue: Template-level\n(any step) {
+Event -> Which: {
   style.stroke: "#225930"
 }
-
-Webhook_Type -> Event_Queue: Step-level\n(specific step) {
+Which -> StepURL: Yes {
   style.stroke: "#225930"
 }
-
-Event_Queue -> Webhook_Handler: Process webhook {
+Which -> TplURL: No {
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
-
-Webhook_Handler -> External_System: POST JSON data {
+StepURL -> Send: {
   style.stroke: "#225930"
-  style.stroke-width: 3
 }
-
-# Success Path
-External_System -> Success_Response: 200 OK {
+TplURL -> Send: {
+  style.stroke: "#225930"
+}
+Send -> Answer: {
+  style.stroke: "#225930"
+}
+Answer -> Done: Yes {
+  style.stroke: "#225930"
+}
+Answer -> Retry: No {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-Success_Response -> Tallyfy: Confirmed {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-# Failure Path
-External_System -> Failure_Handler: Error/Timeout {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Failure_Handler -> Tallyfy: Failure logged {
+Retry -> Fail: "All 3 fail" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
