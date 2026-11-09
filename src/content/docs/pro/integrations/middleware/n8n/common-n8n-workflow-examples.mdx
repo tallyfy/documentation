@@ -95,35 +95,35 @@ Update multiple systems whenever someone submits a Tallyfy [form](/products/pro/
 
 ### Visualizing n8n workflow patterns
 
-This diagram shows how n8n workflows handle multi-system updates with conditional branching and retry logic.
+This diagram shows how the workflow in Example 2 checks the task, then updates three systems from one form.
 
 ```d2
-CRM: "CRM"
-Email: "Email"
-Extract: "Extract"
-Sheets: "Sheets"
-Success: "Success"
-Start: "Webhook: Task Completed"
-Check: "Task has form?"
+# n8n workflow: one completed form updates three systems
+direction: down
+
+Start: "Webhook:\ntask completed"
+Check: "Form step?" {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+Skip: "Skip it"
+Extract: "Extract\nform data"
+CRM: "Update\nCRM"
+Sheets: "Add row to\nGoogle Sheets"
+Email: "Send\nconfirmation"
+
 Start -> Check
 Check -> Extract: "Yes"
-Extract: "Extract Form Data"
 Check -> Skip: "No"
-Skip: "Skip Processing"
-Extract -> CRM: "Update CRM" {
-}
-Extract -> Sheets: "Update Google Sheets" {
-}
-Extract -> Email: "Send Email" {
-}
-CRM -> Success: "Success Log"
-Sheets -> Success
-Email -> Success
+Extract -> CRM
+Extract -> Sheets
+Extract -> Email
 ```
 
 **What to notice:**
-- **Parallel branches** - CRM, Google Sheets, and email updates run simultaneously
-- **Conditional path** - The IF node skips tasks without forms, so it doesn't process them
+- **Three branches** - The same form data goes to the CRM, Google Sheets, and email. n8n runs the branches one after another, finishing each before it starts the next.
+- **Conditional path** - The IF node skips any task that isn't the form step, so it doesn't process them.
 
 ### Example 3: Scheduled process launcher with data collection
 

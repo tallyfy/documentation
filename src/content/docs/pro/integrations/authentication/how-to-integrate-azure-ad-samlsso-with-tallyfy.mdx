@@ -41,92 +41,35 @@ SSO is self-serve. You configure both sides: create the enterprise app in Entra 
 You configure both Microsoft Entra ID and Tallyfy yourself. The Tallyfy SSO wizard is where you copy the SP values out and paste the Entra metadata back in.
 
 ```d2
-direction: right
+# One-time SSO setup across Entra ID and Tallyfy
+direction: down
+App: "Entra ID:\ncreate enterprise app"
+SP: "Tallyfy SSO wizard:\ncopy SP values"
+SAML: "Entra ID: paste them\ninto SAML settings"
+Attr: "Entra ID:\nset user attributes"
+Meta: "Entra ID:\ncopy metadata URL"
+Paste: "Tallyfy SSO wizard:\npaste metadata"
+Test: "Tallyfy SSO wizard:\ntest, then enable"
+App -> SP -> SAML -> Attr -> Meta -> Paste -> Test
+```
 
-# Actors
-Admin: "Entra ID\nAdmin" {
-  shape: person
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
+After that, this happens each time someone signs in:
 
-Azure: "Entra ID" {
-  shape: cloud
-  style.fill: "#e1f7e6"
-}
-
-Tallyfy: "Tallyfy\nSSO wizard" {
-  shape: rectangle
-  style.fill: "#e1f7e6"
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-User: "End User" {
-  shape: person
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-# Setup Flow
-Admin -> Tallyfy: "1. Open wizard,\ncopy SP values" {
-  style.stroke: "#225930"
-}
-
-Admin -> Azure: "2. Create\nenterprise app" {
-  style.stroke: "#225930"
-}
-
-Admin -> Azure: "3. Configure\nSAML settings" {
-  style.stroke: "#225930"
-}
-
-Admin -> Azure: "4. Set user\nattributes" {
-  style.stroke: "#225930"
-}
-
-Azure -> Admin: "5. Get\nmetadata" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Admin -> Tallyfy: "6. Paste\nmetadata" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Admin -> Tallyfy: "7. Test, then\nenable SSO" {
-  style.stroke: "#225930"
-}
-
-# User Auth Flow
-User -> Tallyfy: "8. Access\napplication" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Tallyfy -> Azure: "9. Redirect\nto IdP" {
-  style.stroke: "#225930"
-}
-
-User -> Azure: "10. Enter\ncredentials" {
-  style.stroke: "#225930"
-}
-
-Azure -> Azure: "11. Validate\nuser" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-Azure -> Tallyfy: "12. SAML\nassertion" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
+```d2
+# What happens each time someone signs in through Entra ID
+direction: down
+Open: "User opens your\nSSO login URL"
+Redirect: "Tallyfy sends them\nto Entra ID"
+Creds: "User signs in\nat Entra ID"
+Check: "Entra ID checks\nthe user"
+Assert: "Entra ID sends Tallyfy\na SAML assertion"
+In: "Tallyfy logs\nthe user in"
+Open -> Redirect -> Creds -> Check -> Assert -> In
 ```
 
 **Key points:**
-- Steps 1-7 are the one-time self-serve setup you run yourself across Tallyfy and Entra ID
-- Steps 8-12 happen every time someone logs in
+- The first diagram is the one-time self-serve setup you run yourself across Tallyfy and Entra ID
+- The second diagram shows what happens every time someone logs in
 - No support ticket is needed to turn SSO on
 
 ### Phase 1: Create enterprise application

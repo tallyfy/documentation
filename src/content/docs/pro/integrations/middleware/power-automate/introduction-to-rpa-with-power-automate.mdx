@@ -62,98 +62,75 @@ Here's a conceptual outline. A Tallyfy "Client Information Update" [task](/produ
 This diagram shows how data flows from Tallyfy through Power Automate's cloud and desktop components to update legacy systems.
 
 ```d2
-direction: right
+# RPA flow: Tallyfy data reaches a legacy desktop CRM
+direction: down
 
-User: "User" {
-  shape: person
+Cloud: "In the cloud" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
+
+  Done: "User completes\nTallyfy task" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Hook: "Webhook starts\nthe cloud flow" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Get: "Cloud flow gets\ntask details" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Done -> Hook: {
+    style.stroke: "#225930"
+  }
+  Hook -> Get: {
+    style.stroke: "#225930"
+  }
 }
 
-Tallyfy: "Tallyfy" {
-  shape: rectangle
-  style.fill: "#e1f7e6"
-}
-
-CloudFlow: "Power Automate\nCloud" {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-Gateway: "On-Premises\nGateway" {
+Gateway: "Gateway passes\nthe form data" {
   shape: hexagon
   style.fill: "#fff3cd"
+  style.stroke: "#225930"
 }
 
-DesktopFlow: "Power Automate\nDesktop" {
-  shape: rectangle
+Local: "On your machine" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
+
+  Open: "Desktop flow\nopens the CRM" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Edit: "Finds the client\nUpdates the phone" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Save: "Saves and\ncloses the CRM" {
+    style.fill: "#e1f7e6"
+    style.stroke: "#225930"
+  }
+  Open -> Edit: {
+    style.stroke: "#225930"
+  }
+  Edit -> Save: {
+    style.stroke: "#225930"
+  }
 }
 
-LegacyCRM: "Legacy Desktop\nCRM" {
-  shape: cylinder
-  style.fill: "#f2faf4"
-}
-
-User -> Tallyfy: "1. Complete task\nwith form data" {
+Cloud -> Gateway: {
   style.stroke: "#225930"
 }
-
-Tallyfy -> CloudFlow: "2. Webhook fires\n(task completed)" {
+Gateway -> Local: {
   style.stroke: "#225930"
-}
-
-CloudFlow -> Tallyfy: "3. Get task\ndetails" {
-  style.stroke: "#225930"
-}
-
-Tallyfy -> CloudFlow: "4. Return form\nfield data" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-CloudFlow -> Gateway: "5. Pass data\nto desktop flow" {
-  style.stroke: "#225930"
-}
-
-Gateway -> DesktopFlow: "6. Initiate\nRPA bot" {
-  style.stroke: "#225930"
-}
-
-DesktopFlow -> LegacyCRM: "7. Launch\napplication" {
-  style.stroke: "#225930"
-}
-
-DesktopFlow -> LegacyCRM: "8. Search for\nclient record" {
-  style.stroke: "#225930"
-}
-
-DesktopFlow -> LegacyCRM: "9. Update phone\nnumber field" {
-  style.stroke: "#225930"
-}
-
-DesktopFlow -> LegacyCRM: "10. Save\nchanges" {
-  style.stroke: "#225930"
-}
-
-LegacyCRM -> DesktopFlow: "11. Confirmation" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-DesktopFlow -> LegacyCRM: "12. Close\napplication" {
-  style.stroke: "#225930"
-}
-
-DesktopFlow -> Gateway: "13. Return\nstatus" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
 }
 ```
 
 **What to notice:**
-- **Cloud-desktop separation**: Steps 1-4 happen in the cloud, steps 7-12 run on your local machine or server
-- **Data handoff at step 5**: The gateway bridges cloud and desktop, passing Tallyfy form data as input variables
-- **UI automation sequence**: Steps 7-12 show the RPA bot mimicking human clicks and keystrokes in the legacy CRM
+- **Cloud-desktop separation**: The first three steps happen in the cloud. The bot's steps run on your local machine or server.
+- **Data handoff**: The gateway bridges cloud and desktop, passing Tallyfy form data to the desktop flow as input variables.
+- **UI automation sequence**: The RPA bot clicks and types in the legacy CRM the way a person would. When it's done, the desktop flow sends its status back to the cloud flow.
 
 **1. Cloud flow (Power Automate):**
 
