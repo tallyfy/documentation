@@ -15,7 +15,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Make SSO the only way in
 
-Enforcement locks your organization down so members sign in only through your identity provider. Email and password logins are turned off for regular members, and manual invites are blocked, so everyone comes through SSO. You turn it on with the **Require SSO** switch under **Settings > Organization > Security > SSO**, on any paid plan.
+Enforcement locks your organization down so members sign in only through your identity provider. Email and password logins are turned off for regular members whose email is on one of your verified domains, and manual invites for those addresses are blocked, so they all come through SSO. People on other domains keep password login and can still be invited. You turn it on with the **Require SSO** switch under **Settings > Organization > Security > SSO**, on any paid plan.
 
 Here's the part that keeps this safe: org owners and admins always keep their password login, even under enforcement. That's the break-glass. If your identity provider goes down or a config change breaks SSO, an admin can still sign in with a password and fix it. You can't accidentally lock your whole org out.
 
@@ -23,10 +23,13 @@ Here's the part that keeps this safe: org owners and admins always keep their pa
 
 When **Require SSO** is on:
 
-- Email and password logins are turned off for regular members
-- Manual member invites are blocked, so all new members arrive through your IdP
+- Email and password logins are turned off for regular members on your verified domains
+- Manual invites for addresses on your verified domains are blocked, so those new members arrive through your IdP
+- People on other domains keep password login and can still be invited by hand
 - Anyone who hits the regular login page is redirected to your SAML sign-in
 - Owners and admins keep password login as the break-glass fallback
+
+On a connection Tallyfy support set up for you, enforcement covers every member, whatever their domain.
 
 ### You need a verified domain first
 
@@ -50,7 +53,7 @@ Turning enforcement on doesn't kill people's active sessions mid-work. New sign-
 
 Enforcement is meant to tighten security, not to be a trap. The break-glass rule is simple:
 
-- **Regular members** can only sign in through SSO once enforcement is on.
+- **Regular members** on your verified domains can only sign in through SSO once enforcement is on.
 - **Owners and admins** can always fall back to password login.
 
 So if your IdP has an outage, a certificate expires, or a misconfiguration breaks the SAML flow, an admin signs in with a password, fixes the connection or turns enforcement off, and the rest of the team is back in. This is the same pattern teams expect from tools like Notion and Linear.
@@ -77,7 +80,7 @@ You can lift enforcement at any time from the same switch. It also asks for step
 ### Troubleshooting
 
 - **The Require SSO switch is disabled** - you don't have a verified domain yet. Verify one under the **Domains** tab.
-- **A member is stuck at login** - confirm they're assigned to the app in your IdP and they're using the SSO URL. Regular members can't use password login under enforcement.
+- **A member is stuck at login** - confirm they're assigned to the app in your IdP and they're using the SSO URL. Regular members on your verified domains can't use password login under enforcement.
 - **You think you're locked out** - you're not, if you're an owner or admin. Use the normal login page with your password. If you've forgotten it, reset it through your email.
 - **Changes you didn't expect** - the security **Activity** tab shows who changed enforcement and when, so you can see exactly what happened.
 
