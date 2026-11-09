@@ -33,8 +33,10 @@ staging commit that moved its lastUpdated. --promotion-base REF, run on a
 promotion branch, gives each page whose content the branch changes since it
 left REF the date of its newest authored change in the branch's own history,
 by the rule above with the Related articles block left out, and rewrites that
-one line only. --check reports instead of writing: exit 0 every such page
-carries its date, 1 one does not, 2 the answer could not be read.
+one line only. A page already showing a later date keeps it, so shipping an
+older staging change after a newer one never moves a date back. --check
+reports instead of writing: exit 0 every such page carries its date, 1 one
+does not, 2 the answer could not be read.
 """
 
 import os
@@ -251,6 +253,7 @@ def process_directory(dir_path):
     return updated_count, skipped_count, error_count
 
 _TOP_LEVEL_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):")
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _frontmatter_lines(text):
@@ -362,6 +365,14 @@ def carry_promotion_dates(base, docs_dir, check=False):
         if current == date:
             carried += 1
             print(f"⏭️  {rel}: lastUpdated {date} already")
+            continue
+        shown = (current or "").strip("'\"")
+        if _ISO_DATE.fullmatch(shown) and shown > date:
+            # An older staging change shipped after a newer one: its cherry-pick is the newest
+            # commit, so the rule gives the older date, but the page already carries the newer
+            # change and its date. Never move a date back.
+            carried += 1
+            print(f"⏭️  {rel}: lastUpdated {shown} is later than the change it carries ({date}), so it stays")
             continue
         lacking.append(rel)
         if check:
@@ -674,7 +685,7 @@ def _promotion_self_test(case):
 
     person = ("A Person", "person@example.com")
     bot = ("GitHub Action", "action@github.com")
-    names = ('a.mdx', 'b.mdx', 'c.mdx', 'd.mdx', 'e.mdx')
+    names = ('a.mdx', 'b.mdx', 'c.mdx', 'd.mdx', 'e.mdx', 'f.mdx')
 
     def page(page_id, title, last_updated, one, two, card):
         # The form the pipeline's YAML dump writes: sorted keys, no newline at the end, and the
@@ -744,6 +755,7 @@ def _promotion_self_test(case):
         write('b.mdx', page('b', 'B', '2020-01-01', 'B body.', 'B more.', 'Old card.'))
         write('c.mdx', page('c', 'C', '2026-10-01', 'C body.', 'C more.', 'Old card.'))
         write('d.mdx', page('d', 'D', '2020-01-01', 'D body.', 'D more.', 'Old card.'))
+        write('f.mdx', page('f', 'F', '2026-10-01', 'F says one thing.', 'F second paragraph.', 'Old card.'))
         commit("pages", "2026-10-01T12:00:00+00:00", person)
 
         _git(tmp, 'checkout', '-q', '-b', 'staging')
@@ -759,12 +771,19 @@ def _promotion_self_test(case):
         write('e.mdx', "---\nid: e\ntitle: E\n---\n\nE is new.")
         s4 = commit("Add page e", "2026-11-04T09:00:00+00:00", person)
         date_job()
+        # Two changes to page f, the older one shipped last (the last arm below).
+        write('f.mdx', read('f.mdx').replace('F says one thing.', 'F says the older thing.'))
+        f_older = commit("Older change to page f", "2026-10-20T12:00:00+00:00", person)
+        write('f.mdx', read('f.mdx').replace('F second paragraph.', 'F second paragraph, newer.'))
+        f_newer = commit("Newer change to page f", "2026-11-04T12:00:00+00:00", person)
+        date_job()
 
         # The subset ship: cherry-pick two staging changes onto main, then copy staging's cards
         # for a and b by hand (#500), dated later than either change.
         _git(tmp, 'checkout', '-q', '-b', 'promo', 'main')
         _git(tmp, 'cherry-pick', s1)
         _git(tmp, 'cherry-pick', s4)
+        _git(tmp, 'cherry-pick', f_newer)
         for name in ('a.mdx', 'b.mdx'):
             ours, theirs = read(name), show('staging', name)
             write(name, ours.split("## Related articles", 1)[0] + "## Related articles"
@@ -794,6 +813,8 @@ def _promotion_self_test(case):
              and last_updated_of(show('staging', 'd.mdx')) == "2026-10-01",
              f"lastUpdated {last_updated_of(after['d.mdx'])}")
         case("492: a page changed only on staging is not touched", after['c.mdx'] == before['c.mdx'])
+        case("492: a page whose newer staging change ships first gets that change's date",
+             last_updated_of(after['f.mdx']) == "2026-11-04", f"lastUpdated {last_updated_of(after['f.mdx'])}")
         rc, out = cli('--promotion-base', 'main', '--dir', str(docs), '--check')
         case("492: --check passes once the dates are carried", rc == 0, f"exit {rc}")
         rc, out = cli('--promotion-base', 'main', '--dir', str(docs))
@@ -856,6 +877,17 @@ def _promotion_self_test(case):
              merge.returncode == 1 and conflicted == ['docs/a.mdx'] and len(marked) == 2
              and all(line.startswith('lastUpdated:') for line in marked), f"{conflicted} {marked}")
         abandon_merge()
+
+        # A second subset ship brings f's older change after its newer one. The cherry-pick is
+        # now f's newest commit, dated 2026-10-20, but the page already carries the newer change.
+        _git(tmp, 'checkout', '-q', '-b', 'promo2', shipped)
+        _git(tmp, 'cherry-pick', f_older)
+        rc, out = cli('--promotion-base', shipped, '--dir', str(docs))
+        rc_check, _ = cli('--promotion-base', shipped, '--dir', str(docs), '--check')
+        case("492: shipping an older change after a newer one never moves the date back",
+             rc == 0 and rc_check == 0 and last_updated_of(read('f.mdx')) == "2026-11-04"
+             and 'F says the older thing.' in read('f.mdx'),
+             f"exit {rc}, check {rc_check}, lastUpdated {last_updated_of(read('f.mdx'))}")
 
 if __name__ == "__main__":
     exit(main())
