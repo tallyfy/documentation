@@ -74,106 +74,76 @@ SSO integration with MCP uses OAuth 2.1 flows that delegate authentication to en
 4. **Token exchange** - identity provider returns an authorization code, which the MCP server exchanges for an access token
 5. **API access** - MCP server uses the token to call service APIs
 
-This diagram shows how SSO authentication flows between users, AI agents, MCP servers, and identity providers.
+This diagram shows the same five steps between you in the AI tool, the MCP server, your identity provider, and the service API.
 
 ```d2
 # SSO Authentication Flow with MCP
-direction: down
+shape: sequence_diagram
 
-# Actors
-User: User {
-  shape: person
+User: "You, in\nthe AI tool" {
   style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
-
-AI_Agent: AI Agent {
-  shape: rectangle
+MCP: "MCP\nserver" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
-
-MCP_Server: MCP Server {
-  shape: rectangle
+IdP: "Identity\nprovider" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
-
-IdP: Identity Provider {
-  shape: rectangle
+API: "Service\nAPI" {
   style.fill: "#f2faf4"
-  label: "Identity Provider\n(Azure AD, Okta, etc.)"
-}
-
-API: Target Service API {
-  shape: cylinder
-  style.fill: "#f2faf4"
-}
-
-# Authentication Flow
-User -> AI_Agent: 1. Request access\nto tool {
   style.stroke: "#225930"
 }
 
-AI_Agent -> MCP_Server: 2. Forward request {
+User -> MCP: "1. Connect\na tool" {
   style.stroke: "#225930"
 }
-
-MCP_Server -> User: 3. Redirect to IdP {
+MCP -> User: "2. Send to\nsign-in" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-User -> IdP: 4. Login with\ncorporate credentials {
+User -> IdP: "3. Company login" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-
-IdP -> IdP: 5. Validate MFA &\nAccess Policies {
+IdP -> IdP: "4. Check MFA\nand policies" {
   style.stroke: "#225930"
 }
-
-IdP -> User: 6. Authorization code {
+IdP -> User: "5. Sign-in code" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-User -> MCP_Server: 7. Return with code {
+User -> MCP: "6. Return\nwith code" {
   style.stroke: "#225930"
 }
-
-MCP_Server -> IdP: 8. Exchange code\nfor access token {
+MCP -> IdP: "7. Swap code\nfor token" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-
-IdP -> MCP_Server: 9. Access token {
+IdP -> MCP: "8. Token" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-
-MCP_Server -> API: 10. API request\nwith token {
+MCP -> API: "9. Call with\ntoken" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-
-API -> MCP_Server: 11. API response {
+API -> MCP: "10. Data" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-MCP_Server -> AI_Agent: 12. Return data {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-AI_Agent -> User: 13. Present results {
+MCP -> User: "11. Results" {
   style.stroke: "#225930"
 }
 ```
 
 What to notice:
 
-- **Steps 4-5**: The identity provider validates corporate credentials including MFA and conditional access policies before issuing tokens
-- **Steps 8-9**: The MCP server handles token exchange automatically - users never see raw tokens
-- **Steps 10-13**: Once authenticated, the MCP server can make multiple API calls on behalf of the user without further prompts
+- **Steps 3-4**: The identity provider validates corporate credentials including MFA and conditional access policies before issuing tokens
+- **Steps 7-8**: The MCP server handles token exchange automatically - users never see raw tokens
+- **Steps 9-11**: Once authenticated, the MCP server can make multiple API calls on behalf of the user without further prompts
 
 #### Accepting existing SSO tokens
 
