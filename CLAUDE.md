@@ -223,6 +223,7 @@ python scripts/answers-connector.py --dir [docs dir] --collection_name tyfy --an
 python3 scripts/update-documentation-structure.py         # Rewrite the file counts in DOCUMENTATION_STRUCTURE.md and this file (--check to report only)
 # Dated 2026-10-21 (#384): the count lines moved to REFERENCE/claude-md/project.md, so the script now rewrites that file, not this one.
 python scripts/update-last-modified.py --dir [directory]  # Update lastUpdated dates from Git history
+python scripts/update-last-modified.py --promotion-base origin/main [--check]  # On a promotion branch into main: give each page it changes the date of that change (#492)
 ```
 
 ## LOCAL PRE-COMMIT CHECKS

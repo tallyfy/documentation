@@ -124,6 +124,7 @@ Every documentation page displays its last modification date, automatically main
    - `staging` pushes sync content to `support-docs` `staging` branch → CF Pages preview → `staging.tallyfy.com/products/*`
    - `main` pushes sync content to `support-docs` `production` branch → CF Pages production → `tallyfy.com/products/*`
    - Executes `update-last-modified.py` script **on `staging` pushes only**; the `main` pipeline skips this step and inherits the staging-frozen value via merge (see tallyfy/documentation#56)
+   - Dated 2026-11-09 (#492): a subset ship into `main` is a squash that brings no staging date commit, so its own pull request carries the dates. `update-last-modified.py --promotion-base origin/main` sets each changed page's date on the promotion branch, and the `promotion-dates` job in `pr-validate.yml` checks it. The steps are in `linking-and-deployment.md`, section "Deploying staging to production".
    - Extracts last modified date from Git history for each MDX file
    - Updates `lastUpdated` field in frontmatter
 
