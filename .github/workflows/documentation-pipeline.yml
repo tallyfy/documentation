@@ -34,6 +34,277 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The push gate (tallyfy/documentation#464). A GitHub App with contents: write, such as
+  # launchbrightly[bot], can push to staging or main without a pull request, and a ruleset cannot
+  # exempt the pipeline's own pushes. So every job that holds a secret, an environment or a write
+  # token waits for this one, and it stops them when a bot other than github-actions[bot] and
+  # tallyfy-workhorse[bot] put commits on the branch outside a merged pull request. It then opens
+  # one issue listing them; a person accepts them by closing that issue as completed.
+  #
+  # No `needs`, no `if:` and no checkout: it always runs, and it runs no code from the repository,
+  # only the script below, which an app without the workflows permission cannot change. The same
+  # script is in generate-ids.yml; only the env differs. `scripts/pipeline-guard.py --check-wiring`
+  # asserts all of this, and that every job holding a secret, an environment or a push waits for it.
+  push-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - name: Stop when commits reached the branch without a pull request
+        uses: actions/github-script@v9
+        env:
+          GATE_MODE: pipeline
+          GATE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GATE_RUN_ID: ${{ github.run_id }}
+          GATE_TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          GATE_TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          GATE_TRIGGER_HEAD: ${{ github.event.workflow_run.head_sha }}
+        with:
+          script: |
+            // The push gate (tallyfy/documentation#464). A GitHub App with contents: write can push to staging
+            // or main without a pull request, and a ruleset cannot exempt the pipeline's own pushes, so this
+            // job stops every job after it instead. launchbrightly[bot] (id 270903805) is the app it was
+            // written for, but the rule covers every app bot except the two allowed below.
+            //
+            // It runs no code from the repository: the logic is here, in a workflow file, which an app
+            // without the workflows permission cannot change, and it reads only the GitHub API. The copy in
+            // generate-ids.yml and the copy in documentation-pipeline.yml must stay identical; only their env
+            // differs. `scripts/pipeline-guard.py --check-wiring` asserts both.
+            //
+            // Range: from the head of the last run of generate-ids.yml on this branch that concluded success
+            // (or of the run that started this one, when it succeeded) through this run's head. In the
+            // documentation pipeline the head is the branch tip, because every later job checks out the tip.
+            // At most 250 commits. Runs of documentation-pipeline.yml cannot be the anchor: on workflow_run
+            // the API reports every one of them as staging, at staging's head (measured 2026-11-06).
+            //
+            // A commit stops the run when a bot other than the two allowed authored or committed it and no
+            // merged pull request has it as its merge commit. A push or merge to the branch since the anchor
+            // stops it when a bot other than the two allowed made it, whatever the commit says about its
+            // author, because the repository activity API records who pushed. A person accepts stopped commits
+            // by closing this job's issue as completed. Anything it cannot read fails the job.
+            const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
+            const MAX_COMMITS = 250;
+            const MAX_ACTIVITY_PAGES = 5;
+            const SHA_RE = /^[0-9a-f]{40}$/;
+            const gateEnv = process.env;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = gateEnv.GATE_BRANCH || '';
+            const dryRun = gateEnv.GATE_DRY_RUN === '1';
+            const title = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            class CannotDecide extends Error {}
+            const short = (sha) => String(sha || '').slice(0, 12);
+            const isBotLogin = (login) => /\[bot\]$/i.test(String(login || ''));
+            const disallowed = (login) => Boolean(login) && !ALLOWED_BOTS.includes(String(login).toLowerCase());
+
+            // The app bot a commit names: its GitHub account when that is a bot, else a [bot] name in its git
+            // identity, so a bot's commit with an email GitHub does not link to an account is still seen.
+            function botIn(user, name, email) {
+              if (user && (user.type === 'Bot' || isBotLogin(user.login))) return String(user.login).toLowerCase();
+              const m = `${name || ''} ${email || ''}`.match(/([A-Za-z0-9][A-Za-z0-9-]*\[bot\])/i);
+              return m ? m[1].toLowerCase() : null;
+            }
+
+            async function api(route, params) {
+              try {
+                // A full URL (the activity API's next page) already carries its query; add nothing to it.
+                return route.includes('https://') ? await github.request(route)
+                  : await github.request(route, { owner, repo, ...(params || {}) });
+              } catch (err) {
+                throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
+              }
+            }
+
+            async function findAnchor() {
+              if (dryRun && SHA_RE.test(gateEnv.GATE_ANCHOR_OVERRIDE || '')) {
+                return { sha: gateEnv.GATE_ANCHOR_OVERRIDE, from: 'GATE_ANCHOR_OVERRIDE (dry run only)' };
+              }
+              if (gateEnv.GATE_TRIGGER_CONCLUSION === 'success' && SHA_RE.test(gateEnv.GATE_TRIGGER_HEAD || '')) {
+                return { sha: gateEnv.GATE_TRIGGER_HEAD, from: `the generate-ids run that started this one (${gateEnv.GATE_TRIGGER_RUN_ID})` };
+              }
+              const skip = new Set([String(gateEnv.GATE_RUN_ID || ''), String(gateEnv.GATE_TRIGGER_RUN_ID || '')]);
+              const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                { workflow_id: 'generate-ids.yml', branch, status: 'success', per_page: 20 });
+              const runs = ((data && data.workflow_runs) || []).filter((r) => r.head_branch === branch
+                && r.conclusion === 'success' && !skip.has(String(r.id)) && SHA_RE.test(r.head_sha || ''));
+              if (!runs.length) {
+                throw new CannotDecide(`no earlier successful run of generate-ids.yml on ${branch}, so there is no checked point to start from`);
+              }
+              return { sha: runs[0].head_sha, from: `generate-ids run ${runs[0].id}` };
+            }
+
+            async function findHead() {
+              if (gateEnv.GATE_MODE === 'push') {
+                if (!SHA_RE.test(gateEnv.GATE_HEAD || '')) throw new CannotDecide(`GATE_HEAD ${JSON.stringify(gateEnv.GATE_HEAD)} is not a commit`);
+                return gateEnv.GATE_HEAD;
+              }
+              const { data } = await api('GET /repos/{owner}/{repo}/branches/{branch}', { branch });
+              const sha = data && data.commit && data.commit.sha;
+              if (!SHA_RE.test(sha || '')) throw new CannotDecide(`could not read the tip of ${branch}`);
+              return sha;
+            }
+
+            async function rangeCommits(base, head) {
+              if (base === head) return { status: 'identical', commits: [] };
+              const seen = new Map();
+              let status = '';
+              let total = -1;
+              for (let page = 1; page <= Math.ceil(MAX_COMMITS / 100); page += 1) {
+                const { data } = await api('GET /repos/{owner}/{repo}/compare/{basehead}',
+                  { basehead: `${base}...${head}`, per_page: 100, page });
+                status = data && data.status;
+                total = data ? data.total_commits : -1;
+                if (status === 'identical' || status === 'behind') return { status, commits: [] };
+                if (status !== 'ahead') {
+                  throw new CannotDecide(`${short(base)}...${short(head)} is ${JSON.stringify(status)}, so the branch history was rewritten since the last checked run`);
+                }
+                if (!(total >= 0)) throw new CannotDecide('the compare response has no total_commits');
+                if (total > MAX_COMMITS) throw new CannotDecide(`${total} commits since the last checked run, over the cap of ${MAX_COMMITS}`);
+                const batch = (data && data.commits) || [];
+                for (const c of batch) seen.set(c.sha, c);
+                if (seen.size >= total || !batch.length) break;
+              }
+              if (seen.size !== total) throw new CannotDecide(`read ${seen.size} of ${total} commits in ${short(base)}...${short(head)}`);
+              return { status, commits: [...seen.values()] };
+            }
+
+            function identity(c) {
+              const a = (c.commit && c.commit.author) || {};
+              const k = (c.commit && c.commit.committer) || {};
+              const acct = (u) => (u && u.login ? ` (${u.login})` : '');
+              return `author ${a.name || '?'} <${a.email || '?'}>${acct(c.author)}, committer ${k.name || '?'} <${k.email || '?'}>${acct(c.committer)}`;
+            }
+
+            async function pushesSince(anchorSha) {
+              // Newest first. Every push or merge down to and including the one that produced the anchor.
+              const out = [];
+              let next = null;
+              for (let page = 1; page <= MAX_ACTIVITY_PAGES; page += 1) {
+                const res = next ? await api(`GET ${next}`)
+                  : await api('GET /repos/{owner}/{repo}/activity', { ref: `refs/heads/${branch}`, per_page: 100 });
+                for (const a of (res.data || [])) {
+                  out.push(a);
+                  if (a.after === anchorSha) return out;
+                }
+                const link = String((res.headers && res.headers.link) || '');
+                const m = link.match(/<([^>]+)>;\s*rel="next"/);
+                if (!m) return out;  // the whole history the API keeps, all of it after the anchor
+                next = m[1];
+              }
+              throw new CannotDecide(`more than ${MAX_ACTIVITY_PAGES * 100} pushes since ${short(anchorSha)}, more than this gate reads`);
+            }
+
+            async function acceptedShas() {
+              // A person closing this job's issue as completed accepts every commit the issue lists.
+              const out = new Map();
+              const { data } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
+              for (const issue of (data || [])) {
+                if (issue.pull_request || issue.title !== title) continue;
+                const { data: full } = await api('GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: issue.number });
+                const by = full && full.closed_by;
+                if (!full || full.state_reason !== 'completed' || !by || by.type === 'Bot' || isBotLogin(by.login)) continue;
+                for (const m of String(full.body || '').matchAll(/\b[0-9a-f]{40}\b/g)) {
+                  if (!out.has(m[0])) out.set(m[0], issue.number);
+                }
+              }
+              return out;
+            }
+
+            async function report(lines, anchor, head, range) {
+              const body = [
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch without a pull request, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot]:`,
+                '',
+                ...lines,
+                '',
+                `Range checked: \`${short(anchor.sha)}...${short(head)}\`, ${range.commits.length} commit(s). Run: ${runUrl}`,
+                '',
+                'Every job that holds a secret, an environment or a write token waits for this gate, so nothing after it ran.',
+                '',
+                'To accept these commits, review each one, then close this issue as completed and re-run the failed workflow. Closing it as not planned keeps the pipeline stopped. A close by a bot is ignored.',
+              ].join('\n');
+              if (dryRun) {
+                core.info(`DRY RUN: would open or update the issue "${title}" with:\n${body}`);
+                return;
+              }
+              const { data: open } = await api('GET /repos/{owner}/{repo}/issues',
+                { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+              const existing = (open || []).filter((i) => !i.pull_request && i.title === title);
+              if (existing.length) {
+                const issue = existing[0];
+                const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
+                if (missing.length) {
+                  await api('PATCH /repos/{owner}/{repo}/issues/{issue_number}',
+                    { issue_number: issue.number, body: `${issue.body || ''}\n\nAlso stopped by ${runUrl}:\n\n${missing.join('\n')}` });
+                }
+                core.error(`See #${issue.number}.`);
+              } else {
+                const { data: created } = await api('POST /repos/{owner}/{repo}/issues', { title, body });
+                core.error(`Opened #${created.number}.`);
+              }
+            }
+
+            async function gate() {
+              if (!['push', 'pipeline'].includes(gateEnv.GATE_MODE)) throw new CannotDecide(`GATE_MODE is ${JSON.stringify(gateEnv.GATE_MODE)}`);
+              if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new CannotDecide(`branch ${JSON.stringify(branch)} is not a branch name`);
+              const anchor = await findAnchor();
+              const head = await findHead();
+              const range = await rangeCommits(anchor.sha, head);
+              const found = new Map();
+              const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
+
+              for (const c of range.commits) {
+                const bots = [...new Set([
+                  botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
+                  botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
+                ].filter(disallowed))];
+                if (!bots.length) continue;
+                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
+                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                if (merged) {
+                  core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
+                  continue;
+                }
+                add(c.sha, `${identity(c)}; no merged pull request has it as its merge commit`);
+              }
+
+              const pushes = await pushesSince(anchor.sha);
+              for (const a of pushes) {
+                const who = a.actor && a.actor.login;
+                if (a.actor && (a.actor.type === 'Bot' || isBotLogin(who)) && disallowed(who) && SHA_RE.test(a.after || '')) {
+                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
+                }
+              }
+
+              const accepted = found.size ? await acceptedShas() : new Map();
+              const open = [...found].filter(([sha]) => !accepted.has(sha));
+              for (const [sha] of found) {
+                if (accepted.has(sha)) core.info(`${short(sha)} was accepted by a person in #${accepted.get(sha)}.`);
+              }
+              core.info(`Checked ${short(anchor.sha)}...${short(head)} on ${branch} (${range.status}): ${range.commits.length} commit(s) and ${pushes.length} push(es), starting from ${anchor.from}.`);
+              if (!open.length) {
+                core.info('No commit reached the branch without a pull request.');
+                return;
+              }
+              const lines = open.map(([sha, why]) => `- \`${sha}\`: ${why.join('; ')}`);
+              for (const line of lines) core.error(line);
+              await report(lines, anchor, head, range);
+              core.setFailed(`${open.length} commit(s) reached ${branch} without a pull request. Every job after this gate is stopped.`);
+            }
+
+            try {
+              await gate();
+            } catch (err) {
+              if (err instanceof CannotDecide) core.setFailed(`The push gate could not decide, so nothing after it runs: ${err.message}`);
+              else core.setFailed(`The push gate crashed, so nothing after it runs: ${(err && err.stack) || err}`);
+            }
+
   # Blocks a staging -> main promotion that carries a path on hold (see #118, successor to
   # #88). A root job on purpose: nothing upstream can skip it. It is listed in the `needs` of
   # every job that can publish, because a red gate that does not stop the publish is
@@ -52,6 +323,10 @@ jobs:
     # default "skip when a needed job was skipped". A gate carrying that same `if:` would
     # therefore be skipped on exactly the runs where `sync` publishes unchecked. A gate that
     # can be skipped is not a gate, so this one always runs.
+    # Read only (#464): it runs scripts from the pushed tree without waiting for push-gate, so a
+    # direct push must not be able to use its token to push or to edit the gate's issues.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -116,6 +391,10 @@ jobs:
   ai-tell-gate:
     # Deliberately NO `if:` and NO `needs:`. --check-wiring asserts both, so a later edit that
     # adds either one fails the gate rather than quietly disarming it.
+    # Read only (#464): it runs scripts from the pushed tree without waiting for push-gate, so a
+    # direct push must not be able to use its token to push or to edit the gate's issues.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -138,6 +417,10 @@ jobs:
 
   validate-markdown:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Read only (#464): it runs scripts from the pushed tree without waiting for push-gate, so a
+    # direct push must not be able to use its token to push or to edit the gate's issues.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -156,8 +439,103 @@ jobs:
         run: python scripts/a11y-lint.py --dir="$PWD"
         shell: bash
 
+  # Screenshots committed under screenshots/launchbrightly/ and linked from articles by repository
+  # path (tallyfy/documentation#464). On staging it uploads each new or changed image to
+  # screenshots.tallyfy.com under a content-hashed key, reads it back, records it in
+  # documentation_assets.csv and commits only that file. It never deletes from R2. On main it
+  # only checks that every linked image has a row matching its bytes and its public copy; the
+  # support-docs build swaps each repository path for the row's URL.
+  #
+  # The upload credentials live in the r2-screenshots environment and reach one step, the
+  # staging ingest, through that step's env. No workflow a pull request starts names a secret or
+  # an environment. Both are asserted by `scripts/pipeline-guard.py --check-wiring`, which
+  # pr-validate.yml runs.
+  #
+  # generate-snippets and sync wait for this job, so the inventory commit lands before any other
+  # generator pushes and before sync copies the CSV to support-docs. With no screenshots/ folder
+  # it uploads nothing, needs no credential and commits nothing.
+  repo-screenshots:
+    needs: [validate-markdown, push-gate]
+    runs-on: ubuntu-latest
+    environment: r2-screenshots
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0   # the ingest reads the CSV's whole history for LaunchBrightly commits
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      # A workflow_run workflow runs the DEFAULT branch's copy of this file, so on a run for main
+      # this job exists before main carries the script. Then the verify step below decides.
+      - name: Prove the ingest can refuse (red and green, fake R2)
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "$HEAD_BRANCH" = "main" ] && [ ! -f scripts/asset_management/repo_screenshots.py ]; then
+            echo "main does not carry repo_screenshots.py yet; the verify step decides whether that matters."
+            exit 0
+          fi
+          python -m pip install --upgrade requests python-dotenv
+          python scripts/asset_management/repo_screenshot_rules.py --self-test
+          python scripts/asset_management/repo_screenshots.py --self-test
+        shell: bash
+      - name: Verify repository screenshots (main)
+        if: ${{ github.event.workflow_run.head_branch == 'main' }}
+        env:
+          REF_PATTERN: "[(<\"']/screenshots/"
+        run: |
+          if [ ! -f scripts/asset_management/repo_screenshots.py ]; then
+            rc=0
+            grep -rqE -- "$REF_PATTERN" src/content/docs || rc=$?
+            case "$rc" in
+              0) echo "::error::an article links a /screenshots/ path, and main has no repo_screenshots.py to verify it"
+                 exit 1 ;;
+              1) echo "No article links a /screenshots/ path, so there is nothing to verify."
+                 exit 0 ;;
+              *) echo "::error::could not search the articles (grep exit $rc)"
+                 exit 1 ;;
+            esac
+          fi
+          python scripts/asset_management/repo_screenshots.py verify --online
+        shell: bash
+      # Installed in its own step, so nothing pip runs ever sees the credentials below.
+      - name: Install the S3 client (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        run: python -m pip install --upgrade boto3
+        shell: bash
+      - name: Upload and record repository screenshots (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          git pull --ff-only
+          python scripts/asset_management/repo_screenshots.py ingest
+        shell: bash
+      - name: Commit the inventory (staging)
+        if: ${{ github.event.workflow_run.head_branch == 'staging' }}
+        run: |
+          if [[ -z $(git status --porcelain -- documentation_assets.csv) ]]; then
+            echo "No inventory change. Nothing to commit."
+            exit 0
+          fi
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -- documentation_assets.csv
+          git commit -m "Inventory repository screenshots" -- documentation_assets.csv
+          git pull --no-rebase
+          git push
+        shell: bash
+
   generate-snippets:
-    needs: validate-markdown
+    needs: [validate-markdown, repo-screenshots]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -377,7 +755,10 @@ jobs:
     # ai-tell-gate is load-bearing here for the same reason promotion-hold-gate is: this job is
     # what publishes, and `if: !failure()` only considers jobs in `needs`, so a gate left out of
     # this list would go red while the content shipped anyway. Asserted by --check-wiring.
-    needs: [ promotion-hold-gate, ai-tell-gate, validate-markdown, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
+    # push-gate is named here directly, not only through repo-screenshots, because the `if:` below
+    # is a status-function conditional and this repo has not measured whether failure() reaches a
+    # failed job several edges up the needs graph (#464). Asserted by pipeline-guard.py.
+    needs: [ push-gate, promotion-hold-gate, ai-tell-gate, validate-markdown, repo-screenshots, upload-to-tallyfy-answers, check-deleted-files, update-last-modified, generate-related-articles ]
     # The `conclusion == 'success'` term is load-bearing and is asserted by --check-wiring.
     # `!failure() && !cancelled()` alone is a status-function conditional, which replaces the
     # default "skip when a needed job was skipped". Neither term is true when the needs were
@@ -522,6 +903,7 @@ jobs:
           echo "effective hold list synced: $(wc -l < target-repo/promotion-holds.txt) line(s)"
 
       - name: Commit and push changes
+        id: commit-push
         if: ${{ steps.publish-guard.outputs.publish == 'true' }}
         run: |
           # WHERE THE PROVENANCE LIVES, AND WHY IT IS NOT IN THE FILE (tallyfy/documentation#171).
@@ -538,8 +920,8 @@ jobs:
           # forever, and the trailer below names that exact commit.
           #
           # Resolved BEFORE `cd target-repo`, so it is THIS repo's HEAD and not support-docs'.
-          # Asserted non-empty because this step does not set -e, so an unresolved SHA would
-          # otherwise be committed as an empty trailer.
+          # Asserted non-empty, so an unresolved SHA is never committed as an empty trailer. This step
+          # has no `shell:`, so GitHub runs it as `bash -e`, which already stops on a failed command.
           SRC_SHA=$(git rev-parse HEAD)
           [ -n "$SRC_SHA" ] || { echo "::error::could not resolve the source commit for the sync trailer"; exit 1; }
           cd target-repo
@@ -551,7 +933,74 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
+            # Whether Cloudflare Pages will build this push, for the check below. Pages builds only
+            # when a push changes one of the project's watch paths, which were public/*, src/* and
+            # documentation_assets.csv on 2026-11-07 (tallyfy/work-queue#4779).
+            EXPECT_BUILD=false
+            if git diff --staged --name-only | grep -Eq '^(src/|public/|documentation_assets\.csv$)'; then
+              EXPECT_BUILD=true
+            fi
             git commit -m "Sync docs from tallyfy/documentation" -m "Source commit: $SRC_SHA"
             git pull origin $TARGET_BRANCH --no-rebase || true
+            # Written before the push so the push stays this step's last command, and the step
+            # still fails when the push does. The check below runs only when this step succeeded.
+            echo "pushed_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "expect_build=$EXPECT_BUILD" >> "$GITHUB_OUTPUT"
             git push origin $TARGET_BRANCH
           fi
+
+      # Did Cloudflare Pages build what this job pushed? (tallyfy/work-queue#4779)
+      # On 2026-11-05 this job pushed support-docs f08e49b2 to production and the run was green,
+      # but Pages never created a deployment for it, so tallyfy.com served the old build for about
+      # three hours. Pages writes a "Cloudflare Pages" check run on each support-docs commit it
+      # builds, with the deployment id as its external_id. GH_TOKEN already reads support-docs, so
+      # this needs no Cloudflare secret.
+      #
+      # It runs after the push, so it never stops a publish. Green: Pages built the commit. Red: no
+      # build within the wait, a build still running at the end of it (a hung build), or a build
+      # that failed; the error says what to do. Green with a warning: the check runs could not be
+      # read, so nothing was measured. A re-run cannot help, because the sync is then a no-op.
+      #
+      # Production only. A missed staging build delays only staging, and the wait holds this
+      # branch's place in the concurrency group for the length of a build, about 5 to 7 minutes.
+      # Skipped when the push changed no watch path, because a skipped build writes no check run.
+      - name: Check that Cloudflare Pages built the pushed commit
+        if: ${{ steps.commit-push.outputs.expect_build == 'true' && github.event.workflow_run.head_branch == 'main' }}
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PUSHED_SHA: ${{ steps.commit-push.outputs.pushed_sha }}
+          WAIT_SECONDS: '900'
+        run: |
+          set -u
+          [ -n "$PUSHED_SHA" ] || { echo "::error::no pushed commit was recorded, so the Pages build cannot be checked"; exit 1; }
+          how='See "Verifying deployment" in REFERENCE/claude-md/linking-and-deployment.md for how to start or cancel a build by hand.'
+          deadline=$((SECONDS + WAIT_SECONDS))
+          while :; do
+            if ! body=$(gh api "repos/tallyfy/support-docs/commits/$PUSHED_SHA/check-runs?check_name=Cloudflare%20Pages&per_page=100" 2>"$RUNNER_TEMP/pages-check.err"); then
+              echo "::warning::Could not read the check runs on support-docs $PUSHED_SHA, so whether Cloudflare Pages built it was not measured: $(head -c 300 "$RUNNER_TEMP/pages-check.err")"
+              exit 0
+            fi
+            run=$(jq -c '[.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages")] | sort_by(.started_at) | last // {}' <<< "$body")
+            status=$(jq -r '.status // "none"' <<< "$run")
+            conclusion=$(jq -r '.conclusion // "none"' <<< "$run")
+            deployment=$(jq -r '.external_id // "none"' <<< "$run")
+            if [ "$status" = completed ]; then
+              if [ "$conclusion" = success ]; then
+                echo "Cloudflare Pages built support-docs $PUSHED_SHA: deployment $deployment."
+                exit 0
+              fi
+              echo "::error::Cloudflare Pages finished support-docs $PUSHED_SHA as $conclusion (deployment $deployment), so tallyfy.com still serves the previous build. $how"
+              exit 1
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              if [ "$status" = none ]; then
+                echo "::error::Cloudflare Pages has not built support-docs $PUSHED_SHA after $WAIT_SECONDS seconds. It missed the push, and tallyfy.com still serves the previous build. $how"
+              else
+                echo "::error::Cloudflare Pages is still building support-docs $PUSHED_SHA after $WAIT_SECONDS seconds (deployment $deployment), which looks like a hung build. $how"
+              fi
+              exit 1
+            fi
+            sleep 30
+          done
+        shell: bash

@@ -27,6 +27,8 @@
 **How it works:**
 1. Push to this repo triggers `generate-ids.yml` → then `documentation-pipeline.yml`
 2. Pipeline processes content. **On `staging`**: IDs, snippets, related articles, lastUpdated dates are all auto-regenerated. **On `main`**: only validation + Answers upload + deleted-file cleanup + sync run; the 3 regen jobs early-exit (see tallyfy/documentation#56).
+   Dated 2026-11-06 (#464): the `repo-screenshots` job also runs on both. On `staging` it uploads screenshots committed under `screenshots/launchbrightly/` and commits their inventory rows; on `main` it only checks them.
+   Dated 2026-11-06 (#464): a `push-gate` job runs first in both workflows and stops the run, with one issue, when a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot] put commits on the branch outside a merged pull request. See "The push gate" in `asset-management.md`.
 3. Sync job rsyncs `src/content/docs/` to `support-docs` on the mapped branch
 4. Cloudflare Pages auto-builds and deploys `support-docs`
 5. Cloudflare Workers strip `/products` prefix and proxy to the Pages deployment
@@ -39,6 +41,13 @@ Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree 
 #### Deploying staging to production
 
 **Current practice (2026-09-23): a full promotion is a pull request from `staging` into `main`, merged as a true merge commit after an independent check of the running staging site.** #283 (`d4fab7fc`) and #294 (`6fcb47e6`) both landed that way, each with two parents in `git rev-list --parents -n1`. Merge with `gh pr merge <n> --repo tallyfy/documentation --merge`. A subset ship, such as #263 or #268, is a different operation: a squash pull request into `main` carrying only named changes. The commands below are the underlying git, kept for reference; steps 4 and 5 still apply after the pull request merges.
+
+**A subset ship that changes a page's `description` also copies that page's cards onto `main` (owner decision 2026-11-07, #500).** The card teasers in `## Related articles` come from each linked page's description, and the pipeline regenerates them only on `staging`, never on `main`. So after a subset ship changes a description, every card on `main` that links to that page keeps the old text, and tallyfy.com shows it until a full promotion. #484 and #488 left seven such cards saying "automated reminders" and "native notifications" after the pages were corrected; #493 fixed them. This step is the one exception to never editing Related articles by hand, and it applies only on `main`:
+- For each page whose `description` the ship changes, find every `LinkTitleCard` line on `main` whose `href` is that page. Check the page's `description` is identical on `main` and `staging` once the ship is in, so no staging-only text is published. Also check staging's cards for that page are current: each teaser should equal what `scripts/generate-related-articles.py` makes from that description, which cuts it to two sentences or 100 characters (a cut ends in "..."), turns braces into square brackets and swaps a few words. A teaser that still shows an older description means staging's cards haven't caught up, because a card run failed or the search index was still updating when it ran. Wait for the next green staging pipeline run, check again, and copy only once the check passes.
+- Replace each such line with the line `staging`'s generator wrote for the same `href`, byte for byte, keeping the file's line endings. Where staging has rebuilt a file's whole card block, so that line no longer exists there, copy that file's whole `## Related articles` block from `staging` instead; #493 did this for the reminders page.
+- Before you copy a line or a block, check every page it links to: each must exist on your branch (`main` once the ship is in) and have the same `title` and `description` there as on `staging`, because the generator builds a card's header from the title and its teaser from the description, and checks links only against `staging`. If a linked page fails, leave that card or block as it is on `main` and say so in the pull request.
+- Check it adds no conflict to the next full promotion. Make the card copy its own last commit. Run `git merge-tree --write-tree --name-only <base> origin/staging` and the same with your branch in place of `<base>`; your branch must list no conflicted path that `<base>` doesn't (losing one is fine). In the ship's own pull request, `<base>` is your branch without the card commit, because the ship itself can add conflicted paths (#488 took `main` from 5 to 7). In a main-only pull request, `<base>` is `origin/main`. Teaser-only edits inside a block staging rebuilt add a path, which is how #493's first head was caught; if yours adds one, copy that file's whole block instead, or leave that file.
+- Do it in the ship's own pull request. A separate main-only pull request, as #493 was, is only for cards that an earlier ship already left stale.
 
 ```bash
 # 1. Ensure staging is clean and pipeline has passed
@@ -210,10 +219,36 @@ issue (#88, #118).
   TOK=$(jq -r .api_token   ../cloudflare_credentials.json)
   curl -s -H "Authorization: Bearer $TOK" \
     "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=1" \
-    | jq -r '.result[] | "\(.short_id) \(.latest_stage.name)/\(.latest_stage.status) skipped=\(.is_skipped) \(.created_on)"'
+    | jq -r '"success=\(.success) rows=\(.result | length)", (.result[] | "\(.short_id) \(.latest_stage.name)/\(.latest_stage.status) skipped=\(.is_skipped) \(.created_on)")'
   ```
 
+  Dated 2026-11-07 (tallyfy/work-queue#4779): the jq line above now prints `success=` and `rows=` before the deployment. Until then it printed only the deployment, so a failed read (no network, a wrong token) printed nothing or only a jq error, the same as a project with no deployment. Trust the row only after `success=true rows=1`.
+
   Read `is_skipped` as well as the stage. A skipped build (commit message carrying `[skip ci]` or a sibling marker) still appears in the deployments list with a `github:push` trigger and looks like a real build, but its stages never start. Two controls, both cheap: `?env=preview` must return *different* rows (the `staging` ones), and a fabricated project name must return `success: false` rather than an empty-looking pass.
+
+  **A sync commit can get no deployment at all, and then the newest deployment is the old one (2026-11-05, tallyfy/work-queue#4779).** Run 42061445501's `sync` pushed support-docs `f08e49b2` to `production` at 16:11:05Z and the run was green, but Pages never created a deployment for it. The newest production deployment stayed `48ba5bfb` from 2026-11-02, so the curl above printed a finished `deploy/success` row, and tallyfy.com served the old tree for about three hours. So match the commit, not only the stage: the production deployment's `deployment_trigger.metadata.commit_hash` must equal the full SHA of the sync commit.
+
+  ```bash
+  SYNC=<full SHA of the support-docs sync commit>
+  [ ${#SYNC} -eq 40 ] && curl -s -H "Authorization: Bearer $TOK" \
+    "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments?env=production&per_page=10" \
+    | jq -r --arg s "$SYNC" '"success=\(.success) rows=\(.result | length)", (.result[] | select(.deployment_trigger.metadata.commit_hash == $s) | "\(.short_id) \(.deployment_trigger.type) \(.latest_stage.name)/\(.latest_stage.status)")'
+  # Control, same header: a made-up project must print "control success=false rows=0".
+  curl -s -H "Authorization: Bearer $TOK" "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/zq-made-up-$RANDOM/deployments?env=production&per_page=10" | jq -r '"control success=\(.success) rows=\(.result | length)"'
+  ```
+
+  Only `success=true rows=10` with no deployment line under it counts as a miss. Anything else means the read failed, so do not start a build: no output at all (a short SHA, which the length test refuses, or no network), `success=false`, or a jq error. The read covers the 10 newest production deployments, which went back about 31 hours on 2026-11-07, so run it soon after the sync. A pushed commit normally gets its `github:push` deployment within seconds: 2.5 to 4.1 seconds after the commit on each of the 12 other production pushes from 2026-11-02 to 2026-11-07. So a miss after the project's normal build time means Pages missed the push, and nothing builds it until the next push. Derive that build time from the project's recent deployments, as for a hung build above. Then start a deployment by hand. Pages writes need the legacy key: the Bearer `api_token` got `Authentication error` (10000) on this call that day, as it does on a retry (`~/GitHub/REFERENCE/CREDENTIALS.md`).
+
+  ```bash
+  AID=$(jq -r .account_id ../cloudflare_credentials.json)
+  EMAIL=$(jq -r .account_email ../cloudflare_credentials.json)
+  KEY=$(jq -r .api_key ../cloudflare_credentials.json)
+  curl -s -X POST -H "X-Auth-Email: $EMAIL" -H "X-Auth-Key: $KEY" -F branch=production \
+    "https://api.cloudflare.com/client/v4/accounts/$AID/pages/projects/support-docs/deployments" \
+    | jq '{success, id: .result.short_id, commit: .result.deployment_trigger.metadata.commit_hash, errors}'
+  ```
+
+  Never print `$EMAIL`, `$KEY` or the raw response. The call builds the branch tip, so check that the returned commit is the sync commit or a later one, then wait for `deploy/success` and for `canonical_deployment` to name it. On 2026-11-05 that was `cf7fd6e7`, an `ad_hoc` deployment, canonical at 19:08:43Z. Before the POST, check the legacy headers work with a read: with them, a GET of `support-docs` deployments returned `success: true` on 2026-11-07, and a made-up project returned `success: false` (error 8000007). The same miss shows on GitHub, which `gh` can read: Pages writes a `Cloudflare Pages` check run on each support-docs commit it builds, whose `external_id` is the deployment id, and `f08e49b2` had none until the hand-started build. A build skipped by the project's watch paths (`public/*`, `src/*`, `documentation_assets.csv` on 2026-11-07) writes none either.
 - **Cache purge timing:** purge tallyfy.com only AFTER the Pages build is `deploy/success` (purging mid-build re-caches the old bundle). Purge needs the legacy `X-Auth-Email` + `X-Auth-Key` headers (the Bearer token lacks Zone:Cache Purge); purge the specific changed `/products/...` URLs for a surgical refresh.
 - **Core Concepts Linking Pattern**: 
   - Link sparingly to core concepts from the reference list when first mentioned in article body

@@ -45,89 +45,59 @@ If you haven't used middleware before, check the [middleware integration guide](
 # Document Signing Automation Flow
 direction: down
 
-# People
-User: "User" {
-  shape: person
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-Signer: "Signer" {
-  shape: person
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-# Systems
-Tallyfy: "Tallyfy" {
-  shape: rectangle
-  style.fill: "#e1f7e6"
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Webhook: "Webhook" {
-  shape: rectangle
+Complete: "1. Someone completes\nthe Tallyfy step" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
 
-Middleware: "Middleware" {
-  shape: hexagon
+Webhook: "2. Step webhook sends\nform data" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Request: "3. Middleware sends\na signing request" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-DocuSign: "DocuSign" {
-  shape: cloud
+Sign: "4. Signer gets an\nemail and signs" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-# Process Flow
-User -> Tallyfy: "1. Complete task" {
+Signed: "5. Signing service\ntells middleware" {
+  style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-Tallyfy -> Webhook: "2. Trigger webhook" {
+Done: "6. Middleware completes\nthe Tallyfy task" {
+  style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
 
-Webhook -> Middleware: "3. Send data" {
+Complete -> Webhook: {
   style.stroke: "#225930"
 }
-
-Middleware -> DocuSign: "4. Create envelope" {
+Webhook -> Request: {
   style.stroke: "#225930"
 }
-
-DocuSign -> Signer: "5. Email to sign" {
+Request -> Sign: {
   style.stroke: "#225930"
 }
-
-Signer -> DocuSign: "6. Sign document" {
-  style.stroke: "#225930"
-}
-
-DocuSign -> Middleware: "7. Signed webhook" {
+Sign -> Signed: "Optional" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-Middleware -> Tallyfy: "8. Update process" {
+Signed -> Done: {
   style.stroke: "#225930"
   style.stroke-dash: 3
-}
-
-Tallyfy -> User: "9. Notify complete" {
-  style.stroke: "#225930"
 }
 ```
 
 **Key points:**
-- **Steps 2-3**: The webhook fires[^2] when someone completes a Tallyfy step - no manual triggers needed
-- **Step 4**: Middleware handles field mapping - set it up once and it works every time
-- **Steps 7-8**: The optional return path means Tallyfy knows when documents get signed without you checking
+- **Steps 1-2**: The webhook fires[^2] when someone completes a Tallyfy step - no manual triggers needed
+- **Step 3**: Middleware handles field mapping - set it up once and it works every time
+- **Steps 5-6**: The optional return path means Tallyfy knows when documents get signed without you checking
 
 ### Step 1: Create a webhook listener in your middleware
 

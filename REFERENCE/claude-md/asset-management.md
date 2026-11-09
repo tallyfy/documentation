@@ -122,6 +122,118 @@ image as changed when the row has neither. Pass `--keep-captions` when the swap 
 the captions still describe the image. `upload` to a key that already has a row does the same.
 Until 2026-11-05 (#462) a replaced image kept its old captions and was never queued again.
 
+#### Screenshots committed to this repository (LaunchBrightly)
+
+Since 2026-11-06 (#464) an image can also live in this repository. LaunchBrightly, a screenshot
+service, opens pull requests that add images under `screenshots/launchbrightly/` and point
+article images at them by repository path:
+
+```markdown
+![Task list with due dates](/screenshots/launchbrightly/tasks/task-list.png)
+```
+
+How such a pull request flows:
+
+1. The "LaunchBrightly PR guard" job in `pr-validate.yml` runs `scripts/lb-pr-guard.py` on
+   GitHub's test merge. A pull request from the LaunchBrightly app (`launchbrightly[bot]`) may
+   only add, change or delete images under `screenshots/launchbrightly/` and change image lines
+   in existing articles. Each line it adds to an article must be blank or one image on its own
+   line, with alt text that is not empty and does not name LaunchBrightly. Each line it removes
+   must be blank or hold an image. It may never touch `documentation_assets.csv`. For every pull
+   request, each `/screenshots/` link must name a file in the merged tree, and anyone else who
+   touches the folder gets a warning, because pages showing those images credit LaunchBrightly.
+   The job runs the base branch's copy of the guard, so a pull request cannot edit its own check.
+2. After the merge into `staging`, the `repo-screenshots` pipeline job runs
+   `scripts/asset_management/repo_screenshots.py ingest`. It uploads each new or changed image to
+   screenshots.tallyfy.com under a key carrying the first 12 hex characters of its SHA-256, such
+   as `launchbrightly/tasks/task-list.0123456789ab.png`, reads it back from the public URL and
+   compares the hash. Then it writes the row: `source=launchbrightly`, `repo_path`,
+   `content_sha256`, `production_url`, where the image is used, and the page's alt text in
+   `markdown_alt`. It commits only the CSV, as "Inventory repository screenshots", and commits
+   nothing when nothing changed.
+3. The support-docs build is to swap each `/screenshots/...` link for its row's
+   `production_url`, and fail on a link with no row. That resolver was not on support-docs
+   `staging` on 2026-11-06, so no article may link a `/screenshots/` path until it is.
+4. On `main` the job only checks that every linked image has a row whose hash matches its bytes,
+   and that its public URL serves those bytes. It never uploads from `main`.
+
+The file rules live in `scripts/asset_management/repo_screenshot_rules.py`, shared by the guard
+and the job:
+
+- PNG, JPEG, GIF or WebP, judged by the file's first bytes, and the extension must agree. No SVG.
+  At most 3 MiB. Nothing else may sit under `screenshots/`.
+- Names are lower case letters, digits and hyphens, in folders named the same way.
+- An image may have a sidecar beside it, the same name ending `.json`, of at most 8 KB. Its keys
+  are `title`, `screen`, `description`, `app_url`, `captured_at` (ISO 8601) and `recipe_id`;
+  other keys are ignored with a notice. `app_url` is stored as a path, and a full URL must be on
+  tallyfy.com. `screen` (or else `title`) fills `app_screen`, `description` fills
+  `source_description`, `recipe_id` fills `source_ref`, and `location_source` becomes
+  `launchbrightly`. With no sidecar, `app_screen` is the article title plus the nearest heading
+  above the image, and `location_source` is `inferred`.
+
+Nothing is ever deleted from R2. A changed image gets a new key, and its old URL keeps working.
+When the bytes change, the three captions are cleared and `needs_caption` becomes `yes`, so
+`worklist` offers the image again; `captured_at`, `source_description`, `source_ref` and
+`app_url` are cleared too unless the sidecar gives new values. A file deleted from git keeps
+its row, marked `orphaned`. Any problem (a bad file, a link to a missing file, a failed upload
+or read-back) fails the job before the CSV is written, so `staging` stays as it was and `sync`
+does not publish. The job also refuses to run when any commit to `documentation_assets.csv` was
+authored by LaunchBrightly, because the guard should have stopped it. A revert does not clear
+that, since the commit stays in history. After reading such a commit and reverting any wrong
+rows, a person adds its full SHA to `scripts/asset_management/launchbrightly-csv-reviewed.txt`,
+and the next run goes ahead. A line there that is not a full SHA stops the job (exit 2). The
+LaunchBrightly PR guard refuses their pull requests that touch `scripts/`, so they cannot add
+to it themselves.
+
+The upload credentials are `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and
+`CLOUDFLARE_ACCOUNT_ID` in the `r2-screenshots` GitHub environment: an R2 token scoped to the
+`screenshots` bucket, used through R2's S3-compatible API with boto3. The Cloudflare REST
+objects API that `r2_uploader.py` uses refuses a bucket-scoped token (403 on get, head and list,
+measured 2026-11-06), which is why this job does not use `r2_uploader.py`. The three secrets
+reach one step, the staging ingest. `scripts/pipeline-guard.py --check-wiring` fails if a
+workflow a pull request starts names a secret or an environment, if anything but this job names
+the environment, or if the secrets reach any other step.
+
+##### The push gate
+
+The LaunchBrightly app can write to the repository, so it could push to `staging` or `main`
+without a pull request, and GitHub would not let a ruleset stop that without also stopping the
+pipeline's own pushes (owner decision 2026-11-06). So a `push-gate` job runs first in
+`generate-ids.yml` and in `documentation-pipeline.yml`, and every job that holds a secret, an
+environment or a push waits for it. It runs no code from the repository, only an inline script
+in the workflow, the same in both files, which an app without the workflows permission cannot
+change.
+
+It reads the commits from the head of the last successful `generate-ids.yml` run on the branch
+through this run's head, at most 250. A commit stops the run when a bot other than
+github-actions[bot] and tallyfy-workhorse[bot] authored or committed it and no merged pull
+request has it as its merge commit. So a squash-merged LaunchBrightly pull request passes, and a
+LaunchBrightly pull request merged with a merge commit or a rebase does not, because its own
+commits then sit on the branch outside a merge commit: squash-merge them. A push or merge by such
+a bot also stops the run, read from the repository activity API, which records who pushed whatever
+the commit says about who wrote it. When the gate cannot read something, it fails.
+
+On a stop it opens one issue, "Docs pipeline stopped: commits reached <branch> without a pull
+request", listing each commit and who made it, and adds to that issue on later stops. Review the
+commits. To accept them, close the issue as completed and re-run the failed workflow. Closing it
+as not planned keeps the pipeline stopped, and a close by a bot accepts nothing.
+`scripts/pipeline-guard.py --check-wiring` checks the wiring in both workflows.
+
+`screenshots/launchbrightly/pipeline-canary.png` is a plain image that reads "Screenshot
+pipeline canary". No article links it, so its row says `orphaned`. It proves the path end to
+end and is the control for the support-docs build check, so leave it in place.
+
+Check it locally, with no credentials and no upload:
+
+```bash
+cd scripts/asset_management
+python3 repo_screenshot_rules.py --self-test
+python3 repo_screenshots.py --self-test
+python3 repo_screenshots.py ingest --dry-run   # what the job would upload and write
+python3 repo_screenshots.py verify             # rows against the files; --online also fetches
+cd ../.. && python3 scripts/lb-pr-guard.py --self-test
+```
+
 #### Upload Without Captions (Quick Upload)
 
 ```bash
@@ -175,7 +287,7 @@ text it writes nothing and exits non-zero, rather than reporting success.
 - `ai_caption_descriptive` - Detailed caption
 - `ai_caption_seo` - SEO-optimized caption
 - `needs_caption` - `yes`|`no` (based on file type)
-- `source` - who made the image: `manual` (sent with `orchestrator.py upload` or `replace`), `launchbrightly` (committed under `screenshots/launchbrightly/` for the pipeline to upload; that job is not built yet), or `legacy-unknown` (a row from before 2026-11-05, or a skeleton row `sync` added)
+- `source` - who made the image: `manual` (sent with `orchestrator.py upload` or `replace`), `launchbrightly` (committed under `screenshots/launchbrightly/` and uploaded by the `repo-screenshots` pipeline job, see "Screenshots committed to this repository (LaunchBrightly)" above), or `legacy-unknown` (a row from before 2026-11-05, or a skeleton row `sync` added)
 - `repo_path` - for an image committed to this repository, the root-relative path articles link, such as `/screenshots/launchbrightly/task-list.png`; the support-docs build is to swap it for `production_url`. Empty for an image that lives only on R2
 - `app_screen` - where in the app the image was taken, in plain words, such as `Template editor, step settings`
 - `app_url` - the app URL of that screen, path only

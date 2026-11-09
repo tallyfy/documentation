@@ -40,59 +40,50 @@ Both can complement each other in automation workflows.
 Rather than building thousands of app-specific integrations, Anthropic gave Claude general computer skills. Claude uses an API to see and interact with any application inside a sandboxed environment.
 
 ```d2
-direction: right
+# Claude's see, decide and act loop
+direction: down
 
-Task: "Tallyfy Task\n(Instructions)" {
-  shape: circle
+Task: "Tallyfy task\ngives instructions" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-Claude: "Claude Agent" {
-  shape: rectangle
+See: "Claude looks at\nthe screen" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
 
-Loop: "Perception-Action\nLoop" {
-  shape: hexagon
+Done: "Task done?" {
+  shape: diamond
   style.fill: "#fff3cd"
+  style.stroke: "#225930"
 }
 
-Output: "Tallyfy Output\n(Results)" {
-  shape: circle
+Act: "Claude clicks\nor types" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Results: "Results go back\nto Tallyfy" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-Task -> Claude: "1. Send task\ndescription" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Claude -> Loop: "2. Request\nscreenshot" {
+Task -> See: {
   style.stroke: "#225930"
 }
-
-Loop -> Loop: "3. Take screenshot\n4. Analyze UI\n5. Click/Type\n6. Check result" {
+See -> Done: {
   style.stroke: "#225930"
-  style.stroke-dash: 3
 }
-
-Loop -> Claude: "7. Return\nresult" {
+Done -> Act: "No" {
+  style.stroke: "#225930"
+}
+Act -> See: "Look again" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-Claude -> Output: "8. Task\ncomplete" {
+Done -> Results: "Yes" {
   style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-Claude -> Loop: "Repeat until done" {
-  style.stroke: "#225930"
-  style.stroke-dash: 5
 }
 ```
 
@@ -118,69 +109,55 @@ Claude -> Loop: "Repeat until done" {
 Here's how Tallyfy coordinates Claude's computer use through an iterative loop - Claude perceives, acts, and gets feedback until your task is done.
 
 ```d2
-direction: down
+# Who does what in each turn of the loop
+shape: sequence_diagram
 
 Tallyfy: "Tallyfy" {
-  shape: rectangle
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
-
-App: "Your App\n(Orchestrator)" {
-  shape: hexagon
+App: "Your app" {
   style.fill: "#fff3cd"
+  style.stroke: "#225930"
 }
-
-Claude: "Claude API" {
-  shape: rectangle
+Claude: "Claude" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
 }
-
-Sandbox: "Docker Sandbox\n(Isolated Environment)" {
-  shape: cylinder
+Sandbox: "Sandbox" {
   style.fill: "#f2faf4"
-}
-
-Tallyfy -> App: "1. Webhook with\ntask data" {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-App -> Claude: "2. Send prompt +\ncomputer tools" {
   style.stroke: "#225930"
 }
 
-Claude -> App: "3. Tool use\nrequest" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-App -> Sandbox: "4. Execute tool\n(screenshot/click)" {
+Tallyfy -> App: "1. Webhook" {
   style.stroke: "#225930"
 }
-
-Sandbox -> App: "5. Return\nresult" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-
-App -> Claude: "6. Send tool\nresult" {
+App -> Claude: "2. Prompt, tools" {
   style.stroke: "#225930"
 }
 
-Claude -> Claude: "7. Analyze &\ndecide next" {
+Repeat: "Repeat until done" {
+  style.fill: "#f2faf4"
   style.stroke: "#225930"
-  style.stroke-dash: 3
+  Claude -> App: "3. Tool request" {
+    style.stroke: "#225930"
+  }
+  App -> Sandbox: "4. Run tool" {
+    style.stroke: "#225930"
+  }
+  Sandbox -> App: "5. Tool result" {
+    style.stroke: "#225930"
+  }
+  App -> Claude: "6. Send result" {
+    style.stroke: "#225930"
+  }
 }
 
-Claude -> App: "8. Final response\nor next tool" {
+Claude -> App: "7. Final answer" {
   style.stroke: "#225930"
-  style.stroke-dash: 3
 }
-
-App -> Tallyfy: "9. Update task\nwith results" {
+App -> Tallyfy: "8. Update task" {
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 ```
 

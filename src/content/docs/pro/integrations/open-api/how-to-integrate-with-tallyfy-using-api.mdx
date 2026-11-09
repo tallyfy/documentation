@@ -4,7 +4,7 @@ description: Tallyfy's REST API lets you connect workflow features to external s
   using OAuth 2.0 authentication. Covers required headers, API terminology mapping,
   token management, and multi-organization setup.
 id: ba117d66ba90a1e7f74b7a27f4b9548d
-lastUpdated: 2026-11-05
+lastUpdated: 2026-11-07
 sidebar:
   order: 1
 title: API integration guide
@@ -14,7 +14,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Integrating with the Tallyfy REST API
 
-Tallyfy's REST API lets you connect workflow features to your own applications and systems.
+Your own applications and systems can launch processes, complete tasks and update form fields in Tallyfy through its REST API. Every call needs three headers, and one of them carries an access token.
 
 :::note[API documentation]
 Full API reference at [https://go.tallyfy.com/api/](https://go.tallyfy.com/api/)
@@ -82,61 +82,35 @@ For third-party apps needing client credentials:
 This diagram shows the full OAuth flow for both authentication methods.
 
 ```d2
-direction: right
+# Getting, using and refreshing an API token
+direction: down
 
-App: Your Application {
-  shape: rectangle
-  style.fill: "#f2faf4"
-}
-
-Auth: Tallyfy OAuth {
-  shape: rectangle
+Req: "1. App requests a token\nwith its credentials"
+Tok: "2. Tallyfy returns\nthe access token"
+Call: "3. App calls the API with\nBearer token and headers"
+Valid: "Token still\nvalid?" {
+  shape: diamond
   style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
+OK: "4. API sends\nthe response"
+Ref: "5. App refreshes, or\nasks for a new token"
+New: "6. Tallyfy returns a\nnew access token"
 
-API: Tallyfy API {
-  shape: rectangle
-  style.fill: "#e1f7e6"
-}
-
-App -> Auth: "1. Request token\n(credentials)" {
-  style.stroke: "#225930"
-}
-Auth -> App: "2. Return access token\n& refresh token" {
-  style.stroke: "#225930"
-}
-App -> API: "3. API request with\nBearer token + headers" {
-  style.stroke: "#225930"
-}
-API -> App: "4. Successful response" {
-  style.stroke: "#225930"
-}
-App -> API: "5. API request\n(expired token)" {
+Req -> Tok -> Call -> Valid
+Valid -> OK: Yes
+Valid -> Ref: "No, 401" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-API -> App: "6. 401 Unauthorized" {
-  style.stroke: "#225930"
-  style.stroke-dash: 3
-}
-App -> Auth: "7. Refresh token" {
-  style.stroke: "#225930"
-}
-Auth -> App: "8. New access token" {
-  style.stroke: "#225930"
-}
-App -> API: "9. Retry with\nnew token" {
-  style.stroke: "#225930"
-}
-API -> App: "10. Successful response" {
-  style.stroke: "#225930"
-}
+Ref -> New
+New -> Call: Retry
 ```
 
 **What to notice:**
-- Steps 1-4 show initial authentication - use password grant for user context or client credentials for app-only access
-- Step 5 shows required headers for all API requests - both `Authorization` and `X-Tallyfy-Client` headers are mandatory
-- Steps 6-10 show token refresh when a 401 error occurs - your app should handle this retry automatically
+- Steps 1-2 show initial authentication - use password grant for user context or client credentials for app-only access
+- Step 3 shows required headers for all API requests - both `Authorization` and `X-Tallyfy-Client` headers are mandatory
+- Steps 5-6 show getting a new token after a 401 error. A password grant token can be refreshed with its refresh token; a client credentials token has none, so request a new one. Your app should handle this retry automatically
 
 ### Token management
 
@@ -145,22 +119,19 @@ API -> App: "10. Successful response" {
 Personal access tokens are invalidated when users log out. To reduce disruption:
 
 1. **Automated systems**: Use application tokens instead of personal tokens when possible. Any paid organization can have them, but not during a free trial, and Tallyfy Support sets them up
-2. **User-based integrations**:
-   - Let users know that logging out breaks automations
-   - Add error handling to detect invalidated tokens
-   - Provide clear steps for getting new tokens after logout
-3. **Monitoring**: Log authentication failures to spot patterns early
+2. **User-based integrations**: Tell users that logging out of Tallyfy stops their automations. Your error handling should spot the `401` an invalidated token returns, and show the user how to copy a new token from **Settings > Integrations > REST API**.
+3. **Monitoring**: Log each authentication failure with the user whose token failed. When one user's calls all start failing at once, check whether that person logged out.
 
 #### Token security
 
-- Store tokens with encryption at rest
-- Never expose tokens in client-side code or logs
-- Rotate tokens regularly for sensitive operations
-- Handle token expiration by refreshing automatically
+- Encrypt tokens wherever you store them.
+- Never put a token in client-side code or a log. Anyone who can read it can call the API as its owner until it expires, and a personal access token lasts 6 months.
+- For sensitive operations, replace tokens on your own schedule, before they expire.
+- Refresh expired access tokens automatically.
 
 ### Working with multi-organization users
 
-Tallyfy users can belong to multiple organizations[^1]. This matters for API integrations:
+Tallyfy users can belong to multiple organizations[^1], so your integration has to know which organization each call is for.
 
 #### Organization context in API requests
 
@@ -178,12 +149,7 @@ When building integrations:
 
 #### Multiple organizations
 
-For users belonging to more than one organization:
-
-1. Let users pick which organization to work with
-2. Store multiple organization IDs if your app spans organizations
-3. Permissions and data differ between organizations
-4. You may need updated tokens when switching organizations
+Let each user pick which organization your app works in, and store an ID for every organization your app spans. Permissions and data differ between organizations, and you may need updated tokens when a user switches.
 
 :::tip[Organization switching]
 Users can switch organizations in the Tallyfy UI. Learn more in [Switch between organizations](/products/pro/settings/personal-settings/how-can-i-switch-between-organizations-in-tallyfy/).
@@ -213,7 +179,7 @@ password=YOUR_PASSWORD
 ```json
 {
   "token_type": "Bearer",
-  "expires_in": 3600,
+  "expires_in": 15724800,
   "access_token": "eyJhbGci...",
   "refresh_token": "def50200..."
 }
@@ -239,7 +205,7 @@ The password grant requires transmitting user credentials. Only use this in secu
 
 ### Token refresh
 
-Access tokens expire after 1 hour and need refreshing:
+A `password` grant access token lasts about 6 months, and its refresh token about 12 months. When the access token runs out, refresh it:
 
 1. Store both the **access_token** and **refresh_token** when first obtained
 2. When the access token expires, POST to the token endpoint with your refresh token
@@ -261,7 +227,7 @@ This video shows the token refresh process:
    ```
    There must be exactly one space between "Bearer" and your token.
 
-2. **Token expiration**: Tokens expire after 1 hour. Refresh or request a new one.
+2. **Token expiration**: An access token lasts about 6 months (a `client_credentials` token, 7 days). Refresh it or request a new one.
 
 3. **Invalid credentials**: Double-check your client ID, client secret, username, and password.
 
@@ -275,10 +241,7 @@ If problems persist, check the response body for specific error messages or cont
 
 #### CORS or preflight issues
 
-For cross-origin challenges:
-- Watch for CORS preflight (`OPTIONS`) requests
-- Check response headers for CORS permissions
-- Verify allowed origins and methods
+CORS errors only come from browsers. Every Tallyfy call carries custom headers, so before a cross-origin call the browser first sends a preflight `OPTIONS` request, and it reuses a passed one for up to 2 hours. If the preflight fails, the real call never goes out. Read the `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers on the preflight response to see what's allowed. A custom header that isn't in that list fails the preflight. A few basic headers, such as `Accept`, don't need to be listed. Server-side code doesn't send preflight requests.
 
 ### Preventing duplicate operations
 
@@ -291,14 +254,12 @@ External systems might send duplicate requests from network retries, user errors
 
 ### Date format standards
 
-When working with dates in the Tallyfy API:
+The API reads dates in one format and returns them in another:
 
 | Direction | Format | Example |
 |-----------|--------|---------|
 | Request (to API) | YYYY-MM-DD HH:MM:SS | 2025-05-15 14:30:00 |
 | Response (from API) | ISO 8601 (Zulu time) | 2025-05-15T14:30:00.000Z |
-
-Make sure your code handles both formats correctly.
 
 ### Descriptions that reference form fields or people
 
@@ -308,11 +269,7 @@ Send the wrong shape and the API still accepts it, so nothing tells you it was w
 
 ### Webhook integration
 
-For event-driven integrations, Tallyfy offers webhooks that don't require polling the API:
-
-- Configure webhooks at the process or step level
-- Get real-time notifications when specific events happen
-- Process the webhook payload to trigger actions in your systems
+Webhooks tell your system when something happens in Tallyfy, so you don't have to poll the API. A webhook set on a template fires when a process launches, when any of its steps is completed, and when the process is completed. A webhook set on one step fires only when that step is completed. Each one POSTs a JSON payload to your URL for your system to act on.
 
 For setup details, see the [webhooks setup guide](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
 
@@ -325,9 +282,9 @@ If your team has developers and clear requirements, an AI assistant can draft wo
 3. Review, test, and deploy the code.
 4. When the rules change, update the spec first, then have the AI revise the code and test it again.
 
-Ask for a clear, maintainable structure with logging and error handling, in your team's preferred language, such as Python or JavaScript.
+Tell it which language your team uses, such as Python or JavaScript. Ask it to log every API call and to handle errors, including a `401` from an expired token.
 
-For example, a logistics team needs shipping workflows that vary by weight, destination, and carrier. A developer describes the rules, and the AI generates the Python code for a first version.
+For example, a logistics team whose shipping steps vary by weight, destination and carrier writes a spec for one shipping template. Weight, destination and carrier are kick-off fields, and rules show each carrier's steps only when that carrier is picked. The AI drafts Python code that launches a process from that template for each shipment, and a developer tests it before it goes live.
 
 [^1]: Organizations in Tallyfy are isolated tenants - each with its own templates, processes, members, and settings
 

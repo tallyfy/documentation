@@ -85,12 +85,17 @@ jobs:
       # needs a credential or touches the real CSV. requests and python-dotenv come from the
       # step above. The last line only reads the real CSV: it fails when a row has lost its
       # source or the header has lost a column, for example after a hand-resolved conflict.
-      - name: "Asset inventory self-tests (#462)"
+      # The last two lines prove the rules for screenshots committed under screenshots/ and the
+      # pipeline's ingest of them, on scratch repositories with a fake R2 (#464). Neither needs
+      # boto3 or a credential.
+      - name: "Asset inventory self-tests (#462, #464)"
         run: |
           python scripts/asset_management/asset_inventory.py --self-test
           python scripts/asset_management/orchestrator.py --self-test
           python scripts/asset_management/audit_sync.py --self-test
           python scripts/asset_management/asset_inventory.py migrate-columns --check
+          python scripts/asset_management/repo_screenshot_rules.py --self-test
+          python scripts/asset_management/repo_screenshots.py --self-test
         shell: bash
 
       # A prose ` -- ` renders as an em dash today, which the writing rules ban,
@@ -142,4 +147,58 @@ jobs:
           d2 --version
           bash scripts/validate-d2.sh --self-test
           bash scripts/validate-d2.sh
+        shell: bash
+
+  # LaunchBrightly's GitHub App opens pull requests that commit screenshots under
+  # screenshots/launchbrightly/ and point article images at them (tallyfy/documentation#464).
+  # Its pull requests may only add or change those images and image lines in existing articles,
+  # with real alt text, and never documentation_assets.csv, which the pipeline writes after the
+  # merge. Every pull request is also checked for /screenshots/ links to files that are not in the
+  # merged tree. scripts/lb-pr-guard.py says what it refuses and why.
+  #
+  # It reads GitHub's test merge, so depth 2 brings the base (HEAD^1) and the pull request
+  # (HEAD^2). The author comes in through env, never written into the script line. No secrets and
+  # no environment: `scripts/pipeline-guard.py --check-wiring` asserts that for this whole file.
+  lb-pr-guard:
+    name: LaunchBrightly PR guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Prove the guard can refuse (one red and one green case per rule)
+        run: python scripts/lb-pr-guard.py --self-test
+        shell: bash
+
+      # The guard and its rules come from the base branch when it has them, so a pull request
+      # cannot pass itself by editing the check that judges it. The pull request's own copy is
+      # used only until the base carries the guard.
+      - name: Check what this pull request changes
+        env:
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
+        run: |
+          guard="$RUNNER_TEMP/lb-guard"
+          mkdir -p "$guard/scripts/asset_management"
+          if git cat-file -e HEAD^1:scripts/lb-pr-guard.py \
+             && git cat-file -e HEAD^1:scripts/asset_management/repo_screenshot_rules.py; then
+            git show HEAD^1:scripts/lb-pr-guard.py > "$guard/scripts/lb-pr-guard.py"
+            git show HEAD^1:scripts/asset_management/repo_screenshot_rules.py \
+              > "$guard/scripts/asset_management/repo_screenshot_rules.py"
+            echo "Running the guard from the base branch."
+          else
+            cp scripts/lb-pr-guard.py "$guard/scripts/lb-pr-guard.py"
+            cp scripts/asset_management/repo_screenshot_rules.py "$guard/scripts/asset_management/"
+            echo "::notice::the base branch has no guard yet, so this run uses the pull request's own copy"
+          fi
+          test -s "$guard/scripts/lb-pr-guard.py"
+          test -s "$guard/scripts/asset_management/repo_screenshot_rules.py"
+          python "$guard/scripts/lb-pr-guard.py" --repo "$PWD"
         shell: bash

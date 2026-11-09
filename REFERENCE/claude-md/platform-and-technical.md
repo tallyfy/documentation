@@ -140,9 +140,10 @@
    - **Any manual changes WILL BE OVERWRITTEN**
    - **DO NOT touch even if descriptions seem wrong or spacing is off**
    - **The ONLY exception**: When creating a NEW article that doesn't exist yet
+   - Dated 2026-11-07 (owner decision, #500): one more exception, on `main` only. A subset promotion that changes a page's `description` copies `staging`'s generated cards for that page onto `main`, because nothing regenerates cards on `main`. The steps and the conflict check are in `linking-and-deployment.md`, section "Deploying staging to production". On `staging`, never edit cards.
    
    - **For NEW articles ONLY**: Can include initial sample Related articles section
-   - **For EXISTING articles**: HANDS OFF - no exceptions, no edits, no fixes
+   - **For EXISTING articles**: HANDS OFF - no exceptions, no edits, no fixes (on `staging`; the one `main`-only exception is above)
    - **Required format**:
      ```markdown
      ## Related articles
@@ -185,8 +186,10 @@ The `documentation-pipeline.yml` runs on pushes to `staging` and `main`, but aut
 
 | Pipeline step | Runs on | Trigger | What it changes | Safe to edit manually? |
 |---|---|---|---|---|
+| `push-gate` | both branches, the first job of `generate-ids.yml` and of `documentation-pipeline.yml`, since 2026-11-06 (#464) | Every run | Nothing in files. It stops the run when a GitHub App bot other than github-actions[bot] and tallyfy-workhorse[bot] put commits on the branch outside a merged pull request, and opens one issue listing them; a person closing that issue as completed accepts them. Every job that holds a secret, an environment or a push waits for it. See "The push gate" in `asset-management.md` | N/A - its script is inline in both workflows and must stay identical |
 | `generate-ids.yml` | both branches (push to either) | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 50 pages per run | Adds an `id` to any page with none, an empty one, or the all-zero placeholder; never changes an existing id | No - auto-assigned |
 | `validate-markdown` | both branches | Every push | Nothing — just validates | N/A |
+| `repo-screenshots` | both branches (uploads on staging, checks on main), since 2026-11-06 (#464) | Every push, after `validate-markdown`; `generate-snippets` and `sync` wait for it | On staging: uploads new or changed images under `screenshots/launchbrightly/` to R2 and commits their rows in `documentation_assets.csv` as "Inventory repository screenshots". On main: checks only. See "Screenshots committed to this repository (LaunchBrightly)" in `asset-management.md` | Captions, yes. Leave the other columns of those rows to the job |
 | `promotion-hold-gate` | both branches (self-tests everywhere, enforces on `main`) | Every push | Nothing - it blocks the promotion when the tree carries a path listed in `.github/promotion-holds.txt` | N/A - edit the hold list, see "Holding a path back from production" in `linking-and-deployment.md` |
 | `generate-snippets` | **staging only** | Every push: the whole tree, since 2026-10-03 (owner decision 218, #296); at most 10 pages per run | Sets `description` on any page with none or a blank one | **Yes** - it never overwrites an existing description, a new page's included |
 | `upload-to-tallyfy-answers` | both branches | Every push (staging → staging Answers, main → prod Answers for prod search). Since #415 (2026-10-27) main passes `--base_urls https://answers.tallyfy.com`; before that it used the script default and wrote BOTH hosts. Every run sends the whole tree, so dispatching `generate-ids.yml` on a branch is a full re-index of that branch's host. MDX comments are stripped before upload since #415 | Nothing in files (uploads to Answers API) | N/A |
