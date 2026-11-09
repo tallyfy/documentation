@@ -110,7 +110,7 @@ Google Workspace doesn't publish a fetchable per-app metadata URL, so use XML pa
 
 <Steps>
 1. Run the wizard's **Test connection** step and fix anything it flags.
-2. Once the test passes, click **Enable** to turn SSO on for your organization.
+2. Once the test passes and you have a verified domain, click **Enable** to turn SSO on for your organization.
 
     ![Enable SAML](https://screenshots.tallyfy.com/tallyfy/pro/google-sso-enable-saml.png)
 </Steps>
@@ -124,8 +124,8 @@ After you finish the integration:
 
     ![Tallyfy Login URL](https://screenshots.tallyfy.com/tallyfy/pro/google-sso-login-url.png)
 2. Confirm you've granted access to the SAML app in Google Workspace for users who need it.
-3. Existing Tallyfy users sign in through the shared SSO URL - no separate passwords required.
-4. New users from a verified domain are provisioned on first login when auto-join is on. Verify your domain under the **Domains** tab first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
+3. Existing members on a verified domain sign in through the shared SSO URL - no separate passwords required.
+4. New users from a verified domain are provisioned on first login, unless SCIM is on. Tallyfy turns away anyone whose email isn't on a verified domain, so verify your domain under the **Domains** tab first. See [Domain verification](/products/pro/integrations/authentication/domain-verification/).
 </Steps>
 
 ### How the authentication flow works
@@ -146,25 +146,40 @@ OK: "Google accepts\nthe login?" {
 }
 Fail: "Sign-in fails\nat Google"
 Back: "4. Google sends a SAML\nresponse to Tallyfy"
-Exists: "Account for\nthis email?" {
+Domain: "Email on a\nverified domain?" {
   shape: diamond
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
-Create: "5. Tallyfy creates\nthe account"
+Away: "Tallyfy turns\nthem away" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+Exists: "Already in\nyour org?" {
+  shape: diamond
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+Create: "5. Tallyfy\nadds them"
 SignIn: "6. Tallyfy signs\nthe user in"
 
 Open -> Redirect -> Login -> OK
 OK -> Fail: No
 OK -> Back: Yes
-Back -> Exists
-Exists -> Create: No
+Back -> Domain
+Domain -> Away: No
+Domain -> Exists: Yes
+Exists -> Create: "No, and\nSCIM is off"
+Exists -> Away: "No, and\nSCIM is on" {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
 Exists -> SignIn: Yes
 Create -> SignIn
 ```
 
 **Key points:**
-- **Automatic provisioning** - New users from a verified domain are created on first login (step 5) when auto-join is on. No manual account setup needed.
+- **Automatic provisioning** - New users from a verified domain are created on first login (step 5), unless SCIM is on. No manual account setup needed.
 - **Attribute mapping** - The email, FirstName, and LastName attributes in the SAML response (step 4) control how accounts are created and matched.
 - **Single authentication point** - Users only authenticate with Google (step 3), never entering Tallyfy passwords.
 
@@ -178,7 +193,7 @@ Running into authentication problems? Check these:
 
 ### Directory sync with Google Workspace
 
-Google Workspace doesn't push SCIM to custom SAML apps the way Okta, Microsoft Entra ID, and OneLogin do, so there's no SCIM connector to wire up on the Google side here. For Google, the practical pattern is verified-domain auto-join: any Google user on a [verified domain](/products/pro/integrations/authentication/domain-verification/) gets a Tallyfy account on first SSO login. If you want full directory sync (automatic deactivation and group-to-role mapping) and you also run Okta or Entra, configure [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/) through that provider instead.
+Google Workspace doesn't push SCIM to custom SAML apps the way Okta, Microsoft Entra ID, and OneLogin do, so there's no SCIM connector to wire up on the Google side here. For Google, the practical pattern is account creation at sign-in: any Google user on a [verified domain](/products/pro/integrations/authentication/domain-verification/) gets a Tallyfy account on first SSO login. If you want full directory sync (automatic deactivation and group-to-role mapping) and you also run Okta or Entra, configure [SCIM provisioning](/products/pro/integrations/authentication/scim-provisioning/) through that provider instead. With SCIM on, SSO stops adding people, so someone new has to come through SCIM or an invitation first.
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
