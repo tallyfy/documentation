@@ -2,7 +2,7 @@
 about_tallyfy: true
 description: Tallyfy's OAuth 2.0 implicit grant flow lets third-party apps authenticate
   users by redirecting them to Tallyfy's login page and receiving a 6-month access
-  token back in the URL fragment so the app never handles user credentials directly.
+  token back in the redirect URL's query string, so the app never handles user credentials directly.
 id: 3a3be384ccbc9068f5fd63126068f6de
 lastUpdated: 2026-03-22
 sidebar:
@@ -12,7 +12,7 @@ title: OAuth authorization flow for third-party applications
 
 ## OAuth implicit grant flow for third-party apps
 
-Tallyfy uses the OAuth 2.0 implicit grant[^1] flow for third-party application authentication. Your users log in directly on Tallyfy's domain, and an access token comes back in the URL fragment - your app never touches their credentials.
+Tallyfy uses the OAuth 2.0 implicit grant[^1] flow for third-party application authentication. Your users log in directly on Tallyfy's domain, and an access token comes back on your redirect URL, after `?`. Your app never touches their credentials.
 
 ### Requirements
 
@@ -34,8 +34,8 @@ direction: down
 S1: "1. User starts\nlogin in your app"
 S2: "2. App sends user to\n/oauth/authorize"
 S3: "3. User logs in and\napproves your app"
-S4: "4. Tallyfy redirects back\nwith token after #"
-S5: "5. App reads token\nfrom URL fragment"
+S4: "4. Tallyfy redirects back\nwith token after ?"
+S5: "5. App reads token\nfrom the query string"
 S6: "6. App calls the API\nwith Bearer token"
 S1 -> S2 -> S3 -> S4 -> S5 -> S6
 S6 -> S1: "Token expires\nafter 6 months" {
@@ -44,10 +44,10 @@ S6 -> S1: "Token expires\nafter 6 months" {
 }
 ```
 
-**Diagram description:** OAuth 2.0 implicit flow showing the 6-step authentication process where users log in directly with Tallyfy and receive an access token via URL fragment, which the third-party app extracts for Bearer-authenticated API requests. The dashed arrow shows the login starting again when the token expires after 6 months.
+**Diagram description:** OAuth 2.0 implicit flow showing the 6-step authentication process where users log in directly with Tallyfy and receive an access token in the redirect URL's query string, which the third-party app reads for Bearer-authenticated API requests. The dashed arrow shows the login starting again when the token expires after 6 months.
 
 **What to notice:**
-- The access token is returned in the URL fragment (after `#`) - fragments aren't sent to servers, which adds a layer of protection
+- The access token comes back in the query string (after `?`), so it reaches your server and its logs. Take it out of the address bar once you've read it, and keep it out of your logs
 - Authentication happens entirely on Tallyfy's domain, so your app never sees user credentials
 - You must include the `X-Tallyfy-Client` header in all API calls after authentication
 
@@ -63,16 +63,17 @@ Replace `YOUR_CLIENT_ID` with your application's client ID and `YOUR_REDIRECT_UR
 
 #### Step 2 - handle the redirect with the access token
 
-After successful authentication, Tallyfy redirects back to your redirect URI with the access token in the URL **fragment** (after `#`, not `?`):
+After successful authentication, Tallyfy redirects back to your redirect URI with the access token in the **query string** (after `?`, not `#`):
 
 ```
-YOUR_REDIRECT_URL#access_token=ACCESS_TOKEN&token_type=Bearer&expires_in=EXPIRES_IN_SECONDS
+YOUR_REDIRECT_URL?access_token=ACCESS_TOKEN&token_type=Bearer&expires_in=EXPIRES_IN_SECONDS
 ```
 
 Your application should:
-1. Extract the `access_token` from the URL fragment using client-side JavaScript
-2. Store it securely
-3. Use it for subsequent API requests
+1. Read `access_token` from the query string: on your server from the request, or in the browser from `location.search` (not `location.hash`)
+2. Take it out of the address bar, for example with `history.replaceState`, and keep it out of your logs
+3. Store it securely
+4. Use it for subsequent API requests
 
 :::note[Token lifetime]
 Implicit grant tokens are valid for 6 months. Plan your token refresh strategy accordingly.
@@ -103,7 +104,7 @@ https://account.tallyfy.com/oauth/authorize?client_id=9999&response_type=token&r
 #### Example redirect with access token
 
 ```
-https://yourapp.com/auth/callback#access_token=eyJhbGciOiJSUzI1NiIs...&token_type=Bearer&expires_in=15778800
+https://yourapp.com/auth/callback?access_token=eyJhbGciOiJSUzI1NiIs...&token_type=Bearer&expires_in=15778800
 ```
 
 #### Handling multi-organization users
@@ -132,7 +133,7 @@ A Tallyfy user can belong to multiple organizations. After authentication, the a
 
 If you run into issues with your OAuth implementation, contact Tallyfy Support with details about the error and your setup.
 
-[^1]: A simplified OAuth flow where the access token is returned directly in the redirect URL fragment - no intermediate authorization code exchange needed
+[^1]: A simplified OAuth flow where the access token is returned directly on the redirect URL, with no intermediate authorization code exchange needed
 
 import { CardGrid, LinkTitleCard } from "~/components";
 
