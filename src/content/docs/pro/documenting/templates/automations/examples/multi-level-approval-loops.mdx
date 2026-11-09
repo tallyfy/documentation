@@ -55,78 +55,68 @@ Here's how the approval chain flows:
 # Multi-Level Approval Workflow
 direction: down
 
-# Start
-Create: Create Request {
-  shape: circle
+Create: "Create request" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
 
-# Approval Steps
-Manager: Manager Approval {
-  shape: rectangle
+Manager: "Manager review" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-Finance: Finance Approval {
-  shape: rectangle
+Finance: "Finance approval" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-COO: COO Approval {
-  shape: rectangle
+COO: "COO approval" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-# End
-Complete: Complete {
-  shape: circle
+Complete: "Complete" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-# Main Flow
-Create -> Manager: Submit for approval {
+Create -> Manager: "Submit" {
   style.stroke: "#225930"
 }
-
-# Manager decisions
-Manager -> Finance: Approved {
+Manager -> Finance: "Approved" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-Manager -> Create: Rejected {
+Finance -> COO: "Approved" {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+COO -> Complete: "Approved" {
+  style.stroke: "#225930"
+  style.stroke-width: 2
+}
+
+# Rejections point back up. Written as <- so the layout keeps the request at the top.
+Create <- Manager: "Rejected" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-# Finance decisions
-Finance -> COO: Approved {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-Finance -> Create: Rejected {
+Create <- Finance: "Rejected" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
-
-# COO decisions
-COO -> Complete: Approved {
+Create <- COO: "Rejected" {
   style.stroke: "#225930"
-  style.stroke-width: 2
+  style.stroke-dash: 3
 }
-COO -> Create: Rejected {
+Manager <- COO: "Rejected" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
 ```
 
 **Key points:**
-- Every rejection re-opens the creation task
+- The first rejection at each level re-opens the creation task
 - Later approvals won't appear until earlier ones pass, which [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/)[^1] control
 - COO rejection can re-open multiple steps at once
 
@@ -200,78 +190,65 @@ When multiple teams need to review at the same time, use parallel approvals:
 # Parallel Approval Workflow
 direction: down
 
-# Start
-Initial: Initial Review {
-  shape: circle
+Initial: "Initial review" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
 
-# Parallel Approval Steps
-Legal: Legal Approval {
-  shape: rectangle
+Legal: "Legal\napproval" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-Compliance: Compliance Approval {
-  shape: rectangle
+Compliance: "Compliance\napproval" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-Finance: Finance Approval {
-  shape: rectangle
+Finance: "Finance\napproval" {
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-# Synchronization
-Sync: Sync Point {
+Check: "All three\napproved?" {
   shape: diamond
   style.fill: "#f2faf4"
   style.stroke: "#225930"
 }
 
-# End
-Final: Final Implementation {
-  shape: circle
+Final: "Final step\nappears" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
-  style.stroke-width: 2
 }
 
-# Parallel triggers
-Initial -> Legal: Review request {
-  style.stroke: "#225930"
-}
-Initial -> Compliance: Review request {
-  style.stroke: "#225930"
-}
-Initial -> Finance: Review request {
+Hidden: "Final step\nstays hidden" {
+  style.fill: "#fff3cd"
   style.stroke: "#225930"
 }
 
-# All approvals converge
-Legal -> Sync: Approved {
+Initial -> Legal: {
+  style.stroke: "#225930"
+}
+Initial -> Compliance: {
+  style.stroke: "#225930"
+}
+Initial -> Finance: {
+  style.stroke: "#225930"
+}
+Legal -> Check: {
+  style.stroke: "#225930"
+}
+Compliance -> Check: {
+  style.stroke: "#225930"
+}
+Finance -> Check: {
+  style.stroke: "#225930"
+}
+Check -> Final: "Yes" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
-Compliance -> Sync: Approved {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-Finance -> Sync: Approved {
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-# Continue or restart
-Sync -> Final: All approved {
-  style.stroke: "#225930"
-  style.stroke-width: 3
-}
-Sync -> Initial: Any rejected {
+Check -> Hidden: "No" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
@@ -280,7 +257,7 @@ Sync -> Initial: Any rejected {
 **Key points:**
 - All three approvals trigger at once after initial review
 - The final step waits until ALL parallel approvals complete
-- Any single rejection sends everything back to start
+- A rejection here re-opens nothing by itself. Add a rejection automation like the ones above if it should send work back
 
 Set this up with [visibility actions](/products/pro/documenting/templates/automations/actions/visibility-actions/):
 
@@ -333,40 +310,29 @@ Here's how a real estate agency handles listing approvals:
 # Property Listing Approval Workflow
 direction: down
 
-# Approval Steps
-Compliance: Compliance {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-Marketing: Marketing {
-  shape: rectangle
-  style.fill: "#f2faf4"
-  style.stroke: "#225930"
-}
-
-# End
-Publish: Publish {
-  shape: circle
-  style.fill: "#e1f7e6"
-  style.stroke: "#225930"
-  style.stroke-width: 2
-}
-
-# Start
-Agent: Create Listing {
-  shape: circle
+Agent: "Create listing" {
   style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
-Manager: Manager Review {
-  shape: rectangle
+Manager: "Manager review" {
   style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+Marketing: "Marketing" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+Compliance: "Compliance" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+Publish: "Publish" {
+  style.fill: "#e1f7e6"
   style.stroke: "#225930"
 }
 
 # Approvals move forward
-Agent -> Manager {
+Agent -> Manager: {
   style.stroke: "#225930"
 }
 Manager -> Marketing: "Approved" {
@@ -382,15 +348,22 @@ Compliance -> Publish: "Approved" {
   style.stroke-width: 2
 }
 
-# Rejections return to the agent
-Manager -> Agent: "Rejected" {
+# Rejections return to the agent, and compliance also reopens the manager review
+Agent <- Manager: "Rejected" {
   style.stroke: "#225930"
+  style.stroke-dash: 3
 }
-Marketing -> Agent: "Rejected" {
+Agent <- Marketing: "Rejected" {
   style.stroke: "#225930"
+  style.stroke-dash: 3
 }
-Compliance -> Agent: "Rejected" {
+Agent <- Compliance: "Rejected" {
   style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Manager <- Compliance: "Rejected" {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
 }
 ```
 

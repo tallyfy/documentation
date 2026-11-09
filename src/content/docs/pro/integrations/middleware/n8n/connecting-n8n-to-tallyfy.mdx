@@ -18,9 +18,10 @@ You've got two options for connecting n8n to Tallyfy: use the community-built Ta
 
 ### Integration architecture overview
 
-This diagram shows the two connection methods and the bidirectional flow between n8n and Tallyfy.
+This diagram shows the two ways to connect n8n to Tallyfy, and the test that follows either one.
 
 ```d2
+# Two ways to connect n8n, then one test
 direction: down
 
 Method: "Connection\nMethod" {
@@ -55,7 +56,7 @@ Ready: "Ready to\nBuild Workflows" {
   style.stroke-width: 2
 }
 
-Debug: "Check Token\n& Permissions" {
+Debug: "Check token\nand permissions" {
   shape: rectangle
   style.fill: "#fff3cd"
   style.stroke: "#225930"
@@ -82,17 +83,17 @@ Auth -> Test: "Verify setup" {
   style.stroke: "#225930"
 }
 
-Test -> Ready: "Success ✓" {
+Test -> Ready: "Success" {
   style.stroke: "#225930"
   style.stroke-width: 2
 }
 
-Test -> Debug: "Failed ✗" {
-  style.stroke: "#fff3cd"
+Test -> Debug: "Failed" {
+  style.stroke: "#225930"
   style.stroke-dash: 3
 }
 
-Debug -> Auth: "Fix & retry" {
+Debug -> Auth: "Fix and retry" {
   style.stroke: "#225930"
   style.stroke-dash: 3
 }
@@ -271,39 +272,72 @@ A common trap:
 This diagram shows how events flow from Tallyfy to n8n.
 
 ```d2
-direction: right
+# How a Tallyfy event reaches n8n
+direction: down
 
-S: Step/Task
-T: Tallyfy
-Q: Queue
-W: Webhook Service
-n8n: n8n Workflow
-
-S -> T: 1. User completes task
-T -> T: 2. Check webhook config
-
-T -> Q: "3. Queue webhook event"
-T -> T: "Skip webhook"
-
-Q -> W: 4. Process webhook
-
-W -> n8n: "5. POST to webhook_url" {
+Event: "Task completed\nin Tallyfy" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
 }
-# Timeout: 30 seconds
-n8n -> W: "6. Success response (2xx)"
-W -> T: "7. Mark delivered"
-# Log success
-n8n -> W: "Error or timeout"
-W -> W: "Wait (exponential backoff)"
-# 1st: 1min 2nd: 5min 3rd: 15min
 
-W -> T: "8. Mark failed (All attempts failed)"
-# Alert administrators
+Queue: "Tallyfy queues\nthe webhook" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Post: "POST to your\nn8n URL" {
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Check: "2xx within\n10 seconds?" {
+  shape: diamond
+  style.fill: "#f2faf4"
+  style.stroke: "#225930"
+}
+
+Done: "Delivered" {
+  style.fill: "#e1f7e6"
+  style.stroke: "#225930"
+}
+
+Retry: "Wait 30 s\n(5 min next time)" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Fail: "Delivery\nfailed" {
+  style.fill: "#fff3cd"
+  style.stroke: "#225930"
+}
+
+Event -> Queue: {
+  style.stroke: "#225930"
+}
+Queue -> Post: {
+  style.stroke: "#225930"
+}
+Post -> Check: {
+  style.stroke: "#225930"
+}
+Check -> Done: "Yes" {
+  style.stroke: "#225930"
+}
+Check -> Retry: "No" {
+  style.stroke: "#225930"
+}
+Retry -> Post: "Try again" {
+  style.stroke: "#225930"
+  style.stroke-dash: 3
+}
+Check -> Fail: "No, 3rd try" {
+  style.stroke: "#225930"
+}
 ```
 
 **What to notice:**
-- Events queue immediately when triggered, so nothing gets lost during high load
-- Retries use exponential backoff to handle temporary network issues without overwhelming your n8n instance
+- Tallyfy queues each event first, then sends it to your n8n webhook URL.
+- An attempt fails when n8n doesn't answer with a 2xx status within 10 seconds. Tallyfy tries again 30 seconds later, then 5 minutes after that, and gives up after the third attempt. Details are in [how to set up webhooks](/products/pro/integrations/webhooks/how-to-set-up-webhooks-in-tallyfy/).
 
 ### Debugging with the executions panel
 
