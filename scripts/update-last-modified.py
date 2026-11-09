@@ -6,6 +6,7 @@ the frontmatter accordingly. Runs in the documentation repository where
 content is authored.
 
     python scripts/update-last-modified.py --dir=src/content/docs
+    python scripts/update-last-modified.py --promotion-base origin/main [--check]
     python scripts/update-last-modified.py --self-test
 
 --self-test proves the date parser reads every form git prints, on the Python
@@ -25,6 +26,15 @@ bot stays out, which now includes two identities the filter used to read as
 people: "GitHub Actions Bot", the identity the pipeline's sync job commits as
 (tallyfy/work-queue#3544), and "Cursor Agent". A formatting-only or
 lastUpdated-only commit still never counts, whoever made it.
+
+Subset promotions (tallyfy/documentation#492): the pipeline never rewrites dates
+on main (#56), and a squash promotion carries a page's content without the
+staging commit that moved its lastUpdated. --promotion-base REF, run on a
+promotion branch, gives each page whose content the branch changes since it
+left REF the date of its newest authored change in the branch's own history,
+by the rule above with the Related articles block left out, and rewrites that
+one line only. --check reports instead of writing: exit 0 every such page
+carries its date, 1 one does not, 2 the answer could not be read.
 """
 
 import os
@@ -107,18 +117,31 @@ def formatting_key(text):
     return _WHITESPACE.sub("", _LAST_UPDATED_LINE.sub("", text or ""))
 
 
+RELATED_HEADING = "## Related articles"
+
+
+def authored_key(text):
+    """formatting_key of the page above its Related articles block. generate-related-articles.py
+    rewrites everything from the first "## Related articles" on, and a subset ship may copy
+    staging's cards by hand (#500), so neither is an authored change to the page (#492)."""
+    return formatting_key((text or "").split(RELATED_HEADING, 1)[0])
+
+
 def _git_out(cwd, *args):
     result = subprocess.run(['git', *args], capture_output=True, text=True, cwd=cwd)
     return result.returncode, result.stdout
 
 
-def get_git_last_modified(file_path):
+def get_git_last_modified(file_path, key=formatting_key):
     """The date of the newest commit to file_path that a person authored and that changed
     more than formatting, as YYYY-MM-DD, or None when there is none.
 
     Until 2026-10-02 this was simply the newest commit (`git log -1`), so a related
     articles refresh by the pipeline bot set the public "last updated" date: 40 of 40
-    sampled pages after staging run 36952690737 (tallyfy/work-queue#3466)."""
+    sampled pages after staging run 36952690737 (tallyfy/work-queue#3466).
+
+    key decides which commits changed more than formatting. The staging date job uses
+    formatting_key; a promotion uses authored_key, so a card copy does not set the date (#492)."""
     try:
         # realpath on both sides: git prints the top level with symlinks resolved (macOS
         # /var is /private/var), and a relative path built across that difference would
@@ -142,7 +165,7 @@ def get_git_last_modified(file_path):
                 continue
             rc_after, after = _git_out(folder, 'show', f'{sha}:{rel}')
             rc_before, before = _git_out(folder, 'show', f'{sha}^:{rel}')
-            if rc_after == 0 and rc_before == 0 and formatting_key(after) == formatting_key(before):
+            if rc_after == 0 and rc_before == 0 and key(after) == key(before):
                 continue  # whitespace or the lastUpdated line only
             # The page was created here, deleted here, or changed in content.
             return parse_git_date(date)
@@ -227,7 +250,144 @@ def process_directory(dir_path):
     
     return updated_count, skipped_count, error_count
 
-def main():
+_TOP_LEVEL_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):")
+
+
+def _frontmatter_lines(text):
+    """(lines with their endings, index of the closing ---) or None when the page has no front
+    matter block. Lines end at "\\n" only, so joining them gives back the same bytes; str.splitlines
+    would also split at characters such as U+2028."""
+    parts = text.split("\n")
+    lines = [part + "\n" for part in parts[:-1]] + ([parts[-1]] if parts[-1] else [])
+    if not lines or lines[0].rstrip("\r\n") != "---":
+        return None
+    for i in range(1, len(lines)):
+        if lines[i].rstrip("\r\n") == "---":
+            return lines, i
+    return None
+
+
+def last_updated_text(text):
+    """The value written after `lastUpdated:` in the front matter, as text, or None."""
+    found = _frontmatter_lines(text or "")
+    if found is None:
+        return None
+    lines, end = found
+    for line in lines[1:end]:
+        if line.startswith("lastUpdated:"):
+            return line[len("lastUpdated:"):].strip()
+    return None
+
+
+def set_last_updated(file_path, date_text):
+    """Write `lastUpdated: <date_text>` into the page's front matter and change no other byte,
+    so CRLF card lines and the YAML layout survive. A page with no such line gets one before the
+    first top-level key that sorts after it, which is where the date job's YAML dump puts it.
+    True when the file changed. Raises ValueError for a page with no front matter."""
+    with open(file_path, 'r', encoding='utf-8', newline='') as f:
+        text = f.read()
+    found = _frontmatter_lines(text)
+    if found is None:
+        raise ValueError(f"{file_path} has no front matter block")
+    lines, end = found
+    for i in range(1, end):
+        if lines[i].startswith("lastUpdated:"):
+            body = lines[i].rstrip("\r\n")
+            lines[i] = f"lastUpdated: {date_text}" + lines[i][len(body):]
+            break
+    else:
+        ending = lines[0][3:] or "\n"
+        at = end
+        for i in range(1, end):
+            match = _TOP_LEVEL_KEY.match(lines[i])
+            if match and match.group(1) > "lastUpdated":
+                at = i
+                break
+        lines.insert(at, f"lastUpdated: {date_text}{ending}")
+    new = "".join(lines)
+    if new == text:
+        return False
+    with open(file_path, 'w', encoding='utf-8', newline='') as f:
+        f.write(new)
+    return True
+
+
+def carry_promotion_dates(base, docs_dir, check=False):
+    """Give each page whose content HEAD changes since it left `base` the date of its newest
+    authored change, or with check=True only report the pages that lack it (#492).
+
+    Pages come from `git diff` between merge-base(base, HEAD) and HEAD under docs_dir. A page
+    whose authored_key is unchanged (a card copy, a rewrap, a date edit) is left alone, as is
+    every page the branch does not change. Exit 0 done or nothing to do, 1 (check only) a page
+    lacks its date, 2 the branch, the base or a page could not be read."""
+    docs = os.path.realpath(docs_dir)
+    if not os.path.isdir(docs):
+        print(f"❌ Directory not found: {docs}")
+        return 2
+    rc, top = _git_out(docs, 'rev-parse', '--show-toplevel')
+    if rc != 0 or not top.strip():
+        print(f"❌ {docs} is not inside a git checkout")
+        return 2
+    top = os.path.realpath(top.strip())
+    rc, merge_base = _git_out(top, 'merge-base', base, 'HEAD')
+    merge_base = merge_base.strip()
+    if rc != 0 or not merge_base:
+        print(f"❌ Could not find where HEAD left {base!r}, so no page was judged")
+        return 2
+    rc, names = _git_out(top, 'diff', '--name-only', '--no-renames', '-z', merge_base, 'HEAD',
+                         '--', os.path.relpath(docs, top))
+    if rc != 0:
+        print(f"❌ git diff {merge_base[:12]} HEAD failed, so no page was judged")
+        return 2
+    print(f"📁 Pages this branch changes since {merge_base[:12]}, where it left {base}:")
+    lacking, carried, unchanged, no_date, errors = [], 0, 0, [], 0
+    for rel in sorted(n for n in names.split('\0') if n.endswith('.mdx')):
+        if os.path.basename(rel) == "404.mdx":
+            continue
+        rc_new, new = _git_out(top, 'show', f'HEAD:{rel}')
+        if rc_new != 0:
+            continue  # the branch deletes it
+        rc_old, old = _git_out(top, 'show', f'{merge_base}:{rel}')
+        if rc_old == 0 and authored_key(old) == authored_key(new):
+            unchanged += 1
+            continue
+        path = os.path.join(top, rel)
+        date = get_git_last_modified(path, key=authored_key)
+        if date is None:
+            no_date.append(rel)
+            print(f"⚠️  {rel}: no person-authored change found, so its lastUpdated is left as it is")
+            continue
+        with open(path, 'r', encoding='utf-8', newline='') as f:
+            current = last_updated_text(f.read())
+        if current == date:
+            carried += 1
+            print(f"⏭️  {rel}: lastUpdated {date} already")
+            continue
+        lacking.append(rel)
+        if check:
+            print(f"❌ {rel}: lastUpdated is {current}, but its newest authored change is dated {date}")
+            continue
+        try:
+            set_last_updated(path, date)
+        except (OSError, ValueError) as exc:
+            errors += 1
+            print(f"❌ {rel}: could not write lastUpdated {date}: {exc}")
+            continue
+        print(f"✅ {rel}: lastUpdated {current} -> {date}")
+    print("=" * 60)
+    print(f"Pages with an authored change: {len(lacking) + carried + len(no_date)}; "
+          f"already dated: {carried}; {'lacking' if check else 'carried now'}: {len(lacking)}; "
+          f"no date to give: {len(no_date)}; changed only in cards, layout or date: {unchanged}")
+    if errors:
+        return 2
+    if check and lacking:
+        print("To fix, run on the promotion branch and commit the result: "
+              f"python scripts/update-last-modified.py --promotion-base {base}")
+        return 1
+    return 0
+
+
+def main(argv=None):
     # Create argument parser
     parser = argparse.ArgumentParser(
         description='Update lastUpdated dates in MDX frontmatter from Git history'
@@ -246,11 +406,30 @@ def main():
         action='store_true',
         help='Prove the git date parser and the page refresh work, then exit'
     )
+
+    parser.add_argument(
+        '--promotion-base',
+        metavar='REF',
+        help='On a promotion branch: give each page it changes since it left REF (such as '
+             'origin/main) the date of that change, and no other page (#492)'
+    )
+
+    parser.add_argument(
+        '--check',
+        action='store_true',
+        help='With --promotion-base: report the pages that lack their date and exit 1, writing nothing'
+    )
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     if args.self_test:
         return self_test()
+
+    if args.check and not args.promotion_base:
+        parser.error('--check needs --promotion-base')
+
+    if args.promotion_base:
+        return carry_promotion_dates(args.promotion_base, args.dir, check=args.check)
     
     # Resolve the directory path
     dir_path = Path(args.dir).resolve()
@@ -470,12 +649,213 @@ def self_test():
         case("and its lastUpdated is unchanged", str(before) == str(after) == "2020-01-01",
              f"{before} then {after}")
 
+    _promotion_self_test(case)
+
     failed = cases.count(False)
     if failed:
         print(f"SELF-TEST FAILED: {failed} of {len(cases)} case(s).")
         return 1
     print(f"SELF-TEST PASSED: {len(cases)} of {len(cases)} case(s).")
     return 0
+
+
+def _promotion_self_test(case):
+    """Subset promotions (tallyfy/documentation#492), on a scratch repository with a `main` and a
+    `staging` branch built the way this repository's are: people's commits, the staging date job
+    run for real and committed as the pipeline bot, and the generator's card commits.
+
+    The promotion branch cherry-picks two staging changes, as a subset ship does, then copies
+    staging's cards by hand under #500. Against a script that cannot carry dates, every carry
+    arm fails. Against a carry that judges commits with the cards included, page a takes the
+    card copy's date (2026-11-05). Against one that runs the date job on the whole tree, page d
+    moves. The last arms are the full promotion that follows (acceptance criterion 2)."""
+    import contextlib
+    import io
+
+    person = ("A Person", "person@example.com")
+    bot = ("GitHub Action", "action@github.com")
+    names = ('a.mdx', 'b.mdx', 'c.mdx', 'd.mdx', 'e.mdx')
+
+    def page(page_id, title, last_updated, one, two, card):
+        # The form the pipeline's YAML dump writes: sorted keys, no newline at the end, and the
+        # generator's CRLF after each card.
+        return (f"---\nid: {page_id}\nlastUpdated: {last_updated}\ntitle: {title}\n---\n\n"
+                f"{one}\n\n{two}\n\n## Related articles\n<CardGrid>\n"
+                f"<LinkTitleCard header=\"<b>X</b>\" href=\"/products/x/\" > {card} </LinkTitleCard>\r\n"
+                f"</CardGrid>")
+
+    def last_updated_of(text):
+        found = re.search(r"^lastUpdated:[ \t]*(.*?)[ \t]*\r?$", text or "", re.MULTILINE)
+        return found.group(1) if found else None
+
+    def cli(*argv):
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main(list(argv))
+        except SystemExit as exc:  # argparse refusing an option it does not know
+            rc = exc.code
+        except Exception as exc:  # noqa: BLE001 - an exception is a result here
+            rc = f"raised {exc!r}"
+        return rc, out.getvalue()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        docs = Path(tmp, 'docs')
+        docs.mkdir()
+
+        def write(name, text):
+            Path(docs, name).write_bytes(text.encode('utf-8'))
+
+        def read(name):
+            return Path(docs, name).read_bytes().decode('utf-8')
+
+        def show(ref, name):
+            done = subprocess.run(['git', 'show', f'{ref}:docs/{name}'], cwd=tmp, capture_output=True)
+            return done.stdout.decode('utf-8') if done.returncode == 0 else None
+
+        def commit(message, date, who, *extra):
+            _git(tmp, 'add', '-A')
+            _git(tmp, 'commit', '-q', *extra, '-m', message, date=date, author=who)
+            return _git(tmp, 'rev-parse', 'HEAD').strip()
+
+        def date_job():
+            # The staging pipeline's own step: the whole tree, then a bot commit.
+            with contextlib.redirect_stdout(io.StringIO()):
+                process_directory(str(docs))
+            if _git(tmp, 'status', '--porcelain').strip():
+                commit("Update lastUpdated dates from Git history", None, bot)
+
+        def cards_job(card, *pages):
+            # The generator rewrites each card block and ends each card line in CRLF.
+            for name in pages:
+                text = read(name)
+                block = text.split("## Related articles", 1)[1]
+                old_card = re.search(r"> (.*) </LinkTitleCard>", block).group(1)
+                write(name, text.split("## Related articles", 1)[0] + "## Related articles" + block
+                      .replace(f"> {old_card} </LinkTitleCard>", f"> {card} </LinkTitleCard>")
+                      .replace("</LinkTitleCard>\n", "</LinkTitleCard>\r\n"))
+            commit("Push related articles", None, bot)
+
+        _git(tmp, 'init', '-q', '-b', 'main')
+        write('a.mdx', page('a', 'A', '2026-10-01', 'A says one thing.', 'A second paragraph.', 'Old card.'))
+        # b and d are stale on main on purpose (2020-01-01, where their history says 2026-10-01),
+        # so a carry that judged every page in the diff would move b, and one that ran the date
+        # job on the whole tree would move d. The staging date job does move both.
+        write('b.mdx', page('b', 'B', '2020-01-01', 'B body.', 'B more.', 'Old card.'))
+        write('c.mdx', page('c', 'C', '2026-10-01', 'C body.', 'C more.', 'Old card.'))
+        write('d.mdx', page('d', 'D', '2020-01-01', 'D body.', 'D more.', 'Old card.'))
+        commit("pages", "2026-10-01T12:00:00+00:00", person)
+
+        _git(tmp, 'checkout', '-q', '-b', 'staging')
+        # 20:30 at -06:00 is 2026-11-03 in UTC; the date is the author's own calendar date.
+        write('a.mdx', read('a.mdx').replace('A says one thing.', 'A says the right thing.'))
+        s1 = commit("Correct page a", "2026-11-02T20:30:00-06:00", person)
+        date_job()
+        cards_job('New card.', 'a.mdx', 'b.mdx', 'd.mdx')
+        write('c.mdx', read('c.mdx').replace('C body.', 'C body, corrected on staging only.'))
+        commit("Correct page c", "2026-11-03T10:00:00+00:00", person)
+        date_job()
+        # A new page with no lastUpdated line yet; the date job gives it one.
+        write('e.mdx', "---\nid: e\ntitle: E\n---\n\nE is new.")
+        s4 = commit("Add page e", "2026-11-04T09:00:00+00:00", person)
+        date_job()
+
+        # The subset ship: cherry-pick two staging changes onto main, then copy staging's cards
+        # for a and b by hand (#500), dated later than either change.
+        _git(tmp, 'checkout', '-q', '-b', 'promo', 'main')
+        _git(tmp, 'cherry-pick', s1)
+        _git(tmp, 'cherry-pick', s4)
+        for name in ('a.mdx', 'b.mdx'):
+            ours, theirs = read(name), show('staging', name)
+            write(name, ours.split("## Related articles", 1)[0] + "## Related articles"
+                  + theirs.split("## Related articles", 1)[1])
+        commit("Copy staging's cards for a and b", "2026-11-05T12:00:00+00:00", person)
+        before = {name: read(name) for name in names}
+
+        rc, out = cli('--promotion-base', 'main', '--dir', str(docs), '--check')
+        case("492: --check fails a subset promotion whose changed pages lack their dates",
+             rc == 1 and 'docs/a.mdx' in out and 'docs/e.mdx' in out, f"exit {rc}")
+        case("492: --check writes nothing", {n: read(n) for n in names} == before)
+        rc, out = cli('--promotion-base', 'main', '--dir', str(docs))
+        after = {name: read(name) for name in names}
+        case("492: a changed page gets the date of the change it carries, not of the card copy",
+             rc == 0 and last_updated_of(after['a.mdx']) == "2026-11-02",
+             f"exit {rc}, lastUpdated {last_updated_of(after['a.mdx'])}")
+        case("492: only that page's lastUpdated line changes, CRLF card lines included",
+             after['a.mdx'] == before['a.mdx'].replace("lastUpdated: 2026-10-01", "lastUpdated: 2026-11-02", 1)
+             and "\r\n" in after['a.mdx'])
+        case("492: a new page with no date gets one where the date job puts it, so it equals staging's",
+             after['e.mdx'] == show('staging', 'e.mdx'), repr(after['e.mdx'][:60]))
+        case("492: a page whose only change is a card copy keeps its date, though it is stale",
+             after['b.mdx'] == before['b.mdx'] and last_updated_of(after['b.mdx']) == "2020-01-01",
+             f"lastUpdated {last_updated_of(after['b.mdx'])}")
+        case("492: a page the promotion does not touch keeps its date, though staging's differs",
+             after['d.mdx'] == before['d.mdx'] and last_updated_of(after['d.mdx']) == "2020-01-01"
+             and last_updated_of(show('staging', 'd.mdx')) == "2026-10-01",
+             f"lastUpdated {last_updated_of(after['d.mdx'])}")
+        case("492: a page changed only on staging is not touched", after['c.mdx'] == before['c.mdx'])
+        rc, out = cli('--promotion-base', 'main', '--dir', str(docs), '--check')
+        case("492: --check passes once the dates are carried", rc == 0, f"exit {rc}")
+        rc, out = cli('--promotion-base', 'main', '--dir', str(docs))
+        case("492: carrying again changes nothing", rc == 0 and {n: read(n) for n in names} == after,
+             f"exit {rc}")
+        rc, out = cli('--promotion-base', 'zq-no-such-branch', '--dir', str(docs), '--check')
+        case("492: --check against a base that does not resolve exits 2, never a pass", rc == 2, f"exit {rc}")
+
+        # GitHub's squash merge of the promotion, dated at the merge.
+        # --allow-empty so the arms below still run, and fail, against a script that carried nothing.
+        commit("Carry the dates", "2026-11-05T12:30:00+00:00", person, '--allow-empty')
+        _git(tmp, 'checkout', '-q', 'main')
+        _git(tmp, 'merge', '-q', '--squash', 'promo')
+        shipped = commit("Promote a and e (squash)", "2026-11-05T13:00:00+00:00", person)
+
+        def full_promotion(source):
+            # A true merge, as a full promotion pull request lands (#283, #294), in git's own
+            # conflict style whatever this machine's config says.
+            return subprocess.run(['git', '-c', 'commit.gpgsign=false', '-c', 'merge.conflictStyle=merge',
+                                   'merge', '--no-ff', '-q', '-m', 'Promote staging to main', source],
+                                  cwd=tmp, capture_output=True, text=True,
+                                  env=dict(os.environ, GIT_AUTHOR_NAME=person[0], GIT_AUTHOR_EMAIL=person[1],
+                                           GIT_COMMITTER_NAME=person[0], GIT_COMMITTER_EMAIL=person[1]))
+
+        def abandon_merge():
+            # Leaves the scratch repository usable for the next arm whether or not the merge stopped.
+            if Path(tmp, '.git', 'MERGE_HEAD').exists():
+                _git(tmp, 'merge', '--abort')
+
+        # Acceptance criterion 2: the full promotion still brings staging's dates across.
+        _git(tmp, 'checkout', '-q', '-b', 'full', shipped)
+        merge = full_promotion('staging')
+        case("AC2: the full promotion after a carried subset ship merges with no conflict",
+             merge.returncode == 0, (merge.stdout + merge.stderr).strip()[:200])
+        dates = {name: (last_updated_of(show('full', name)), last_updated_of(show('staging', name))) for name in names}
+        case("AC2: after it every page's lastUpdated is staging's, page c's staging-only change included",
+             all(ours == theirs and ours for ours, theirs in dates.values()) and dates['c.mdx'][0] == "2026-11-03",
+             str(dates))
+        rc, out = cli('--promotion-base', shipped, '--dir', str(docs), '--check')
+        case("AC2: --check passes on the full promotion with nothing carried by hand", rc == 0, f"exit {rc}")
+        abandon_merge()
+
+        # The cost of carrying: staging edits page a again before the next full promotion. The
+        # merge then conflicts on a's lastUpdated line, and on nothing else.
+        _git(tmp, 'checkout', '-q', '-b', 'staging2', 'staging')
+        write('a.mdx', read('a.mdx').replace('A second paragraph.', 'A second paragraph, edited again.'))
+        commit("Edit page a again", "2026-11-07T09:00:00+00:00", person)
+        date_job()
+        cards_job('New card.', 'a.mdx')
+        _git(tmp, 'checkout', '-q', '-b', 'full2', shipped)
+        merge = full_promotion('staging2')
+        conflicted = _git(tmp, 'diff', '--name-only', '--diff-filter=U').split()
+        marked, inside = [], False
+        for line in read('a.mdx').splitlines():
+            if line.startswith(('<<<<<<<', '>>>>>>>')):
+                inside = line.startswith('<<<<<<<')
+            elif inside and line != '=======':
+                marked.append(line)
+        case("cost: a page staging edits again after a carried ship conflicts only on its lastUpdated line",
+             merge.returncode == 1 and conflicted == ['docs/a.mdx'] and len(marked) == 2
+             and all(line.startswith('lastUpdated:') for line in marked), f"{conflicted} {marked}")
+        abandon_merge()
 
 if __name__ == "__main__":
     exit(main())

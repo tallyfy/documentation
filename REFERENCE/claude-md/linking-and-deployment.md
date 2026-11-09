@@ -49,6 +49,17 @@ Dated 2026-10-03 (owner decision 218): those three now reconcile the whole tree 
 - Check it adds no conflict to the next full promotion. Make the card copy its own last commit. Run `git merge-tree --write-tree --name-only <base> origin/staging` and the same with your branch in place of `<base>`; your branch must list no conflicted path that `<base>` doesn't (losing one is fine). In the ship's own pull request, `<base>` is your branch without the card commit, because the ship itself can add conflicted paths (#488 took `main` from 5 to 7). In a main-only pull request, `<base>` is `origin/main`. Teaser-only edits inside a block staging rebuilt add a path, which is how #493's first head was caught; if yours adds one, copy that file's whole block instead, or leave that file.
 - Do it in the ship's own pull request. A separate main-only pull request, as #493 was, is only for cards that an earlier ship already left stale.
 
+**A subset ship also carries the date of each page it changes (#492).** The pipeline never rewrites `lastUpdated` on `main` (#56), and a subset ship cherry-picks a page's content without the commit in which staging's date job moved its date, so tallyfy.com kept showing the old date. Measured 2026-11-09 on the 21 pull requests merged into `main` since 2026-10-28: 167 of the 168 page changes they made left the page's date behind. So, on the promotion branch, after the cherry-picks and any card copy, run:
+
+```bash
+python scripts/update-last-modified.py --promotion-base origin/main
+```
+
+- It rewrites only the `lastUpdated` line, and only on pages whose content the branch changes. The date is that page's newest authored change in the branch's own history, by the same rule as staging's date job with the Related articles block left out. A cherry-pick keeps its commit's author date, so the page gets the staging change's own date, the one staging.tallyfy.com shows. A page that only a card copy, a rewrap or a date edit touched keeps its date, and so does every page the branch doesn't change.
+- Commit the result on its own. The `promotion-dates` job in `pr-validate.yml` runs the same command with `--check` on every pull request into `main`, and fails while a changed page lacks its date. It reads the pull request's own commits, so build the branch with `git cherry-pick`: a page copied with `git checkout origin/staging -- <file>` gets the date of the commit that copied it.
+- A full promotion needs nothing. The merge brings staging's dates, and the check passes.
+- The cost: a page that staging edits again before the next full promotion, or before `main` is merged back into `staging` as #460 did, then conflicts on its `lastUpdated` line, because both branches changed it. Take staging's side, as step 3 below says. A merge back soon after the ship avoids the conflict.
+
 ```bash
 # 1. Ensure staging is clean and pipeline has passed
 git checkout staging && git pull

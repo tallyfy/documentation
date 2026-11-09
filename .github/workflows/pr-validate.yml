@@ -202,3 +202,37 @@ jobs:
           test -s "$guard/scripts/asset_management/repo_screenshot_rules.py"
           python "$guard/scripts/lb-pr-guard.py" --repo "$PWD"
         shell: bash
+
+  # A promotion into main carries the date of each page it changes (tallyfy/documentation#492).
+  # The pipeline never rewrites dates on main (#56), and a subset ship cherry-picks a page's
+  # content without the commit in which staging's date job moved its lastUpdated, so tallyfy.com
+  # kept the old date. This fails a pull request into main when a page whose content it changes
+  # does not show the date of its newest authored change, which for a cherry-pick is the staging
+  # change's own date. The fix is one command on the promotion branch:
+  #   python scripts/update-last-modified.py --promotion-base origin/main
+  # It checks out the pull request head with full history, because the date comes from the
+  # pull request's own commits, and GitHub's test merge would add a merge commit dated today.
+  # It holds no secret, which `scripts/pipeline-guard.py --check-wiring` asserts for this whole file.
+  promotion-dates:
+    name: Promotion carries its pages' dates
+    if: ${{ github.base_ref == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Check the lastUpdated date of each page this pull request changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python -m pip install --upgrade python-frontmatter
+          python scripts/update-last-modified.py --promotion-base "$BASE_SHA" --check
+        shell: bash
