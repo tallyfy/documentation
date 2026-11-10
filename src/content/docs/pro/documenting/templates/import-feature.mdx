@@ -4,7 +4,7 @@ description: Tallyfy imports templates from Word docs, PDFs, or other Tallyfy ac
   Save PowerPoint files and flowcharts as PDF first. AI converts even 50-page SOPs
   into working templates in seconds, replacing duplicate files with one dynamic template.
 id: fc871e56c291f27a885d7e9737eb9ba1
-lastUpdated: 2026-10-29
+lastUpdated: 2026-11-09
 sidebar:
   order: 75
 title: Import a template
@@ -108,10 +108,13 @@ Use a clear, high-resolution flowchart. Readable text and distinct shapes help t
 Copy a template from one Tallyfy account to another using two IDs.
 
 #### What you need
-- Login access to both accounts (source and destination)
-- Administrator permissions in the destination account
+- The **Organization ID** and **Template ID** of the source template. You don't need access to the source organization, because someone there can send you both IDs.
+- Administrator rights in the organization you're importing into. A Standard member can import too, as long as duplication is allowed in the source template's [permissions](/products/pro/documenting/templates/config/#set-template-permissions), which it is by default.
+- Light members can't import templates.
 
 #### Step 1: Get IDs from source account
+Someone in the source organization does this step and sends you the two IDs.
+
 <Steps>
 1. In the source account, open the template you want to copy
 2. Click **Settings** > **Export**
@@ -125,9 +128,47 @@ Copy a template from one Tallyfy account to another using two IDs.
 2. Go to **Settings** > **[Integrations](/products/pro/integrations/)** > **Import and Export**
 3. Paste the **Organization ID** and **Template ID** from the source account
 4. Click **Import**
-5. Verify the imported template looks correct
+5. Check the imported template against the lists in [What carries over to the other organization](#what-carries-over-to-the-other-organization) below
    ![Import template form with Organization ID and Template ID fields](https://screenshots.tallyfy.com/Import%20Template.png)
 </Steps>
+
+#### In the new client
+
+The new client isn't generally available yet. To get the IDs, open the template in the editor, click **More actions** (three dots), then **Export**. The **Export** dialog shows both IDs under **Share template with other organizations**. To import, go to **Settings** > **Integrations**, which opens the page titled **API keys and webhooks**. Click **Import** on the **Import Template** card under **Import and Export**.
+
+{/* GA-SENSITIVE: the first sentence of the paragraph above, saying the new client isn't generally available, becomes wrong at client-v2 general availability. Delete it then. Tracked by tallyfy/work-queue#4459, the reminder for general availability. */}
+
+#### What carries over to the other organization
+
+The import copies the template's steps, fields and rules. It doesn't copy step assignees from the source organization, so you'll assign the steps again.
+
+**Copied:**
+- Steps in the same order, with their settings: step types (including approval, email and expiring steps), start dates and AI settings.
+- Deadlines.
+- Kick-off form fields and step form fields, with their options and default values.
+- [Automation rules](/products/pro/documenting/templates/automations/), including their conditions and show or hide actions. Deadline actions are pointed at the new steps.
+- Milestones, the summary, guidance, the icon, the video and the kick-off title.
+- `{{variables}}` inside step descriptions.
+- Template tags, which are recreated by name in the new organization.
+
+**Copied, but check them:**
+- **[Webhooks](/products/pro/integrations/webhooks/)**: the template's webhook (the web address Tallyfy sends process data to), any step webhooks and any webhook automation actions are copied, and they keep sending to the same addresses. Unless you change them, the new organization's data goes to the original URLs.
+- **Images**: images embedded in the template stay linked to the source organization's files.
+- **Snippets**: public [snippets](/products/pro/documenting/templates/snippets/) are copied. Private snippets still point at the source organization.
+
+**Not copied:**
+- Step assignees, whether members, groups or guests.
+- Job title assignees.
+- The folder the template sits in.
+- Settings that [launch another template](/products/pro/launching/launch-process-when-task-is-completed/).
+- [Custom field](/products/pro/integrations/open-api/custom-fields/) values on the template.
+- Step tags.
+- Attached files.
+- Per-person and per-group template permissions, and default watchers. If the source template was restricted, the person who imported it gets access to the copy. Set the permissions again for everyone else.
+
+**Fix these after importing:**
+- Automation actions that assign or escalate to a person still name people in the source organization. Change them to people in your organization.
+- `{{variables}}` in step titles, the template summary, the kick-off description, guidance, the process naming format and field guidance can break, because every form field gets a new internal name (its alias). Insert those variables again.
 
 #### Common reasons for copying templates
 - Consultants moving templates to a client's account
