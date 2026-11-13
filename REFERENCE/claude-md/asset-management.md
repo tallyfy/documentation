@@ -156,6 +156,12 @@ How such a pull request flows:
    `staging` on 2026-11-06, so no article may link a `/screenshots/` path until it is.
 4. On `main` the job only checks that every linked image has a row whose hash matches its bytes,
    and that its public URL serves those bytes. It never uploads from `main`.
+5. Ship each LaunchBrightly pull request to tallyfy.com as it arrives (owner decision
+   2026-11-13). Once it is reviewed, merged into `staging` and showing on staging.tallyfy.com,
+   promote it to `main` with a subset ship, as `linking-and-deployment.md` section "Deploying
+   staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
+   old image URLs keep working. Their screenshots show the next-gen client, so a page can show
+   next-gen screens while customers still use the legacy app. The owner accepted that.
 
 The file rules live in `scripts/asset_management/repo_screenshot_rules.py`, shared by the guard
 and the job:
