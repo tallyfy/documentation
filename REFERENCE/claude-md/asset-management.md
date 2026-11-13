@@ -453,6 +453,8 @@ python3 asset_inventory.py stats
 
 When adding screenshots to articles:
 
+Product screenshots come from LaunchBrightly going forward (see "Screenshots committed to this repository (LaunchBrightly)" above, #539). These steps are for any other image.
+
 1. **Capture screenshot** at appropriate resolution
 2. **Upload via orchestrator**: Use asset management system for complete workflow
 3. **Copy public URL**: Use returned `production_url` in markdown
