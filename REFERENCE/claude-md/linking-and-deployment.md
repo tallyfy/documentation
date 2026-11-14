@@ -198,6 +198,10 @@ issue (#88, #118).
 - Check it locally before pushing: `python3 scripts/promotion-hold-check.py --self-test`. The
   same self-test runs in CI on every promotion, so the gate proves it can go red rather than
   only ever being seen passing.
+- An edit to a page `main` already has cannot be held, so content that waits on a launch is
+  tracked by a pinned issue instead. Before any promotion or subset ship, read the repo's pinned
+  issues and leave out every commit they name. Dated 2026-11-14: #537 names squash commit
+  9acbec4de4 (#540, next app version pages), held until the new app launches.
 
 #### Verifying deployment
 - Staging: `curl -s https://staging.tallyfy.com/products/pro/ | head -50`
