@@ -122,6 +122,15 @@ image as changed when the row has neither. Pass `--keep-captions` when the swap 
 the captions still describe the image. `upload` to a key that already has a row does the same.
 Until 2026-11-05 (#462) a replaced image kept its old captions and was never queued again.
 
+#### What LaunchBrightly makes
+
+LaunchBrightly makes product screenshots for the product manual, which is this repository's
+articles, and none for the website (owner decision 2026-11-16, #542).
+
+In the manual, LaunchBrightly makes only the main shots of a page. Smaller views and places are
+not LaunchBrightly's. Until another way to show them exists, nothing changes in how screenshots
+are made.
+
 #### Screenshots committed to this repository (LaunchBrightly)
 
 Since 2026-11-06 (#464) an image can also live in this repository. LaunchBrightly, a screenshot

@@ -396,7 +396,7 @@ edit it there, not here.
 - State expected outcomes
 
 ### Images & Screenshots
-- **Who makes them**: LaunchBrightly manages product screenshots going forward, so don't hand-capture new ones. How its images arrive: `REFERENCE/claude-md/asset-management.md`, "Screenshots committed to this repository (LaunchBrightly)" (#539).
+- **Who makes them**: LaunchBrightly manages product screenshots going forward, so don't hand-capture new ones. Which shots it makes: `REFERENCE/claude-md/asset-management.md`, "What LaunchBrightly makes" (#542). How its images arrive: the same file, "Screenshots committed to this repository (LaunchBrightly)" (#539).
 - **When to use**: Only when adding clarity
 - **Requirements**:
   - Descriptive alt text
