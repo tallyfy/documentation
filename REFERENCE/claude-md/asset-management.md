@@ -166,9 +166,11 @@ How such a pull request flows:
 4. On `main` the job only checks that every linked image has a row whose hash matches its bytes,
    and that its public URL serves those bytes. It never uploads from `main`.
 5. Ship each LaunchBrightly pull request to tallyfy.com as it arrives (owner decision
-   2026-11-13). Once it is reviewed, merged into `staging` and showing on staging.tallyfy.com,
-   promote it to `main` with a subset ship, as `linking-and-deployment.md` section "Deploying
-   staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
+   2026-11-13). Since #548 their app may merge its own pull request into `staging` once the
+   LaunchBrightly PR guard has passed (see "The push gate" below), so the look at their change
+   happens on staging.tallyfy.com. Once it is merged into `staging` and showing there, and has been
+   looked at, promote it to `main` with a subset ship, as `linking-and-deployment.md` section
+   "Deploying staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
    old image URLs keep working. Their screenshots show the next-gen client, so a page can show
    next-gen screens while customers still use the legacy app. The owner accepted that.
 
@@ -227,6 +229,20 @@ LaunchBrightly pull request merged with a merge commit or a rebase does not, bec
 commits then sit on the branch outside a merge commit: squash-merge them. A push or merge by such
 a bot also stops the run, read from the repository activity API, which records who pushed whatever
 the commit says about who wrote it. When the gate cannot read something, it fails.
+
+One exception (#548): LaunchBrightly's merge of its own pull request into `staging`. On
+`staging`, a commit LaunchBrightly (`launchbrightly[bot]`, user id 270903805) authored or
+committed passes only as the merge commit of its own pull request into `staging` whose
+"LaunchBrightly PR guard" check, run by GitHub Actions, passed at the head that was merged. That
+holds whoever merged it, because a squash commit keeps the pull request author's name (measured on
+#273: a pull request tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot]
+as its commit author). A merge by their app itself passes on the same terms. When the merge comes
+before the guard has finished, the gate waits for it, 20 seconds at a time, up to 6 minutes in
+all, then stops if it still has no passing result. Any push by their app, anything by it on
+`main`, any other app, and a push or merge when the gate cannot read who made it all still stop
+the run. The gate reads the guard with `checks: read`. `scripts/push-gate-cases.mjs` runs the gate's
+own script from both workflow files against a fake GitHub, both ways, and plants faults that must
+turn it red; `pr-validate.yml` runs it on every pull request.
 
 On a stop it opens one issue, "Docs pipeline stopped: commits reached <branch> without a pull
 request", listing each commit and who made it, and adds to that issue on later stops. Review the
