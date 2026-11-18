@@ -510,11 +510,15 @@ const CASES = [
     { personMerge: 'merge-commit', guard: 'failure', activityLate: true }],
   ['a person\'s merge of their pull request at the starting point, guard failed', 'stop', 'ended failure', { anchorPersonMergeOfTheirPr: true }],
   ['a person pushes the head of their pull request straight to staging, commits naming their app, guard failed', 'stop',
-    'ended failure', { personPushHead: { namesApp: true, guard: 'failure' } }],
+    'ended failure', { personPushHead: { names: 'app', guard: 'failure' } }],
   ['a person pushes the head of their pull request straight to staging, commits naming their app, guard passed', 'pass', null,
-    { personPushHead: { namesApp: true, guard: 'success' } }],
+    { personPushHead: { names: 'app', guard: 'success' } }],
+  ['a person pushes the head of their pull request straight to staging, its commit naming another app, guard failed', 'stop',
+    'ended failure', { personPushHead: { names: 'other', guard: 'failure' } }],
+  ['a person pushes the head of their two-commit pull request straight to staging, commits naming their app: the first stops', 'stop',
+    'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', count: 2, guard: 'success' } }],
   ['a person pushes the head of their pull request straight to staging, commits naming no app: a person\'s push', 'pass', null,
-    { personPushHead: { namesApp: false, guard: 'failure' } }],
+    { personPushHead: { names: 'none', guard: 'failure' } }],
   ['people\'s and the pipeline\'s own pushes cost no read of their own', 'pass', null,
     { changes: [{ kind: 'push', by: PERSON }, { kind: 'push', by: ACTIONS }, { kind: 'push', by: PERSON }], maxCommitReads: 0 }],
   ['a person\'s merge whose pull request cannot be found', 'stop', 'cannot tell whose',
@@ -614,12 +618,15 @@ function worldFor(spec) {
   if (spec.personPushHead) {
     // A person merges their pull request from the command line by pushing its head straight to staging;
     // GitHub records the pushed commit as the pull request's merge commit. The pull request's head is that commit.
-    const named = spec.personPushHead.namesApp;
-    const c = named ? commitBy('person-push-head', LB)
-      : { sha: sha('person-push-head-plain'), author: null, committer: null,
-        commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } };
-    world.commits.push(c);
-    world.pulls[c.sha] = [pullRequest(205, c.sha, LB, 'staging', c.sha)];
+    const { names = 'app', count = 1 } = spec.personPushHead;
+    const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP)
+      : { sha: sha(label), author: null, committer: null,
+        commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } });
+    const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
+    const c = own[own.length - 1];
+    world.commits.push(...own);
+    const pr = pullRequest(205, c.sha, LB, 'staging', c.sha);
+    for (const o of own) world.pulls[o.sha] = [pr];
     world.guard[c.sha] = spec.personPushHead.guard;
     world.guardPr[c.sha] = 205;
     world.activity.unshift({ activity_type: 'push', actor: PERSON, after: c.sha, timestamp: '2026-11-18T12:30:00Z' });
@@ -682,9 +689,10 @@ const FAULTS = [
   ['the commits on staging not looked up by their pull request', 'const problem = await theirMergeProblem(c.sha);', 'const problem = null;'],
   ['anyone\'s pull request held to their rules', 'if (!pr || !isLaunchBrightly(author.login, author.id)) return null;', 'if (!pr) return null;'],
   ['the closed pull requests not read when a commit is not linked yet', 'const listed = (await recentlyClosed()).find(isMerge);', 'const listed = null;'],
-  ['the merges GitHub made not looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(!byGitHub(c) && bots.includes(LB_BOT))'],
-  ['the commits naming their app not looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(byGitHub(c))'],
-  ['every staging commit looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(true)'],
+  ['the merges GitHub made not looked up', '(byGitHub(c) || bots.length)', '(!byGitHub(c) && bots.length)'],
+  ['the commits naming an app not looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c))'],
+  ['only the commits naming their own app looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c) || bots.includes(LB_BOT))'],
+  ['every staging commit looked up', '(byGitHub(c) || bots.length)', '(true)'],
   ['a fork\'s runs on the same commit counted', '&& r.head_repository && r.head_repository.full_name === headRepo)', ')'],
   ['only the first page of guard runs read', 'for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {', 'for (let page = 1; page <= 1; page += 1) {'],
   ['a failed write tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'if (!(Number(err.status) >= 500)) throw err;'],

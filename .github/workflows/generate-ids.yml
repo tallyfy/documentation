@@ -110,12 +110,12 @@ jobs:
             // when, of the pr-validate.yml runs on that pull request's head, the newest one that has a job named
             // "LaunchBrightly PR guard (#N into staging)" shows that job has already passed. Runs without that job,
             // such as another pull request's run on the same commit or one waiting for approval, do not count. On
-            // staging every commit in the range that GitHub committed as a merge or that names launchbrightly[bot]
-            // (tallyfy/documentation#555), and every merge in the activity log, is looked up by the pull request it
-            // merged, and a person's merge whose pull request cannot be found stops the run. So the rule holds for
-            // every merge GitHub makes, by the app or a person, and for a person pushing the head of their pull
-            // request straight to staging when its commits name the app. Commits that name no app, pushed straight
-            // to staging by a person, are a person's push and are judged as one. A merge by the app itself passes
+            // staging every commit in the range that GitHub committed as a merge or that names an app other than
+            // the two allowed (tallyfy/documentation#555), and every merge in the activity log, is looked up by the
+            // pull request it merged, and a person's merge whose pull request cannot be found stops the run. So the
+            // rule holds for every merge GitHub makes, by the app or a person, and for a person pushing the head of
+            // their pull request straight to staging when its commits name such an app. Commits that name no such
+            // app, pushed straight to staging by a person, are a person's push and are judged as one. A merge by the app itself passes
             // on the same terms. A read that fails on GitHub's side is tried once more at once. The
             // guard is read from the Actions API, as a job pr-validate.yml defines, because any token with checks:
             // write can create a check run. The gate never waits: their app is to merge after the guard has passed,
@@ -444,11 +444,12 @@ jobs:
                   botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
                   botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
                 ].filter(disallowed))];
-                if (branch === LB_BRANCH && (byGitHub(c) || bots.includes(LB_BOT))) {
-                  // On staging every merge GitHub made, and every commit that names LaunchBrightly's app, is looked up:
-                  // the merge commit of a pull request LaunchBrightly opened passes only with its guard passed. That
-                  // covers a person pushing the head of their pull request straight to staging, which GitHub records
-                  // as the pull request's merge. A commit that names neither is a person's push, judged as before.
+                if (branch === LB_BRANCH && (byGitHub(c) || bots.length)) {
+                  // On staging every merge GitHub made, and every commit that names an app other than the two allowed
+                  // (which is looked up below in any case, so it costs no extra read), is looked up: the merge commit of
+                  // a pull request LaunchBrightly opened passes only with its guard passed. That covers a person pushing
+                  // the head of their pull request straight to staging, which GitHub records as the pull request's
+                  // merge. A commit that names no such app is a person's push, judged as before.
                   const problem = await theirMergeProblem(c.sha);
                   if (problem !== null) {
                     if (problem) add(c.sha, `${identity(c)}; ${problem}`);
