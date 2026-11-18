@@ -33,7 +33,9 @@ concurrency:
   # run reports as `cancelled` having started zero jobs, which reads as
   # deliberate. This workflow only fires on pull_request today, and the key keeps
   # that true if a trigger is ever added.
-  group: pr-validate-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  # Keyed on the pull request number (#548), so another pull request from a branch of the same
+  # name, a fork's included, cannot cancel this one's run.
+  group: pr-validate-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -164,11 +166,12 @@ jobs:
   # It reads GitHub's test merge, so depth 2 brings the base (HEAD^1) and the pull request
   # (HEAD^2). The author comes in through env, never written into the script line. No secrets and
   # no environment: `scripts/pipeline-guard.py --check-wiring` asserts that for this whole file.
-  # The job's name carries the base branch it judged the pull request against, so the push gate
-  # in generate-ids.yml and documentation-pipeline.yml trusts only "LaunchBrightly PR guard (into
-  # staging)" (#548): a pass recorded against another base, before a base change, never counts.
+  # The job's name carries the pull request number and the base branch it judged, so the push
+  # gate in generate-ids.yml and documentation-pipeline.yml trusts only "LaunchBrightly PR guard
+  # (#N into staging)" for pull request #N (#548): a pass for another pull request with the same
+  # head, or one recorded before a base change, never counts.
   lb-pr-guard:
-    name: LaunchBrightly PR guard (into ${{ github.base_ref }})
+    name: LaunchBrightly PR guard (#${{ github.event.pull_request.number }} into ${{ github.base_ref }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
