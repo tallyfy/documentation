@@ -152,6 +152,9 @@ How such a pull request flows:
    request, each `/screenshots/` link must name a file in the merged tree, and anyone else who
    touches the folder gets a warning, because pages showing those images credit LaunchBrightly.
    The job runs the base branch's copy of the guard, so a pull request cannot edit its own check.
+   Dated 2026-11-17 (#548): a pull request into a branch that has no guard yet runs its own copy,
+   and the job is now named "LaunchBrightly PR guard (into <base>)" after the base it judged, so
+   the push gate trusts only a run named "LaunchBrightly PR guard (into staging)".
 2. After the merge into `staging`, the `repo-screenshots` pipeline job runs
    `scripts/asset_management/repo_screenshots.py ingest`. It uploads each new or changed image to
    screenshots.tallyfy.com under a key carrying the first 12 hex characters of its SHA-256, such
@@ -166,13 +169,14 @@ How such a pull request flows:
 4. On `main` the job only checks that every linked image has a row whose hash matches its bytes,
    and that its public URL serves those bytes. It never uploads from `main`.
 5. Ship each LaunchBrightly pull request to tallyfy.com as it arrives (owner decision
-   2026-11-13). Since #548 their app may merge its own pull request into `staging` once the
-   LaunchBrightly PR guard has passed (see "The push gate" below), so the look at their change
-   happens on staging.tallyfy.com. Once it is merged into `staging` and showing there, and has been
-   looked at, promote it to `main` with a subset ship, as `linking-and-deployment.md` section
-   "Deploying staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
+   2026-11-13). Once it is reviewed, merged into `staging` and showing on staging.tallyfy.com,
+   promote it to `main` with a subset ship, as `linking-and-deployment.md` section "Deploying
+   staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
    old image URLs keep working. Their screenshots show the next-gen client, so a page can show
    next-gen screens while customers still use the legacy app. The owner accepted that.
+   Dated 2026-11-17 (#548): their app may now merge its own pull request into `staging` itself,
+   once the guard has passed against `staging` (see "The push gate" below). So the review in this
+   step happens on staging.tallyfy.com after that merge, before the promotion to `main`.
 
 The file rules live in `scripts/asset_management/repo_screenshot_rules.py`, shared by the guard
 and the job:
@@ -232,17 +236,26 @@ the commit says about who wrote it. When the gate cannot read something, it fail
 
 One exception (#548): LaunchBrightly's merge of its own pull request into `staging`. On
 `staging`, a commit LaunchBrightly (`launchbrightly[bot]`, user id 270903805) authored or
-committed passes only as the merge commit of its own pull request into `staging` whose
-"LaunchBrightly PR guard" check, run by GitHub Actions, passed at the head that was merged. That
-holds whoever merged it, because a squash commit keeps the pull request author's name (measured on
-#273: a pull request tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot]
-as its commit author). A merge by their app itself passes on the same terms. When the merge comes
-before the guard has finished, the gate waits for it, 20 seconds at a time, up to 6 minutes in
-all, then stops if it still has no passing result. Any push by their app, anything by it on
-`main`, any other app, and a push or merge when the gate cannot read who made it all still stop
-the run. The gate reads the guard with `checks: read`. `scripts/push-gate-cases.mjs` runs the gate's
-own script from both workflow files against a fake GitHub, both ways, and plants faults that must
-turn it red; `pr-validate.yml` runs it on every pull request.
+committed passes only as the merge commit of its own pull request into `staging` whose newest
+"LaunchBrightly PR guard (into staging)" check, run by GitHub Actions, passed at the head that was
+merged. The base in the check's name is the one the guard judged, so a pass recorded before the
+pull request's base was changed to `staging` does not count. That holds whoever merged it, because
+a squash commit keeps the pull request author's name (measured on #273: a pull request
+tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit author).
+A merge by their app itself passes on the same terms; a merge commit or rebase still stops, as
+above. When the merge comes before the guard has finished, the gate waits for it, 20 seconds at a
+time, up to 6 minutes in all, then stops if it still has no passing result, unless a person has
+already accepted that commit on the gate's issue. Its job limit is 20 minutes, well above that
+wait. Any push by their app, any push or merge by it on `main`, any other app, and a push or merge
+when the gate cannot read who made it all still stop the run; an activity entry that names no
+commit is skipped with a warning, since every commit in the range is judged anyway. On `main` a
+person's merge is judged as before, their own included. One known stop: if a person ever merges
+one of their pull requests straight into `main`, the next merge of `main` back into `staging`
+stops once on that commit, because on `staging` their commit must come from a pull request into
+`staging`; accept it on the issue. The gate reads the guard with `checks: read`.
+`scripts/push-gate-cases.mjs` runs the gate's own script from both workflow files against a fake
+GitHub, both ways, and plants faults that must turn it red; `pr-validate.yml` runs it on every
+pull request.
 
 On a stop it opens one issue, "Docs pipeline stopped: commits reached <branch> without a pull
 request", listing each commit and who made it, and adds to that issue on later stops. Review the
