@@ -243,9 +243,11 @@ One exception (#548): LaunchBrightly's merge of its own pull request into `stagi
 `staging`, a commit LaunchBrightly (`launchbrightly[bot]`, user id 270903805) authored or
 committed passes only as the merge commit of its own pull request #N into `staging`, when, of the
 `pr-validate.yml` runs on that pull request's head, the newest one that has a job named
-"LaunchBrightly PR guard (#N into staging)" shows that job passed. A run without that job is
-passed over: it is another pull request's run on the same commit, which anyone can open in a
-public repository, or a run that has not started its jobs, such as one waiting for approval. The
+"LaunchBrightly PR guard (#N into staging)" shows that job passed. (A person's pull request that
+carries one of their commits passes as before.) Only runs from the pull request's own head
+repository count, read across pages up to 1,000 runs, and a run without that job is passed over:
+it is another pull request's run on the same commit, which anyone can open in a public
+repository, or a run that has not started its jobs, such as one waiting for approval. The
 number and base in the job's name are the ones the guard judged, so a pass for another pull
 request with the same head, or one recorded before the base was changed to `staging`, does not
 count. The gate reads it from the Actions API (workflow runs and their jobs, with
@@ -254,13 +256,16 @@ count. The gate reads it from the Actions API (workflow runs and their jobs, wit
 or it cannot decide. In that job the step that decides runs the base branch's copy of the guard
 before any code from the pull request runs, and when the base has no guard it refuses a pull
 request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
-checks both. That holds whoever merged it and however. On `staging` every commit in the range, and
-every merge in the activity API, is looked up by the pull request it merged, and when the pull
-request is theirs its guard must have passed, whatever the commits say about who wrote them. So a
-merge is judged even before the activity API lists it. GitHub may link a commit to its pull request
-a little after the merge, so when a commit's own list has none, the gate also reads the 100 pull
-requests most recently closed into the branch, since a pull request records its merge commit when
-it is merged. A person's merge whose pull request still cannot be found stops the run, because
+checks both, and that nothing in that job's checkout or env can make it read the pull request's
+files first. That holds whoever merged it and however. On `staging` every commit in the range that
+GitHub committed as a merge (GitHub commits every squash, merge commit and rebase it makes as
+"GitHub <noreply@github.com>"; measured 2026-11-18 on the 200 newest commits, all 68 squash
+merges and all 13 merge commits), and every merge in the activity API, is looked up by the pull
+request it merged. When the pull request is theirs its guard must have passed, whatever the
+commits say about who wrote them, so a merge is judged even before the activity API lists it. The
+gate reads the 100 pull requests most recently closed into the branch once per run, since a pull
+request records its merge commit when it is merged, and asks GitHub for a commit's own pull
+requests only when it is not among them. A person's merge whose pull request still cannot be found stops the run, because
 nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
 squash commit keeps the pull request author's name (measured on #273: a pull request
 tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
@@ -288,7 +293,9 @@ tightened `scripts/lb-pr-guard.py` or `repo_screenshot_rules.py` on `staging` st
 merge through. Re-running the old job does not help, because a re-run judges the same test merge
 with the same base. After tightening either file, close every open pull request by their app, so
 it cannot be merged, and reopen it: the reopened pull request gets a new run against the new rules,
-and once that run lists its guard job, that job is the one that counts.
+and once that run lists its guard job, that job is the one that counts. A merge in the seconds
+before that new run lists its jobs still counts the old pass; their app is to wait for the checks,
+which then show as pending.
 
 Any push by their app, any push or merge by it on `main`, any other app, and a push or merge when
 the gate cannot read who made it all still stop the run; an activity entry that names no commit is

@@ -101,9 +101,10 @@ function guardJob() {
     'doc = yaml.safe_load(open(sys.argv[1]))',
     'job = (doc.get("jobs") or {}).get("lb-pr-guard") or {}',
     'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or ""), "with": s.get("with") or {},',
-    '          "if": s.get("if"), "continueOnError": s.get("continue-on-error")}',
+    '          "if": s.get("if"), "continueOnError": s.get("continue-on-error"), "env": s.get("env") or {}}',
     '         for s in (job.get("steps") or []) if isinstance(s, dict)]',
-    'print(json.dumps({"name": job.get("name"), "continueOnError": job.get("continue-on-error"), "steps": steps}))',
+    'print(json.dumps({"name": job.get("name"), "continueOnError": job.get("continue-on-error"), "env": job.get("env") or {},',
+    '                  "workflowEnv": doc.get("env") or {}, "steps": steps}))',
   ].join('\n');
   const r = spawnSync('python3', ['-c', code, path], { encoding: 'utf8' });
   if (r.error || r.status !== 0) cannotRun(`python3 with PyYAML could not read ${path}: ${r.error ? r.error.message : r.stderr.trim()}`);
@@ -186,6 +187,12 @@ function guardJobProblems(job) {
   const decide = job.steps[check];
   if (decide.if !== null && decide.if !== undefined) problems.push(`the step that decides has an if: (${decide.if}), so it can be skipped and the job pass`);
   if (decide.continueOnError) problems.push('the step that decides has continue-on-error, so the job can pass while it fails');
+  // Environment can make bash or python load files from the pull request inside the step that decides
+  // (BASH_ENV, PYTHONPATH and the like), so only the step's own two author variables may be set.
+  if (Object.keys(job.workflowEnv || {}).length) problems.push(`pr-validate.yml sets env for every job (${Object.keys(job.workflowEnv).join(', ')}), which reaches the step that decides`);
+  if (Object.keys(job.env || {}).length) problems.push(`the lb-pr-guard job sets env (${Object.keys(job.env).join(', ')}), which reaches the step that decides`);
+  const extra = Object.keys(decide.env || {}).filter((k) => !['PR_AUTHOR_LOGIN', 'PR_AUTHOR_ID'].includes(k));
+  if (extra.length) problems.push(`the step that decides sets env beyond its author variables (${extra.join(', ')})`);
   const dir = mkdtempSync(join(tmpdir(), 'push-gate-guard-'));
   let failure = null;
   try {
@@ -276,6 +283,14 @@ const GUARD = {
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
     { id: 2, jobs: [] },
   ],
+  'fork-run-newer': (n) => [
+    { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
+    { id: 2, repo: 'someone/documentation', jobs: [job(21, jobName(n), 'completed', 'failure')] },
+  ],
+  'many-runs': (n) => [
+    { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
+    ...Array.from({ length: 149 }, (_, i) => ({ id: i + 2, jobs: [] })),
+  ],
   'newer-other-pr-failed': (n) => [
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
     { id: 2, jobs: [job(21, jobName(n + 500, 'main'), 'completed', 'failure')] },
@@ -299,7 +314,7 @@ const pullRequest = (number, mergeSha, author, base, head) => ({
   merge_commit_sha: mergeSha,
   user: author,
   base: { ref: base },
-  head: { sha: head },
+  head: { sha: head, repo: { full_name: 'tallyfy/documentation' } },
 });
 
 // A person closed the gate's issue as completed. Its title is the gate's own, or the one it used before #548.
@@ -348,6 +363,7 @@ function scenario({ branch = 'staging', changes = [] }) {
 function fakeGitHub(world, broken) {
   return {
     async request(route, params = {}) {
+      if (route.startsWith('POST ') || route.startsWith('PATCH ')) world.writes = (world.writes || 0) + 1;
       if (broken.includes(route)) throw Object.assign(new Error('fake outage'), { status: 500 });
       if (world.flaky && world.flaky[route]) {
         world.flaky[route] -= 1;
@@ -365,8 +381,11 @@ function fakeGitHub(world, broken) {
           if (state === 'broken') throw Object.assign(new Error('fake outage'), { status: 500 });
           const runs = GUARD[state](world.guardPr[params.head_sha]);
           for (const r of runs) world.jobs[r.id] = r;
-          const listed = runs.map((r) => ({ id: r.id, event: 'pull_request', head_sha: params.head_sha, path: '.github/workflows/pr-validate.yml' }));
-          return { data: { total_count: runs.totalCount || listed.length, workflow_runs: listed } };
+          const listed = runs.map((r) => ({ id: r.id, event: 'pull_request', head_sha: params.head_sha, path: '.github/workflows/pr-validate.yml',
+            head_repository: { full_name: r.repo || 'tallyfy/documentation' } }));
+          const per = params.per_page || 30;
+          const page = params.page || 1;
+          return { data: { total_count: runs.totalCount || listed.length, workflow_runs: listed.slice((page - 1) * per, page * per) } };
         }
         case 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs': {
           const r = world.jobs[params.run_id] || { jobs: [] };
@@ -413,7 +432,7 @@ async function decide(script, mode, world, broken = []) {
     : { GATE_MODE: 'push', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_HEAD: world.head };
   const gate = new AsyncFunction(...PARAMS, script);
   await gate(fakeGitHub(world, broken), context, core, { env });
-  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n') };
+  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), writes: world.writes || 0 };
 }
 
 const lbMerge = (extra = {}) => ({ kind: 'merge', by: LB, prAuthor: LB, ...extra });
@@ -495,8 +514,13 @@ const CASES = [
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON }], linkLag: true }],
   ['GitHub has not linked a person\'s merge of their pull request yet, guard failed', 'stop', 'ended failure',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }], linkLag: true }],
+  ['a fork\'s newer run on the same commit, with a job of that name, does not count', 'pass', null,
+    { changes: [lbMerge({ guard: 'fork-run-newer' })] }],
+  ['more than 100 runs on their head are read across pages', 'pass', null, { changes: [lbMerge({ guard: 'many-runs' })] }],
+  ['a write that fails is not tried again', 'stop', 'could not decide',
+    { changes: [lbMerge({ guard: 'failure' })], flaky: ['POST /repos/{owner}/{repo}/issues'] }],
   ['a read that fails once on GitHub\'s side is tried again', 'pass', null,
-    { changes: [lbMerge()], flaky: ['GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls'] }],
+    { changes: [lbMerge()], flaky: ['GET /repos/{owner}/{repo}/pulls'] }],
   ['their merge with no passed guard that a person accepted on the gate\'s issue', 'pass', null,
     { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
   ['their merge with no passed guard that a person accepted on an issue with the title used before #548', 'pass', null,
@@ -507,8 +531,10 @@ const CASES = [
   ['nothing changed since the last good run', 'pass', null, { changes: [] }],
   ['a push or merge that names no commit is not judged', 'pass', null, { noCommitActivity: true }],
   ['who made a change cannot be read', 'stop', 'could not read', { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, actorless: true }] }],
-  ['the pull requests of their merge cannot be read', 'stop', 'could not decide',
-    { changes: [lbMerge()], broken: ['GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls'] }],
+  ['the pull requests closed into the branch cannot be read', 'stop', 'could not decide',
+    { changes: [lbMerge()], broken: ['GET /repos/{owner}/{repo}/pulls'] }],
+  ['the pull requests of a merge not among the recently closed cannot be read', 'stop', 'could not decide',
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, noPullRequest: true }], broken: ['GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls'] }],
   ['the guard runs cannot be read', 'stop', 'could not decide', { changes: [lbMerge({ guard: 'broken' })] }],
   ['the guard jobs cannot be read', 'stop', 'could not decide',
     { changes: [lbMerge()], broken: ['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs'] }],
@@ -552,10 +578,11 @@ function worldFor(spec) {
   if (spec.personMerge) {
     // Their pull request's commits carry a git identity that names no app and links to no account, and a
     // person merges it with a merge commit, or rebases it in (the last rebased commit is the merge commit).
-    const plain = (label) => ({ sha: sha(label), author: null, committer: null,
-      commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } });
+    // GitHub commits the merge, and rewrites the committer of rebased commits, as itself.
+    const plain = (label) => ({ sha: sha(label), author: null, committer: WEB_FLOW,
+      commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'GitHub', email: 'noreply@github.com' } } });
     const own = [plain(`${spec.personMerge}-own-1`), plain(`${spec.personMerge}-own-2`)];
-    const last = spec.personMerge === 'rebase' ? own[1] : commitBy(`${spec.personMerge}-merge`, PERSON);
+    const last = spec.personMerge === 'rebase' ? own[1] : commitBy(`${spec.personMerge}-merge`, PERSON, WEB_FLOW);
     const head = sha(`${spec.personMerge}-head`);
     const pr = pullRequest(203, last.sha, LB, 'staging', head);
     world.commits.push(...own);
@@ -599,6 +626,7 @@ async function runCases(gate, label) {
       if (got.outcome !== want) problems.push(`expected ${want}, got ${got.outcome}`);
       if (want === 'stop' && got.outcome === 'stop' && reason && !got.text.includes(reason)) problems.push(`the stop does not say "${reason}"`);
       if (/crashed/.test(got.text)) problems.push('the gate crashed');
+      if (got.writes > 1) problems.push(`made ${got.writes} writes; a stop opens or updates one issue once`);
       if (problems.length) wrong.push(`${name} [${mode}]: ${problems.join('; ')}${got.text ? `: ${got.text.split('\n')[0]}` : ''}`);
       if (label === 'real') console.log(`${problems.length ? 'FAIL' : 'ok  '} ${want.padEnd(4)} ${name} [${mode}]${problems.length ? ` -> ${problems.join('; ')}` : ''}`);
     }
@@ -615,7 +643,7 @@ const FAULTS = [
   ['the oldest guard run decides', '.sort((a, b) => Number(b.id) - Number(a.id));', '.sort((a, b) => Number(a.id) - Number(b.id));'],
   ['a guard job for another pull request or base accepted', 'jobs.filter((j) => j && j.name === jobName)', "jobs.filter((j) => j && String(j.name).startsWith('LaunchBrightly PR guard ('))"],
   ['two guard jobs of one name trusted', 'if (named.length > 1) throw', 'if (false) throw'],
-  ['a short list of guard runs trusted', 'if (runs.length !== data.total_count) throw', 'if (false) throw'],
+  ['a short list of guard runs trusted', 'if (runs.length !== total) throw', 'if (false) throw'],
   ['a short list of guard jobs trusted', 'if (jobs.length !== listed.total_count) throw', 'if (false) throw'],
   ['the newest run decides even without the guard job', 'if (named.length) return { run, job: named[0] };',
     'return named.length ? { run, job: named[0] } : null;'],
@@ -627,7 +655,11 @@ const FAULTS = [
   ['a push by their app let through on their terms', "a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)", 'isLaunchBrightly(who, a.actor.id)'],
   ['the commits on staging not looked up by their pull request', 'const problem = await theirMergeProblem(c.sha);', 'const problem = null;'],
   ['anyone\'s pull request held to their rules', 'if (!pr || !isLaunchBrightly(author.login, author.id)) return null;', 'if (!pr) return null;'],
-  ['the closed pull requests not read when a commit is not linked yet', '|| (await recentlyClosed()).find(isMerge) ||', '||'],
+  ['the closed pull requests not read when a commit is not linked yet', 'const listed = (await recentlyClosed()).find(isMerge);', 'const listed = null;'],
+  ['the merges GitHub made not looked up', 'if (branch === LB_BRANCH && byGitHub(c)) {', 'if (branch === LB_BRANCH && !byGitHub(c)) {'],
+  ['a fork\'s runs on the same commit counted', '&& r.head_repository && r.head_repository.full_name === headRepo)', ')'],
+  ['only the first page of guard runs read', 'for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {', 'for (let page = 1; page <= 1; page += 1) {'],
+  ['a failed write tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'if (!(Number(err.status) >= 500)) throw err;'],
   ['a failed read not tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'throw err;'],
   ['an unreadable actor let through', 'if (!who) {', 'if (!who) { continue;'],
   ['the anchor\'s own entry skipped', 'const who = a.actor && a.actor.login;', 'if (a.after === anchor.sha) continue; const who = a.actor && a.actor.login;'],
@@ -668,6 +700,10 @@ const GUARD_FAULTS = [
   ['the deciding step allowed to fail', (job) => (checkStep < 0 ? null
     : { ...job, steps: job.steps.map((s, i) => (i === checkStep ? { ...s, continueOnError: true } : s)) })],
   ['the guard job allowed to fail', (job) => ({ ...job, continueOnError: true })],
+  ['BASH_ENV set for the guard job', (job) => ({ ...job, env: { ...job.env, BASH_ENV: './scripts/setup.sh' } })],
+  ['PYTHONPATH set on the deciding step', (job) => (checkStep < 0 ? null
+    : { ...job, steps: job.steps.map((s, i) => (i === checkStep ? { ...s, env: { ...s.env, PYTHONPATH: '${{ github.workspace }}/scripts' } } : s)) })],
+  ['env set for every job in pr-validate.yml', (job) => ({ ...job, workflowEnv: { ...job.workflowEnv, PYTHONSTARTUP: './x.py' } })],
   ['the checkout made to fetch the pull request\'s head', (job) => ({ ...job,
     steps: job.steps.map((s) => (/^actions\/checkout@/.test(s.uses) ? { ...s, with: { ...s.with, ref: '${{ github.event.pull_request.head.sha }}' } } : s)) })],
   ['the checkout made to fetch another repository', (job) => ({ ...job,
