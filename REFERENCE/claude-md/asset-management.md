@@ -268,17 +268,20 @@ guard must have passed, so a merge is judged even before the activity API lists 
 A person can also merge one of their pull requests from the command line by pushing its head
 straight to `staging`. We expect GitHub to record the pushed commit as the pull request's merge
 commit and the activity API to log a push, not a merge; neither is measured yet, since no such push
-has happened here. When the pushed commits name an app, the head is held to the guard as above, and
-any earlier commit of the pull request stops as "no merged pull request has it as its merge commit",
-as a merge commit or a rebase of more than one commit does. When they name no app other than the
-two allowed, the push is a person's push and is judged as one: the gate trusts it, as it always has
-trusted a person's push.
+has happened here. When the pushed head names an app other than the two allowed, it is held to the
+guard as above; if other pull requests share that head, theirs is the one judged. An earlier commit
+of the pull request that names such an app stops as "no merged pull request has it as its merge
+commit", as in a merge commit or a rebase of more than one commit, and an earlier commit that names
+none passes. When the head names no such app, the push is a person's push and is judged as one: the
+gate trusts it, as it always has trusted a person's push. A head pushed before GitHub marks its pull
+request merged stops the same way as an earlier commit does, and passes on a later run once it is.
 
 Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
 since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
 pull requests only for a commit GitHub committed as a merge, a commit that names an app other than
-the two allowed, or a merge in the activity API, and only when it is not among those 100. The
-pipeline's own commits and people's pushes cost no read of their own. A person's merge whose pull
+the two allowed, or a merge in the activity API, and only when it is not among those 100. When the
+pull request is theirs, judging it also reads its guard runs and their jobs. The pipeline's own
+commits, and people's pushes that name no app outside the two allowed, cost no read of their own. A person's merge whose pull
 request still cannot be found stops the run, because nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
 squash commit keeps the pull request author's name (measured on #273: a pull request
 tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit

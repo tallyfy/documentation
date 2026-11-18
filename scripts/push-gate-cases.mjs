@@ -254,6 +254,10 @@ const ACTIONS = { login: 'github-actions[bot]', id: 41898282, type: 'Bot' };
 const WEB_FLOW = { login: 'web-flow', id: 19864447, type: 'User' };
 
 const gitIdentity = (u) => ({ name: u.login, email: `${u.id}+${u.login}@users.noreply.github.com` });
+// A commit whose git identity names no app and links to no account; GitHub as committer when byGitHub.
+const plainCommit = (label, byGitHub) => ({ sha: sha(label), author: null, committer: byGitHub ? WEB_FLOW : null,
+  commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' },
+    committer: byGitHub ? { name: 'GitHub', email: 'noreply@github.com' } : { name: 'Screenshot updater', email: 'updater@example.com' } } });
 const commitBy = (label, author, committer = author) => ({
   sha: sha(label),
   author,
@@ -515,6 +519,10 @@ const CASES = [
     { personPushHead: { names: 'app', guard: 'success' } }],
   ['a person pushes the head of their pull request straight to staging, its commit naming another app, guard failed', 'stop',
     'ended failure', { personPushHead: { names: 'other', guard: 'failure' } }],
+  ['a person pushes the head of their pull request straight to staging, and another pull request on that head is listed first, guard failed',
+    'stop', 'ended failure', { personPushHead: { names: 'app', guard: 'failure', shared: true } }],
+  ['a person pushes the head of their pull request straight to staging before GitHub marks it merged', 'stop',
+    'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', guard: 'success', notMergedYet: true } }],
   ['a person pushes the head of their two-commit pull request straight to staging, commits naming their app: the first stops', 'stop',
     'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', count: 2, guard: 'success' } }],
   ['a person pushes the head of their pull request straight to staging, commits naming no app: a person\'s push', 'pass', null,
@@ -592,9 +600,7 @@ function worldFor(spec) {
     // Their pull request's commits carry a git identity that names no app and links to no account, and a
     // person merges it with a merge commit, or rebases it in (the last rebased commit is the merge commit).
     // GitHub commits the merge, and rewrites the committer of rebased commits, as itself.
-    const plain = (label) => ({ sha: sha(label), author: null, committer: WEB_FLOW,
-      commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'GitHub', email: 'noreply@github.com' } } });
-    const own = [plain(`${spec.personMerge}-own-1`), plain(`${spec.personMerge}-own-2`)];
+    const own = [plainCommit(`${spec.personMerge}-own-1`, true), plainCommit(`${spec.personMerge}-own-2`, true)];
     const last = spec.personMerge === 'rebase' ? own[1] : commitBy(`${spec.personMerge}-merge`, PERSON, WEB_FLOW);
     const head = sha(`${spec.personMerge}-head`);
     const pr = pullRequest(203, last.sha, LB, 'staging', head);
@@ -616,17 +622,19 @@ function worldFor(spec) {
     world.guardPr[head] = 204;
   }
   if (spec.personPushHead) {
-    // A person merges their pull request from the command line by pushing its head straight to staging;
-    // GitHub records the pushed commit as the pull request's merge commit. The pull request's head is that commit.
-    const { names = 'app', count = 1 } = spec.personPushHead;
-    const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP)
-      : { sha: sha(label), author: null, committer: null,
-        commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } });
+    // A person merges their pull request from the command line by pushing its head straight to staging.
+    // GitHub is expected, not measured, to record the pushed commit as the pull request's merge commit;
+    // notMergedYet is the moment before it does. The pull request's head is that commit. shared adds
+    // another person's pull request on the same head, listed first, which GitHub marks merged too.
+    const { names = 'app', count = 1, notMergedYet = false, shared = false } = spec.personPushHead;
+    const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP) : plainCommit(label, false));
     const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
     const c = own[own.length - 1];
     world.commits.push(...own);
     const pr = pullRequest(205, c.sha, LB, 'staging', c.sha);
-    for (const o of own) world.pulls[o.sha] = [pr];
+    if (notMergedYet) Object.assign(pr, { merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    const prs = shared ? [pullRequest(206, c.sha, PERSON, 'staging', c.sha), pr] : [pr];
+    for (const o of own) world.pulls[o.sha] = prs;
     world.guard[c.sha] = spec.personPushHead.guard;
     world.guardPr[c.sha] = 205;
     world.activity.unshift({ activity_type: 'push', actor: PERSON, after: c.sha, timestamp: '2026-11-18T12:30:00Z' });
@@ -687,12 +695,15 @@ const FAULTS = [
   ['any app\'s merge let through on their terms', "if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {", "if (a.activity_type === 'pr_merge') {"],
   ['a push by their app let through on their terms', "a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)", 'isLaunchBrightly(who, a.actor.id)'],
   ['the commits on staging not looked up by their pull request', 'const problem = await theirMergeProblem(c.sha);', 'const problem = null;'],
-  ['anyone\'s pull request held to their rules', 'if (!pr || !isLaunchBrightly(author.login, author.id)) return null;', 'if (!pr) return null;'],
-  ['the closed pull requests not read when a commit is not linked yet', 'const listed = (await recentlyClosed()).find(isMerge);', 'const listed = null;'],
+  ['anyone\'s pull request held to their rules', 'if (!(await mergedPrsOf(sha)).some(isTheirs)) return null;', 'if (!(await mergedPrsOf(sha)).length) return null;'],
+  ['the closed pull requests not read when a commit is not linked yet', 'const listed = (await recentlyClosed()).filter(isMerge);', 'const listed = [];'],
   ['the merges GitHub made not looked up', '(byGitHub(c) || bots.length)', '(!byGitHub(c) && bots.length)'],
   ['the commits naming an app not looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c))'],
   ['only the commits naming their own app looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c) || bots.includes(LB_BOT))'],
   ['every staging commit looked up', '(byGitHub(c) || bots.length)', '(true)'],
+  ['only the first pull request on a shared commit judged', 'if (!(await mergedPrsOf(sha)).some(isTheirs)) return null;',
+    'if (!isTheirs((await mergedPrsOf(sha))[0])) return null;'],
+  ['their pull request not preferred on a shared commit', 'return prs.find(isTheirs) || prs[0] || null;', 'return prs[0] || null;'],
   ['a fork\'s runs on the same commit counted', '&& r.head_repository && r.head_repository.full_name === headRepo)', ')'],
   ['only the first page of guard runs read', 'for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {', 'for (let page = 1; page <= 1; page += 1) {'],
   ['a failed write tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'if (!(Number(err.status) >= 500)) throw err;'],
