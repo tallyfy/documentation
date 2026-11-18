@@ -17,6 +17,12 @@ name: PR validation
 # block a merge; it exists so a pull request author sees a result BEFORE merging
 # rather than finding out from a red pipeline on the default branch afterwards.
 # Making it required is a separate decision and needs branch protection first.
+# Dated 2026-11-18 (#548): one job here is no longer only advisory. The push gate in
+# generate-ids.yml and documentation-pipeline.yml lets LaunchBrightly's merge into staging
+# run the pipeline only when the lb-pr-guard job below has passed for that pull request. So that
+# job's name, its deciding step running first, its checkout setting no ref or repository, that
+# step having no `if:`, no continue-on-error and no env beyond its two author variables (none at
+# job or workflow level either) all matter; scripts/push-gate-cases.mjs checks each of them.
 
 on:
   pull_request:
@@ -33,7 +39,9 @@ concurrency:
   # run reports as `cancelled` having started zero jobs, which reads as
   # deliberate. This workflow only fires on pull_request today, and the key keeps
   # that true if a trigger is ever added.
-  group: pr-validate-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  # Keyed on the pull request number (#548), so another pull request from a branch of the same
+  # name, a fork's included, cannot cancel this one's run.
+  group: pr-validate-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -66,11 +74,18 @@ jobs:
       # their self-tests talk only to a fake API they start on 127.0.0.1.
       # python-dotenv is for the asset inventory step below: scripts/asset_management/config.py
       # imports it when the module loads.
+      # push-gate-cases.mjs (#548) runs the push gate's own script, taken from both workflow files,
+      # against a fake GitHub with no network, both ways, and plants faults in it that must turn it
+      # red, and checks the lb-pr-guard job the gate trusts. It needs the Node the runner image
+      # already has (built-in modules only), python3 with PyYAML (from the lint step above), git
+      # and bash.
       - name: "Pipeline script self-tests (#296, #295)"
         run: |
           python -m pip install --upgrade python-frontmatter requests python-dotenv
           python scripts/pipeline-guard.py --self-test
           python scripts/pipeline-guard.py --check-wiring
+          node --version
+          node scripts/push-gate-cases.mjs
           python scripts/update-last-modified.py --self-test
           python scripts/generate-ids.py --self-test
           python scripts/generate-snippets.py --self-test
@@ -159,8 +174,12 @@ jobs:
   # It reads GitHub's test merge, so depth 2 brings the base (HEAD^1) and the pull request
   # (HEAD^2). The author comes in through env, never written into the script line. No secrets and
   # no environment: `scripts/pipeline-guard.py --check-wiring` asserts that for this whole file.
+  # The job's name carries the pull request number and the base branch it judged, so the push
+  # gate in generate-ids.yml and documentation-pipeline.yml trusts only "LaunchBrightly PR guard
+  # (#N into staging)" for pull request #N (#548): a pass for another pull request with the same
+  # head, or one recorded before a base change, never counts.
   lb-pr-guard:
-    name: LaunchBrightly PR guard
+    name: LaunchBrightly PR guard (#${{ github.event.pull_request.number }} into ${{ github.base_ref }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -173,13 +192,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Prove the guard can refuse (one red and one green case per rule)
-        run: python scripts/lb-pr-guard.py --self-test
-        shell: bash
-
       # The guard and its rules come from the base branch when it has them, so a pull request
       # cannot pass itself by editing the check that judges it. The pull request's own copy is
-      # used only until the base carries the guard.
+      # used only until the base carries the guard, and never for a pull request by
+      # launchbrightly[bot] (login or user id 270903805). This step runs before any code from the
+      # pull request does (#548): the push gate trusts this job's pass for LaunchBrightly's merges
+      # into staging, and a pull request's script run earlier on this runner could change what this
+      # step sees. `scripts/push-gate-cases.mjs` checks both.
       - name: Check what this pull request changes
         env:
           PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
@@ -194,6 +213,11 @@ jobs:
               > "$guard/scripts/asset_management/repo_screenshot_rules.py"
             echo "Running the guard from the base branch."
           else
+            author=$(printf '%s' "$PR_AUTHOR_LOGIN" | tr '[:upper:]' '[:lower:]')
+            if [ "$author" = "launchbrightly[bot]" ] || [ "$PR_AUTHOR_ID" = "270903805" ]; then
+              echo "::error::the base branch has no guard, and a pull request by launchbrightly[bot] is never judged by its own copy"
+              exit 1
+            fi
             cp scripts/lb-pr-guard.py "$guard/scripts/lb-pr-guard.py"
             cp scripts/asset_management/repo_screenshot_rules.py "$guard/scripts/asset_management/"
             echo "::notice::the base branch has no guard yet, so this run uses the pull request's own copy"
@@ -201,6 +225,12 @@ jobs:
           test -s "$guard/scripts/lb-pr-guard.py"
           test -s "$guard/scripts/asset_management/repo_screenshot_rules.py"
           python "$guard/scripts/lb-pr-guard.py" --repo "$PWD"
+        shell: bash
+
+      # The pull request's own copy of the guard proves it can refuse. It runs after the check above
+      # has decided, so it can only add a failure to this job, never take one away.
+      - name: Prove the guard can refuse (one red and one green case per rule)
+        run: python scripts/lb-pr-guard.py --self-test
         shell: bash
 
   # A promotion into main carries the date of each page it changes (tallyfy/documentation#492).

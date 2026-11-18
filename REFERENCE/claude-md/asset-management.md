@@ -152,6 +152,12 @@ How such a pull request flows:
    request, each `/screenshots/` link must name a file in the merged tree, and anyone else who
    touches the folder gets a warning, because pages showing those images credit LaunchBrightly.
    The job runs the base branch's copy of the guard, so a pull request cannot edit its own check.
+   Dated 2026-11-17 (#548): a pull request into a branch that has no guard yet runs its own copy,
+   except one by their app, which is refused. The deciding step runs before any code from the pull
+   request does. The job is now named "LaunchBrightly PR guard (#<number> into <base>)" after the pull request
+   and the base it judged, so the push gate trusts only "LaunchBrightly PR guard (#N into staging)"
+   for pull request #N. The workflow's concurrency group is keyed on the pull request number, so
+   another pull request from a branch of the same name cannot cancel that run.
 2. After the merge into `staging`, the `repo-screenshots` pipeline job runs
    `scripts/asset_management/repo_screenshots.py ingest`. It uploads each new or changed image to
    screenshots.tallyfy.com under a key carrying the first 12 hex characters of its SHA-256, such
@@ -171,6 +177,11 @@ How such a pull request flows:
    staging to production" says. The image it replaces stays on screenshots.tallyfy.com, because
    old image URLs keep working. Their screenshots show the next-gen client, so a page can show
    next-gen screens while customers still use the legacy app. The owner accepted that.
+   Dated 2026-11-17 (#548): their app may now merge its own pull request into `staging` itself,
+   once the guard has finished and passed against `staging` (see "The push gate" below). A merge
+   before that stops the pipeline until the guard has passed and the run is started again, or a
+   person accepts it. So the review in this step happens on staging.tallyfy.com after that merge,
+   before the promotion to `main`.
 
 The file rules live in `scripts/asset_management/repo_screenshot_rules.py`, shared by the guard
 and the job:
@@ -228,8 +239,78 @@ commits then sit on the branch outside a merge commit: squash-merge them. A push
 a bot also stops the run, read from the repository activity API, which records who pushed whatever
 the commit says about who wrote it. When the gate cannot read something, it fails.
 
-On a stop it opens one issue, "Docs pipeline stopped: commits reached <branch> without a pull
-request", listing each commit and who made it, and adds to that issue on later stops. Review the
+One exception (#548): LaunchBrightly's merge of its own pull request into `staging`. On
+`staging`, a commit LaunchBrightly (`launchbrightly[bot]`, user id 270903805) authored or
+committed passes only as the merge commit of its own pull request #N into `staging`, when, of the
+`pr-validate.yml` runs on that pull request's head, the newest one that has a job named
+"LaunchBrightly PR guard (#N into staging)" shows that job passed. (A person's pull request that
+carries one of their commits passes as before.) Only runs from the pull request's own head
+repository count, read across pages up to 1,000 runs, and a run without that job is passed over:
+it is another pull request's run on the same commit, which anyone can open in a public
+repository, or a run that has not started its jobs, such as one waiting for approval. The
+number and base in the job's name are the ones the guard judged, so a pass for another pull
+request with the same head, or one recorded before the base was changed to `staging`, does not
+count. The gate reads it from the Actions API (workflow runs and their jobs, with
+`actions: read`), because a job is defined by the workflow file, while any token with
+`checks: write` could create a check run of any name. Every list it reads must come back whole,
+or it cannot decide. In that job the step that decides runs the base branch's copy of the guard
+before any code from the pull request runs, and when the base has no guard it refuses a pull
+request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
+checks both, and that nothing in that job's checkout or env can make it read the pull request's
+files first. That holds whoever merged it and however. On `staging` every commit in the range that
+GitHub committed as a merge (GitHub commits every squash, merge commit and rebase it makes as
+"GitHub <noreply@github.com>"; measured 2026-11-18 on the 200 newest commits, all 68 squash
+merges and all 13 merge commits), and every merge in the activity API, is looked up by the pull
+request it merged. When the pull request is theirs its guard must have passed, whatever the
+commits say about who wrote them, so a merge is judged even before the activity API lists it. The
+gate reads the 100 pull requests most recently closed into the branch once per run, since a pull
+request records its merge commit when it is merged, and asks GitHub for a commit's own pull
+requests only when it is not among them. A person's merge whose pull request still cannot be found stops the run, because
+nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
+squash commit keeps the pull request author's name (measured on #273: a pull request
+tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
+author). A merge by their app itself passes on the same terms. Commits that name their app and
+arrive by a merge commit, or by a rebase of more than one commit, still stop, as above; a rebase of
+a single commit passes like a squash, because that commit is the pull request's merge commit.
+
+The gate never waits. Their app is to merge only after the guard has passed. A merge before that
+stops the run and opens the issue. Once the guard has passed, re-running the failed workflow, or
+the next push to `staging`, judges the merge again and lets it through, so close the issue as
+completed then; a person can also accept it on the issue at any time. A wait was tried in review
+and dropped: in `documentation-pipeline.yml` it would let commits that land during the wait run
+unjudged, because that workflow's later jobs check out the branch tip when they start. The push
+or merge that produced the anchor is judged again on every run, so an entry the activity API
+listed only after an earlier run still gets judged; an acceptance on the issue covers it on every
+later run.
+
+Two known limits. First, the gate trusts the guard job by its name, and a pull request run takes
+its workflow file from the pull request. So someone who can change workflow files could add a job
+of that name to their own pull request. Their app cannot, because it has no workflows permission
+(it has contents and pull requests write), and anyone who can change workflow files can already
+change the gate itself. Second, a pass counts however old it is. A pull request run starts only
+when the pull request is opened, reopened or gets new commits, so a pass recorded before someone
+tightened `scripts/lb-pr-guard.py` or `repo_screenshot_rules.py` on `staging` still lets their
+merge through. Re-running the old job does not help, because a re-run judges the same test merge
+with the same base. After tightening either file, close every open pull request by their app, so
+it cannot be merged, and reopen it: the reopened pull request gets a new run against the new rules,
+and once that run lists its guard job, that job is the one that counts. A merge in the seconds
+before that new run lists its jobs still counts the old pass; their app is to wait for the checks,
+which then show as pending.
+
+Any push by their app, any push or merge by it on `main`, any other app, and a push or merge when
+the gate cannot read who made it all still stop the run; an activity entry that names no commit is
+skipped with a warning, since every commit in the range is judged anyway. On `main` a person's
+merge is judged as before, their own included. One known stop: if a person ever merges one of
+their pull requests straight into `main`, the next merge of `main` back into `staging` stops once
+on that commit, because on `staging` their commit must come from a pull request into `staging`;
+accept it on the issue. `scripts/push-gate-cases.mjs` runs the gate's own script from both
+workflow files against a fake GitHub, in each file's mode, both ways, checks why each stop
+happened, and plants faults that must turn it red; `pr-validate.yml` runs it on every pull request.
+
+On a stop it opens one issue, "Docs pipeline stopped: the push gate did not let commits on
+<branch> through", listing each commit, who made it and why it stopped, and adds to that issue on
+later stops. Before #548 the title was "Docs pipeline stopped: commits reached <branch> without a
+pull request"; an issue under either title is still read, for adding to and for accepting. Review the
 commits. To accept them, close the issue as completed and re-run the failed workflow. Closing it
 as not planned keeps the pipeline stopped, and a close by a bot accepts nothing.
 `scripts/pipeline-guard.py --check-wiring` checks the wiring in both workflows.

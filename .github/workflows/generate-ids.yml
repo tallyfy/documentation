@@ -55,6 +55,11 @@ jobs:
   # token waits for this one, and it stops them when a bot other than github-actions[bot] and
   # tallyfy-workhorse[bot] put commits on the branch outside a merged pull request. It then opens
   # one issue listing them; a person accepts them by closing that issue as completed.
+  # The one exception (tallyfy/documentation#548): launchbrightly[bot]'s merge of its own pull
+  # request #N into staging, when the newest pr-validate.yml run on its head that has the job
+  # "LaunchBrightly PR guard (#N into staging)" shows it has passed, read with `actions: read`. The
+  # gate never waits for an unfinished guard; such a merge stops until the guard has passed and the
+  # run is started again, or a person accepts it.
   #
   # No `needs`, no `if:` and no checkout: it always runs, and it runs no code from the repository,
   # only the script below, which an app without the workflows permission cannot change. The same
@@ -69,7 +74,7 @@ jobs:
       pull-requests: read
       issues: write
     steps:
-      - name: Stop when commits reached the branch without a pull request
+      - name: Stop commits the push gate does not let through
         uses: actions/github-script@v9
         env:
           GATE_MODE: push
@@ -99,16 +104,48 @@ jobs:
             // stops it when a bot other than the two allowed made it, whatever the commit says about its
             // author, because the repository activity API records who pushed. A person accepts stopped commits
             // by closing this job's issue as completed. Anything it cannot read fails the job.
+            //
+            // One exception (tallyfy/documentation#548): LaunchBrightly's merge of its own pull request into
+            // staging. On staging, the merge commit of a pull request #N that launchbrightly[bot] opened passes only
+            // when, of the pr-validate.yml runs on that pull request's head, the newest one that has a job named
+            // "LaunchBrightly PR guard (#N into staging)" shows that job has already passed. Runs without that job,
+            // such as another pull request's run on the same commit or one waiting for approval, do not count. That
+            // holds whoever merged it and however: on staging every commit in the range that GitHub committed as a
+            // merge, and every merge in the activity log, is looked up by the pull request it merged, whatever the
+            // commits name as their author,
+            // and a person's merge whose pull request cannot be found stops the run. A merge by the app itself
+            // passes on the same terms. A read that fails on GitHub's side is tried once more at once. The
+            // guard is read from the Actions API, as a job pr-validate.yml defines, because any token with checks:
+            // write can create a check run. The gate never waits: their app is to merge after the guard has passed,
+            // and a merge before that stops the run until the guard has passed and the run is started again, or a
+            // person accepts it.
+            // Any push by the app, any push or merge by it on main, and any other app still stop the run; on main a
+            // person's merge is judged as before. The push or merge that produced the anchor is judged again on
+            // every run, so an entry the activity log listed only after an earlier run still gets judged.
             const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
+            // Read 2026-11-17 from GET /users/launchbrightly[bot] (type Bot); the org's installed app has slug launchbrightly.
+            const LB_BOT = 'launchbrightly[bot]';
+            const LB_BOT_ID = 270903805;
+            const LB_BRANCH = 'staging';
+            // The workflow and job that hold their pull requests to screenshots and image lines. The job's name
+            // carries the pull request number and the base it judged, so a pass for another pull request or base
+            // never counts here.
+            const LB_GUARD_WORKFLOW = 'pr-validate.yml';
+            const LB_GUARD_JOB = (number) => `LaunchBrightly PR guard (#${number} into ${LB_BRANCH})`;
             const MAX_COMMITS = 250;
             const MAX_ACTIVITY_PAGES = 5;
+            // Up to 1,000 guard runs on one commit are read; more cannot be judged.
+            const MAX_GUARD_RUN_PAGES = 10;
             const SHA_RE = /^[0-9a-f]{40}$/;
             const gateEnv = process.env;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const branch = gateEnv.GATE_BRANCH || '';
             const dryRun = gateEnv.GATE_DRY_RUN === '1';
-            const title = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const title = `Docs pipeline stopped: the push gate did not let commits on ${branch} through`;
+            // The title before #548. Issues under it are still matched, so an acceptance made on one still counts.
+            const oldTitle = `Docs pipeline stopped: commits reached ${branch} without a pull request`;
+            const isGateIssue = (issue) => !issue.pull_request && (issue.title === title || issue.title === oldTitle);
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
 
             class CannotDecide extends Error {}
@@ -125,10 +162,17 @@ jobs:
             }
 
             async function api(route, params) {
+              // A full URL (the activity API's next page) already carries its query; add nothing to it.
+              const call = () => (route.includes('https://') ? github.request(route)
+                : github.request(route, { owner, repo, ...(params || {}) }));
               try {
-                // A full URL (the activity API's next page) already carries its query; add nothing to it.
-                return route.includes('https://') ? await github.request(route)
-                  : await github.request(route, { owner, repo, ...(params || {}) });
+                try {
+                  return await call();
+                } catch (err) {
+                  // A read that failed on GitHub's side is tried once more, at once; a write or any other failure is not.
+                  if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;
+                  return await call();
+                }
               } catch (err) {
                 throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
               }
@@ -219,7 +263,7 @@ jobs:
               const { data } = await api('GET /repos/{owner}/{repo}/issues',
                 { state: 'closed', creator: 'github-actions[bot]', per_page: 100 });
               for (const issue of (data || [])) {
-                if (issue.pull_request || issue.title !== title) continue;
+                if (!isGateIssue(issue)) continue;
                 const { data: full } = await api('GET /repos/{owner}/{repo}/issues/{issue_number}', { issue_number: issue.number });
                 const by = full && full.closed_by;
                 if (!full || full.state_reason !== 'completed' || !by || by.type === 'Bot' || isBotLogin(by.login)) continue;
@@ -232,7 +276,7 @@ jobs:
 
             async function report(lines, anchor, head, range) {
               const body = [
-                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch without a pull request, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot]:`,
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch in a way it does not let through. Each line says who made it and why it stopped:`,
                 '',
                 ...lines,
                 '',
@@ -248,7 +292,7 @@ jobs:
               }
               const { data: open } = await api('GET /repos/{owner}/{repo}/issues',
                 { state: 'open', creator: 'github-actions[bot]', per_page: 100 });
-              const existing = (open || []).filter((i) => !i.pull_request && i.title === title);
+              const existing = (open || []).filter(isGateIssue);
               if (existing.length) {
                 const issue = existing[0];
                 const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
@@ -263,6 +307,127 @@ jobs:
               }
             }
 
+            const isLaunchBrightly = (login, id) => String(login || '').toLowerCase() === LB_BOT && id === LB_BOT_ID;
+            const lbProblems = new Map();
+            const mergedPrs = new Map();
+            let recentMerges = null;
+
+            // The 100 pull requests into this branch most recently closed or updated, read once per run.
+            function recentlyClosed() {
+              if (!recentMerges) {
+                recentMerges = (async () => {
+                  const { data } = await api('GET /repos/{owner}/{repo}/pulls',
+                    { state: 'closed', base: branch, sort: 'updated', direction: 'desc', per_page: 100 });
+                  if (!Array.isArray(data)) throw new CannotDecide(`could not read the pull requests closed into ${branch}`);
+                  return data;
+                })();
+              }
+              return recentMerges;
+            }
+
+            // The merged pull request whose merge commit is sha, or null. Read once per commit. The pull requests
+            // most recently closed into the branch are read first, once per run, because a pull request records its
+            // merge commit when it is merged; only a commit not among them costs a read of its own. GitHub may link
+            // a commit to its own list of pull requests a little after the merge, which the first read covers.
+            function mergedPrOf(sha) {
+              if (!mergedPrs.has(sha)) {
+                mergedPrs.set(sha, (async () => {
+                  const isMerge = (p) => p && p.merged_at && p.merge_commit_sha === sha;
+                  const listed = (await recentlyClosed()).find(isMerge);
+                  if (listed) return listed;
+                  const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: sha, per_page: 100 });
+                  if (!Array.isArray(prs)) throw new CannotDecide(`could not read the pull requests of ${short(sha)}`);
+                  return prs.find(isMerge) || null;
+                })());
+              }
+              return mergedPrs.get(sha);
+            }
+
+            // GitHub commits every pull request merge it makes, by squash, merge commit or rebase, as
+            // "GitHub <noreply@github.com>", the web-flow account (2026-11-18: all 68 squash merges and all 13
+            // merge commits among the 200 newest commits on staging). Only such commits can be a merge GitHub made.
+            const byGitHub = (c) => (c.committer && c.committer.login === 'web-flow')
+              || String((c.commit && c.commit.committer && c.commit.committer.email) || '').toLowerCase() === 'noreply@github.com';
+
+            // On staging, why sha may not pass as the merge commit of a pull request launchbrightly[bot] opened
+            // ('' when it may), or null when sha is not the merge commit of such a pull request.
+            async function theirMergeProblem(sha) {
+              const pr = await mergedPrOf(sha);
+              const author = (pr && pr.user) || {};
+              if (!pr || !isLaunchBrightly(author.login, author.id)) return null;
+              return lbMergeProblem(sha);
+            }
+
+            // Why sha is not LaunchBrightly's merge of its own pull request into staging with a passed guard at
+            // the merged head, or '' when it is. A missing, unfinished or failed guard is a reason; anything it
+            // cannot read throws CannotDecide, which fails the gate.
+            function lbMergeProblem(sha) {
+              if (!lbProblems.has(sha)) lbProblems.set(sha, readLbMergeProblem(sha));
+              return lbProblems.get(sha);
+            }
+
+            // Of the pr-validate.yml pull_request runs on head from headRepo, the pull request's own head repository,
+            // the newest one that has a job named jobName, with that job; null when no run has it. A run without that job is another pull request's run on the same
+            // commit, or one that has not started its jobs (such as a run waiting for approval), so it is passed
+            // over: anyone can open a pull request from a commit, and their run must not stand in for this one.
+            // Every list is read whole, or the gate cannot decide.
+            async function readGuardJob(head, headRepo, jobName) {
+              const runs = [];
+              let total = -1;
+              for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {
+                const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                  { workflow_id: LB_GUARD_WORKFLOW, head_sha: head, event: 'pull_request', per_page: 100, page });
+                const batch = data && data.workflow_runs;
+                if (!Array.isArray(batch) || !(data.total_count >= 0)) throw new CannotDecide(`could not read the ${LB_GUARD_WORKFLOW} runs on ${short(head)}`);
+                total = data.total_count;
+                runs.push(...batch);
+                if (runs.length >= total || !batch.length) break;
+              }
+              if (runs.length !== total) throw new CannotDecide(`read ${runs.length} of ${total} ${LB_GUARD_WORKFLOW} runs on ${short(head)}`);
+              // Only runs from the pull request's own head repository: a fork's runs on the same commit are not its.
+              const newestFirst = runs.filter((r) => r && r.event === 'pull_request' && r.head_sha === head
+                && r.head_repository && r.head_repository.full_name === headRepo)
+                .sort((a, b) => Number(b.id) - Number(a.id));
+              for (const run of newestFirst) {
+                const { data: listed } = await api('GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs', { run_id: run.id, per_page: 100 });
+                const jobs = listed && listed.jobs;
+                if (!Array.isArray(jobs) || !(listed.total_count >= 0)) throw new CannotDecide(`could not read the jobs of run ${run.id}`);
+                if (jobs.length !== listed.total_count) throw new CannotDecide(`read ${jobs.length} of ${listed.total_count} jobs of run ${run.id}`);
+                const named = jobs.filter((j) => j && j.name === jobName);
+                if (named.length > 1) throw new CannotDecide(`run ${run.id} has ${named.length} jobs named "${jobName}"`);
+                if (named.length) return { run, job: named[0] };
+              }
+              return null;
+            }
+
+            async function readLbMergeProblem(sha) {
+              if (branch !== LB_BRANCH) return `${LB_BOT} may merge only into ${LB_BRANCH}, and this is ${branch}`;
+              const pr = await mergedPrOf(sha);
+              if (!pr) return `no merged pull request has ${short(sha)} as its merge commit`;
+              const author = pr.user || {};
+              if (!isLaunchBrightly(author.login, author.id)) {
+                return `pull request #${pr.number} was opened by ${author.login || 'an author this gate could not read'} (id ${author.id}), not ${LB_BOT} (id ${LB_BOT_ID})`;
+              }
+              const base = pr.base && pr.base.ref;
+              if (base !== LB_BRANCH) return `pull request #${pr.number} was merged into ${base || 'a branch this gate could not read'}, not ${LB_BRANCH}`;
+              const head = pr.head && pr.head.sha;
+              const headRepo = pr.head && pr.head.repo && pr.head.repo.full_name;
+              if (!headRepo) throw new CannotDecide(`could not read the head repository of pull request #${pr.number}`);
+              if (!SHA_RE.test(head || '')) throw new CannotDecide(`could not read the head of pull request #${pr.number}`);
+              const jobName = LB_GUARD_JOB(pr.number);
+              const guard = await readGuardJob(head, headRepo, jobName);
+              if (!guard) return `no ${LB_GUARD_WORKFLOW} run on ${short(head)} has a job "${jobName}", so the guard never ran for it`;
+              const job = guard.job;
+              if (job.status !== 'completed') {
+                return `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} had not finished at ${short(head)} (merge only after it passes)`;
+              }
+              if (job.conclusion !== 'success') {
+                return `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} ended ${job.conclusion || 'without a result'} at ${short(head)}`;
+              }
+              core.info(`${short(sha)} is the merge of ${LB_BOT}'s pull request #${pr.number} into ${LB_BRANCH}, and "${jobName}" passed in run ${guard.run.id} at ${short(head)}.`);
+              return '';
+            }
+
             async function gate() {
               if (!['push', 'pipeline'].includes(gateEnv.GATE_MODE)) throw new CannotDecide(`GATE_MODE is ${JSON.stringify(gateEnv.GATE_MODE)}`);
               if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new CannotDecide(`branch ${JSON.stringify(branch)} is not a branch name`);
@@ -273,13 +438,21 @@ jobs:
               const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
 
               for (const c of range.commits) {
+                if (branch === LB_BRANCH && byGitHub(c)) {
+                  // On staging every merge GitHub made is looked up: the merge commit of a pull request LaunchBrightly
+                  // opened passes only with its guard passed, whoever merged it and whatever the commit names as its author.
+                  const problem = await theirMergeProblem(c.sha);
+                  if (problem !== null) {
+                    if (problem) add(c.sha, `${identity(c)}; ${problem}`);
+                    continue;
+                  }
+                }
                 const bots = [...new Set([
                   botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
                   botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
                 ].filter(disallowed))];
                 if (!bots.length) continue;
-                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
-                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                const merged = await mergedPrOf(c.sha);
                 if (merged) {
                   core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
                   continue;
@@ -290,9 +463,38 @@ jobs:
               const pushes = await pushesSince(anchor.sha);
               for (const a of pushes) {
                 const who = a.actor && a.actor.login;
-                if (a.actor && (a.actor.type === 'Bot' || isBotLogin(who)) && disallowed(who) && SHA_RE.test(a.after || '')) {
-                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
+                if (!SHA_RE.test(a.after || '')) {
+                  // It names no commit, so it put none on the branch to judge or accept; every commit in the range is judged above.
+                  core.warning(`A ${a.activity_type || 'change'} to ${branch} at ${a.timestamp} names no commit, so it is not judged.`);
+                  continue;
                 }
+                if (!who) {
+                  // Who made it cannot be read, so it is not let through; a person can accept it on the issue.
+                  add(a.after, `${a.activity_type} to ${branch} at ${a.timestamp} by someone this gate could not read`);
+                  continue;
+                }
+                if (!(a.actor.type === 'Bot' || isBotLogin(who)) || !disallowed(who)) {
+                  // A person's merge into staging, or an allowed app's: when the pull request is LaunchBrightly's, its
+                  // guard must have passed, whatever the merged commits say about who wrote them. A merge whose pull
+                  // request cannot be found is not let through, since then nobody can tell whose it was.
+                  if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {
+                    if (!(await mergedPrOf(a.after))) {
+                      add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; no merged pull request has ${short(a.after)} as its merge commit, so this gate cannot tell whose pull request it was`);
+                    } else {
+                      const problem = await theirMergeProblem(a.after);
+                      if (problem) add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; ${problem}`);
+                    }
+                  }
+                  continue;
+                }
+                if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {
+                  // A merge by LaunchBrightly's app itself: through only on the terms in lbMergeProblem.
+                  const problem = await lbMergeProblem(a.after);
+                  if (!problem) continue;
+                  add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; ${problem}`);
+                  continue;
+                }
+                add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
               }
 
               const accepted = found.size ? await acceptedShas() : new Map();
@@ -302,13 +504,13 @@ jobs:
               }
               core.info(`Checked ${short(anchor.sha)}...${short(head)} on ${branch} (${range.status}): ${range.commits.length} commit(s) and ${pushes.length} push(es), starting from ${anchor.from}.`);
               if (!open.length) {
-                core.info('No commit reached the branch without a pull request.');
+                core.info('No commit reached the branch in a way this gate stops.');
                 return;
               }
               const lines = open.map(([sha, why]) => `- \`${sha}\`: ${why.join('; ')}`);
               for (const line of lines) core.error(line);
               await report(lines, anchor, head, range);
-              core.setFailed(`${open.length} commit(s) reached ${branch} without a pull request. Every job after this gate is stopped.`);
+              core.setFailed(`${open.length} commit(s) reached ${branch} in a way this gate does not let through (the issue says why for each). Every job after this gate is stopped.`);
             }
 
             try {
