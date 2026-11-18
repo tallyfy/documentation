@@ -2,17 +2,20 @@
 // push-gate-cases.mjs: what the push gate decides, both ways, with no network (tallyfy/documentation#548).
 //
 // The push gate is an inline script in generate-ids.yml and documentation-pipeline.yml, and it may run no
-// code from the repository. So this test takes the script out of each workflow file, runs it against a fake
-// GitHub API in each file's mode, and checks what it decides: a stop (core.setFailed) or a pass, why it
-// stopped, and how many times it waited. The pipeline mode may never wait. Then it plants faults in the
-// script one at a time, and each must turn at least one case red, so a test that cannot fail is caught.
+// code from the repository. So this test takes the script out of each workflow file, checks that a YAML
+// parser reads the same text (as scripts/pipeline-guard.py does), runs it against a fake GitHub API in each
+// file's mode, and checks what it decides: a stop (core.setFailed) or a pass, and why it stopped. The gate
+// never waits, so any wait is wrong. Then it plants faults in the script one at a time, and each must turn
+// at least one case red, so a test that cannot fail is caught.
 //
 //   node scripts/push-gate-cases.mjs [--repo PATH]
 //
-// Exit 0: every case and every planted fault went the right way. Exit 1: one did not. Exit 2: could not run
-// (a workflow or its gate script is missing, the two scripts differ, the wait limit cannot be read, a planted
-// fault's text is not in the script exactly once, or a planted fault does not compile).
+// Needs python3 with PyYAML for the parser check. Exit 0: every case and every planted fault went the right
+// way. Exit 1: one did not. Exit 2: could not run (a workflow or its gate script is missing, the YAML parser
+// reads a different script, the two scripts differ, a planted fault's text is not in the script exactly
+// once, or a planted fault does not compile).
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -58,16 +61,29 @@ function gateScript(path) {
   return out.join('\n');
 }
 
+// The same script as a YAML parser reads it, the way pipeline-guard.py's gate_script() does.
+function yamlGateScript(path) {
+  const code = [
+    'import sys, yaml',
+    'doc = yaml.safe_load(open(sys.argv[1]))',
+    'steps = ((doc.get("jobs") or {}).get("push-gate") or {}).get("steps") or []',
+    's = [str((x.get("with") or {}).get("script", "")) for x in steps if str(x.get("uses", "")).startswith("actions/github-script@")]',
+    'sys.stdout.write(s[0] if len(s) == 1 else "")',
+  ].join('\n');
+  const r = spawnSync('python3', ['-c', code, path], { encoding: 'utf8' });
+  if (r.error || r.status !== 0) cannotRun(`python3 with PyYAML could not read ${path}: ${r.error ? r.error.message : r.stderr.trim()}`);
+  return r.stdout.replace(/\s+$/, '');
+}
+
 const scripts = {};
 for (const [mode, path] of Object.entries(WORKFLOWS)) {
-  const s = gateScript(join(repoRoot, path));
+  const full = join(repoRoot, path);
+  const s = gateScript(full);
   if (!s) cannotRun(`no push-gate script found in ${path}`);
+  if (yamlGateScript(full) !== s.replace(/\s+$/, '')) cannotRun(`the YAML parser reads a different push-gate script in ${path} than this test does`);
   scripts[mode] = s;
 }
 if (scripts.pipeline !== scripts.push) cannotRun('the push-gate scripts in the two workflows differ');
-const pollsMatch = scripts.pipeline.match(/^const LB_GUARD_POLLS = (\d+);$/m);
-if (!pollsMatch) cannotRun('the gate script has no "const LB_GUARD_POLLS = <number>;" line');
-const MAX_WAITS = Number(pollsMatch[1]);
 
 const sha = (label) => createHash('sha1').update(label).digest('hex');
 const jobName = (number, base = 'staging') => `LaunchBrightly PR guard (#${number} into ${base})`;
@@ -90,17 +106,23 @@ const commitBy = (label, author, committer = author) => ({
 });
 
 // pr-validate.yml runs on a pull request's head, each with its jobs, for each guard state. n is the pull
-// request number.
+// request number. A run may carry totalCount (its jobs list comes back short) and the list itself may carry
+// totalCount (the runs list comes back short).
 const job = (id, name, status, conclusion) => ({ id, name, status, conclusion });
 const GUARD = {
   success: (n) => [{ id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] }],
   failure: (n) => [{ id: 1, jobs: [job(11, jobName(n), 'completed', 'failure')] }],
   pending: (n) => [{ id: 1, jobs: [job(11, jobName(n), 'in_progress', null)] }],
   missing: () => [],
+  'no-job': () => [{ id: 1, jobs: [job(11, 'validate', 'completed', 'success')] }],
   'other-base': (n) => [{ id: 1, jobs: [job(11, jobName(n, 'other-branch'), 'completed', 'success')] }],
   'other-pr': (n) => [
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'failure')] },
     { id: 2, jobs: [job(21, jobName(n + 500), 'completed', 'success')] },
+  ],
+  'newest-has-no-job': (n) => [
+    { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
+    { id: 2, jobs: [] },
   ],
   'cancelled-then-success': (n) => [
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'cancelled')] },
@@ -110,7 +132,9 @@ const GUARD = {
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
     { id: 2, jobs: [job(21, jobName(n), 'completed', 'cancelled')] },
   ],
-  truncated: (n) => Object.assign([{ id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] }], { totalCount: 101 }),
+  duplicate: (n) => [{ id: 1, jobs: [job(11, jobName(n), 'completed', 'failure'), job(12, jobName(n), 'completed', 'success')] }],
+  'runs-short': (n) => Object.assign([{ id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] }], { totalCount: 101 }),
+  'jobs-short': (n) => [{ id: 1, jobsTotal: 30, jobs: [job(11, jobName(n), 'completed', 'success')] }],
 };
 
 const pullRequest = (number, mergeSha, author, base, head) => ({
@@ -122,9 +146,8 @@ const pullRequest = (number, mergeSha, author, base, head) => ({
   head: { sha: head },
 });
 
-const ISSUE_TITLE = (branch) => `Docs pipeline stopped: commits reached ${branch} without a pull request`;
 const acceptIssue = (world, shaToAccept) => {
-  world.closedIssues = [{ number: 7, title: ISSUE_TITLE(world.branch) }];
+  world.closedIssues = [{ number: 7, title: `Docs pipeline stopped: commits reached ${world.branch} without a pull request` }];
   world.issues[7] = { state: 'closed', state_reason: 'completed', closed_by: PERSON, body: `- \`${shaToAccept}\`: accepted` };
 };
 
@@ -134,7 +157,7 @@ function scenario({ branch = 'staging', changes = [] }) {
   const anchor = sha(`anchor-${branch}`);
   const world = {
     branch, anchor, head: anchor, commits: [], activity: [], pulls: {}, guard: {}, guardPr: {}, jobs: {},
-    closedIssues: [], issues: {}, acceptAfterWaits: null, waits: 0,
+    closedIssues: [], issues: {}, waits: 0,
   };
   let n = 100;
   for (const ch of changes) {
@@ -146,7 +169,7 @@ function scenario({ branch = 'staging', changes = [] }) {
     if (ch.kind === 'merge' && !ch.noPullRequest) {
       const head = sha(`${label}-head`);
       world.pulls[c.sha] = [pullRequest(n, c.sha, ch.prAuthor, ch.base || branch, head)];
-      world.guard[head] = [...(ch.guard || ['success'])];
+      world.guard[head] = ch.guard || 'success';
       world.guardPr[head] = n;
     }
     world.activity.unshift({
@@ -173,17 +196,16 @@ function fakeGitHub(world, broken) {
           if (params.workflow_id !== 'pr-validate.yml' || params.event !== 'pull_request') {
             throw new Error(`the fake has no runs for ${params.workflow_id} ${params.event}`);
           }
-          const queue = world.guard[params.head_sha] || ['missing'];
-          const state = queue.length > 1 ? queue.shift() : queue[0];
+          const state = world.guard[params.head_sha] || 'missing';
           if (state === 'broken') throw Object.assign(new Error('fake outage'), { status: 500 });
           const runs = GUARD[state](world.guardPr[params.head_sha]);
-          for (const r of runs) world.jobs[r.id] = r.jobs;
+          for (const r of runs) world.jobs[r.id] = r;
           const listed = runs.map((r) => ({ id: r.id, event: 'pull_request', head_sha: params.head_sha, path: '.github/workflows/pr-validate.yml' }));
           return { data: { total_count: runs.totalCount || listed.length, workflow_runs: listed } };
         }
         case 'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs': {
-          const jobs = world.jobs[params.run_id] || [];
-          return { data: { total_count: jobs.length, jobs } };
+          const r = world.jobs[params.run_id] || { jobs: [] };
+          return { data: { total_count: r.jobsTotal || r.jobs.length, jobs: r.jobs } };
         }
         case 'GET /repos/{owner}/{repo}/branches/{branch}':
           return { data: { commit: { sha: world.head } } };
@@ -193,10 +215,8 @@ function fakeGitHub(world, broken) {
           return { data: world.pulls[params.commit_sha] || [] };
         case 'GET /repos/{owner}/{repo}/activity':
           return { data: world.activity, headers: {} };
-        case 'GET /repos/{owner}/{repo}/issues': {
-          const showAccepted = world.acceptAfterWaits === null || world.waits >= world.acceptAfterWaits;
-          return { data: params.state === 'closed' && showAccepted ? world.closedIssues : [] };
-        }
+        case 'GET /repos/{owner}/{repo}/issues':
+          return { data: params.state === 'closed' ? world.closedIssues : [] };
         case 'GET /repos/{owner}/{repo}/issues/{issue_number}':
           return { data: world.issues[params.issue_number] || {} };
         case 'POST /repos/{owner}/{repo}/issues':
@@ -221,7 +241,7 @@ async function decide(script, mode, world, broken = []) {
     : { GATE_MODE: 'push', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_HEAD: world.head };
   const fakeTimeout = (fn) => {
     world.waits += 1;
-    if (world.waits > 3 * MAX_WAITS) throw new Error('the gate kept waiting past any limit');
+    if (world.waits > 3) throw new Error('the gate kept waiting');
     fn();
   };
   const gate = new AsyncFunction(...PARAMS, script);
@@ -230,22 +250,22 @@ async function decide(script, mode, world, broken = []) {
 }
 
 const lbMerge = (extra = {}) => ({ kind: 'merge', by: LB, prAuthor: LB, ...extra });
-const perMode = (v, mode) => (v && typeof v === 'object' ? v[mode] : v);
 
-// [name, expected outcome, reason a stop must give, world]. An outcome or reason may differ by mode, as
-// { pipeline, push }; maxWaits too, which defaults to 0 in pipeline mode and the script's limit in push mode.
+// [name, expected outcome, text a stop must give, world]. Every case runs in both modes.
 const CASES = [
   ['their app merges its own pull request into staging, guard passed', 'pass', null, { changes: [lbMerge()] }],
-  ['their app merges its own pull request into staging, guard failed', 'stop', 'ended failure', { changes: [lbMerge({ guard: ['failure'] })] }],
-  ['their app merges its own pull request into staging, no guard job', 'stop', 'has the job', { changes: [lbMerge({ guard: ['missing'] })] }],
-  ['their app merges before the guard ends, then the guard passes', { pipeline: 'stop', push: 'pass' }, 'had not finished',
-    { changes: [lbMerge({ guard: ['pending', 'pending', 'success'] })] }],
-  ['their app merges and the guard never ends', 'stop', 'had not finished', { changes: [lbMerge({ guard: ['pending'] })] }],
-  ['their pull request passed the guard only against another base', 'stop', 'has the job', { changes: [lbMerge({ guard: ['other-base'] })] }],
-  ['only another pull request with the same head passed the guard', 'stop', 'ended failure', { changes: [lbMerge({ guard: ['other-pr'] })] }],
-  ['an older guard run was cancelled and the newest passed', 'pass', null, { changes: [lbMerge({ guard: ['cancelled-then-success'] })] }],
-  ['the newest guard run was cancelled after an older pass', 'stop', 'ended cancelled', { changes: [lbMerge({ guard: ['success-then-cancelled'] })] }],
-  ['the list of guard runs comes back short', 'stop', 'read 1 of 101', { changes: [lbMerge({ guard: ['truncated'] })] }],
+  ['their app merges its own pull request into staging, guard failed', 'stop', 'ended failure', { changes: [lbMerge({ guard: 'failure' })] }],
+  ['their app merges before the guard has finished', 'stop', 'had not finished', { changes: [lbMerge({ guard: 'pending' })] }],
+  ['their app merges and no guard run exists', 'stop', 'never ran', { changes: [lbMerge({ guard: 'missing' })] }],
+  ['their app merges and the newest run has no guard job', 'stop', 'has no job', { changes: [lbMerge({ guard: 'no-job' })] }],
+  ['their pull request passed the guard only against another base', 'stop', 'has no job', { changes: [lbMerge({ guard: 'other-base' })] }],
+  ['only another pull request with the same head passed the guard, in the newest run', 'stop', 'has no job', { changes: [lbMerge({ guard: 'other-pr' })] }],
+  ['an older run passed, but the newest run has no guard job yet', 'stop', 'has no job', { changes: [lbMerge({ guard: 'newest-has-no-job' })] }],
+  ['an older guard run was cancelled and the newest passed', 'pass', null, { changes: [lbMerge({ guard: 'cancelled-then-success' })] }],
+  ['the newest guard run was cancelled after an older pass', 'stop', 'ended cancelled', { changes: [lbMerge({ guard: 'success-then-cancelled' })] }],
+  ['the newest run has two guard jobs of that name', 'stop', 'jobs named', { changes: [lbMerge({ guard: 'duplicate' })] }],
+  ['the list of guard runs comes back short', 'stop', 'read 1 of 101', { changes: [lbMerge({ guard: 'runs-short' })] }],
+  ['the list of guard jobs comes back short', 'stop', 'read 1 of 30', { changes: [lbMerge({ guard: 'jobs-short' })] }],
   ['their app merges its own pull request into main', 'stop', 'may merge only into staging', { branch: 'main', changes: [lbMerge()] }],
   ['their app\'s merge shows up on main as the merge of its staging pull request', 'stop', 'may merge only into staging',
     { branch: 'main', changes: [lbMerge({ base: 'staging' })] }],
@@ -257,14 +277,17 @@ const CASES = [
   ['their app pushes straight to staging', 'stop', 'push to staging by launchbrightly[bot]', { changes: [{ kind: 'push', by: LB }] }],
   ['their app pushes, as a push, the merge commit of its own passing pull request', 'stop', 'push to staging by launchbrightly[bot]',
     { changes: [lbMerge()], pushInstead: true }],
-  ['an app with their login but another id merges', 'stop', 'id 5', { changes: [{ kind: 'merge', by: LOOKALIKE, prAuthor: LOOKALIKE }] }],
+  ['an app with their login but another id merges', 'stop', 'pr_merge to staging by launchbrightly[bot]',
+    { changes: [{ kind: 'merge', by: LOOKALIKE, prAuthor: LOOKALIKE }] }],
   ['another app merges its own pull request into staging', 'stop', 'by some-other-app[bot]', { changes: [{ kind: 'merge', by: OTHER_APP, prAuthor: OTHER_APP }] }],
   ['another app merges their pull request, guard passed', 'stop', 'by some-other-app[bot]', { changes: [{ kind: 'merge', by: OTHER_APP, prAuthor: LB }] }],
   ['a person merges a person\'s pull request', 'pass', null, { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON }] }],
   ['a person merges their pull request, guard passed', 'pass', null, { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB }] }],
-  ['a person merges their pull request, guard failed', 'stop', 'ended failure', { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: ['failure'] }] }],
+  ['a person merges their pull request, guard failed', 'stop', 'ended failure', { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }] }],
+  ['a person merges a person\'s pull request that carries one of their commits (as before this change)', 'pass', null,
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, commitAuthor: LB }] }],
   ['on main, a person merges their pull request straight in with a failed guard (as before this change)', 'pass', null,
-    { branch: 'main', changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: ['failure'] }] }],
+    { branch: 'main', changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }] }],
   ['on main, a person merges a promotion that carries their commit', 'pass', null, {
     branch: 'main',
     changes: [
@@ -275,18 +298,16 @@ const CASES = [
   }],
   ['main merged back into staging brings their commit from a pull request into main', 'stop', 'merged into main',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, base: 'main' }] }],
-  ['their merge that made the starting point is not judged again', 'pass', null, { anchorIsTheirMerge: true, maxWaits: 0 }],
-  ['their merge with no guard that a person accepted is not waited for', 'pass', null,
-    { changes: [lbMerge({ guard: ['missing'] })], acceptedUpFront: true, maxWaits: 0 }],
-  ['a person accepts their merge while the gate waits', { pipeline: 'stop', push: 'pass' }, 'has the job',
-    { changes: [lbMerge({ guard: ['missing'] })], acceptedAfterWaits: 3 }],
+  ['their merge that made the starting point is not judged again', 'pass', null, { anchorIsTheirMerge: true }],
+  ['an entry with no readable actor that made the starting point is not judged again', 'pass', null, { anchorActorless: true }],
+  ['their merge with no passed guard that a person accepted', 'pass', null, { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
   ['github-actions pushes generated files', 'pass', null, { changes: [{ kind: 'push', by: ACTIONS }] }],
   ['nothing changed since the last good run', 'pass', null, { changes: [] }],
   ['a push or merge that names no commit is not judged', 'pass', null, { noCommitActivity: true }],
   ['who made a change cannot be read', 'stop', 'could not read', { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, actorless: true }] }],
   ['the pull requests of their merge cannot be read', 'stop', 'could not decide',
     { changes: [lbMerge()], broken: ['GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls'] }],
-  ['the guard runs cannot be read', 'stop', 'could not decide', { changes: [lbMerge({ guard: ['broken'] })] }],
+  ['the guard runs cannot be read', 'stop', 'could not decide', { changes: [lbMerge({ guard: 'broken' })] }],
   ['the guard jobs cannot be read', 'stop', 'could not decide',
     { changes: [lbMerge()], broken: ['GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs'] }],
 ];
@@ -308,7 +329,7 @@ function worldFor(spec) {
     world.commits.push(own, merge);
     world.pulls[own.sha] = [pr];
     world.pulls[merge.sha] = [pr];
-    world.guard[head] = ['success'];
+    world.guard[head] = 'success';
     world.guardPr[head] = 201;
     world.activity.unshift({ activity_type: 'pr_merge', actor: LB, after: merge.sha, timestamp: '2026-11-17T12:30:00Z' });
     world.head = merge.sha;
@@ -318,14 +339,13 @@ function worldFor(spec) {
     const head = sha('anchor-merge-head');
     world.activity = [{ activity_type: 'pr_merge', actor: LB, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
     world.pulls[world.anchor] = [pullRequest(202, world.anchor, LB, 'staging', head)];
-    world.guard[head] = ['failure'];
+    world.guard[head] = 'failure';
     world.guardPr[head] = 202;
   }
-  if (spec.acceptedUpFront) acceptIssue(world, world.commits[0].sha);
-  if (spec.acceptedAfterWaits) {
-    acceptIssue(world, world.commits[0].sha);
-    world.acceptAfterWaits = spec.acceptedAfterWaits;
+  if (spec.anchorActorless) {
+    world.activity = [{ activity_type: 'push', actor: null, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
   }
+  if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha);
   if (spec.noCommitActivity) {
     world.activity.unshift({ activity_type: 'push', actor: OTHER_APP, after: null, timestamp: '2026-11-17T12:40:00Z' });
   }
@@ -334,11 +354,8 @@ function worldFor(spec) {
 
 async function runCases(gate, label) {
   const wrong = [];
-  for (const [name, wantAll, reasonAll, spec] of CASES) {
+  for (const [name, want, reason, spec] of CASES) {
     for (const mode of Object.keys(WORKFLOWS)) {
-      const want = perMode(wantAll, mode);
-      const reason = perMode(reasonAll, mode);
-      const maxWaits = spec.maxWaits !== undefined ? perMode(spec.maxWaits, mode) : (mode === 'pipeline' ? 0 : MAX_WAITS);
       let got;
       try {
         got = await decide(gate[mode], mode, worldFor(spec), spec.broken || []);
@@ -347,9 +364,9 @@ async function runCases(gate, label) {
       }
       const problems = [];
       if (got.outcome !== want) problems.push(`expected ${want}, got ${got.outcome}`);
-      if (got.waits > maxWaits) problems.push(`waited ${got.waits} time(s), more than ${maxWaits}`);
+      if (got.waits) problems.push(`waited ${got.waits} time(s); the gate never waits`);
       if (want === 'stop' && got.outcome === 'stop' && reason && !got.text.includes(reason)) problems.push(`the stop does not say "${reason}"`);
-      if (/crashed/.test(got.text)) problems.push('the gate crashed');
+      if (/crashed|kept waiting/.test(got.text)) problems.push('the gate crashed');
       if (problems.length) wrong.push(`${name} [${mode}]: ${problems.join('; ')}${got.text ? `: ${got.text.split('\n')[0]}` : ''}`);
       if (label === 'real') console.log(`${problems.length ? 'FAIL' : 'ok  '} ${want.padEnd(4)} ${name} [${mode}]${problems.length ? ` -> ${problems.join('; ')}` : ''}`);
     }
@@ -361,25 +378,26 @@ async function runCases(gate, label) {
 const FAULTS = [
   ['their merge allowed on any branch', 'if (branch !== LB_BRANCH) return', 'if (false) return'],
   ['the guard result ignored', "if (job.conclusion !== 'success') {", 'if (false) {'],
-  ['a missing guard counted as passed', "if (job && job.status === 'completed') {", "if (!job) return ''; if (job.status === 'completed') {"],
-  ['an unfinished guard counted as finished', "if (job && job.status === 'completed') {", 'if (job) {'],
-  ['the oldest guard run decides', '.sort((a, b) => Number(b.id) - Number(a.id));', '.sort((a, b) => Number(a.id) - Number(b.id));'],
+  ['an unfinished guard counted as finished', "if (job.status !== 'completed') {", 'if (false) {'],
+  ['no guard run counted as passed', 'if (!guard) return `no', "if (!guard) return ''; if (false) return `no"],
+  ['a run without the guard job counted as passed', 'if (!job) return `the newest', "if (!job) return ''; if (false) return `the newest"],
+  ['the oldest guard run decides', '(a === null || Number(r.id) > Number(a.id) ? r : a), null);', '(a === null || Number(r.id) < Number(a.id) ? r : a), null);'],
   ['a guard job for another pull request or base accepted', 'jobs.filter((j) => j && j.name === jobName)', "jobs.filter((j) => j && String(j.name).startsWith('LaunchBrightly PR guard ('))"],
+  ['two guard jobs of one name trusted', 'if (named.length > 1) throw', 'if (false) throw'],
   ['a short list of guard runs trusted', 'if (runs.length !== data.total_count) throw', 'if (false) throw'],
+  ['a short list of guard jobs trusted', 'if (jobs.length !== listed.total_count) throw', 'if (false) throw'],
   ['the pull request author not checked', 'if (!isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
   ['the pull request base not checked', 'if (base !== LB_BRANCH) return', 'if (false) return'],
   ['a merge with no pull request let through', 'if (!pr) return `no merged pull request', "if (!pr) return ''; if (false) return `no merged pull request"],
   ['their id not checked', '=== LB_BOT && id === LB_BOT_ID', '=== LB_BOT'],
   ['any app\'s merge let through on their terms', "if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {", "if (a.activity_type === 'pr_merge') {"],
   ['a push by their app let through on their terms', "a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)", 'isLaunchBrightly(who, a.actor.id)'],
-  ['their commits on staging not checked when a person merges', 'if (branch === LB_BRANCH && bots.includes(LB_BOT)) {', 'if (false) {'],
+  ['their pull requests on staging not checked when a person merges',
+    'if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
+  ['a person\'s pull request held to their rules', 'bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)', 'bots.includes(LB_BOT)'],
   ['an unreadable actor let through', 'if (!who) {', 'if (!who) { continue;'],
+  ['the anchor\'s unreadable entry judged again', 'if (a.after === anchor.sha) continue;', 'if (false) continue;'],
   ['their merge at the anchor judged again', 'if (a.after === anchor.sha) {', 'if (false) {'],
-  ['an accepted commit still waited for', 'if ((await acceptedBeforeWaiting).has(sha)) return', 'if (false) return'],
-  ['an acceptance made while waiting missed', 'const accepted = found.size ? await acceptedShas() : new Map();', 'const accepted = found.size ? await (acceptedBeforeWaiting || acceptedShas()) : new Map();'],
-  ['the pipeline mode waits too', "let lbPollsLeft = gateEnv.GATE_MODE === 'push' ? LB_GUARD_POLLS : 0;", 'let lbPollsLeft = LB_GUARD_POLLS;'],
-  ['no wait for an unfinished guard', `const LB_GUARD_POLLS = ${MAX_WAITS};`, 'const LB_GUARD_POLLS = 0;'],
-  ['no limit on the wait', 'if (lbPollsLeft <= 0) return why;', 'if (false) return why;'],
 ];
 
 const realWrong = await runCases(scripts, 'real');

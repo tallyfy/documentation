@@ -42,8 +42,8 @@ jobs:
   # one issue listing them; a person accepts them by closing that issue as completed.
   # The one exception (tallyfy/documentation#548): launchbrightly[bot]'s merge of its own pull
   # request #N into staging, when the newest pr-validate.yml run on its head shows the job
-  # "LaunchBrightly PR guard (#N into staging)" passed, read with `actions: read`. In generate-ids.yml
-  # the gate may wait up to 15 minutes for an unfinished guard, so its limit is 25 minutes.
+  # "LaunchBrightly PR guard (#N into staging)" has passed, read with `actions: read`. The gate
+  # never waits for an unfinished guard; such a merge stops for a person to accept.
   #
   # No `needs`, no `if:` and no checkout: it always runs, and it runs no code from the repository,
   # only the script below, which an app without the workflows permission cannot change. The same
@@ -51,7 +51,7 @@ jobs:
   # asserts all of this, and that every job holding a secret, an environment or a push waits for it.
   push-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     permissions:
       actions: read
       contents: read
@@ -92,17 +92,16 @@ jobs:
             // by closing this job's issue as completed. Anything it cannot read fails the job.
             //
             // One exception (tallyfy/documentation#548): LaunchBrightly's merge of its own pull request into
-            // staging. A commit LaunchBrightly authored or committed on staging passes only as the merge commit of
-            // its own pull request #N into staging, when the newest pr-validate.yml run on that pull request's head
-            // with a job named "LaunchBrightly PR guard (#N into staging)" shows that job passed. That holds whoever
-            // merged it: a squash commit keeps the pull request author's name, so this covers a merge made with a
-            // person's token. A merge by the app itself passes on the same terms. The guard is read from the Actions
-            // API, as a job pr-validate.yml defines, because any token with checks: write can create a check run.
+            // staging. On staging, the merge commit of a pull request #N that launchbrightly[bot] opened passes only
+            // when the newest pr-validate.yml run on that pull request's head has a job named "LaunchBrightly PR
+            // guard (#N into staging)" that has already passed. That holds whoever merged it: a squash commit keeps
+            // the pull request author's name, so this covers a merge made with a person's token. A merge by the app
+            // itself passes on the same terms. The guard is read from the Actions API, as a job pr-validate.yml
+            // defines, because any token with checks: write can create a check run. The gate never waits: their app
+            // is to merge after the guard has passed, and a merge before that stops the run for a person to accept.
             // Any push by the app, any push or merge by it on main, and any other app still stop the run; on main a
-            // person's merge is judged as before. Only the push mode (generate-ids.yml, whose jobs check out the
-            // pushed commit) waits for an unfinished guard, up to LB_GUARD_POLLS polls; the pipeline mode never
-            // waits, because its later jobs check out the branch tip when they start. Their merge that produced
-            // the anchor was judged by the run that made it the anchor, so it is not judged again.
+            // person's merge is judged as before. The push or merge that produced the anchor was judged by the run
+            // that made it the anchor, so the rules added here do not judge it again.
             const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
             // Read 2026-11-17 from GET /users/launchbrightly[bot] (type Bot); the org's installed app has slug launchbrightly.
             const LB_BOT = 'launchbrightly[bot]';
@@ -113,8 +112,6 @@ jobs:
             // never counts here.
             const LB_GUARD_WORKFLOW = 'pr-validate.yml';
             const LB_GUARD_JOB = (number) => `LaunchBrightly PR guard (#${number} into ${LB_BRANCH})`;
-            const LB_GUARD_POLL_MS = 20000;
-            const LB_GUARD_POLLS = 45;
             const MAX_COMMITS = 250;
             const MAX_ACTIVITY_PAGES = 5;
             const SHA_RE = /^[0-9a-f]{40}$/;
@@ -279,39 +276,36 @@ jobs:
             }
 
             const isLaunchBrightly = (login, id) => String(login || '').toLowerCase() === LB_BOT && id === LB_BOT_ID;
-            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            let lbPollsLeft = gateEnv.GATE_MODE === 'push' ? LB_GUARD_POLLS : 0;
             const lbProblems = new Map();
-            let acceptedBeforeWaiting = null;
 
-            // Why sha is not LaunchBrightly's merge of its own pull request into staging with a passing guard at
-            // the merged head, or '' when it is. A missing or failing guard is a reason; anything it cannot read
-            // throws CannotDecide, which fails the gate. mergedPr is the pull request whose merge commit sha is,
-            // when the caller has already found it.
+            // Why sha is not LaunchBrightly's merge of its own pull request into staging with a passed guard at
+            // the merged head, or '' when it is. A missing, unfinished or failed guard is a reason; anything it
+            // cannot read throws CannotDecide, which fails the gate. mergedPr is the pull request whose merge commit
+            // sha is, when the caller has already found it.
             function lbMergeProblem(sha, mergedPr) {
               if (!lbProblems.has(sha)) lbProblems.set(sha, readLbMergeProblem(sha, mergedPr));
               return lbProblems.get(sha);
             }
 
-            // The newest pr-validate.yml pull_request run on head that has the job jobName, with that job, or null.
-            // Every list is read whole, or the gate cannot decide.
+            // The newest pr-validate.yml pull_request run on head, and its job named jobName (null when that run has
+            // no such job), or null when there is no run. Only the newest run counts. Every list is read whole, or
+            // the gate cannot decide.
             async function readGuardJob(head, jobName) {
               const { data } = await api('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
                 { workflow_id: LB_GUARD_WORKFLOW, head_sha: head, event: 'pull_request', per_page: 100 });
               const runs = data && data.workflow_runs;
               if (!Array.isArray(runs) || !(data.total_count >= 0)) throw new CannotDecide(`could not read the ${LB_GUARD_WORKFLOW} runs on ${short(head)}`);
               if (runs.length !== data.total_count) throw new CannotDecide(`read ${runs.length} of ${data.total_count} ${LB_GUARD_WORKFLOW} runs on ${short(head)}`);
-              const newestFirst = runs.filter((r) => r && r.event === 'pull_request' && r.head_sha === head)
-                .sort((a, b) => Number(b.id) - Number(a.id));
-              for (const run of newestFirst) {
-                const { data: listed } = await api('GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs', { run_id: run.id, per_page: 100 });
-                const jobs = listed && listed.jobs;
-                if (!Array.isArray(jobs) || !(listed.total_count >= 0)) throw new CannotDecide(`could not read the jobs of run ${run.id}`);
-                if (jobs.length !== listed.total_count) throw new CannotDecide(`read ${jobs.length} of ${listed.total_count} jobs of run ${run.id}`);
-                const job = jobs.filter((j) => j && j.name === jobName).sort((a, b) => Number(b.id) - Number(a.id))[0];
-                if (job) return { run, job };
-              }
-              return null;
+              const newest = runs.filter((r) => r && r.event === 'pull_request' && r.head_sha === head)
+                .reduce((a, r) => (a === null || Number(r.id) > Number(a.id) ? r : a), null);
+              if (!newest) return null;
+              const { data: listed } = await api('GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs', { run_id: newest.id, per_page: 100 });
+              const jobs = listed && listed.jobs;
+              if (!Array.isArray(jobs) || !(listed.total_count >= 0)) throw new CannotDecide(`could not read the jobs of run ${newest.id}`);
+              if (jobs.length !== listed.total_count) throw new CannotDecide(`read ${jobs.length} of ${listed.total_count} jobs of run ${newest.id}`);
+              const named = jobs.filter((j) => j && j.name === jobName);
+              if (named.length > 1) throw new CannotDecide(`run ${newest.id} has ${named.length} jobs named "${jobName}"`);
+              return { run: newest, job: named[0] || null };
             }
 
             async function readLbMergeProblem(sha, mergedPr) {
@@ -332,27 +326,18 @@ jobs:
               const head = pr.head && pr.head.sha;
               if (!SHA_RE.test(head || '')) throw new CannotDecide(`could not read the head of pull request #${pr.number}`);
               const jobName = LB_GUARD_JOB(pr.number);
-              for (;;) {
-                const guard = await readGuardJob(head, jobName);
-                const job = guard && guard.job;
-                if (job && job.status === 'completed') {
-                  if (job.conclusion !== 'success') {
-                    return `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} ended ${job.conclusion || 'without a result'} at ${short(head)}`;
-                  }
-                  core.info(`${short(sha)} is the merge of ${LB_BOT}'s pull request #${pr.number} into ${LB_BRANCH}, and "${jobName}" passed in run ${guard.run.id} at ${short(head)}.`);
-                  return '';
-                }
-                const why = job
-                  ? `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} had not finished at ${short(head)}`
-                  : `no ${LB_GUARD_WORKFLOW} run on ${short(head)} has the job "${jobName}"`;
-                if (lbPollsLeft <= 0) return why;
-                // A commit a person already accepted on this gate's issue is let through below, so do not wait for it.
-                acceptedBeforeWaiting = acceptedBeforeWaiting || acceptedShas();
-                if ((await acceptedBeforeWaiting).has(sha)) return `${why}; a person accepted it`;
-                lbPollsLeft -= 1;
-                core.info(`Waiting for "${jobName}" (${lbPollsLeft} wait(s) left).`);
-                await sleep(LB_GUARD_POLL_MS);
+              const guard = await readGuardJob(head, jobName);
+              if (!guard) return `no ${LB_GUARD_WORKFLOW} run on ${short(head)}, so "${jobName}" never ran`;
+              const job = guard.job;
+              if (!job) return `the newest ${LB_GUARD_WORKFLOW} run on ${short(head)}, ${guard.run.id}, has no job "${jobName}"`;
+              if (job.status !== 'completed') {
+                return `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} had not finished at ${short(head)} (merge only after it passes)`;
               }
+              if (job.conclusion !== 'success') {
+                return `"${jobName}" in ${LB_GUARD_WORKFLOW} run ${guard.run.id} ended ${job.conclusion || 'without a result'} at ${short(head)}`;
+              }
+              core.info(`${short(sha)} is the merge of ${LB_BOT}'s pull request #${pr.number} into ${LB_BRANCH}, and "${jobName}" passed in run ${guard.run.id} at ${short(head)}.`);
+              return '';
             }
 
             async function gate() {
@@ -373,8 +358,9 @@ jobs:
                 const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
                 const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
                 if (merged) {
-                  if (branch === LB_BRANCH && bots.includes(LB_BOT)) {
-                    // LaunchBrightly's commit on staging, whoever merged it: its own pull request, guard passed.
+                  const author = merged.user || {};
+                  if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {
+                    // The merge commit of LaunchBrightly's own pull request on staging, whoever merged it: guard passed.
                     const problem = await lbMergeProblem(c.sha, merged);
                     if (problem) add(c.sha, `${identity(c)}; ${problem}`);
                     continue;
@@ -394,6 +380,8 @@ jobs:
                   continue;
                 }
                 if (!who) {
+                  // The anchor's own entry was judged by the run that made it the anchor.
+                  if (a.after === anchor.sha) continue;
                   // Who made it cannot be read, so it is not let through; a person can accept it on the issue.
                   add(a.after, `${a.activity_type} to ${branch} at ${a.timestamp} by someone this gate could not read`);
                   continue;
@@ -414,7 +402,6 @@ jobs:
                 add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}`);
               }
 
-              // Read again here, so an acceptance made while the gate waited counts.
               const accepted = found.size ? await acceptedShas() : new Map();
               const open = [...found].filter(([sha]) => !accepted.has(sha));
               for (const [sha] of found) {

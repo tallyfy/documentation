@@ -177,8 +177,9 @@ How such a pull request flows:
    old image URLs keep working. Their screenshots show the next-gen client, so a page can show
    next-gen screens while customers still use the legacy app. The owner accepted that.
    Dated 2026-11-17 (#548): their app may now merge its own pull request into `staging` itself,
-   once the guard has passed against `staging` (see "The push gate" below). So the review in this
-   step happens on staging.tallyfy.com after that merge, before the promotion to `main`.
+   once the guard has finished and passed against `staging` (see "The push gate" below). A merge
+   before that stops the pipeline until a person accepts it. So the review in this step happens on
+   staging.tallyfy.com after that merge, before the promotion to `main`.
 
 The file rules live in `scripts/asset_management/repo_screenshot_rules.py`, shared by the guard
 and the job:
@@ -252,15 +253,18 @@ passes on the same terms. A merge commit, or a rebase of more than one commit, s
 above; a rebase of a single commit passes like a squash, because that commit is the pull request's
 merge commit.
 
-Only `generate-ids.yml`, whose jobs check out the pushed commit, waits when the merge came before
-the guard finished: 20 seconds at a time, up to 15 minutes in all (the guard job itself may run
-for 10), then it stops if there is still no passing result, unless a person has already accepted
-that commit on the gate's issue. Its job limit is 25 minutes. The gate in
-`documentation-pipeline.yml` never waits, because that workflow's later jobs check out the branch
-tip when they start, so a wait there would let commits that land during it run unjudged. Their
-merge that produced the anchor was judged by the run that made it the anchor, so later runs do not
-judge it again. The accepted list is read again when the gate decides, so an acceptance made while
-it waited counts.
+The gate never waits. Their app is to merge only after the guard has passed. A merge before that
+stops the run, and a person accepts it on the gate's issue once the guard has passed. A wait was
+tried in review and dropped: in `documentation-pipeline.yml` it would let commits that land during
+the wait run unjudged, because that workflow's later jobs check out the branch tip when they start.
+The push or merge that produced the anchor was judged by the run that made it the anchor, so later
+runs do not judge it again, whether it was their merge or an entry whose maker the gate cannot read.
+
+One known limit: the gate trusts the guard job by its name, and a pull request run takes its
+workflow file from the pull request. So someone who can change workflow files could add a job of
+that name to their own pull request. Their app cannot, because it has no workflows permission
+(it has contents and pull requests write), and anyone who can change workflow files can already
+change the gate itself.
 
 Any push by their app, any push or merge by it on `main`, any other app, and a push or merge when
 the gate cannot read who made it all still stop the run; an activity entry that names no commit is
