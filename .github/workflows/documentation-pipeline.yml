@@ -102,9 +102,9 @@ jobs:
             // pull request it merged, and a person's merge whose pull request cannot be found stops the run. So the
             // rule holds for every merge GitHub makes, by the app or a person, and for a person pushing the head of
             // their pull request straight to staging when the head names such an app (GitHub is expected, not
-            // measured, to record that push as the pull request's merge). Commits that name no such
-            // app, pushed straight to staging by a person, are a person's push and are judged as one. A merge by the app itself passes
-            // on the same terms. A read that fails on GitHub's side is tried once more at once. The
+            // measured, to record that push as the pull request's merge). Commits that name no such app, pushed
+            // straight to staging by a person, are a person's push and are judged as one. A merge by the app itself
+            // passes on the same terms. A read that fails on GitHub's side is tried once more at once. The
             // guard is read from the Actions API, as a job pr-validate.yml defines, because any token with checks:
             // write can create a check run. The gate never waits: their app is to merge after the guard has passed,
             // and a merge before that stops the run until the guard has passed and the run is started again, or a
@@ -315,12 +315,13 @@ jobs:
               return recentMerges;
             }
 
-            // The merged pull request whose merge commit is sha, or null. Read once per commit. The pull requests
-            // most recently closed into the branch are read first, once per run, because a pull request records its
-            // merge commit when it is merged; only a commit not among them costs a read of its own. GitHub may link
-            // a commit to its own list of pull requests a little after the merge, which the first read covers.
-            // All of them, not the first: when a head is pushed straight to the branch, every open pull request on
-            // that head can be marked merged with the same merge commit, and anyone can open one.
+            // Every merged pull request whose merge commit is sha, as a list (empty when there is none), read once per
+            // commit. All of them, not the first: when a head is pushed straight to the branch, every open pull
+            // request on that head can be marked merged with the same merge commit, and anyone can open one. The
+            // pull requests most recently closed into the branch are read first, once per run, because a pull
+            // request records its merge commit when it is merged; only a commit with no match among them costs a
+            // read of its own. GitHub may link a commit to its own list a little after the merge, which the first
+            // read covers.
             function mergedPrsOf(sha) {
               if (!mergedPrs.has(sha)) {
                 mergedPrs.set(sha, (async () => {
@@ -337,10 +338,10 @@ jobs:
 
             const isTheirs = (p) => Boolean(p) && isLaunchBrightly(p.user && p.user.login, p.user && p.user.id);
 
-            // One merged pull request whose merge commit is sha, theirs first when there is one; null when none.
+            // One merged pull request whose merge commit is sha, or null when there is none. It answers whether the
+            // commit is a merged pull request's; readLbMergeProblem judges every one of theirs.
             async function mergedPrOf(sha) {
-              const prs = await mergedPrsOf(sha);
-              return prs.find(isTheirs) || prs[0] || null;
+              return (await mergedPrsOf(sha))[0] || null;
             }
 
             // GitHub commits every pull request merge it makes, by squash, merge commit or rebase, as
@@ -365,9 +366,9 @@ jobs:
             }
 
             // Of the pr-validate.yml pull_request runs on head from headRepo, the pull request's own head repository,
-            // the newest one that has a job named jobName, with that job; null when no run has it. A run without that job is another pull request's run on the same
-            // commit, or one that has not started its jobs (such as a run waiting for approval), so it is passed
-            // over: anyone can open a pull request from a commit, and their run must not stand in for this one.
+            // the newest one that has a job named jobName, with that job; null when no run has it. A run without
+            // that job is another pull request's run on the same commit, or one that has not started its jobs
+            // (such as a run waiting for approval), so it is passed over: anyone can open a pull request from a commit, and their run must not stand in for this one.
             // Every list is read whole, or the gate cannot decide.
             async function readGuardJob(head, headRepo, jobName) {
               const runs = [];
@@ -400,12 +401,23 @@ jobs:
 
             async function readLbMergeProblem(sha) {
               if (branch !== LB_BRANCH) return `${LB_BOT} may merge only into ${LB_BRANCH}, and this is ${branch}`;
-              const pr = await mergedPrOf(sha);
-              if (!pr) return `no merged pull request has ${short(sha)} as its merge commit`;
-              const author = pr.user || {};
-              if (!isLaunchBrightly(author.login, author.id)) {
-                return `pull request #${pr.number} was opened by ${author.login || 'an author this gate could not read'} (id ${author.id}), not ${LB_BOT} (id ${LB_BOT_ID})`;
+              const prs = await mergedPrsOf(sha);
+              if (!prs.length) return `no merged pull request has ${short(sha)} as its merge commit`;
+              const theirs = prs.filter(isTheirs);
+              if (!theirs.length) {
+                const author = prs[0].user || {};
+                return `pull request #${prs[0].number} was opened by ${author.login || 'an author this gate could not read'} (id ${author.id}), not ${LB_BOT} (id ${LB_BOT_ID})`;
               }
+              // Every pull request of theirs on this merge commit must have passed its own guard.
+              for (const pr of theirs) {
+                const problem = await theirPrProblem(sha, pr);
+                if (problem) return problem;
+              }
+              return '';
+            }
+
+            // Why pull request pr of theirs, merged as sha, may not pass, or '' when its guard passed into staging.
+            async function theirPrProblem(sha, pr) {
               const base = pr.base && pr.base.ref;
               if (base !== LB_BRANCH) return `pull request #${pr.number} was merged into ${base || 'a branch this gate could not read'}, not ${LB_BRANCH}`;
               const head = pr.head && pr.head.sha;

@@ -383,7 +383,13 @@ function fakeGitHub(world, broken) {
           }
           const state = world.guard[params.head_sha] || 'missing';
           if (state === 'broken') throw Object.assign(new Error('fake outage'), { status: 500 });
-          const runs = GUARD[state](world.guardPr[params.head_sha]);
+          let runs = GUARD[state](world.guardPr[params.head_sha]);
+          if (world.guardSecond && params.head_sha === world.head) {
+            // A second pull request of theirs on the same head: its runs, with their own ids, come after.
+            const extra = GUARD[world.guardSecond.state](world.guardSecond.number)
+              .map((r) => ({ ...r, id: r.id + 1000, jobs: r.jobs.map((j) => ({ ...j, id: j.id + 1000 })) }));
+            runs = [...runs, ...extra];
+          }
           for (const r of runs) world.jobs[r.id] = r;
           const listed = runs.map((r) => ({ id: r.id, event: 'pull_request', head_sha: params.head_sha, path: '.github/workflows/pr-validate.yml',
             head_repository: { full_name: r.repo || 'tallyfy/documentation' } }));
@@ -521,6 +527,10 @@ const CASES = [
     'ended failure', { personPushHead: { names: 'other', guard: 'failure' } }],
   ['a person pushes the head of their pull request straight to staging, and another pull request on that head is listed first, guard failed',
     'stop', 'ended failure', { personPushHead: { names: 'app', guard: 'failure', shared: true } }],
+  ['a person pushes the head of their pull request straight to staging, and another pull request on that head is listed first, guard passed',
+    'pass', null, { personPushHead: { names: 'app', guard: 'success', shared: true } }],
+  ['a person pushes a head that two pull requests of theirs share, one guard passed and one not finished', 'stop',
+    'had not finished', { personPushHead: { names: 'app', guard: 'success', sharedTheirs: 'pending' } }],
   ['a person pushes the head of their pull request straight to staging before GitHub marks it merged', 'stop',
     'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', guard: 'success', notMergedYet: true } }],
   ['a person pushes the head of their two-commit pull request straight to staging, commits naming their app: the first stops', 'stop',
@@ -626,7 +636,7 @@ function worldFor(spec) {
     // GitHub is expected, not measured, to record the pushed commit as the pull request's merge commit;
     // notMergedYet is the moment before it does. The pull request's head is that commit. shared adds
     // another person's pull request on the same head, listed first, which GitHub marks merged too.
-    const { names = 'app', count = 1, notMergedYet = false, shared = false } = spec.personPushHead;
+    const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null } = spec.personPushHead;
     const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP) : plainCommit(label, false));
     const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
     const c = own[own.length - 1];
@@ -634,6 +644,11 @@ function worldFor(spec) {
     const pr = pullRequest(205, c.sha, LB, 'staging', c.sha);
     if (notMergedYet) Object.assign(pr, { merged_at: null, merge_commit_sha: sha('test-merge-205') });
     const prs = shared ? [pullRequest(206, c.sha, PERSON, 'staging', c.sha), pr] : [pr];
+    if (sharedTheirs) {
+      // Their second pull request on the same head; its guard runs carry its own number, under its own head key.
+      prs.push(pullRequest(207, c.sha, LB, 'staging', c.sha));
+      world.guardSecond = { number: 207, state: sharedTheirs };
+    }
     for (const o of own) world.pulls[o.sha] = prs;
     world.guard[c.sha] = spec.personPushHead.guard;
     world.guardPr[c.sha] = 205;
@@ -688,9 +703,9 @@ const FAULTS = [
   ['a short list of guard jobs trusted', 'if (jobs.length !== listed.total_count) throw', 'if (false) throw'],
   ['the newest run decides even without the guard job', 'if (named.length) return { run, job: named[0] };',
     'return named.length ? { run, job: named[0] } : null;'],
-  ['the pull request author not checked', 'if (!isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
+  ['the pull request author not checked', 'if (!theirs.length) {', 'if (false) {'],
   ['the pull request base not checked', 'if (base !== LB_BRANCH) return', 'if (false) return'],
-  ['a merge with no pull request let through', 'if (!pr) return `no merged pull request', "if (!pr) return ''; if (false) return `no merged pull request"],
+  ['a merge with no pull request let through', 'if (!prs.length) return `no merged pull request', "if (!prs.length) return ''; if (false) return `no merged pull request"],
   ['their id not checked', '=== LB_BOT && id === LB_BOT_ID', '=== LB_BOT'],
   ['any app\'s merge let through on their terms', "if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {", "if (a.activity_type === 'pr_merge') {"],
   ['a push by their app let through on their terms', "a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)", 'isLaunchBrightly(who, a.actor.id)'],
@@ -703,7 +718,7 @@ const FAULTS = [
   ['every staging commit looked up', '(byGitHub(c) || bots.length)', '(true)'],
   ['only the first pull request on a shared commit judged', 'if (!(await mergedPrsOf(sha)).some(isTheirs)) return null;',
     'if (!isTheirs((await mergedPrsOf(sha))[0])) return null;'],
-  ['their pull request not preferred on a shared commit', 'return prs.find(isTheirs) || prs[0] || null;', 'return prs[0] || null;'],
+  ['only the first pull request of theirs on a shared commit judged', 'for (const pr of theirs) {', 'for (const pr of theirs.slice(0, 1)) {'],
   ['a fork\'s runs on the same commit counted', '&& r.head_repository && r.head_repository.full_name === headRepo)', ')'],
   ['only the first page of guard runs read', 'for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {', 'for (let page = 1; page <= 1; page += 1) {'],
   ['a failed write tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'if (!(Number(err.status) >= 500)) throw err;'],

@@ -274,20 +274,23 @@ of the pull request that names such an app stops as "no merged pull request has 
 commit", as in a merge commit or a rebase of more than one commit, and an earlier commit that names
 none passes. When the head names no such app, the push is a person's push and is judged as one: the
 gate trusts it, as it always has trusted a person's push. A head pushed before GitHub marks its pull
-request merged stops the same way as an earlier commit does, and passes on a later run once it is.
+request merged stops the same way as an earlier commit does; once GitHub marks it merged, a later
+run judges its guard, and lets it through only if that guard passed. When several pull requests of
+theirs share the pushed head, each one's guard must have passed.
 
 Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
 since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
 pull requests only for a commit GitHub committed as a merge, a commit that names an app other than
 the two allowed, or a merge in the activity API, and only when it is not among those 100. When the
 pull request is theirs, judging it also reads its guard runs and their jobs. The pipeline's own
-commits, and people's pushes that name no app outside the two allowed, cost no read of their own. A person's merge whose pull
-request still cannot be found stops the run, because nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
-squash commit keeps the pull request author's name (measured on #273: a pull request
-tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
-author). A merge by their app itself passes on the same terms. Commits that name their app and
-arrive by a merge commit, or by a rebase of more than one commit, still stop, as above; a rebase of
-a single commit passes like a squash, because that commit is the pull request's merge commit.
+commits, and people's pushes that name no app outside the two allowed, cost no read of their own.
+A person's merge whose pull request still cannot be found stops the run, because nobody can tell
+whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
+keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]
+opened and a person merged has tallyfy-workhorse[bot] as its commit author). A merge by their app
+itself passes on the same terms. Commits that name their app and arrive by a merge commit, or by a
+rebase of more than one commit, still stop, as above; a rebase of a single commit passes like a
+squash, because that commit is the pull request's merge commit.
 
 The gate never waits. Their app is to merge only after the guard has passed. A merge before that
 stops the run and opens the issue. Once the guard has passed, re-running the failed workflow, or
