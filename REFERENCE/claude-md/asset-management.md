@@ -257,16 +257,21 @@ or it cannot decide. In that job the step that decides runs the base branch's co
 before any code from the pull request runs, and when the base has no guard it refuses a pull
 request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
 checks both, and that nothing in that job's checkout or env can make it read the pull request's
-files first. That holds whoever merged it and however. On `staging` every commit in the range that
-GitHub committed as a merge (GitHub commits every squash, merge commit and rebase it makes as
+files first. That holds for every merge GitHub makes, by their app or by a person, and for every
+commit that names their app, however it reached `staging`. On `staging` every commit in the range
+that GitHub committed as a merge (GitHub commits every squash, merge commit and rebase it makes as
 "GitHub <noreply@github.com>"; measured 2026-11-18 on the 200 newest commits, all 68 squash
-merges and all 13 merge commits), and every merge in the activity API, is looked up by the pull
-request it merged. When the pull request is theirs its guard must have passed, whatever the
-commits say about who wrote them, so a merge is judged even before the activity API lists it. The
-gate reads the 100 pull requests most recently closed into the branch once per run, since a pull
-request records its merge commit when it is merged, and asks GitHub for a commit's own pull
-requests only when it is not among them. A person's merge whose pull request still cannot be found stops the run, because
-nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
+merges and all 13 merge commits), every commit that names `launchbrightly[bot]` as author or
+committer (#555), and every merge in the activity API, is looked up by the pull request it merged.
+When the pull request is theirs its guard must have passed, so a merge is judged even before the
+activity API lists it. That includes a person merging one of their pull requests from the command
+line by pushing its head straight to `staging`, which GitHub records as the pull request's merge,
+when its commits name their app. When they name no app, such a push is a person's push and is
+judged as one: the gate trusts it, as it always has trusted a person's push. Only those commits
+cost a read. The gate reads the 100 pull requests most recently closed into the branch once per
+run, since a pull request records its merge commit when it is merged, and asks GitHub for a
+commit's own pull requests only when it is not among them. A person's merge whose pull request
+still cannot be found stops the run, because nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
 squash commit keeps the pull request author's name (measured on #273: a pull request
 tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
 author). A merge by their app itself passes on the same terms. Commits that name their app and

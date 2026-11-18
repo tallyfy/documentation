@@ -396,6 +396,7 @@ function fakeGitHub(world, broken) {
         case 'GET /repos/{owner}/{repo}/compare/{basehead}':
           return { data: { status: world.commits.length ? 'ahead' : 'identical', total_commits: world.commits.length, commits: world.commits } };
         case 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls':
+          world.commitReads = (world.commitReads || 0) + 1;
           // GitHub may link a commit to its pull request a little after the merge.
           return { data: (world.linkLag && world.linkLag.includes(params.commit_sha)) ? [] : (world.pulls[params.commit_sha] || []) };
         case 'GET /repos/{owner}/{repo}/pulls': {
@@ -432,7 +433,7 @@ async function decide(script, mode, world, broken = []) {
     : { GATE_MODE: 'push', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_HEAD: world.head };
   const gate = new AsyncFunction(...PARAMS, script);
   await gate(fakeGitHub(world, broken), context, core, { env });
-  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), writes: world.writes || 0 };
+  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), writes: world.writes || 0, commitReads: world.commitReads || 0 };
 }
 
 const lbMerge = (extra = {}) => ({ kind: 'merge', by: LB, prAuthor: LB, ...extra });
@@ -508,6 +509,14 @@ const CASES = [
   ['a person merges their pull request with a merge commit before the activity log lists it, guard failed', 'stop', 'ended failure',
     { personMerge: 'merge-commit', guard: 'failure', activityLate: true }],
   ['a person\'s merge of their pull request at the starting point, guard failed', 'stop', 'ended failure', { anchorPersonMergeOfTheirPr: true }],
+  ['a person pushes the head of their pull request straight to staging, commits naming their app, guard failed', 'stop',
+    'ended failure', { personPushHead: { namesApp: true, guard: 'failure' } }],
+  ['a person pushes the head of their pull request straight to staging, commits naming their app, guard passed', 'pass', null,
+    { personPushHead: { namesApp: true, guard: 'success' } }],
+  ['a person pushes the head of their pull request straight to staging, commits naming no app: a person\'s push', 'pass', null,
+    { personPushHead: { namesApp: false, guard: 'failure' } }],
+  ['people\'s and the pipeline\'s own pushes cost no read of their own', 'pass', null,
+    { changes: [{ kind: 'push', by: PERSON }, { kind: 'push', by: ACTIONS }, { kind: 'push', by: PERSON }], maxCommitReads: 0 }],
   ['a person\'s merge whose pull request cannot be found', 'stop', 'cannot tell whose',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, noPullRequest: true }] }],
   ['GitHub has not linked a person\'s merge to its pull request yet, and the closed pull requests list it', 'pass', null,
@@ -602,6 +611,20 @@ function worldFor(spec) {
     world.guard[head] = 'failure';
     world.guardPr[head] = 204;
   }
+  if (spec.personPushHead) {
+    // A person merges their pull request from the command line by pushing its head straight to staging;
+    // GitHub records the pushed commit as the pull request's merge commit. The pull request's head is that commit.
+    const named = spec.personPushHead.namesApp;
+    const c = named ? commitBy('person-push-head', LB)
+      : { sha: sha('person-push-head-plain'), author: null, committer: null,
+        commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } };
+    world.commits.push(c);
+    world.pulls[c.sha] = [pullRequest(205, c.sha, LB, 'staging', c.sha)];
+    world.guard[c.sha] = spec.personPushHead.guard;
+    world.guardPr[c.sha] = 205;
+    world.activity.unshift({ activity_type: 'push', actor: PERSON, after: c.sha, timestamp: '2026-11-18T12:30:00Z' });
+    world.head = c.sha;
+  }
   if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
   if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
   if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
@@ -627,6 +650,9 @@ async function runCases(gate, label) {
       if (want === 'stop' && got.outcome === 'stop' && reason && !got.text.includes(reason)) problems.push(`the stop does not say "${reason}"`);
       if (/crashed/.test(got.text)) problems.push('the gate crashed');
       if (got.writes > 1) problems.push(`made ${got.writes} writes; a stop opens or updates one issue once`);
+      if (spec.maxCommitReads !== undefined && got.commitReads > spec.maxCommitReads) {
+        problems.push(`read the pull requests of ${got.commitReads} commit(s) one by one; at most ${spec.maxCommitReads} should cost a read`);
+      }
       if (problems.length) wrong.push(`${name} [${mode}]: ${problems.join('; ')}${got.text ? `: ${got.text.split('\n')[0]}` : ''}`);
       if (label === 'real') console.log(`${problems.length ? 'FAIL' : 'ok  '} ${want.padEnd(4)} ${name} [${mode}]${problems.length ? ` -> ${problems.join('; ')}` : ''}`);
     }
@@ -656,7 +682,9 @@ const FAULTS = [
   ['the commits on staging not looked up by their pull request', 'const problem = await theirMergeProblem(c.sha);', 'const problem = null;'],
   ['anyone\'s pull request held to their rules', 'if (!pr || !isLaunchBrightly(author.login, author.id)) return null;', 'if (!pr) return null;'],
   ['the closed pull requests not read when a commit is not linked yet', 'const listed = (await recentlyClosed()).find(isMerge);', 'const listed = null;'],
-  ['the merges GitHub made not looked up', 'if (branch === LB_BRANCH && byGitHub(c)) {', 'if (branch === LB_BRANCH && !byGitHub(c)) {'],
+  ['the merges GitHub made not looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(!byGitHub(c) && bots.includes(LB_BOT))'],
+  ['the commits naming their app not looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(byGitHub(c))'],
+  ['every staging commit looked up', '(byGitHub(c) || bots.includes(LB_BOT))', '(true)'],
   ['a fork\'s runs on the same commit counted', '&& r.head_repository && r.head_repository.full_name === headRepo)', ')'],
   ['only the first page of guard runs read', 'for (let page = 1; page <= MAX_GUARD_RUN_PAGES; page += 1) {', 'for (let page = 1; page <= 1; page += 1) {'],
   ['a failed write tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'if (!(Number(err.status) >= 500)) throw err;'],
