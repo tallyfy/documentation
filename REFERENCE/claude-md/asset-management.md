@@ -152,8 +152,9 @@ How such a pull request flows:
    request, each `/screenshots/` link must name a file in the merged tree, and anyone else who
    touches the folder gets a warning, because pages showing those images credit LaunchBrightly.
    The job runs the base branch's copy of the guard, so a pull request cannot edit its own check.
-   Dated 2026-11-17 (#548): a pull request into a branch that has no guard yet runs its own copy.
-   The job is now named "LaunchBrightly PR guard (#<number> into <base>)" after the pull request
+   Dated 2026-11-17 (#548): a pull request into a branch that has no guard yet runs its own copy,
+   except one by their app, which is refused. The deciding step runs before any code from the pull
+   request does. The job is now named "LaunchBrightly PR guard (#<number> into <base>)" after the pull request
    and the base it judged, so the push gate trusts only "LaunchBrightly PR guard (#N into staging)"
    for pull request #N. The workflow's concurrency group is keyed on the pull request number, so
    another pull request from a branch of the same name cannot cancel that run.
@@ -253,12 +254,17 @@ count. The gate reads it from the Actions API (workflow runs and their jobs, wit
 or it cannot decide. In that job the step that decides runs the base branch's copy of the guard
 before any code from the pull request runs, and when the base has no guard it refuses a pull
 request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
-checks both. That holds whoever merged it and however. On `staging` every merge a person makes is
-looked up, and when the pull request is theirs its guard must have passed, whatever the merged
-commits say about who wrote them. A squash commit also keeps the pull request author's name
-(measured on #273: a pull request tallyfy-workhorse[bot] opened and a person merged has
-tallyfy-workhorse[bot] as its commit author), so it is checked even before the activity API lists
-the merge. A merge by their app itself passes on the same terms. Commits that name their app and
+checks both. That holds whoever merged it and however. On `staging` every commit in the range, and
+every merge in the activity API, is looked up by the pull request it merged, and when the pull
+request is theirs its guard must have passed, whatever the commits say about who wrote them. So a
+merge is judged even before the activity API lists it. GitHub may link a commit to its pull request
+a little after the merge, so when a commit's own list has none, the gate also reads the 100 pull
+requests most recently closed into the branch, since a pull request records its merge commit when
+it is merged. A person's merge whose pull request still cannot be found stops the run, because
+nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
+squash commit keeps the pull request author's name (measured on #273: a pull request
+tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
+author). A merge by their app itself passes on the same terms. Commits that name their app and
 arrive by a merge commit, or by a rebase of more than one commit, still stop, as above; a rebase of
 a single commit passes like a squash, because that commit is the pull request's merge commit.
 

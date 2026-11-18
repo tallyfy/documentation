@@ -5,7 +5,7 @@
 // code from the repository. So this test takes the script out of each workflow file, checks that a YAML
 // parser reads the same text (as scripts/pipeline-guard.py does), runs it against a fake GitHub API in each
 // file's mode, and checks what it decides: a stop (core.setFailed) or a pass, and why it stopped. The gate
-// never waits, so any wait is wrong. Then it plants faults in the script one at a time, and each must turn
+// must never wait, so a gate script that names a timer is wrong. Then it plants faults in the script one at a time, and each must turn
 // at least one case red, so a test that cannot fail is caught.
 //
 // It also checks the job the gate trusts, pr-validate.yml's lb-pr-guard: the job name the gate looks for
@@ -100,7 +100,7 @@ function guardJob() {
     'import json, sys, yaml',
     'doc = yaml.safe_load(open(sys.argv[1]))',
     'job = (doc.get("jobs") or {}).get("lb-pr-guard") or {}',
-    'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or ""),',
+    'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or ""), "with": s.get("with") or {},',
     '          "if": s.get("if"), "continueOnError": s.get("continue-on-error")}',
     '         for s in (job.get("steps") or []) if isinstance(s, dict)]',
     'print(json.dumps({"name": job.get("name"), "continueOnError": job.get("continue-on-error"), "steps": steps}))',
@@ -176,6 +176,9 @@ function guardJobProblems(job) {
   const check = job.steps.findIndex((s) => s.run.includes(CHECK_MARK));
   if (check < 0) return [...problems, `no lb-pr-guard step runs ${CHECK_MARK}`];
   for (const s of job.steps.slice(0, check)) {
+    if (/^actions\/checkout@/.test(s.uses) && (s.with.ref !== undefined || s.with.repository !== undefined)) {
+      problems.push(`the checkout before the step that decides sets ${Object.keys(s.with).filter((k) => k === 'ref' || k === 'repository').join(' and ')}, so HEAD may not be GitHub's test merge and HEAD^1 may not be the base`);
+    }
     if (s.run || !/^actions\/(checkout|setup-python)@/.test(s.uses)) {
       problems.push(`"${s.name || s.uses || 'a step'}" runs before the step that decides, and only checkout and setup-python may`);
     }
@@ -197,6 +200,7 @@ function guardJobProblems(job) {
         env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, RUNNER_TEMP: join(dir, 'tmp'), PR_AUTHOR_LOGIN: login, PR_AUTHOR_ID: id },
       });
       rmSync(join(dir, 'tmp'), { recursive: true, force: true });
+      if (r.error) throw new ScratchFailure(`bash could not run the check step: ${r.error.message}`);
       return { rc: r.status, out: String(r.stdout) };
     };
     const THEM = [
@@ -312,7 +316,7 @@ function scenario({ branch = 'staging', changes = [] }) {
   const anchor = sha(`anchor-${branch}`);
   const world = {
     branch, anchor, head: anchor, commits: [], activity: [], pulls: {}, guard: {}, guardPr: {}, jobs: {},
-    closedIssues: [], issues: {}, waits: 0,
+    closedIssues: [], issues: {},
   };
   let n = 100;
   for (const ch of changes) {
@@ -334,7 +338,9 @@ function scenario({ branch = 'staging', changes = [] }) {
       timestamp: `2026-11-17T12:${String(n - 100).padStart(2, '0')}:00Z`,
     });
   }
+  // The starting point is a person's merge of a person's pull request.
   world.activity.push({ activity_type: 'pr_merge', actor: PERSON, after: anchor, timestamp: '2026-11-17T11:00:00Z' });
+  world.pulls[anchor] = [pullRequest(100, anchor, PERSON, branch, sha(`anchor-head-${branch}`))];
   if (world.commits.length) world.head = world.commits[world.commits.length - 1].sha;
   return world;
 }
@@ -343,6 +349,10 @@ function fakeGitHub(world, broken) {
   return {
     async request(route, params = {}) {
       if (broken.includes(route)) throw Object.assign(new Error('fake outage'), { status: 500 });
+      if (world.flaky && world.flaky[route]) {
+        world.flaky[route] -= 1;
+        throw Object.assign(new Error('fake brief outage'), { status: 502 });
+      }
       switch (route) {
         case 'GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs': {
           if (params.workflow_id === 'generate-ids.yml') {
@@ -367,7 +377,14 @@ function fakeGitHub(world, broken) {
         case 'GET /repos/{owner}/{repo}/compare/{basehead}':
           return { data: { status: world.commits.length ? 'ahead' : 'identical', total_commits: world.commits.length, commits: world.commits } };
         case 'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls':
-          return { data: world.pulls[params.commit_sha] || [] };
+          // GitHub may link a commit to its pull request a little after the merge.
+          return { data: (world.linkLag && world.linkLag.includes(params.commit_sha)) ? [] : (world.pulls[params.commit_sha] || []) };
+        case 'GET /repos/{owner}/{repo}/pulls': {
+          if (params.state !== 'closed' || params.base !== world.branch) throw new Error(`the fake has no pull request list for ${params.state} ${params.base}`);
+          const all = new Map();
+          for (const prs of Object.values(world.pulls)) for (const pr of prs) all.set(pr.number, pr);
+          return { data: [...all.values()] };
+        }
         case 'GET /repos/{owner}/{repo}/activity':
           return { data: world.activity, headers: {} };
         case 'GET /repos/{owner}/{repo}/issues':
@@ -384,7 +401,7 @@ function fakeGitHub(world, broken) {
 }
 
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-const PARAMS = ['github', 'context', 'core', 'process', 'setTimeout'];
+const PARAMS = ['github', 'context', 'core', 'process'];
 
 async function decide(script, mode, world, broken = []) {
   const failed = [];
@@ -394,14 +411,9 @@ async function decide(script, mode, world, broken = []) {
   const env = mode === 'pipeline'
     ? { GATE_MODE: 'pipeline', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_TRIGGER_RUN_ID: '1', GATE_TRIGGER_CONCLUSION: 'success', GATE_TRIGGER_HEAD: world.anchor }
     : { GATE_MODE: 'push', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_HEAD: world.head };
-  const fakeTimeout = (fn) => {
-    world.waits += 1;
-    if (world.waits > 3) throw new Error('the gate kept waiting');
-    fn();
-  };
   const gate = new AsyncFunction(...PARAMS, script);
-  await gate(fakeGitHub(world, broken), context, core, { env }, fakeTimeout);
-  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), waits: world.waits };
+  await gate(fakeGitHub(world, broken), context, core, { env });
+  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n') };
 }
 
 const lbMerge = (extra = {}) => ({ kind: 'merge', by: LB, prAuthor: LB, ...extra });
@@ -472,6 +484,19 @@ const CASES = [
     { personMerge: 'rebase', guard: 'failure' }],
   ['a person squashes their pull request in before the activity log lists it, guard failed', 'stop', 'ended failure',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }], activityLate: true }],
+  ['their single commit naming another app, rebased in by a person before the activity log lists it, guard failed', 'stop',
+    'ended failure', { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, commitAuthor: OTHER_APP, guard: 'failure' }], activityLate: true }],
+  ['a person merges their pull request with a merge commit before the activity log lists it, guard failed', 'stop', 'ended failure',
+    { personMerge: 'merge-commit', guard: 'failure', activityLate: true }],
+  ['a person\'s merge of their pull request at the starting point, guard failed', 'stop', 'ended failure', { anchorPersonMergeOfTheirPr: true }],
+  ['a person\'s merge whose pull request cannot be found', 'stop', 'cannot tell whose',
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON, noPullRequest: true }] }],
+  ['GitHub has not linked a person\'s merge to its pull request yet, and the closed pull requests list it', 'pass', null,
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON }], linkLag: true }],
+  ['GitHub has not linked a person\'s merge of their pull request yet, guard failed', 'stop', 'ended failure',
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }], linkLag: true }],
+  ['a read that fails once on GitHub\'s side is tried again', 'pass', null,
+    { changes: [lbMerge()], flaky: ['GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls'] }],
   ['their merge with no passed guard that a person accepted on the gate\'s issue', 'pass', null,
     { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
   ['their merge with no passed guard that a person accepted on an issue with the title used before #548', 'pass', null,
@@ -542,6 +567,16 @@ function worldFor(spec) {
     world.head = last.sha;
   }
   if (spec.activityLate) world.activity = world.activity.filter((a) => a.after === world.anchor);
+  if (spec.anchorPersonMergeOfTheirPr) {
+    // The last good run started from a person's merge of their pull request, whose guard reads failed.
+    const head = sha('anchor-person-merge-head');
+    world.activity = [{ activity_type: 'pr_merge', actor: PERSON, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
+    world.pulls[world.anchor] = [pullRequest(204, world.anchor, LB, 'staging', head)];
+    world.guard[head] = 'failure';
+    world.guardPr[head] = 204;
+  }
+  if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
+  if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
   if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
   if (spec.otherTitle) world.closedIssues[0].title = `Docs pipeline stopped on ${world.branch}`;
   if (spec.noCommitActivity) {
@@ -558,13 +593,12 @@ async function runCases(gate, label) {
       try {
         got = await decide(gate[mode], mode, worldFor(spec), spec.broken || []);
       } catch (err) {
-        got = { outcome: 'crash', text: String(err && err.message), waits: 0 };
+        got = { outcome: 'crash', text: String(err && err.message) };
       }
       const problems = [];
       if (got.outcome !== want) problems.push(`expected ${want}, got ${got.outcome}`);
-      if (got.waits) problems.push(`waited ${got.waits} time(s); the gate never waits`);
       if (want === 'stop' && got.outcome === 'stop' && reason && !got.text.includes(reason)) problems.push(`the stop does not say "${reason}"`);
-      if (/crashed|kept waiting/.test(got.text)) problems.push('the gate crashed');
+      if (/crashed/.test(got.text)) problems.push('the gate crashed');
       if (problems.length) wrong.push(`${name} [${mode}]: ${problems.join('; ')}${got.text ? `: ${got.text.split('\n')[0]}` : ''}`);
       if (label === 'real') console.log(`${problems.length ? 'FAIL' : 'ok  '} ${want.padEnd(4)} ${name} [${mode}]${problems.length ? ` -> ${problems.join('; ')}` : ''}`);
     }
@@ -591,13 +625,14 @@ const FAULTS = [
   ['their id not checked', '=== LB_BOT && id === LB_BOT_ID', '=== LB_BOT'],
   ['any app\'s merge let through on their terms', "if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {", "if (a.activity_type === 'pr_merge') {"],
   ['a push by their app let through on their terms', "a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)", 'isLaunchBrightly(who, a.actor.id)'],
-  ['their pull requests on staging not checked when a person merges',
-    'if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
-  ['a person\'s pull request held to their rules', 'bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)', 'bots.includes(LB_BOT)'],
+  ['the commits on staging not looked up by their pull request', 'const problem = await theirMergeProblem(c.sha);', 'const problem = null;'],
+  ['anyone\'s pull request held to their rules', 'if (!pr || !isLaunchBrightly(author.login, author.id)) return null;', 'if (!pr) return null;'],
+  ['the closed pull requests not read when a commit is not linked yet', '|| (await recentlyClosed()).find(isMerge) ||', '||'],
+  ['a failed read not tried again', "if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;", 'throw err;'],
   ['an unreadable actor let through', 'if (!who) {', 'if (!who) { continue;'],
   ['the anchor\'s own entry skipped', 'const who = a.actor && a.actor.login;', 'if (a.after === anchor.sha) continue; const who = a.actor && a.actor.login;'],
   ['a person\'s merge of their pull request not looked up', "if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {", 'if (false) {'],
-  ['a person\'s merge of anyone\'s pull request held to their rules', 'if (pr && isLaunchBrightly(author.login, author.id)) {', 'if (pr) {'],
+  ['a person\'s merge with no pull request let through', 'if (!(await mergedPrOf(a.after))) {', 'if (false) {'],
   ['the old issue title no longer accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === title'],
   ['the gate\'s own issue title not accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === oldTitle'],
 ];
@@ -633,9 +668,14 @@ const GUARD_FAULTS = [
   ['the deciding step allowed to fail', (job) => (checkStep < 0 ? null
     : { ...job, steps: job.steps.map((s, i) => (i === checkStep ? { ...s, continueOnError: true } : s)) })],
   ['the guard job allowed to fail', (job) => ({ ...job, continueOnError: true })],
+  ['the checkout made to fetch the pull request\'s head', (job) => ({ ...job,
+    steps: job.steps.map((s) => (/^actions\/checkout@/.test(s.uses) ? { ...s, with: { ...s.with, ref: '${{ github.event.pull_request.head.sha }}' } } : s)) })],
+  ['the checkout made to fetch another repository', (job) => ({ ...job,
+    steps: job.steps.map((s) => (/^actions\/checkout@/.test(s.uses) ? { ...s, with: { ...s.with, repository: '${{ github.event.pull_request.head.repo.full_name }}' } } : s)) })],
 ];
 
 const realWrong = await runCases(scripts, 'real');
+if (/\bset(Timeout|Interval)\b/.test(scripts.pipeline)) realWrong.push('the gate script names a timer, and the gate must never wait');
 console.log(`\n${CASES.length} cases in each of 2 workflows: ${CASES.length * 2 - realWrong.length} right, ${realWrong.length} wrong.`);
 
 const guardWrong = guardJobProblems(GUARD_JOB);

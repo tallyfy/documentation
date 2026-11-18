@@ -110,9 +110,10 @@ jobs:
             // when, of the pr-validate.yml runs on that pull request's head, the newest one that has a job named
             // "LaunchBrightly PR guard (#N into staging)" shows that job has already passed. Runs without that job,
             // such as another pull request's run on the same commit or one waiting for approval, do not count. That
-            // holds whoever merged it and however: a person's merge of such a pull request is looked up from the
-            // activity log, and a squash commit also keeps the pull request author's name, so the commit is checked
-            // even before the activity log lists the merge. A merge by the app itself passes on the same terms. The
+            // holds whoever merged it and however: on staging every commit in the range, and every merge in the
+            // activity log, is looked up by the pull request it merged, whatever the commits name as their author,
+            // and a person's merge whose pull request cannot be found stops the run. A merge by the app itself
+            // passes on the same terms. A read that fails on GitHub's side is tried once more at once. The
             // guard is read from the Actions API, as a job pr-validate.yml defines, because any token with checks:
             // write can create a check run. The gate never waits: their app is to merge after the guard has passed,
             // and a merge before that stops the run until the guard has passed and the run is started again, or a
@@ -158,10 +159,17 @@ jobs:
             }
 
             async function api(route, params) {
+              // A full URL (the activity API's next page) already carries its query; add nothing to it.
+              const call = () => (route.includes('https://') ? github.request(route)
+                : github.request(route, { owner, repo, ...(params || {}) }));
               try {
-                // A full URL (the activity API's next page) already carries its query; add nothing to it.
-                return route.includes('https://') ? await github.request(route)
-                  : await github.request(route, { owner, repo, ...(params || {}) });
+                try {
+                  return await call();
+                } catch (err) {
+                  // A read that failed on GitHub's side is tried once more, at once; a write or any other failure is not.
+                  if (!route.startsWith('GET ') || !(Number(err.status) >= 500)) throw err;
+                  return await call();
+                }
               } catch (err) {
                 throw new CannotDecide(`${route} failed: ${err.status || ''} ${err.message || err}`.trim());
               }
@@ -265,7 +273,7 @@ jobs:
 
             async function report(lines, anchor, head, range) {
               const body = [
-                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch in a way it does not let through, made or claimed by a GitHub App other than github-actions[bot] and tallyfy-workhorse[bot], or by someone it could not read. Each line says why:`,
+                `The push gate stopped the documentation pipeline on \`${branch}\`. These commits reached the branch in a way it does not let through. Each line says who made it and why it stopped:`,
                 '',
                 ...lines,
                 '',
@@ -299,17 +307,44 @@ jobs:
             const isLaunchBrightly = (login, id) => String(login || '').toLowerCase() === LB_BOT && id === LB_BOT_ID;
             const lbProblems = new Map();
             const mergedPrs = new Map();
+            let recentMerges = null;
 
-            // The merged pull request whose merge commit is sha, or null. Read once per commit.
+            // The 100 pull requests into this branch most recently closed or updated, read once per run.
+            function recentlyClosed() {
+              if (!recentMerges) {
+                recentMerges = (async () => {
+                  const { data } = await api('GET /repos/{owner}/{repo}/pulls',
+                    { state: 'closed', base: branch, sort: 'updated', direction: 'desc', per_page: 100 });
+                  if (!Array.isArray(data)) throw new CannotDecide(`could not read the pull requests closed into ${branch}`);
+                  return data;
+                })();
+              }
+              return recentMerges;
+            }
+
+            // The merged pull request whose merge commit is sha, or null. Read once per commit. GitHub may link a
+            // commit to its pull request a little after the merge, so when the commit's own list has none, the pull
+            // requests most recently closed into the branch are read too: a pull request records its merge commit
+            // when it is merged.
             function mergedPrOf(sha) {
               if (!mergedPrs.has(sha)) {
                 mergedPrs.set(sha, (async () => {
+                  const isMerge = (p) => p && p.merged_at && p.merge_commit_sha === sha;
                   const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: sha, per_page: 100 });
                   if (!Array.isArray(prs)) throw new CannotDecide(`could not read the pull requests of ${short(sha)}`);
-                  return prs.find((p) => p && p.merged_at && p.merge_commit_sha === sha) || null;
+                  return prs.find(isMerge) || (await recentlyClosed()).find(isMerge) || null;
                 })());
               }
               return mergedPrs.get(sha);
+            }
+
+            // On staging, why sha may not pass as the merge commit of a pull request launchbrightly[bot] opened
+            // ('' when it may), or null when sha is not the merge commit of such a pull request.
+            async function theirMergeProblem(sha) {
+              const pr = await mergedPrOf(sha);
+              const author = (pr && pr.user) || {};
+              if (!pr || !isLaunchBrightly(author.login, author.id)) return null;
+              return lbMergeProblem(sha);
             }
 
             // Why sha is not LaunchBrightly's merge of its own pull request into staging with a passed guard at
@@ -381,6 +416,15 @@ jobs:
               const add = (sha, why) => { if (!found.has(sha)) found.set(sha, []); found.get(sha).push(why); };
 
               for (const c of range.commits) {
+                if (branch === LB_BRANCH) {
+                  // On staging every commit is looked up: the merge commit of a pull request LaunchBrightly opened
+                  // passes only with its guard passed, whoever merged it and whatever the commit names as its author.
+                  const problem = await theirMergeProblem(c.sha);
+                  if (problem !== null) {
+                    if (problem) add(c.sha, `${identity(c)}; ${problem}`);
+                    continue;
+                  }
+                }
                 const bots = [...new Set([
                   botIn(c.author, c.commit && c.commit.author && c.commit.author.name, c.commit && c.commit.author && c.commit.author.email),
                   botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
@@ -388,13 +432,6 @@ jobs:
                 if (!bots.length) continue;
                 const merged = await mergedPrOf(c.sha);
                 if (merged) {
-                  const author = merged.user || {};
-                  if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {
-                    // The merge commit of LaunchBrightly's own pull request on staging, whoever merged it: guard passed.
-                    const problem = await lbMergeProblem(c.sha);
-                    if (problem) add(c.sha, `${identity(c)}; ${problem}`);
-                    continue;
-                  }
                   core.info(`${short(c.sha)} by ${bots.join(' and ')} is the merge commit of pull request #${merged.number}.`);
                   continue;
                 }
@@ -415,13 +452,14 @@ jobs:
                   continue;
                 }
                 if (!(a.actor.type === 'Bot' || isBotLogin(who)) || !disallowed(who)) {
-                  // A person's merge, or an allowed app's, of LaunchBrightly's own pull request into staging needs its
-                  // guard passed too, whatever the merged commits say about who wrote them.
+                  // A person's merge into staging, or an allowed app's: when the pull request is LaunchBrightly's, its
+                  // guard must have passed, whatever the merged commits say about who wrote them. A merge whose pull
+                  // request cannot be found is not let through, since then nobody can tell whose it was.
                   if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {
-                    const pr = await mergedPrOf(a.after);
-                    const author = (pr && pr.user) || {};
-                    if (pr && isLaunchBrightly(author.login, author.id)) {
-                      const problem = await lbMergeProblem(a.after);
+                    if (!(await mergedPrOf(a.after))) {
+                      add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; no merged pull request has ${short(a.after)} as its merge commit, so this gate cannot tell whose pull request it was`);
+                    } else {
+                      const problem = await theirMergeProblem(a.after);
                       if (problem) add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; ${problem}`);
                     }
                   }
