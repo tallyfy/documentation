@@ -315,13 +315,16 @@ jobs:
               return recentMerges;
             }
 
-            // Every merged pull request whose merge commit is sha, as a list (empty when there is none), read once per
-            // commit. All of them, not the first: when a head is pushed straight to the branch, every open pull
-            // request on that head can be marked merged with the same merge commit, and anyone can open one. The
-            // pull requests most recently closed into the branch are read first, once per run, because a pull
-            // request records its merge commit when it is merged; only a commit with no match among them costs a
-            // read of its own. GitHub may link a commit to its own list a little after the merge, which the first
-            // read covers.
+            // The merged pull requests whose merge commit is sha that this gate can see, as a list (empty when it
+            // sees none), read once per commit. Not only the first: when a head is pushed straight to the branch,
+            // every open pull request on that head can be marked merged with the same merge commit, and anyone can
+            // open one. The pull requests most recently closed into the branch (100, read once per run, because a
+            // pull request records its merge commit when it is merged) are searched first. Two limits follow. When
+            // any of those 100 matches, the commit's own list is not read, so a pull request on the same commit that
+            // is not among those 100 is not seen. When none matches, the commit's own list is read, one page of 100
+            // with no count check. So a pull request of theirs is judged only when it is among the matches seen at
+            // that moment. Only a commit with no match among the 100 costs a read of its own. GitHub may link a
+            // commit to its own list a little after the merge, which the first read covers.
             function mergedPrsOf(sha) {
               if (!mergedPrs.has(sha)) {
                 mergedPrs.set(sha, (async () => {

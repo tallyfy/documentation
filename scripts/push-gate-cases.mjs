@@ -716,6 +716,8 @@ const FAULTS = [
   ['the commits naming an app not looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c))'],
   ['only the commits naming their own app looked up', '(byGitHub(c) || bots.length)', '(byGitHub(c) || bots.includes(LB_BOT))'],
   ['every staging commit looked up', '(byGitHub(c) || bots.length)', '(true)'],
+  ['the stop for a commit no merged pull request has dropped', 'add(c.sha, `${identity(c)}; no merged pull request has it as its merge commit`);',
+    '/* that stop dropped */'],
   ['only the first pull request on a shared commit judged', 'if (!(await mergedPrsOf(sha)).some(isTheirs)) return null;',
     'if (!isTheirs((await mergedPrsOf(sha))[0])) return null;'],
   ['only the first pull request of theirs on a shared commit judged', 'for (const pr of theirs) {', 'for (const pr of theirs.slice(0, 1)) {'],
