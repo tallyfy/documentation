@@ -253,12 +253,14 @@ count. The gate reads it from the Actions API (workflow runs and their jobs, wit
 or it cannot decide. In that job the step that decides runs the base branch's copy of the guard
 before any code from the pull request runs, and when the base has no guard it refuses a pull
 request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
-checks both. That holds whoever merged it, because a squash commit keeps
-the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot] opened
-and a person merged has tallyfy-workhorse[bot] as its commit author). A merge by their app itself
-passes on the same terms. A merge commit, or a rebase of more than one commit, still stops, as
-above; a rebase of a single commit passes like a squash, because that commit is the pull request's
-merge commit.
+checks both. That holds whoever merged it and however. On `staging` every merge a person makes is
+looked up, and when the pull request is theirs its guard must have passed, whatever the merged
+commits say about who wrote them. A squash commit also keeps the pull request author's name
+(measured on #273: a pull request tallyfy-workhorse[bot] opened and a person merged has
+tallyfy-workhorse[bot] as its commit author), so it is checked even before the activity API lists
+the merge. A merge by their app itself passes on the same terms. Commits that name their app and
+arrive by a merge commit, or by a rebase of more than one commit, still stop, as above; a rebase of
+a single commit passes like a squash, because that commit is the pull request's merge commit.
 
 The gate never waits. Their app is to merge only after the guard has passed. A merge before that
 stops the run and opens the issue. Once the guard has passed, re-running the failed workflow, or
@@ -266,8 +268,9 @@ the next push to `staging`, judges the merge again and lets it through, so close
 completed then; a person can also accept it on the issue at any time. A wait was tried in review
 and dropped: in `documentation-pipeline.yml` it would let commits that land during the wait run
 unjudged, because that workflow's later jobs check out the branch tip when they start. The push
-or merge that produced the anchor was judged by the run that made it the anchor, so later runs
-do not judge it again, whether it was their merge or an entry whose maker the gate cannot read.
+or merge that produced the anchor is judged again on every run, so an entry the activity API
+listed only after an earlier run still gets judged; an acceptance on the issue covers it on every
+later run.
 
 Two known limits. First, the gate trusts the guard job by its name, and a pull request run takes
 its workflow file from the pull request. So someone who can change workflow files could add a job
@@ -276,8 +279,10 @@ of that name to their own pull request. Their app cannot, because it has no work
 change the gate itself. Second, a pass counts however old it is. A pull request run starts only
 when the pull request is opened, reopened or gets new commits, so a pass recorded before someone
 tightened `scripts/lb-pr-guard.py` or `repo_screenshot_rules.py` on `staging` still lets their
-merge through. After tightening either file, re-run the "LaunchBrightly PR guard" job on every
-open pull request by their app.
+merge through. Re-running the old job does not help, because a re-run judges the same test merge
+with the same base. After tightening either file, close every open pull request by their app, so
+it cannot be merged, and reopen it: the reopened pull request gets a new run against the new rules,
+and once that run lists its guard job, that job is the one that counts.
 
 Any push by their app, any push or merge by it on `main`, any other app, and a push or merge when
 the gate cannot read who made it all still stop the run; an activity entry that names no commit is

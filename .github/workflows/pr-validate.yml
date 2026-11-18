@@ -17,6 +17,11 @@ name: PR validation
 # block a merge; it exists so a pull request author sees a result BEFORE merging
 # rather than finding out from a red pipeline on the default branch afterwards.
 # Making it required is a separate decision and needs branch protection first.
+# Dated 2026-11-18 (#548): one job here is no longer only advisory. The push gate in
+# generate-ids.yml and documentation-pipeline.yml lets LaunchBrightly's merge into staging
+# run the pipeline only when the lb-pr-guard job below has passed for that pull request. So that
+# job's name, its deciding step running first, and that step having no `if:` and no
+# continue-on-error all matter; scripts/push-gate-cases.mjs checks each of them.
 
 on:
   pull_request:
@@ -70,7 +75,9 @@ jobs:
       # imports it when the module loads.
       # push-gate-cases.mjs (#548) runs the push gate's own script, taken from both workflow files,
       # against a fake GitHub with no network, both ways, and plants faults in it that must turn it
-      # red. It uses only Node's built-in modules, from the Node the runner image already has.
+      # red, and checks the lb-pr-guard job the gate trusts. It needs the Node the runner image
+      # already has (built-in modules only), python3 with PyYAML (from the lint step above), git
+      # and bash.
       - name: "Pipeline script self-tests (#296, #295)"
         run: |
           python -m pip install --upgrade python-frontmatter requests python-dotenv

@@ -92,16 +92,18 @@ for (const [mode, path] of Object.entries(WORKFLOWS)) {
 }
 if (scripts.pipeline !== scripts.push) cannotRun('the push-gate scripts in the two workflows differ');
 
-// pr-validate.yml's lb-pr-guard job, as a YAML parser reads it: its name and its steps.
+// pr-validate.yml's lb-pr-guard job, as a YAML parser reads it: its name, whether it may fail without
+// failing, and its steps with their `if:` and continue-on-error.
 function guardJob() {
   const path = join(repoRoot, '.github/workflows/pr-validate.yml');
   const code = [
     'import json, sys, yaml',
     'doc = yaml.safe_load(open(sys.argv[1]))',
     'job = (doc.get("jobs") or {}).get("lb-pr-guard") or {}',
-    'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or "")}',
+    'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or ""),',
+    '          "if": s.get("if"), "continueOnError": s.get("continue-on-error")}',
     '         for s in (job.get("steps") or []) if isinstance(s, dict)]',
-    'print(json.dumps({"name": job.get("name"), "steps": steps}))',
+    'print(json.dumps({"name": job.get("name"), "continueOnError": job.get("continue-on-error"), "steps": steps}))',
   ].join('\n');
   const r = spawnSync('python3', ['-c', code, path], { encoding: 'utf8' });
   if (r.error || r.status !== 0) cannotRun(`python3 with PyYAML could not read ${path}: ${r.error ? r.error.message : r.stderr.trim()}`);
@@ -122,62 +124,113 @@ let guardNameTemplate = GUARD_JOB.name;
 const jobName = (number, base = 'staging') => guardNameTemplate.replace(NUMBER_EXPR, String(number)).replace(BASE_EXPR, base);
 const CHECK_MARK = '"$guard/scripts/lb-pr-guard.py" --repo';
 
-// What is wrong with the job the gate trusts, as a list of problems.
+class ScratchFailure extends Error {}
+
+// A scratch git repository at dir/name whose HEAD is a test merge, as GitHub makes one: the base commit
+// holds baseFiles, the pull request commit holds prFiles, and HEAD^1 and HEAD^2 are those two.
+function scratchMerge(dir, name, baseFiles, prFiles) {
+  const repo = join(dir, name);
+  const git = (...args) => {
+    const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false',
+      '-c', 'core.hooksPath=/dev/null', ...args], { cwd: repo, encoding: 'utf8' });
+    if (r.error || r.status !== 0) throw new ScratchFailure(`git ${args[0]} in the scratch repository failed: ${r.error ? r.error.message : r.stderr.trim()}`);
+  };
+  const put = (files) => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(join(repo, path, '..'), { recursive: true });
+      writeFileSync(join(repo, path), text);
+    }
+  };
+  mkdirSync(repo, { recursive: true });
+  git('init', '-q', '-b', 'base');
+  put({ 'README.md': 'base\n', ...baseFiles });
+  git('add', '-A');
+  git('commit', '-q', '-m', 'base');
+  git('checkout', '-q', '-b', 'pr');
+  put(prFiles);
+  git('add', '-A');
+  git('commit', '-q', '-m', 'pull request');
+  git('checkout', '-q', 'base');
+  git('merge', '-q', '--no-ff', '--no-edit', 'pr');
+  return repo;
+}
+
+// A stand-in guard that says which copy of the guard and of its rules ran.
+const standIn = (who) => ({
+  'scripts/lb-pr-guard.py': [
+    'import os, sys',
+    'sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "asset_management"))',
+    'import repo_screenshot_rules as rules',
+    `print("GUARD=${who} RULES=" + rules.WHO)`,
+    '',
+  ].join('\n'),
+  'scripts/asset_management/repo_screenshot_rules.py': `WHO = "${who}"\n`,
+});
+
+// What is wrong with the job the gate trusts, as a list of problems. It runs the deciding step with bash
+// in scratch repositories: with no guard on the base, and with the guard on the base and another copy in
+// the pull request.
 function guardJobProblems(job) {
   const problems = [];
+  if (job.continueOnError) problems.push('the lb-pr-guard job has continue-on-error, so it can pass while its check fails');
   const check = job.steps.findIndex((s) => s.run.includes(CHECK_MARK));
-  if (check < 0) return [`no lb-pr-guard step runs ${CHECK_MARK}`];
+  if (check < 0) return [...problems, `no lb-pr-guard step runs ${CHECK_MARK}`];
   for (const s of job.steps.slice(0, check)) {
     if (s.run || !/^actions\/(checkout|setup-python)@/.test(s.uses)) {
       problems.push(`"${s.name || s.uses || 'a step'}" runs before the step that decides, and only checkout and setup-python may`);
     }
   }
-  const run = job.steps[check].run;
+  const decide = job.steps[check];
+  if (decide.if !== null && decide.if !== undefined) problems.push(`the step that decides has an if: (${decide.if}), so it can be skipped and the job pass`);
+  if (decide.continueOnError) problems.push('the step that decides has continue-on-error, so the job can pass while it fails');
   const dir = mkdtempSync(join(tmpdir(), 'push-gate-guard-'));
+  let failure = null;
   try {
-    const git = (...args) => {
-      const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false',
-        '-c', 'core.hooksPath=/dev/null', ...args], { cwd: join(dir, 'repo'), encoding: 'utf8' });
-      if (r.error || r.status !== 0) cannotRun(`git ${args[0]} in the scratch repository failed: ${r.error ? r.error.message : r.stderr.trim()}`);
-    };
-    mkdirSync(join(dir, 'repo', 'scripts', 'asset_management'), { recursive: true });
     mkdirSync(join(dir, 'bin'));
     writeFileSync(join(dir, 'bin', 'python'), '#!/bin/sh\nexec python3 "$@"\n');
     chmodSync(join(dir, 'bin', 'python'), 0o755);
-    git('init', '-q', '-b', 'base');
-    writeFileSync(join(dir, 'repo', 'README.md'), 'base\n');
-    git('add', '-A');
-    git('commit', '-q', '-m', 'base without the guard');
-    git('checkout', '-q', '-b', 'pr');
-    writeFileSync(join(dir, 'repo', 'scripts', 'lb-pr-guard.py'), 'print("THE PULL REQUEST\'S OWN COPY RAN")\n');
-    writeFileSync(join(dir, 'repo', 'scripts', 'asset_management', 'repo_screenshot_rules.py'), '# rules\n');
-    git('add', '-A');
-    git('commit', '-q', '-m', 'the pull request brings its own guard');
-    git('checkout', '-q', 'base');
-    git('merge', '-q', '--no-ff', '--no-edit', 'pr');
-    const step = (login, id) => {
+    const step = (repo, login, id) => {
       mkdirSync(join(dir, 'tmp'), { recursive: true });
-      const r = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', run], {
-        cwd: join(dir, 'repo'),
+      const r = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', decide.run], {
+        cwd: repo,
         encoding: 'utf8',
         env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, RUNNER_TEMP: join(dir, 'tmp'), PR_AUTHOR_LOGIN: login, PR_AUTHOR_ID: id },
       });
       rmSync(join(dir, 'tmp'), { recursive: true, force: true });
-      return { rc: r.status, ranOwn: String(r.stdout).includes("THE PULL REQUEST'S OWN COPY RAN") };
+      return { rc: r.status, out: String(r.stdout) };
     };
-    const person = step('amitkoth', '1000');
-    if (person.rc !== 0 || !person.ranOwn) cannotRun(`the check step did not use a person's own copy when the base has no guard (rc ${person.rc}), so the scratch run cannot judge the refusal`);
-    for (const [who, login, id] of [
+    const THEM = [
       ['launchbrightly[bot]', 'launchbrightly[bot]', '270903805'],
       ['their user id alone', 'someone-else', '270903805'],
       ['their login alone, in another case', 'LaunchBrightly[bot]', '5'],
-    ]) {
-      const got = step(login, id);
-      if (got.rc === 0 || got.ranOwn) problems.push(`with no guard on the base, the check step ran the pull request's own copy for ${who} (rc ${got.rc})`);
+    ];
+
+    // No guard on the base: a person's pull request is judged by its own copy, theirs is refused.
+    const bare = scratchMerge(dir, 'no-guard-on-base', {}, standIn('PR'));
+    const person = step(bare, 'amitkoth', '1000');
+    if (person.rc !== 0 || !person.out.includes('GUARD=PR RULES=PR')) {
+      problems.push(`with no guard on the base, the check step did not use a person's own copy (rc ${person.rc})`);
     }
+    for (const [who, login, id] of THEM) {
+      const got = step(bare, login, id);
+      if (got.rc === 0 || got.out.includes('GUARD=')) problems.push(`with no guard on the base, the check step ran the pull request's own copy for ${who} (rc ${got.rc})`);
+    }
+
+    // The guard on the base, and the pull request bringing another copy: the base's copy judges everyone.
+    const guarded = scratchMerge(dir, 'guard-on-base', standIn('BASE'), standIn('PR'));
+    for (const [who, login, id] of [['a person', 'amitkoth', '1000'], ...THEM]) {
+      const got = step(guarded, login, id);
+      if (got.rc !== 0 || !got.out.includes('GUARD=BASE RULES=BASE')) {
+        problems.push(`with the guard on the base, the check step did not judge ${who}'s pull request with the base's guard and rules (rc ${got.rc}: ${got.out.trim().split('\n').pop() || 'no output'})`);
+      }
+    }
+  } catch (err) {
+    if (!(err instanceof ScratchFailure)) throw err;
+    failure = err.message;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+  if (failure) cannotRun(failure);
   return problems;
 }
 
@@ -404,8 +457,21 @@ const CASES = [
   }],
   ['main merged back into staging brings their commit from a pull request into main', 'stop', 'merged into main',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, base: 'main' }] }],
-  ['their merge that made the starting point is not judged again', 'pass', null, { anchorIsTheirMerge: true }],
-  ['an entry with no readable actor that made the starting point is not judged again', 'pass', null, { anchorActorless: true }],
+  ['their merge that made the starting point is judged again, and its guard now reads failed', 'stop', 'ended failure',
+    { anchorIsTheirMerge: 'failure' }],
+  ['their merge that made the starting point is judged again, and its guard passed', 'pass', null, { anchorIsTheirMerge: 'success' }],
+  ['their app\'s merge of a person\'s pull request, listed only after the run that made it the starting point', 'stop',
+    'opened by amitkoth', { anchorIsTheirMergeOfPersonPr: true }],
+  ['an entry with no readable actor that made the starting point is judged again', 'stop', 'could not read', { anchorActorless: true }],
+  ['an entry with no readable actor at the starting point that a person accepted', 'pass', null, { anchorActorless: true, acceptAnchor: true }],
+  ['a person merges their pull request with a merge commit, its commits naming no app, guard failed', 'stop', 'ended failure',
+    { personMerge: 'merge-commit', guard: 'failure' }],
+  ['a person merges their pull request with a merge commit, its commits naming no app, guard passed', 'pass', null,
+    { personMerge: 'merge-commit', guard: 'success' }],
+  ['a person rebases their pull request in, its commits naming no app, guard failed', 'stop', 'ended failure',
+    { personMerge: 'rebase', guard: 'failure' }],
+  ['a person squashes their pull request in before the activity log lists it, guard failed', 'stop', 'ended failure',
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }], activityLate: true }],
   ['their merge with no passed guard that a person accepted on the gate\'s issue', 'pass', null,
     { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
   ['their merge with no passed guard that a person accepted on an issue with the title used before #548', 'pass', null,
@@ -445,17 +511,37 @@ function worldFor(spec) {
     world.activity.unshift({ activity_type: 'pr_merge', actor: LB, after: merge.sha, timestamp: '2026-11-17T12:30:00Z' });
     world.head = merge.sha;
   }
-  if (spec.anchorIsTheirMerge) {
-    // The last good run started from their merge, whose guard reads as failed now (a later re-run).
+  if (spec.anchorIsTheirMerge || spec.anchorIsTheirMergeOfPersonPr) {
+    // The last good run started from their app's merge, which every run judges again.
     const head = sha('anchor-merge-head');
+    const prAuthor = spec.anchorIsTheirMergeOfPersonPr ? PERSON : LB;
     world.activity = [{ activity_type: 'pr_merge', actor: LB, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
-    world.pulls[world.anchor] = [pullRequest(202, world.anchor, LB, 'staging', head)];
-    world.guard[head] = 'failure';
+    world.pulls[world.anchor] = [pullRequest(202, world.anchor, prAuthor, 'staging', head)];
+    world.guard[head] = spec.anchorIsTheirMerge || 'success';
     world.guardPr[head] = 202;
   }
   if (spec.anchorActorless) {
     world.activity = [{ activity_type: 'push', actor: null, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
   }
+  if (spec.acceptAnchor) acceptIssue(world, world.anchor);
+  if (spec.personMerge) {
+    // Their pull request's commits carry a git identity that names no app and links to no account, and a
+    // person merges it with a merge commit, or rebases it in (the last rebased commit is the merge commit).
+    const plain = (label) => ({ sha: sha(label), author: null, committer: null,
+      commit: { author: { name: 'Screenshot updater', email: 'updater@example.com' }, committer: { name: 'Screenshot updater', email: 'updater@example.com' } } });
+    const own = [plain(`${spec.personMerge}-own-1`), plain(`${spec.personMerge}-own-2`)];
+    const last = spec.personMerge === 'rebase' ? own[1] : commitBy(`${spec.personMerge}-merge`, PERSON);
+    const head = sha(`${spec.personMerge}-head`);
+    const pr = pullRequest(203, last.sha, LB, 'staging', head);
+    world.commits.push(...own);
+    if (last !== own[1]) world.commits.push(last);
+    for (const c of world.commits) world.pulls[c.sha] = [pr];
+    world.guard[head] = spec.guard;
+    world.guardPr[head] = 203;
+    world.activity.unshift({ activity_type: 'pr_merge', actor: PERSON, after: last.sha, timestamp: '2026-11-17T12:30:00Z' });
+    world.head = last.sha;
+  }
+  if (spec.activityLate) world.activity = world.activity.filter((a) => a.after === world.anchor);
   if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
   if (spec.otherTitle) world.closedIssues[0].title = `Docs pipeline stopped on ${world.branch}`;
   if (spec.noCommitActivity) {
@@ -509,8 +595,9 @@ const FAULTS = [
     'if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
   ['a person\'s pull request held to their rules', 'bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)', 'bots.includes(LB_BOT)'],
   ['an unreadable actor let through', 'if (!who) {', 'if (!who) { continue;'],
-  ['the anchor\'s unreadable entry judged again', 'if (a.after === anchor.sha) continue;', 'if (false) continue;'],
-  ['their merge at the anchor judged again', 'if (a.after === anchor.sha) {', 'if (false) {'],
+  ['the anchor\'s own entry skipped', 'const who = a.actor && a.actor.login;', 'if (a.after === anchor.sha) continue; const who = a.actor && a.actor.login;'],
+  ['a person\'s merge of their pull request not looked up', "if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {", 'if (false) {'],
+  ['a person\'s merge of anyone\'s pull request held to their rules', 'if (pr && isLaunchBrightly(author.login, author.id)) {', 'if (pr) {'],
   ['the old issue title no longer accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === title'],
   ['the gate\'s own issue title not accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === oldTitle'],
 ];
@@ -537,6 +624,15 @@ const GUARD_FAULTS = [
     return { ...job, steps };
   }],
   ['a step that runs a command added before the check', (job) => ({ ...job, steps: [{ name: 'Set up', uses: '', run: 'make setup' }, ...job.steps] })],
+  ['the pull request\'s copy of the guard read instead of the base\'s',
+    editCheck('git show HEAD^1:scripts/lb-pr-guard.py', 'git show HEAD^2:scripts/lb-pr-guard.py')],
+  ['the pull request\'s copy of the rules read instead of the base\'s',
+    editCheck('git show HEAD^1:scripts/asset_management/repo_screenshot_rules.py', 'git show HEAD^2:scripts/asset_management/repo_screenshot_rules.py')],
+  ['the deciding step given an if:', (job) => (checkStep < 0 ? null
+    : { ...job, steps: job.steps.map((s, i) => (i === checkStep ? { ...s, if: "github.event.pull_request.draft == false" } : s)) })],
+  ['the deciding step allowed to fail', (job) => (checkStep < 0 ? null
+    : { ...job, steps: job.steps.map((s, i) => (i === checkStep ? { ...s, continueOnError: true } : s)) })],
+  ['the guard job allowed to fail', (job) => ({ ...job, continueOnError: true })],
 ];
 
 const realWrong = await runCases(scripts, 'real');
@@ -544,7 +640,7 @@ console.log(`\n${CASES.length} cases in each of 2 workflows: ${CASES.length * 2 
 
 const guardWrong = guardJobProblems(GUARD_JOB);
 for (const p of guardWrong) console.log(`FAIL guard job: ${p}`);
-console.log(`The guard job pr-validate.yml defines: ${guardWrong.length ? `${guardWrong.length} problem(s)` : 'nothing runs before the check that decides, and with no guard on the base it refuses their pull request and uses anyone else\'s own copy'}.`);
+console.log(`The guard job pr-validate.yml defines: ${guardWrong.length ? `${guardWrong.length} problem(s)` : 'nothing runs before the check that decides, it cannot be skipped or allowed to fail, with the guard on the base it judges everyone with the base\'s guard and rules, and with no guard on the base it refuses their pull request and uses anyone else\'s own copy'}.`);
 for (const [name, plant] of GUARD_FAULTS) {
   const mutant = plant(GUARD_JOB);
   if (!mutant) cannotRun(`planted guard job fault "${name}": its text is not in the check step exactly once`);

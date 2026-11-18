@@ -110,14 +110,16 @@ jobs:
             // when, of the pr-validate.yml runs on that pull request's head, the newest one that has a job named
             // "LaunchBrightly PR guard (#N into staging)" shows that job has already passed. Runs without that job,
             // such as another pull request's run on the same commit or one waiting for approval, do not count. That
-            // holds whoever merged it: a squash commit keeps the pull request author's name, so this covers a merge
-            // made with a person's token. A merge by the app itself passes on the same terms. The guard is read from
-            // the Actions API, as a job pr-validate.yml defines, because any token with checks: write can create a
-            // check run. The gate never waits: their app is to merge after the guard has passed, and a merge before
-            // that stops the run until the guard has passed and the run is started again, or a person accepts it.
+            // holds whoever merged it and however: a person's merge of such a pull request is looked up from the
+            // activity log, and a squash commit also keeps the pull request author's name, so the commit is checked
+            // even before the activity log lists the merge. A merge by the app itself passes on the same terms. The
+            // guard is read from the Actions API, as a job pr-validate.yml defines, because any token with checks:
+            // write can create a check run. The gate never waits: their app is to merge after the guard has passed,
+            // and a merge before that stops the run until the guard has passed and the run is started again, or a
+            // person accepts it.
             // Any push by the app, any push or merge by it on main, and any other app still stop the run; on main a
-            // person's merge is judged as before. The push or merge that produced the anchor was judged by the run
-            // that made it the anchor, so the rules added here do not judge it again.
+            // person's merge is judged as before. The push or merge that produced the anchor is judged again on
+            // every run, so an entry the activity log listed only after an earlier run still gets judged.
             const ALLOWED_BOTS = ['github-actions[bot]', 'tallyfy-workhorse[bot]'];
             // Read 2026-11-17 from GET /users/launchbrightly[bot] (type Bot); the org's installed app has slug launchbrightly.
             const LB_BOT = 'launchbrightly[bot]';
@@ -296,13 +298,25 @@ jobs:
 
             const isLaunchBrightly = (login, id) => String(login || '').toLowerCase() === LB_BOT && id === LB_BOT_ID;
             const lbProblems = new Map();
+            const mergedPrs = new Map();
+
+            // The merged pull request whose merge commit is sha, or null. Read once per commit.
+            function mergedPrOf(sha) {
+              if (!mergedPrs.has(sha)) {
+                mergedPrs.set(sha, (async () => {
+                  const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: sha, per_page: 100 });
+                  if (!Array.isArray(prs)) throw new CannotDecide(`could not read the pull requests of ${short(sha)}`);
+                  return prs.find((p) => p && p.merged_at && p.merge_commit_sha === sha) || null;
+                })());
+              }
+              return mergedPrs.get(sha);
+            }
 
             // Why sha is not LaunchBrightly's merge of its own pull request into staging with a passed guard at
             // the merged head, or '' when it is. A missing, unfinished or failed guard is a reason; anything it
-            // cannot read throws CannotDecide, which fails the gate. mergedPr is the pull request whose merge commit
-            // sha is, when the caller has already found it.
-            function lbMergeProblem(sha, mergedPr) {
-              if (!lbProblems.has(sha)) lbProblems.set(sha, readLbMergeProblem(sha, mergedPr));
+            // cannot read throws CannotDecide, which fails the gate.
+            function lbMergeProblem(sha) {
+              if (!lbProblems.has(sha)) lbProblems.set(sha, readLbMergeProblem(sha));
               return lbProblems.get(sha);
             }
 
@@ -331,14 +345,9 @@ jobs:
               return null;
             }
 
-            async function readLbMergeProblem(sha, mergedPr) {
+            async function readLbMergeProblem(sha) {
               if (branch !== LB_BRANCH) return `${LB_BOT} may merge only into ${LB_BRANCH}, and this is ${branch}`;
-              let pr = mergedPr;
-              if (!pr) {
-                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: sha, per_page: 100 });
-                if (!Array.isArray(prs)) throw new CannotDecide(`could not read the pull requests of ${short(sha)}`);
-                pr = prs.find((p) => p && p.merged_at && p.merge_commit_sha === sha);
-              }
+              const pr = await mergedPrOf(sha);
               if (!pr) return `no merged pull request has ${short(sha)} as its merge commit`;
               const author = pr.user || {};
               if (!isLaunchBrightly(author.login, author.id)) {
@@ -377,13 +386,12 @@ jobs:
                   botIn(c.committer, c.commit && c.commit.committer && c.commit.committer.name, c.commit && c.commit.committer && c.commit.committer.email),
                 ].filter(disallowed))];
                 if (!bots.length) continue;
-                const { data: prs } = await api('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', { commit_sha: c.sha, per_page: 100 });
-                const merged = (prs || []).find((p) => p.merged_at && p.merge_commit_sha === c.sha);
+                const merged = await mergedPrOf(c.sha);
                 if (merged) {
                   const author = merged.user || {};
                   if (branch === LB_BRANCH && bots.includes(LB_BOT) && isLaunchBrightly(author.login, author.id)) {
                     // The merge commit of LaunchBrightly's own pull request on staging, whoever merged it: guard passed.
-                    const problem = await lbMergeProblem(c.sha, merged);
+                    const problem = await lbMergeProblem(c.sha);
                     if (problem) add(c.sha, `${identity(c)}; ${problem}`);
                     continue;
                   }
@@ -402,19 +410,24 @@ jobs:
                   continue;
                 }
                 if (!who) {
-                  // The anchor's own entry was judged by the run that made it the anchor.
-                  if (a.after === anchor.sha) continue;
                   // Who made it cannot be read, so it is not let through; a person can accept it on the issue.
                   add(a.after, `${a.activity_type} to ${branch} at ${a.timestamp} by someone this gate could not read`);
                   continue;
                 }
-                if (!(a.actor.type === 'Bot' || isBotLogin(who)) || !disallowed(who)) continue;
-                if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {
-                  if (a.after === anchor.sha) {
-                    // Their merge that produced the anchor was judged by the run that made it the anchor.
-                    core.info(`${short(a.after)}, the anchor, is ${LB_BOT}'s merge that an earlier run judged.`);
-                    continue;
+                if (!(a.actor.type === 'Bot' || isBotLogin(who)) || !disallowed(who)) {
+                  // A person's merge, or an allowed app's, of LaunchBrightly's own pull request into staging needs its
+                  // guard passed too, whatever the merged commits say about who wrote them.
+                  if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {
+                    const pr = await mergedPrOf(a.after);
+                    const author = (pr && pr.user) || {};
+                    if (pr && isLaunchBrightly(author.login, author.id)) {
+                      const problem = await lbMergeProblem(a.after);
+                      if (problem) add(a.after, `${a.activity_type} to ${branch} by ${who} at ${a.timestamp}; ${problem}`);
+                    }
                   }
+                  continue;
+                }
+                if (a.activity_type === 'pr_merge' && isLaunchBrightly(who, a.actor.id)) {
                   // A merge by LaunchBrightly's app itself: through only on the terms in lbMergeProblem.
                   const problem = await lbMergeProblem(a.after);
                   if (!problem) continue;
