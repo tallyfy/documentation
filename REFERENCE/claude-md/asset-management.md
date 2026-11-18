@@ -257,21 +257,51 @@ or it cannot decide. In that job the step that decides runs the base branch's co
 before any code from the pull request runs, and when the base has no guard it refuses a pull
 request by their app instead of running the pull request's own copy; `push-gate-cases.mjs`
 checks both, and that nothing in that job's checkout or env can make it read the pull request's
-files first. That holds whoever merged it and however. On `staging` every commit in the range that
-GitHub committed as a merge (GitHub commits every squash, merge commit and rebase it makes as
-"GitHub <noreply@github.com>"; measured 2026-11-18 on the 200 newest commits, all 68 squash
-merges and all 13 merge commits), and every merge in the activity API, is looked up by the pull
-request it merged. When the pull request is theirs its guard must have passed, whatever the
-commits say about who wrote them, so a merge is judged even before the activity API lists it. The
-gate reads the 100 pull requests most recently closed into the branch once per run, since a pull
-request records its merge commit when it is merged, and asks GitHub for a commit's own pull
-requests only when it is not among them. A person's merge whose pull request still cannot be found stops the run, because
-nobody can tell whose it was. A read that fails on GitHub's side is tried once more, at once. A
-squash commit keeps the pull request author's name (measured on #273: a pull request
-tallyfy-workhorse[bot] opened and a person merged has tallyfy-workhorse[bot] as its commit
-author). A merge by their app itself passes on the same terms. Commits that name their app and
-arrive by a merge commit, or by a rebase of more than one commit, still stop, as above; a rebase of
-a single commit passes like a squash, because that commit is the pull request's merge commit.
+files first. That holds for every merge GitHub makes, by their app or by a person. On `staging`
+every commit in the range that GitHub committed (GitHub commits every squash, merge commit and
+rebase it makes as "GitHub <noreply@github.com>"; measured 2026-11-18 on the 200 newest commits, all
+68 squash merges and all 13 merge commits; a person's commit in GitHub's web editor is committed by
+GitHub too, so it is looked up as well), every commit that names an app other than
+the two allowed, `launchbrightly[bot]` included, as author or committer (#555), and every merge in
+the activity API, is looked up by the pull request it merged. When the pull request is theirs its
+guard must have passed, so a merge is judged even before the activity API lists it.
+
+A person can also merge one of their pull requests from the command line by pushing its head
+straight to `staging`. We expect GitHub to record the pushed commit as the pull request's merge
+commit and the activity API to log a push, not a merge; neither is measured yet, since no such push
+has happened here. When the pushed head names an app other than the two allowed, it is held to the
+guard as above; if other pull requests share that head, theirs is judged when the gate sees it
+(see the two limits below). An earlier commit
+of the pull request that names such an app stops as "no merged pull request has it as its merge
+commit", as in a merge commit or a rebase of more than one commit, and an earlier commit that names
+none passes. When the head names no such app, the push is a person's push and is judged as one: the
+gate trusts it, as it always has trusted a person's push. A head pushed before GitHub marks its pull
+request merged stops the same way as an earlier commit does; once GitHub marks it merged, a later
+run judges its guard, and lets it through only if that guard passed. When several pull requests of
+theirs share the pushed head, each one the gate sees must have passed its guard.
+
+Two limits on that. The gate searches the 100 pull requests most recently closed into the branch
+first, and when any of them has the commit as its merge commit, it does not read the commit's own
+list, so a pull request on the same commit that is not among those 100 is not seen. When none of
+them matches, it reads the commit's own list, one page of 100, with no count check. So a pull
+request of theirs on a shared head is judged only when it is among the matches the gate sees at that
+moment.
+
+Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
+since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
+pull requests only for a commit GitHub committed (a merge, or a person's commit in GitHub's web
+editor, which GitHub also commits), a commit that names an app other than the two allowed, or a merge
+in the activity API, and only when it is not among those 100. When the pull request is theirs,
+judging it also reads its guard runs and their jobs. The pipeline's own commits, and people's
+commits pushed from their own machines that name no app outside the two allowed, cost no read of
+their own.
+A person's merge whose pull request still cannot be found stops the run, because nobody can tell
+whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
+keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]
+opened and a person merged has tallyfy-workhorse[bot] as its commit author). A merge by their app
+itself passes on the same terms. Commits that name their app and arrive by a merge commit, or by a
+rebase of more than one commit, still stop, as above; a rebase of a single commit passes like a
+squash, because that commit is the pull request's merge commit.
 
 The gate never waits. Their app is to merge only after the guard has passed. A merge before that
 stops the run and opens the issue. Once the guard has passed, re-running the failed workflow, or
