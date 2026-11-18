@@ -8,16 +8,23 @@
 // never waits, so any wait is wrong. Then it plants faults in the script one at a time, and each must turn
 // at least one case red, so a test that cannot fail is caught.
 //
+// It also checks the job the gate trusts, pr-validate.yml's lb-pr-guard: the job name the gate looks for
+// is taken from that file, not written here, so the two cannot drift apart; only checkout and setup-python
+// run before the step that decides, so no code from the pull request runs first; and that step, run by
+// bash in a scratch repository whose base has no guard, refuses a pull request by launchbrightly[bot]
+// (by login or by user id) and still uses the pull request's own copy for anyone else.
+//
 //   node scripts/push-gate-cases.mjs [--repo PATH]
 //
-// Needs python3 with PyYAML for the parser check. Exit 0: every case and every planted fault went the right
-// way. Exit 1: one did not. Exit 2: could not run (a workflow or its gate script is missing, the YAML parser
-// reads a different script, the two scripts differ, a planted fault's text is not in the script exactly
-// once, or a planted fault does not compile).
+// Needs python3 with PyYAML, git and bash. Exit 0: every case and every planted fault went the right way.
+// Exit 1: one did not. Exit 2: could not run (a workflow, its gate script or the guard job is missing, the
+// YAML parser reads a different script, the two scripts differ, a planted fault's text is not in the script
+// exactly once, a planted fault does not compile, or the scratch repository could not be built).
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const argv = process.argv.slice(2);
@@ -85,8 +92,96 @@ for (const [mode, path] of Object.entries(WORKFLOWS)) {
 }
 if (scripts.pipeline !== scripts.push) cannotRun('the push-gate scripts in the two workflows differ');
 
+// pr-validate.yml's lb-pr-guard job, as a YAML parser reads it: its name and its steps.
+function guardJob() {
+  const path = join(repoRoot, '.github/workflows/pr-validate.yml');
+  const code = [
+    'import json, sys, yaml',
+    'doc = yaml.safe_load(open(sys.argv[1]))',
+    'job = (doc.get("jobs") or {}).get("lb-pr-guard") or {}',
+    'steps = [{"name": str(s.get("name") or ""), "uses": str(s.get("uses") or ""), "run": str(s.get("run") or "")}',
+    '         for s in (job.get("steps") or []) if isinstance(s, dict)]',
+    'print(json.dumps({"name": job.get("name"), "steps": steps}))',
+  ].join('\n');
+  const r = spawnSync('python3', ['-c', code, path], { encoding: 'utf8' });
+  if (r.error || r.status !== 0) cannotRun(`python3 with PyYAML could not read ${path}: ${r.error ? r.error.message : r.stderr.trim()}`);
+  const job = JSON.parse(r.stdout);
+  if (typeof job.name !== 'string' || !job.steps.length) cannotRun('pr-validate.yml has no lb-pr-guard job with a name and steps');
+  return job;
+}
+
+const GUARD_JOB = guardJob();
+const NUMBER_EXPR = '${{ github.event.pull_request.number }}';
+const BASE_EXPR = '${{ github.base_ref }}';
+for (const expr of [NUMBER_EXPR, BASE_EXPR]) {
+  if (GUARD_JOB.name.split(expr).length !== 2) cannotRun(`the lb-pr-guard job name must carry ${expr} once: ${GUARD_JOB.name}`);
+}
+// The name GitHub gives the guard job for pull request #number into base, as pr-validate.yml writes it.
+// A planted fault below swaps in another template for one run.
+let guardNameTemplate = GUARD_JOB.name;
+const jobName = (number, base = 'staging') => guardNameTemplate.replace(NUMBER_EXPR, String(number)).replace(BASE_EXPR, base);
+const CHECK_MARK = '"$guard/scripts/lb-pr-guard.py" --repo';
+
+// What is wrong with the job the gate trusts, as a list of problems.
+function guardJobProblems(job) {
+  const problems = [];
+  const check = job.steps.findIndex((s) => s.run.includes(CHECK_MARK));
+  if (check < 0) return [`no lb-pr-guard step runs ${CHECK_MARK}`];
+  for (const s of job.steps.slice(0, check)) {
+    if (s.run || !/^actions\/(checkout|setup-python)@/.test(s.uses)) {
+      problems.push(`"${s.name || s.uses || 'a step'}" runs before the step that decides, and only checkout and setup-python may`);
+    }
+  }
+  const run = job.steps[check].run;
+  const dir = mkdtempSync(join(tmpdir(), 'push-gate-guard-'));
+  try {
+    const git = (...args) => {
+      const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false',
+        '-c', 'core.hooksPath=/dev/null', ...args], { cwd: join(dir, 'repo'), encoding: 'utf8' });
+      if (r.error || r.status !== 0) cannotRun(`git ${args[0]} in the scratch repository failed: ${r.error ? r.error.message : r.stderr.trim()}`);
+    };
+    mkdirSync(join(dir, 'repo', 'scripts', 'asset_management'), { recursive: true });
+    mkdirSync(join(dir, 'bin'));
+    writeFileSync(join(dir, 'bin', 'python'), '#!/bin/sh\nexec python3 "$@"\n');
+    chmodSync(join(dir, 'bin', 'python'), 0o755);
+    git('init', '-q', '-b', 'base');
+    writeFileSync(join(dir, 'repo', 'README.md'), 'base\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'base without the guard');
+    git('checkout', '-q', '-b', 'pr');
+    writeFileSync(join(dir, 'repo', 'scripts', 'lb-pr-guard.py'), 'print("THE PULL REQUEST\'S OWN COPY RAN")\n');
+    writeFileSync(join(dir, 'repo', 'scripts', 'asset_management', 'repo_screenshot_rules.py'), '# rules\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'the pull request brings its own guard');
+    git('checkout', '-q', 'base');
+    git('merge', '-q', '--no-ff', '--no-edit', 'pr');
+    const step = (login, id) => {
+      mkdirSync(join(dir, 'tmp'), { recursive: true });
+      const r = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', run], {
+        cwd: join(dir, 'repo'),
+        encoding: 'utf8',
+        env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}`, RUNNER_TEMP: join(dir, 'tmp'), PR_AUTHOR_LOGIN: login, PR_AUTHOR_ID: id },
+      });
+      rmSync(join(dir, 'tmp'), { recursive: true, force: true });
+      return { rc: r.status, ranOwn: String(r.stdout).includes("THE PULL REQUEST'S OWN COPY RAN") };
+    };
+    const person = step('amitkoth', '1000');
+    if (person.rc !== 0 || !person.ranOwn) cannotRun(`the check step did not use a person's own copy when the base has no guard (rc ${person.rc}), so the scratch run cannot judge the refusal`);
+    for (const [who, login, id] of [
+      ['launchbrightly[bot]', 'launchbrightly[bot]', '270903805'],
+      ['their user id alone', 'someone-else', '270903805'],
+      ['their login alone, in another case', 'LaunchBrightly[bot]', '5'],
+    ]) {
+      const got = step(login, id);
+      if (got.rc === 0 || got.ranOwn) problems.push(`with no guard on the base, the check step ran the pull request's own copy for ${who} (rc ${got.rc})`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return problems;
+}
+
 const sha = (label) => createHash('sha1').update(label).digest('hex');
-const jobName = (number, base = 'staging') => `LaunchBrightly PR guard (#${number} into ${base})`;
 const LB = { login: 'launchbrightly[bot]', id: 270903805, type: 'Bot' };
 const LOOKALIKE = { login: 'launchbrightly[bot]', id: 5, type: 'Bot' };
 const PERSON = { login: 'amitkoth', id: 1000, type: 'User' };
@@ -124,6 +219,10 @@ const GUARD = {
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
     { id: 2, jobs: [] },
   ],
+  'newer-other-pr-failed': (n) => [
+    { id: 1, jobs: [job(11, jobName(n), 'completed', 'success')] },
+    { id: 2, jobs: [job(21, jobName(n + 500, 'main'), 'completed', 'failure')] },
+  ],
   'cancelled-then-success': (n) => [
     { id: 1, jobs: [job(11, jobName(n), 'completed', 'cancelled')] },
     { id: 2, jobs: [job(21, jobName(n), 'completed', 'success')] },
@@ -146,8 +245,11 @@ const pullRequest = (number, mergeSha, author, base, head) => ({
   head: { sha: head },
 });
 
-const acceptIssue = (world, shaToAccept) => {
-  world.closedIssues = [{ number: 7, title: `Docs pipeline stopped: commits reached ${world.branch} without a pull request` }];
+// A person closed the gate's issue as completed. Its title is the gate's own, or the one it used before #548.
+const acceptIssue = (world, shaToAccept, oldTitle) => {
+  const title = oldTitle ? `Docs pipeline stopped: commits reached ${world.branch} without a pull request`
+    : `Docs pipeline stopped: the push gate did not let commits on ${world.branch} through`;
+  world.closedIssues = [{ number: 7, title }];
   world.issues[7] = { state: 'closed', state_reason: 'completed', closed_by: PERSON, body: `- \`${shaToAccept}\`: accepted` };
 };
 
@@ -257,13 +359,17 @@ const CASES = [
   ['their app merges its own pull request into staging, guard failed', 'stop', 'ended failure', { changes: [lbMerge({ guard: 'failure' })] }],
   ['their app merges before the guard has finished', 'stop', 'had not finished', { changes: [lbMerge({ guard: 'pending' })] }],
   ['their app merges and no guard run exists', 'stop', 'never ran', { changes: [lbMerge({ guard: 'missing' })] }],
-  ['their app merges and the newest run has no guard job', 'stop', 'has no job', { changes: [lbMerge({ guard: 'no-job' })] }],
-  ['their pull request passed the guard only against another base', 'stop', 'has no job', { changes: [lbMerge({ guard: 'other-base' })] }],
-  ['only another pull request with the same head passed the guard, in the newest run', 'stop', 'has no job', { changes: [lbMerge({ guard: 'other-pr' })] }],
-  ['an older run passed, but the newest run has no guard job yet', 'stop', 'has no job', { changes: [lbMerge({ guard: 'newest-has-no-job' })] }],
+  ['their app merges and no run has their guard job', 'stop', 'never ran', { changes: [lbMerge({ guard: 'no-job' })] }],
+  ['their pull request passed the guard only against another base', 'stop', 'never ran', { changes: [lbMerge({ guard: 'other-base' })] }],
+  ['their guard failed, and only another pull request on the same commit passed, later', 'stop', 'ended failure',
+    { changes: [lbMerge({ guard: 'other-pr' })] }],
+  ['their guard passed, and a newer run on the same commit without the job (awaiting approval) does not hide it', 'pass', null,
+    { changes: [lbMerge({ guard: 'newest-has-no-job' })] }],
+  ['their guard passed, and another pull request\'s newer failing run on the same commit does not stand in for it', 'pass', null,
+    { changes: [lbMerge({ guard: 'newer-other-pr-failed' })] }],
   ['an older guard run was cancelled and the newest passed', 'pass', null, { changes: [lbMerge({ guard: 'cancelled-then-success' })] }],
   ['the newest guard run was cancelled after an older pass', 'stop', 'ended cancelled', { changes: [lbMerge({ guard: 'success-then-cancelled' })] }],
-  ['the newest run has two guard jobs of that name', 'stop', 'jobs named', { changes: [lbMerge({ guard: 'duplicate' })] }],
+  ['the run has two guard jobs of that name', 'stop', 'jobs named', { changes: [lbMerge({ guard: 'duplicate' })] }],
   ['the list of guard runs comes back short', 'stop', 'read 1 of 101', { changes: [lbMerge({ guard: 'runs-short' })] }],
   ['the list of guard jobs comes back short', 'stop', 'read 1 of 30', { changes: [lbMerge({ guard: 'jobs-short' })] }],
   ['their app merges its own pull request into main', 'stop', 'may merge only into staging', { branch: 'main', changes: [lbMerge()] }],
@@ -300,7 +406,12 @@ const CASES = [
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, base: 'main' }] }],
   ['their merge that made the starting point is not judged again', 'pass', null, { anchorIsTheirMerge: true }],
   ['an entry with no readable actor that made the starting point is not judged again', 'pass', null, { anchorActorless: true }],
-  ['their merge with no passed guard that a person accepted', 'pass', null, { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
+  ['their merge with no passed guard that a person accepted on the gate\'s issue', 'pass', null,
+    { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true }],
+  ['their merge with no passed guard that a person accepted on an issue with the title used before #548', 'pass', null,
+    { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true, oldTitle: true }],
+  ['a closed issue with another title accepts nothing', 'stop', 'had not finished',
+    { changes: [lbMerge({ guard: 'pending' })], acceptFirst: true, otherTitle: true }],
   ['github-actions pushes generated files', 'pass', null, { changes: [{ kind: 'push', by: ACTIONS }] }],
   ['nothing changed since the last good run', 'pass', null, { changes: [] }],
   ['a push or merge that names no commit is not judged', 'pass', null, { noCommitActivity: true }],
@@ -345,7 +456,8 @@ function worldFor(spec) {
   if (spec.anchorActorless) {
     world.activity = [{ activity_type: 'push', actor: null, after: world.anchor, timestamp: '2026-11-17T11:00:00Z' }];
   }
-  if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha);
+  if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
+  if (spec.otherTitle) world.closedIssues[0].title = `Docs pipeline stopped on ${world.branch}`;
   if (spec.noCommitActivity) {
     world.activity.unshift({ activity_type: 'push', actor: OTHER_APP, after: null, timestamp: '2026-11-17T12:40:00Z' });
   }
@@ -380,12 +492,13 @@ const FAULTS = [
   ['the guard result ignored', "if (job.conclusion !== 'success') {", 'if (false) {'],
   ['an unfinished guard counted as finished', "if (job.status !== 'completed') {", 'if (false) {'],
   ['no guard run counted as passed', 'if (!guard) return `no', "if (!guard) return ''; if (false) return `no"],
-  ['a run without the guard job counted as passed', 'if (!job) return `the newest', "if (!job) return ''; if (false) return `the newest"],
-  ['the oldest guard run decides', '(a === null || Number(r.id) > Number(a.id) ? r : a), null);', '(a === null || Number(r.id) < Number(a.id) ? r : a), null);'],
+  ['the oldest guard run decides', '.sort((a, b) => Number(b.id) - Number(a.id));', '.sort((a, b) => Number(a.id) - Number(b.id));'],
   ['a guard job for another pull request or base accepted', 'jobs.filter((j) => j && j.name === jobName)', "jobs.filter((j) => j && String(j.name).startsWith('LaunchBrightly PR guard ('))"],
   ['two guard jobs of one name trusted', 'if (named.length > 1) throw', 'if (false) throw'],
   ['a short list of guard runs trusted', 'if (runs.length !== data.total_count) throw', 'if (false) throw'],
   ['a short list of guard jobs trusted', 'if (jobs.length !== listed.total_count) throw', 'if (false) throw'],
+  ['the newest run decides even without the guard job', 'if (named.length) return { run, job: named[0] };',
+    'return named.length ? { run, job: named[0] } : null;'],
   ['the pull request author not checked', 'if (!isLaunchBrightly(author.login, author.id)) {', 'if (false) {'],
   ['the pull request base not checked', 'if (base !== LB_BRANCH) return', 'if (false) return'],
   ['a merge with no pull request let through', 'if (!pr) return `no merged pull request', "if (!pr) return ''; if (false) return `no merged pull request"],
@@ -398,10 +511,56 @@ const FAULTS = [
   ['an unreadable actor let through', 'if (!who) {', 'if (!who) { continue;'],
   ['the anchor\'s unreadable entry judged again', 'if (a.after === anchor.sha) continue;', 'if (false) continue;'],
   ['their merge at the anchor judged again', 'if (a.after === anchor.sha) {', 'if (false) {'],
+  ['the old issue title no longer accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === title'],
+  ['the gate\'s own issue title not accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === oldTitle'],
+];
+
+// Each planted fault in the guard job is one change to the job as read from pr-validate.yml. Each must
+// give at least one problem. The check step's text must hold each fault's text exactly once.
+const checkStep = GUARD_JOB.steps.findIndex((s) => s.run.includes(CHECK_MARK));
+const editCheck = (from, to) => (job) => {
+  const steps = job.steps.map((s) => ({ ...s }));
+  if (checkStep < 0 || steps[checkStep].run.split(from).length !== 2) return null;
+  steps[checkStep].run = steps[checkStep].run.replace(from, to);
+  return { ...job, steps };
+};
+const GUARD_FAULTS = [
+  ['the refusal for their pull requests removed', editCheck('if [ "$author" = "launchbrightly[bot]" ] || [ "$PR_AUTHOR_ID" = "270903805" ]; then', 'if false; then')],
+  ['the refusal by their login dropped', editCheck('[ "$author" = "launchbrightly[bot]" ] || ', '')],
+  ['the refusal by their user id dropped', editCheck(' || [ "$PR_AUTHOR_ID" = "270903805" ]', '')],
+  ['their login compared without lowering its case', editCheck("| tr '[:upper:]' '[:lower:]'", '| cat')],
+  ['the pull request\'s own self-test moved before the check', (job) => {
+    const own = job.steps.findIndex((s) => s.run.includes('python scripts/lb-pr-guard.py --self-test'));
+    if (own < 0 || checkStep < 0) return null;
+    const steps = job.steps.filter((_, i) => i !== own);
+    steps.splice(checkStep, 0, job.steps[own]);
+    return { ...job, steps };
+  }],
+  ['a step that runs a command added before the check', (job) => ({ ...job, steps: [{ name: 'Set up', uses: '', run: 'make setup' }, ...job.steps] })],
 ];
 
 const realWrong = await runCases(scripts, 'real');
 console.log(`\n${CASES.length} cases in each of 2 workflows: ${CASES.length * 2 - realWrong.length} right, ${realWrong.length} wrong.`);
+
+const guardWrong = guardJobProblems(GUARD_JOB);
+for (const p of guardWrong) console.log(`FAIL guard job: ${p}`);
+console.log(`The guard job pr-validate.yml defines: ${guardWrong.length ? `${guardWrong.length} problem(s)` : 'nothing runs before the check that decides, and with no guard on the base it refuses their pull request and uses anyone else\'s own copy'}.`);
+for (const [name, plant] of GUARD_FAULTS) {
+  const mutant = plant(GUARD_JOB);
+  if (!mutant) cannotRun(`planted guard job fault "${name}": its text is not in the check step exactly once`);
+  const caught = guardJobProblems(mutant).length > 0;
+  console.log(`${caught ? 'caught' : 'MISSED'} planted fault in the guard job: ${name}`);
+  if (!caught) realWrong.push(`no check catches the planted guard job fault "${name}"`);
+}
+realWrong.push(...guardWrong.map((p) => `guard job: ${p}`));
+
+// The name the gate looks for must be the one pr-validate.yml gives the job: with another template the
+// cases that pass must go wrong.
+guardNameTemplate = GUARD_JOB.name.replace(' into ', ' on ');
+const drift = await runCases(scripts, 'fault');
+guardNameTemplate = GUARD_JOB.name;
+console.log(`${drift.length ? 'caught' : 'MISSED'} planted fault: the guard job renamed in pr-validate.yml only${drift.length ? ` (${drift.length} case run(s) went wrong)` : ''}`);
+if (!drift.length) realWrong.push('no case catches a guard job name that differs from the one the gate looks for');
 
 const unseen = [];
 for (const [name, from, to] of FAULTS) {

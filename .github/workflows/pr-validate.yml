@@ -184,13 +184,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Prove the guard can refuse (one red and one green case per rule)
-        run: python scripts/lb-pr-guard.py --self-test
-        shell: bash
-
       # The guard and its rules come from the base branch when it has them, so a pull request
       # cannot pass itself by editing the check that judges it. The pull request's own copy is
-      # used only until the base carries the guard.
+      # used only until the base carries the guard, and never for a pull request by
+      # launchbrightly[bot] (login or user id 270903805). This step runs before any code from the
+      # pull request does (#548): the push gate trusts this job's pass for LaunchBrightly's merges
+      # into staging, and a pull request's script run earlier on this runner could change what this
+      # step sees. `scripts/push-gate-cases.mjs` checks both.
       - name: Check what this pull request changes
         env:
           PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
@@ -205,6 +205,11 @@ jobs:
               > "$guard/scripts/asset_management/repo_screenshot_rules.py"
             echo "Running the guard from the base branch."
           else
+            author=$(printf '%s' "$PR_AUTHOR_LOGIN" | tr '[:upper:]' '[:lower:]')
+            if [ "$author" = "launchbrightly[bot]" ] || [ "$PR_AUTHOR_ID" = "270903805" ]; then
+              echo "::error::the base branch has no guard, and a pull request by launchbrightly[bot] is never judged by its own copy"
+              exit 1
+            fi
             cp scripts/lb-pr-guard.py "$guard/scripts/lb-pr-guard.py"
             cp scripts/asset_management/repo_screenshot_rules.py "$guard/scripts/asset_management/"
             echo "::notice::the base branch has no guard yet, so this run uses the pull request's own copy"
@@ -212,6 +217,12 @@ jobs:
           test -s "$guard/scripts/lb-pr-guard.py"
           test -s "$guard/scripts/asset_management/repo_screenshot_rules.py"
           python "$guard/scripts/lb-pr-guard.py" --repo "$PWD"
+        shell: bash
+
+      # The pull request's own copy of the guard proves it can refuse. It runs after the check above
+      # has decided, so it can only add a failure to this job, never take one away.
+      - name: Prove the guard can refuse (one red and one green case per rule)
+        run: python scripts/lb-pr-guard.py --self-test
         shell: bash
 
   # A promotion into main carries the date of each page it changes (tallyfy/documentation#492).
