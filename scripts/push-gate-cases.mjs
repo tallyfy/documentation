@@ -314,6 +314,7 @@ const GUARD = {
 
 const pullRequest = (number, mergeSha, author, base, head) => ({
   number,
+  state: 'closed',
   merged_at: '2026-11-17T12:00:00Z',
   merge_commit_sha: mergeSha,
   user: author,
@@ -410,10 +411,16 @@ function fakeGitHub(world, broken) {
           // GitHub may link a commit to its pull request a little after the merge.
           return { data: (world.linkLag && world.linkLag.includes(params.commit_sha)) ? [] : (world.pulls[params.commit_sha] || []) };
         case 'GET /repos/{owner}/{repo}/pulls': {
-          if (params.state !== 'closed' || params.base !== world.branch) throw new Error(`the fake has no pull request list for ${params.state} ${params.base}`);
+          if (!['closed', 'open'].includes(params.state) || params.base !== world.branch) throw new Error(`the fake has no pull request list for ${params.state} ${params.base}`);
+          // extraPulls come first, so a pull request of the case's own can sit past the first page.
           const all = new Map();
+          for (const pr of world.extraPulls || []) all.set(pr.number, pr);
           for (const prs of Object.values(world.pulls)) for (const pr of prs) all.set(pr.number, pr);
-          return { data: [...all.values()] };
+          const listed = [...all.values()].filter((pr) => (pr.state || 'closed') === params.state);
+          if (params.state === 'closed') return { data: listed };
+          const per = params.per_page || 30;
+          const page = params.page || 1;
+          return { data: listed.slice((page - 1) * per, page * per) };
         }
         case 'GET /repos/{owner}/{repo}/activity':
           return { data: world.activity, headers: {} };
@@ -535,8 +542,26 @@ const CASES = [
     'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', guard: 'success', notMergedYet: true } }],
   ['a person pushes the head of their two-commit pull request straight to staging, commits naming their app: the first stops', 'stop',
     'no merged pull request has it as its merge commit', { personPushHead: { names: 'app', count: 2, guard: 'success' } }],
-  ['a person pushes the head of their pull request straight to staging, commits naming no app: a person\'s push', 'pass', null,
-    { personPushHead: { names: 'none', guard: 'failure' } }],
+  ['a person pushes the head of their pull request straight to staging, commits naming no app, guard failed', 'stop',
+    'ended failure', { personPushHead: { names: 'none', guard: 'failure' } }],
+  ['a person pushes the head of their pull request straight to staging, commits naming no app, guard passed', 'pass', null,
+    { personPushHead: { names: 'none', guard: 'success' } }],
+  ['a person pushes the head of their two-commit pull request straight to staging, commits naming no app, guard failed', 'stop',
+    'ended failure', { personPushHead: { names: 'none', count: 2, guard: 'failure' } }],
+  ['a person pushes the head of their two-commit pull request straight to staging, commits naming no app, guard passed', 'pass', null,
+    { personPushHead: { names: 'none', count: 2, guard: 'success' } }],
+  ['a person pushes a merge commit made on their machine that lands their pull request, commits naming no app, guard failed', 'stop',
+    'ended failure', { personPushHead: { names: 'none', count: 2, localMerge: true, guard: 'failure' } }],
+  ['a person pushes a merge commit made on their machine that lands their pull request, commits naming no app, guard passed', 'pass',
+    null, { personPushHead: { names: 'none', count: 2, localMerge: true, guard: 'success' } }],
+  ['a person pushes the head of their pull request, commits naming no app, before GitHub marks it merged', 'stop',
+    'has not marked it merged', { personPushHead: { names: 'none', guard: 'success', notMergedYet: true } }],
+  ['the same push before GitHub marks it merged, with their pull request past the first 100 open', 'stop',
+    'has not marked it merged', { personPushHead: { names: 'none', guard: 'success', notMergedYet: true }, manyOpen: true }],
+  ['their pull request merged before the starting point, guard failed, is not judged again', 'pass', null,
+    { changes: [{ kind: 'push', by: PERSON }], theirsMergedBefore: 'failure' }],
+  ['their pull request open into staging, its head not on the branch, guard failed', 'pass', null,
+    { changes: [{ kind: 'push', by: PERSON }], theirsOpen: 'failure' }],
   ['people\'s and the pipeline\'s own pushes cost no read of their own', 'pass', null,
     { changes: [{ kind: 'push', by: PERSON }, { kind: 'push', by: ACTIONS }, { kind: 'push', by: PERSON }], maxCommitReads: 0 }],
   ['a person\'s merge whose pull request cannot be found', 'stop', 'cannot tell whose',
@@ -633,27 +658,50 @@ function worldFor(spec) {
   }
   if (spec.personPushHead) {
     // A person merges their pull request from the command line by pushing its head straight to staging.
-    // GitHub is expected, not measured, to record the pushed commit as the pull request's merge commit;
-    // notMergedYet is the moment before it does. The pull request's head is that commit. shared adds
-    // another person's pull request on the same head, listed first, which GitHub marks merged too.
-    const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null } = spec.personPushHead;
+    // GitHub records the pushed commit as the pull request's merge commit, or with localMerge the merge
+    // commit the person made on their machine (measured 2026-11-19, #560); notMergedYet is the moment
+    // before it does, while the pull request is still open. shared adds another person's pull request on
+    // the same head, listed first, which GitHub marks merged too.
+    const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null, localMerge = false } = spec.personPushHead;
     const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP) : plainCommit(label, false));
     const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
     const c = own[own.length - 1];
+    const local = localMerge ? commitBy('person-local-merge', PERSON) : null;
+    const landed = local || c;
     world.commits.push(...own);
-    const pr = pullRequest(205, c.sha, LB, 'staging', c.sha);
-    if (notMergedYet) Object.assign(pr, { merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    if (local) world.commits.push(local);
+    const pr = pullRequest(205, landed.sha, LB, 'staging', c.sha);
+    if (notMergedYet) Object.assign(pr, { state: 'open', merged_at: null, merge_commit_sha: sha('test-merge-205') });
     const prs = shared ? [pullRequest(206, c.sha, PERSON, 'staging', c.sha), pr] : [pr];
     if (sharedTheirs) {
       // Their second pull request on the same head; its guard runs carry its own number, under its own head key.
       prs.push(pullRequest(207, c.sha, LB, 'staging', c.sha));
       world.guardSecond = { number: 207, state: sharedTheirs };
     }
-    for (const o of own) world.pulls[o.sha] = prs;
+    for (const o of [...own, ...(local ? [local] : [])]) world.pulls[o.sha] = prs;
     world.guard[c.sha] = spec.personPushHead.guard;
     world.guardPr[c.sha] = 205;
-    world.activity.unshift({ activity_type: 'push', actor: PERSON, after: c.sha, timestamp: '2026-11-18T12:30:00Z' });
-    world.head = c.sha;
+    world.activity.unshift({ activity_type: 'push', actor: PERSON, after: landed.sha, timestamp: '2026-11-18T12:30:00Z' });
+    world.head = landed.sha;
+  }
+  if (spec.manyOpen) {
+    // 150 people's pull requests open into staging, listed before theirs, so theirs is on the second page.
+    world.extraPulls = Array.from({ length: 150 }, (_, i) => ({
+      ...pullRequest(400 + i, sha(`open-test-merge-${i}`), PERSON, 'staging', sha(`open-head-${i}`)), state: 'open', merged_at: null }));
+  }
+  if (spec.theirsMergedBefore) {
+    // Their pull request merged before the starting point; a run before this one judged it.
+    const head = sha('merged-before-head');
+    world.extraPulls = [pullRequest(208, sha('merged-before'), LB, 'staging', head)];
+    world.guard[head] = spec.theirsMergedBefore;
+    world.guardPr[head] = 208;
+  }
+  if (spec.theirsOpen) {
+    // Their pull request open into staging, its head on their own branch.
+    const head = sha('open-theirs-head');
+    world.extraPulls = [{ ...pullRequest(209, sha('open-theirs-test-merge'), LB, 'staging', head), state: 'open', merged_at: null }];
+    world.guard[head] = spec.theirsOpen;
+    world.guardPr[head] = 209;
   }
   if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
   if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
@@ -729,6 +777,13 @@ const FAULTS = [
   ['the anchor\'s own entry skipped', 'const who = a.actor && a.actor.login;', 'if (a.after === anchor.sha) continue; const who = a.actor && a.actor.login;'],
   ['a person\'s merge of their pull request not looked up', "if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {", 'if (false) {'],
   ['a person\'s merge with no pull request let through', 'if (!(await mergedPrOf(a.after))) {', 'if (false) {'],
+  ['their pull requests that reached staging not judged', 'const problem = merged ? await lbMergeProblem(at)', "const problem = merged ? ''"],
+  ['their unmerged pull request with its head on staging let through', '      : `the head of ${LB_BOT}', "      : '' && `the head of ${LB_BOT}"],
+  ['the open pull requests not read', '...(await openInto())', ''],
+  ['only the first page of open pull requests read', 'if (data.length < 100) return out;', 'return out;'],
+  ['their pull requests judged outside the range', 'if (!onBranch.has(at) || found.has(at)) continue;', 'if (found.has(at)) continue;'],
+  ['an unmerged pull request judged by its merge commit', 'const at = merged ? pr.merge_commit_sha : pr.head && pr.head.sha;',
+    'const at = pr.merge_commit_sha;'],
   ['the old issue title no longer accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === title'],
   ['the gate\'s own issue title not accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === oldTitle'],
 ];

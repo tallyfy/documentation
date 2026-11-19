@@ -267,25 +267,33 @@ the activity API, is looked up by the pull request it merged. When the pull requ
 guard must have passed, so a merge is judged even before the activity API lists it.
 
 A person can also merge one of their pull requests from the command line by pushing its head
-straight to `staging`. We expect GitHub to record the pushed commit as the pull request's merge
-commit and the activity API to log a push, not a merge; neither is measured yet, since no such push
-has happened here. When the pushed head names an app other than the two allowed, it is held to the
-guard as above; if other pull requests share that head, theirs is judged when the gate sees it
-(see the two limits below). An earlier commit
-of the pull request that names such an app stops as "no merged pull request has it as its merge
-commit", as in a merge commit or a rebase of more than one commit, and an earlier commit that names
-none passes. When the head names no such app, the push is a person's push and is judged as one: the
-gate trusts it, as it always has trusted a person's push. A head pushed before GitHub marks its pull
-request merged stops the same way as an earlier commit does; once GitHub marks it merged, a later
-run judges its guard, and lets it through only if that guard passed. When several pull requests of
-theirs share the pushed head, each one the gate sees must have passed its guard.
+straight to `staging`. Measured on 2026-11-19 in a throwaway repository whose default branch is
+`staging` (#560): GitHub then marks the pull request merged, with the pushed head as its merge
+commit, or with the merge commit the person made on their own machine when they push one of those.
+`merged_by` is the person who pushed, and the activity API logs a push, not a merge. In two of
+three pushes the pull request still read as open right after the push, and as merged three seconds
+later.
+
+Since #560 the gate holds every pull request of theirs that reached `staging` to its guard, whatever
+its commits name. After judging each commit, it looks at their pull requests among the 100 most
+recently closed into `staging` and among every one open into it. A merged one whose merge commit is
+in the range must have passed its guard. An unmerged one whose head is in the range stops the run,
+because GitHub has not marked it merged yet; once it has, re-run the failed workflow and the merge
+is judged by its guard. Their pull requests merged before the range are not judged again. Until
+#560, a pushed head whose commits named no app outside the two allowed was trusted as a person's
+push. An earlier commit of the pull request that names such an app still stops as "no merged pull
+request has it as its merge commit", as in a merge commit or a rebase of more than one commit, and
+an earlier commit that names none passes. When several pull requests of theirs share the pushed
+head, each one the gate sees must have passed its guard (see the limits below).
 
 Two limits on that. The gate searches the 100 pull requests most recently closed into the branch
 first, and when any of them has the commit as its merge commit, it does not read the commit's own
 list, so a pull request on the same commit that is not among those 100 is not seen. When none of
 them matches, it reads the commit's own list, one page of 100, with no count check. So a pull
 request of theirs on a shared head is judged only when it is among the matches the gate sees at that
-moment.
+moment. In the same way, the #560 check finds a merged pull request of theirs only among those 100
+closed pull requests, the ones into `staging` most recently updated, so one that has dropped out of
+them by the time a run reads the list is not seen.
 
 Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
 since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
@@ -294,7 +302,8 @@ editor, which GitHub also commits), a commit that names an app other than the tw
 in the activity API, and only when it is not among those 100. When the pull request is theirs,
 judging it also reads its guard runs and their jobs. The pipeline's own commits, and people's
 commits pushed from their own machines that name no app outside the two allowed, cost no read of
-their own.
+their own. On `staging`, a run whose range holds any commit also reads those 100 closed pull
+requests and the open ones, one read per 100 open, for the #560 check.
 A person's merge whose pull request still cannot be found stops the run, because nobody can tell
 whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
 keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]
@@ -313,7 +322,7 @@ or merge that produced the anchor is judged again on every run, so an entry the 
 listed only after an earlier run still gets judged; an acceptance on the issue covers it on every
 later run.
 
-Two known limits. First, the gate trusts the guard job by its name, and a pull request run takes
+Three known limits. First, the gate trusts the guard job by its name, and a pull request run takes
 its workflow file from the pull request. So someone who can change workflow files could add a job
 of that name to their own pull request. Their app cannot, because it has no workflows permission
 (it has contents and pull requests write), and anyone who can change workflow files can already
@@ -325,7 +334,12 @@ with the same base. After tightening either file, close every open pull request 
 it cannot be merged, and reopen it: the reopened pull request gets a new run against the new rules,
 and once that run lists its guard job, that job is the one that counts. A merge in the seconds
 before that new run lists its jobs still counts the old pass; their app is to wait for the checks,
-which then show as pending.
+which then show as pending. Third, "theirs" means a pull request GitHub reports as opened by
+`launchbrightly[bot]`, and the guard decides the same way. If their platform ever opened pull
+requests with a person's token instead of the app's, GitHub would name that person as the author,
+and neither the guard nor the gate would treat the pull request as theirs. This is not measured,
+since none of their pull requests exists yet: check that their first one shows `launchbrightly[bot]`
+as its author.
 
 Any push by their app, any push or merge by it on `main`, any other app, and a push or merge when
 the gate cannot read who made it all still stop the run; an activity entry that names no commit is
