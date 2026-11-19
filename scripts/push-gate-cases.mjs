@@ -420,7 +420,7 @@ function fakeGitHub(world, broken) {
           // flip: GitHub marks the pull request merged right after the first list the gate reads, whichever it is.
           if (world.flip && !world.flip.done) {
             world.flip.done = true;
-            Object.assign(world.flip.pr, { state: 'closed', merged_at: '2026-11-19T15:36:04Z', merge_commit_sha: world.flip.mergeSha });
+            Object.assign(world.flip.pr, world.flip.to);
           }
           // notInClosedList: more than 100 other pull requests were closed since, so the case's own are not listed.
           if (params.state === 'closed') return { data: world.notInClosedList ? [] : listed };
@@ -431,9 +431,12 @@ function fakeGitHub(world, broken) {
         case 'GET /repos/{owner}/{repo}/activity':
           return { data: world.activity, headers: {} };
         case 'GET /repos/{owner}/{repo}/issues':
-          return { data: params.state === 'closed' ? world.closedIssues : [] };
+          return { data: params.state === 'closed' ? world.closedIssues : (world.openIssues || []) };
         case 'GET /repos/{owner}/{repo}/issues/{issue_number}':
           return { data: world.issues[params.issue_number] || {} };
+        case 'PATCH /repos/{owner}/{repo}/issues/{issue_number}':
+          world.patchedBody = String(params.body || '');
+          return { data: {} };
         case 'POST /repos/{owner}/{repo}/issues':
           return { data: { number: 999 } };
         default:
@@ -456,7 +459,8 @@ async function decide(script, mode, world, broken = []) {
     : { GATE_MODE: 'push', GATE_BRANCH: world.branch, GATE_RUN_ID: '2', GATE_HEAD: world.head };
   const gate = new AsyncFunction(...PARAMS, script);
   await gate(fakeGitHub(world, broken), context, core, { env });
-  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), writes: world.writes || 0, commitReads: world.commitReads || 0 };
+  return { outcome: failed.length ? 'stop' : 'pass', text: [...failed, ...errors].join('\n'), writes: world.writes || 0, commitReads: world.commitReads || 0,
+    patched: world.patchedBody || '' };
 }
 
 const lbMerge = (extra = {}) => ({ kind: 'merge', by: LB, prAuthor: LB, ...extra });
@@ -583,6 +587,13 @@ const CASES = [
     { personPushHead: { names: 'none', guard: 'success', flip: true } }],
   ['their pull request turns merged after an earlier lookup read the closed list, guard failed', 'stop', 'ended failure',
     { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON }], personPushHead: { names: 'none', guard: 'failure', flip: true } }],
+  ['their pull request reopened between the gate\'s list reads, its head on staging', 'stop', 'has not marked it merged',
+    { personPushHead: { names: 'none', guard: 'success', reopen: true } }],
+  ['their merged pull request with a failed guard, and another of theirs on the same head closed without merging, listed first',
+    'stop', 'ended failure', { personPushHead: { names: 'none', guard: 'failure' }, siblingClosedUnmerged: true }],
+  ['the gate\'s open issue already lists the head for an earlier reason, and the guard now reads failed', 'stop', 'ended failure',
+    { personPushHead: { names: 'none', guard: 'failure' }, wantPatch: 'ended failure',
+      openIssueSaid: 'launchbrightly[bot]\'s pull request #205: its head is on staging, but GitHub has not marked it merged yet; once it has, run the workflow again' }],
   ['their pull request closed without merging, its head on staging', 'stop', 'closed without merging, but its head is on staging; review it, then accept it on this issue',
     { personPushHead: { names: 'none', guard: 'success', closedUnmerged: true } }],
   ['their pull request closed without merging, its head on staging, accepted on the gate\'s issue', 'pass', null,
@@ -694,9 +705,10 @@ function worldFor(spec) {
     // before it does, while the pull request is still open. shared adds another person's pull request on
     // the same head, listed first, which GitHub marks merged too.
     // closedUnmerged: the pull request was closed without merging. flip: it is open until the gate's first
-    // list read, and merged from then on (#563).
+    // list read, and merged from then on. reopen: it is closed without merging until the first list read,
+    // and open from then on (#563).
     const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null, localMerge = false,
-      closedUnmerged = false, flip = false } = spec.personPushHead;
+      closedUnmerged = false, flip = false, reopen = false } = spec.personPushHead;
     const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP) : plainCommit(label, false));
     const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
     const c = own[own.length - 1];
@@ -706,8 +718,10 @@ function worldFor(spec) {
     if (local) world.commits.push(local);
     const pr = pullRequest(205, landed.sha, LB, 'staging', c.sha);
     if (notMergedYet || flip) Object.assign(pr, { state: 'open', merged_at: null, merge_commit_sha: sha('test-merge-205') });
-    if (closedUnmerged) Object.assign(pr, { state: 'closed', merged_at: null, merge_commit_sha: sha('test-merge-205') });
-    if (flip) world.flip = { pr, mergeSha: landed.sha };
+    if (closedUnmerged || reopen) Object.assign(pr, { state: 'closed', merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    if (flip) world.flip = { pr, to: { state: 'closed', merged_at: '2026-11-19T15:36:04Z', merge_commit_sha: landed.sha } };
+    if (reopen) world.flip = { pr, to: { state: 'open' } };
+    world.pushedHead = c.sha;
     const prs = shared ? [pullRequest(206, c.sha, PERSON, 'staging', c.sha), pr] : [pr];
     if (sharedTheirs) {
       // Their second pull request on the same head; its guard runs carry its own number, under its own head key.
@@ -740,6 +754,15 @@ function worldFor(spec) {
     world.guard[head] = spec.theirsOpen;
     world.guardPr[head] = 209;
   }
+  if (spec.siblingClosedUnmerged) {
+    // Another pull request of theirs on the same head, closed without merging, listed before the merged one.
+    world.extraPulls = [{ ...pullRequest(210, sha('sibling-test-merge'), LB, 'staging', world.pushedHead), state: 'closed', merged_at: null }];
+  }
+  if (spec.openIssueSaid) {
+    // The gate's issue is open and already lists the pushed head, for the reason an earlier run gave.
+    world.openIssues = [{ number: 8, title: `Docs pipeline stopped: the push gate did not let commits on ${world.branch} through`,
+      body: `- \`${world.head}\`: ${spec.openIssueSaid}` }];
+  }
   if (spec.notInClosedList) world.notInClosedList = true;
   if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
   if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
@@ -767,6 +790,9 @@ async function runCases(gate, label) {
       if (want === 'stop' && got.outcome === 'stop' && reason && !got.text.includes(reason)) problems.push(`the stop does not say "${reason}"`);
       if (/crashed/.test(got.text)) problems.push('the gate crashed');
       if (got.writes > 1) problems.push(`made ${got.writes} writes; a stop opens or updates one issue once`);
+      if (spec.wantPatch && !String(got.patched || '').includes(spec.wantPatch)) {
+        problems.push(`did not add "${spec.wantPatch}" to the open issue`);
+      }
       if (spec.maxCommitReads !== undefined && got.commitReads > spec.maxCommitReads) {
         problems.push(`read the pull requests of ${got.commitReads} commit(s) one by one; at most ${spec.maxCommitReads} should cost a read`);
       }
@@ -820,17 +846,22 @@ const FAULTS = [
   ['their open pull request with its head on staging let through', 'else problem = `its head is on', "else problem = '' && `its head is on"],
   ['their pull request closed without merging let through', "else if (pr.state === 'closed') problem = `closed", "else if (pr.state === 'closed') problem = '' && `closed"],
   ['their pull request closed without merging told to re-run', "else if (pr.state === 'closed') problem", 'else if (false) problem'],
-  ['the open pull requests not read', 'for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);', ''],
+  ['the first read of the open pull requests dropped', 'for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);', ''],
+  ['the second read of the open pull requests dropped',
+    'for (const pr of await openInto()) if (isTheirs(pr) && !theirs.has(pr.number)) theirs.set(pr.number, pr);', ''],
   ['the closed list read before the open list',
     'for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);\n'
-      + '    for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);',
-    'for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);\n'
+      + '    const closed = await closedInto();',
+    'const closed = await closedInto();\n'
       + '    for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);'],
-  ['the cached closed list used', 'for (const pr of await closedInto()) if (isTheirs(pr))', 'for (const pr of await recentlyClosed()) if (isTheirs(pr))'],
+  ['the cached closed list used', 'const closed = await closedInto();', 'const closed = await recentlyClosed();'],
+  ['a commit another check stopped not judged again', 'if (!onBranch.has(at)) continue;', 'if (!onBranch.has(at) || found.has(at)) continue;'],
+  ['the issue updated only for a new commit, not a new reason', "const missing = lines.filter((l) => !String(issue.body || '').includes(l));",
+    "const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));"],
   ['more open pull requests than it reads let through', 'throw new CannotDecide(`more than ${MAX_OPEN_PR_PAGES * 100}',
     'return out; throw new CannotDecide(`more than ${MAX_OPEN_PR_PAGES * 100}'],
   ['only the first page of open pull requests read', 'if (data.length < 100) return out;', 'return out;'],
-  ['their pull requests judged outside the range', 'if (!onBranch.has(at) || found.has(at)) continue;', 'if (found.has(at)) continue;'],
+  ['their pull requests judged outside the range', 'if (!onBranch.has(at)) continue;', ''],
   ['an unmerged pull request judged by its merge commit', 'const at = merged ? pr.merge_commit_sha : pr.head && pr.head.sha;',
     'const at = pr.merge_commit_sha;'],
   ['the old issue title no longer accepted', '(issue.title === title || issue.title === oldTitle)', 'issue.title === title'],

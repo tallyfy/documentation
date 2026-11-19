@@ -301,7 +301,9 @@ jobs:
               const existing = (open || []).filter(isGateIssue);
               if (existing.length) {
                 const issue = existing[0];
-                const missing = lines.filter((l) => !String(issue.body || '').includes(l.slice(3, 43)));
+                // A line is added when its whole text is new, so a commit stopped again for another reason shows that
+                // reason too (tallyfy/documentation#563), and a line already there is not repeated.
+                const missing = lines.filter((l) => !String(issue.body || '').includes(l));
                 if (missing.length) {
                   await api('PATCH /repos/{owner}/{repo}/issues/{issue_number}',
                     { issue_number: issue.number, body: `${issue.body || ''}\n\nAlso stopped by ${runUrl}:\n\n${missing.join('\n')}` });
@@ -527,11 +529,16 @@ jobs:
                 const onBranch = new Set(range.commits.map((c) => c.sha));
                 const theirs = new Map();
                 for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);
-                for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);
+                const closed = await closedInto();
+                if (!recentMerges) recentMerges = Promise.resolve(closed);
+                for (const pr of closed) if (isTheirs(pr)) theirs.set(pr.number, pr);
+                // The open list once more, adding only what neither read had: one reopened between the two reads.
+                for (const pr of await openInto()) if (isTheirs(pr) && !theirs.has(pr.number)) theirs.set(pr.number, pr);
                 for (const pr of theirs.values()) {
                   const merged = Boolean(pr.merged_at);
                   const at = merged ? pr.merge_commit_sha : pr.head && pr.head.sha;
-                  if (!onBranch.has(at) || found.has(at)) continue;
+                  // Judged even when another check already stopped the commit, so the issue shows every reason.
+                  if (!onBranch.has(at)) continue;
                   let problem = '';
                   if (merged) problem = await theirPrProblem(at, pr);
                   else if (pr.state === 'closed') problem = `closed without merging, but its head is on ${branch}; review it, then accept it on this issue`;

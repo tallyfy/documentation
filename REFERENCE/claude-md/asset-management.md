@@ -297,9 +297,12 @@ them matches, it reads the commit's own list, one page of 100, with no count che
 request of theirs on a shared head is judged only when it is among the matches the gate sees at that
 moment. In the same way, the #560 check finds a merged pull request of theirs only among those 100
 closed pull requests, the ones into `staging` most recently updated, so one that has dropped out of
-them by the time a run reads the list is not seen.
+them by the time a run reads the list is not seen. The open list is read in pages, and a pull request
+that closes while the pages are being read moves the rest up one place, so with more than 100 open
+one entry can be skipped in that moment (#563, not fixed).
 
-Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
+Reads: the gate reads the 100 pull requests most recently closed into the branch once per run for
+its lookups (on `staging` the #560 check below may read them once more, fresh),
 since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
 pull requests only for a commit GitHub committed (a merge, or a person's commit in GitHub's web
 editor, which GitHub also commits), a commit that names an app other than the two allowed, or a merge
@@ -307,9 +310,12 @@ in the activity API, and only when it is not among those 100. When the pull requ
 judging it also reads its guard runs and their jobs. The pipeline's own commits, and people's
 commits pushed from their own machines that name no app outside the two allowed, cost no read of
 their own. On `staging`, a run whose range holds any commit also reads the open pull requests, one
-read per 100 and at most 1,000 (more stops the run as could not decide), and then a fresh read of
-those 100 closed pull requests, for the #560 check (#563). Each pull request of theirs has its guard
-read once per run, whichever check reaches it first.
+read per 100, then a fresh read of those 100 closed pull requests, then the open ones once more,
+adding only one that neither read had, such as one reopened in between, for the #560 check (#563).
+Up to 10 pages of open pull requests are read; 1,000 or more open stops the run as could not
+decide. The lookups reuse that fresh closed list when they have not read one yet. Each pull request
+of theirs has its guard read once per run, whichever check reaches it first, and its reason is added
+even when another check already stopped the same commit.
 A person's merge whose pull request still cannot be found stops the run, because nobody can tell
 whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
 keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]
@@ -359,7 +365,8 @@ happened, and plants faults that must turn it red; `pr-validate.yml` runs it on 
 
 On a stop it opens one issue, "Docs pipeline stopped: the push gate did not let commits on
 <branch> through", listing each commit, who made it and why it stopped, and adds to that issue on
-later stops. Before #548 the title was "Docs pipeline stopped: commits reached <branch> without a
+later stops: since #563, any line whose whole text is new, so a commit stopped again for another
+reason shows that reason too. Before #548 the title was "Docs pipeline stopped: commits reached <branch> without a
 pull request"; an issue under either title is still read, for adding to and for accepting. Review the
 commits. To accept them, close the issue as completed and re-run the failed workflow. Closing it
 as not planned keeps the pipeline stopped, and a close by a bot accepts nothing.
