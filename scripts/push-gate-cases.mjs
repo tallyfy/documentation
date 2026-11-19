@@ -417,7 +417,8 @@ function fakeGitHub(world, broken) {
           for (const pr of world.extraPulls || []) all.set(pr.number, pr);
           for (const prs of Object.values(world.pulls)) for (const pr of prs) all.set(pr.number, pr);
           const listed = [...all.values()].filter((pr) => (pr.state || 'closed') === params.state);
-          if (params.state === 'closed') return { data: listed };
+          // notInClosedList: more than 100 other pull requests were closed since, so the case's own are not listed.
+          if (params.state === 'closed') return { data: world.notInClosedList ? [] : listed };
           const per = params.per_page || 30;
           const page = params.page || 1;
           return { data: listed.slice((page - 1) * per, page * per) };
@@ -558,6 +559,17 @@ const CASES = [
     'has not marked it merged', { personPushHead: { names: 'none', guard: 'success', notMergedYet: true } }],
   ['the same push before GitHub marks it merged, with their pull request past the first 100 open', 'stop',
     'has not marked it merged', { personPushHead: { names: 'none', guard: 'success', notMergedYet: true }, manyOpen: true }],
+  // Not among the 100 most recently closed: only the lookup of each commit by its pull request can find these.
+  ['a person squashes their pull request in before the activity log lists it, not among the 100 most recently closed, guard failed',
+    'stop', 'ended failure', { changes: [{ kind: 'merge', by: PERSON, prAuthor: LB, guard: 'failure' }], activityLate: true, notInClosedList: true }],
+  ['a person pushes the head of their pull request, commits naming their app, not among the 100 most recently closed, guard failed',
+    'stop', 'ended failure', { personPushHead: { names: 'app', guard: 'failure' }, notInClosedList: true }],
+  ['a person pushes the head of their pull request, commits naming their app, not among the 100 most recently closed, guard passed',
+    'pass', null, { personPushHead: { names: 'app', guard: 'success' }, notInClosedList: true }],
+  ['a person pushes the head of their pull request, its commit naming another app, not among the 100 most recently closed, guard failed',
+    'stop', 'ended failure', { personPushHead: { names: 'other', guard: 'failure' }, notInClosedList: true }],
+  ['a person pushes a head another pull request shares, listed first, not among the 100 most recently closed, guard failed',
+    'stop', 'ended failure', { personPushHead: { names: 'app', guard: 'failure', shared: true }, notInClosedList: true }],
   ['their pull request merged before the starting point, guard failed, is not judged again', 'pass', null,
     { changes: [{ kind: 'push', by: PERSON }], theirsMergedBefore: 'failure' }],
   ['their pull request open into staging, its head not on the branch, guard failed', 'pass', null,
@@ -703,6 +715,7 @@ function worldFor(spec) {
     world.guard[head] = spec.theirsOpen;
     world.guardPr[head] = 209;
   }
+  if (spec.notInClosedList) world.notInClosedList = true;
   if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
   if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
   if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
