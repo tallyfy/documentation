@@ -275,11 +275,15 @@ three pushes the pull request still read as open right after the push, and as me
 later.
 
 Since #560 the gate holds every pull request of theirs that reached `staging` to its guard, whatever
-its commits name. After judging each commit, it looks at their pull requests among the 100 most
-recently closed into `staging` and among every one open into it. A merged one whose merge commit is
-in the range must have passed its guard. An unmerged one whose head is in the range stops the run,
-because GitHub has not marked it merged yet; once it has, re-run the failed workflow and the merge
-is judged by its guard. Their pull requests merged before the range are not judged again. Until
+its commits name. After judging each commit, it looks at their pull requests among every one open
+into `staging` and the 100 most recently closed into it, reading the open ones first and the closed
+ones after, fresh, so one that GitHub marks merged between the two reads is still seen (#563). A
+merged one whose merge commit is in the range must have passed its guard. An open one whose head is
+in the range stops the run, because GitHub has not marked it merged yet; once it has, re-run the
+failed workflow and the merge is judged by its guard. One closed without merging whose head is in
+the range stops the run too, and a re-run will not clear it, since GitHub is not expected to mark a
+closed pull request merged (not measured): review it, then accept it on the gate's issue. Their
+pull requests merged before the range are not judged again. Until
 #560, a pushed head whose commits named no app outside the two allowed was trusted as a person's
 push. An earlier commit of the pull request that names such an app still stops as "no merged pull
 request has it as its merge commit", as in a merge commit or a rebase of more than one commit, and
@@ -293,17 +297,25 @@ them matches, it reads the commit's own list, one page of 100, with no count che
 request of theirs on a shared head is judged only when it is among the matches the gate sees at that
 moment. In the same way, the #560 check finds a merged pull request of theirs only among those 100
 closed pull requests, the ones into `staging` most recently updated, so one that has dropped out of
-them by the time a run reads the list is not seen.
+them by the time a run reads the list is not seen. The open list is read in pages, and a pull request
+that closes while the pages are being read moves the rest up one place, so with more than 100 open
+one entry can be skipped in that moment (#563, not fixed).
 
-Reads: the gate reads the 100 pull requests most recently closed into the branch once per run,
+Reads: the gate reads the 100 pull requests most recently closed into the branch once per run for
+its lookups (on `staging` the #560 check below may read them once more, fresh),
 since a pull request records its merge commit when it is merged. It asks GitHub for a commit's own
 pull requests only for a commit GitHub committed (a merge, or a person's commit in GitHub's web
 editor, which GitHub also commits), a commit that names an app other than the two allowed, or a merge
 in the activity API, and only when it is not among those 100. When the pull request is theirs,
 judging it also reads its guard runs and their jobs. The pipeline's own commits, and people's
 commits pushed from their own machines that name no app outside the two allowed, cost no read of
-their own. On `staging`, a run whose range holds any commit also reads those 100 closed pull
-requests and the open ones, one read per 100 open, for the #560 check.
+their own. On `staging`, a run whose range holds any commit also reads the open pull requests, one
+read per 100, then a fresh read of those 100 closed pull requests, then the open ones once more,
+adding only one that neither read had, such as one reopened in between, for the #560 check (#563).
+Up to 10 pages of open pull requests are read; 1,000 or more open stops the run as could not
+decide. The lookups reuse that fresh closed list when they have not read one yet. Each pull request
+of theirs has its guard read once per run, whichever check reaches it first, and its reason is added
+even when another check already stopped the same commit.
 A person's merge whose pull request still cannot be found stops the run, because nobody can tell
 whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
 keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]
@@ -353,7 +365,8 @@ happened, and plants faults that must turn it red; `pr-validate.yml` runs it on 
 
 On a stop it opens one issue, "Docs pipeline stopped: the push gate did not let commits on
 <branch> through", listing each commit, who made it and why it stopped, and adds to that issue on
-later stops. Before #548 the title was "Docs pipeline stopped: commits reached <branch> without a
+later stops: since #563, any line whose whole text is new, so a commit stopped again for another
+reason shows that reason too. Before #548 the title was "Docs pipeline stopped: commits reached <branch> without a
 pull request"; an issue under either title is still read, for adding to and for accepting. Review the
 commits. To accept them, close the issue as completed and re-run the failed workflow. Closing it
 as not planned keeps the pipeline stopped, and a close by a bot accepts nothing.
