@@ -275,11 +275,15 @@ three pushes the pull request still read as open right after the push, and as me
 later.
 
 Since #560 the gate holds every pull request of theirs that reached `staging` to its guard, whatever
-its commits name. After judging each commit, it looks at their pull requests among the 100 most
-recently closed into `staging` and among every one open into it. A merged one whose merge commit is
-in the range must have passed its guard. An unmerged one whose head is in the range stops the run,
-because GitHub has not marked it merged yet; once it has, re-run the failed workflow and the merge
-is judged by its guard. Their pull requests merged before the range are not judged again. Until
+its commits name. After judging each commit, it looks at their pull requests among every one open
+into `staging` and the 100 most recently closed into it, reading the open ones first and the closed
+ones after, fresh, so one that GitHub marks merged between the two reads is still seen (#563). A
+merged one whose merge commit is in the range must have passed its guard. An open one whose head is
+in the range stops the run, because GitHub has not marked it merged yet; once it has, re-run the
+failed workflow and the merge is judged by its guard. One closed without merging whose head is in
+the range stops the run too, and a re-run will not clear it, since GitHub is not expected to mark a
+closed pull request merged (not measured): review it, then accept it on the gate's issue. Their
+pull requests merged before the range are not judged again. Until
 #560, a pushed head whose commits named no app outside the two allowed was trusted as a person's
 push. An earlier commit of the pull request that names such an app still stops as "no merged pull
 request has it as its merge commit", as in a merge commit or a rebase of more than one commit, and
@@ -302,8 +306,10 @@ editor, which GitHub also commits), a commit that names an app other than the tw
 in the activity API, and only when it is not among those 100. When the pull request is theirs,
 judging it also reads its guard runs and their jobs. The pipeline's own commits, and people's
 commits pushed from their own machines that name no app outside the two allowed, cost no read of
-their own. On `staging`, a run whose range holds any commit also reads those 100 closed pull
-requests and the open ones, one read per 100 open, for the #560 check.
+their own. On `staging`, a run whose range holds any commit also reads the open pull requests, one
+read per 100 and at most 1,000 (more stops the run as could not decide), and then a fresh read of
+those 100 closed pull requests, for the #560 check (#563). Each pull request of theirs has its guard
+read once per run, whichever check reaches it first.
 A person's merge whose pull request still cannot be found stops the run, because nobody can tell
 whose it was. A read that fails on GitHub's side is tried once more, at once. A squash commit
 keeps the pull request author's name (measured on #273: a pull request tallyfy-workhorse[bot]

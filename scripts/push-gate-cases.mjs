@@ -416,7 +416,12 @@ function fakeGitHub(world, broken) {
           const all = new Map();
           for (const pr of world.extraPulls || []) all.set(pr.number, pr);
           for (const prs of Object.values(world.pulls)) for (const pr of prs) all.set(pr.number, pr);
-          const listed = [...all.values()].filter((pr) => (pr.state || 'closed') === params.state);
+          const listed = [...all.values()].filter((pr) => (pr.state || 'closed') === params.state).map((pr) => ({ ...pr }));
+          // flip: GitHub marks the pull request merged right after the first list the gate reads, whichever it is.
+          if (world.flip && !world.flip.done) {
+            world.flip.done = true;
+            Object.assign(world.flip.pr, { state: 'closed', merged_at: '2026-11-19T15:36:04Z', merge_commit_sha: world.flip.mergeSha });
+          }
           // notInClosedList: more than 100 other pull requests were closed since, so the case's own are not listed.
           if (params.state === 'closed') return { data: world.notInClosedList ? [] : listed };
           const per = params.per_page || 30;
@@ -568,8 +573,22 @@ const CASES = [
     'pass', null, { personPushHead: { names: 'app', guard: 'success' }, notInClosedList: true }],
   ['a person pushes the head of their pull request, its commit naming another app, not among the 100 most recently closed, guard failed',
     'stop', 'ended failure', { personPushHead: { names: 'other', guard: 'failure' }, notInClosedList: true }],
+  ['a person pushes a head two pull requests of theirs share, not among the 100 most recently closed, one guard passed and one not finished',
+    'stop', 'had not finished', { personPushHead: { names: 'app', guard: 'success', sharedTheirs: 'pending' }, notInClosedList: true }],
   ['a person pushes a head another pull request shares, listed first, not among the 100 most recently closed, guard failed',
     'stop', 'ended failure', { personPushHead: { names: 'app', guard: 'failure', shared: true }, notInClosedList: true }],
+  ['their pull request turns merged between the gate\'s two list reads, guard failed', 'stop', 'ended failure',
+    { personPushHead: { names: 'none', guard: 'failure', flip: true } }],
+  ['their pull request turns merged between the gate\'s two list reads, guard passed', 'pass', null,
+    { personPushHead: { names: 'none', guard: 'success', flip: true } }],
+  ['their pull request turns merged after an earlier lookup read the closed list, guard failed', 'stop', 'ended failure',
+    { changes: [{ kind: 'merge', by: PERSON, prAuthor: PERSON }], personPushHead: { names: 'none', guard: 'failure', flip: true } }],
+  ['their pull request closed without merging, its head on staging', 'stop', 'closed without merging, but its head is on staging; review it, then accept it on this issue',
+    { personPushHead: { names: 'none', guard: 'success', closedUnmerged: true } }],
+  ['their pull request closed without merging, its head on staging, accepted on the gate\'s issue', 'pass', null,
+    { personPushHead: { names: 'none', guard: 'success', closedUnmerged: true }, acceptHead: true }],
+  ['more than 1,000 pull requests open into staging', 'stop', 'more than 1000 pull requests open into staging',
+    { changes: [{ kind: 'push', by: PERSON }], manyOpen: 1001 }],
   ['their pull request merged before the starting point, guard failed, is not judged again', 'pass', null,
     { changes: [{ kind: 'push', by: PERSON }], theirsMergedBefore: 'failure' }],
   ['their pull request open into staging, its head not on the branch, guard failed', 'pass', null,
@@ -674,7 +693,10 @@ function worldFor(spec) {
     // commit the person made on their machine (measured 2026-11-19, #560); notMergedYet is the moment
     // before it does, while the pull request is still open. shared adds another person's pull request on
     // the same head, listed first, which GitHub marks merged too.
-    const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null, localMerge = false } = spec.personPushHead;
+    // closedUnmerged: the pull request was closed without merging. flip: it is open until the gate's first
+    // list read, and merged from then on (#563).
+    const { names = 'app', count = 1, notMergedYet = false, shared = false, sharedTheirs = null, localMerge = false,
+      closedUnmerged = false, flip = false } = spec.personPushHead;
     const make = (label) => (names === 'app' ? commitBy(label, LB) : names === 'other' ? commitBy(label, OTHER_APP) : plainCommit(label, false));
     const own = Array.from({ length: count }, (_, i) => make(`person-push-head-${names}-${i}`));
     const c = own[own.length - 1];
@@ -683,7 +705,9 @@ function worldFor(spec) {
     world.commits.push(...own);
     if (local) world.commits.push(local);
     const pr = pullRequest(205, landed.sha, LB, 'staging', c.sha);
-    if (notMergedYet) Object.assign(pr, { state: 'open', merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    if (notMergedYet || flip) Object.assign(pr, { state: 'open', merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    if (closedUnmerged) Object.assign(pr, { state: 'closed', merged_at: null, merge_commit_sha: sha('test-merge-205') });
+    if (flip) world.flip = { pr, mergeSha: landed.sha };
     const prs = shared ? [pullRequest(206, c.sha, PERSON, 'staging', c.sha), pr] : [pr];
     if (sharedTheirs) {
       // Their second pull request on the same head; its guard runs carry its own number, under its own head key.
@@ -697,8 +721,9 @@ function worldFor(spec) {
     world.head = landed.sha;
   }
   if (spec.manyOpen) {
-    // 150 people's pull requests open into staging, listed before theirs, so theirs is on the second page.
-    world.extraPulls = Array.from({ length: 150 }, (_, i) => ({
+    // People's pull requests open into staging, listed before theirs: 150 put theirs on the second page, and more
+    // than 1,000 are more than the gate reads.
+    world.extraPulls = Array.from({ length: spec.manyOpen === true ? 150 : spec.manyOpen }, (_, i) => ({
       ...pullRequest(400 + i, sha(`open-test-merge-${i}`), PERSON, 'staging', sha(`open-head-${i}`)), state: 'open', merged_at: null }));
   }
   if (spec.theirsMergedBefore) {
@@ -719,6 +744,7 @@ function worldFor(spec) {
   if (spec.linkLag) world.linkLag = world.commits.map((c) => c.sha);
   if (spec.flaky) world.flaky = Object.fromEntries(spec.flaky.map((route) => [route, 1]));
   if (spec.acceptFirst) acceptIssue(world, world.commits[0].sha, spec.oldTitle);
+  if (spec.acceptHead) acceptIssue(world, world.head);
   if (spec.otherTitle) world.closedIssues[0].title = `Docs pipeline stopped on ${world.branch}`;
   if (spec.noCommitActivity) {
     world.activity.unshift({ activity_type: 'push', actor: OTHER_APP, after: null, timestamp: '2026-11-17T12:40:00Z' });
@@ -790,9 +816,19 @@ const FAULTS = [
   ['the anchor\'s own entry skipped', 'const who = a.actor && a.actor.login;', 'if (a.after === anchor.sha) continue; const who = a.actor && a.actor.login;'],
   ['a person\'s merge of their pull request not looked up', "if (branch === LB_BRANCH && a.activity_type === 'pr_merge') {", 'if (false) {'],
   ['a person\'s merge with no pull request let through', 'if (!(await mergedPrOf(a.after))) {', 'if (false) {'],
-  ['their pull requests that reached staging not judged', 'const problem = merged ? await lbMergeProblem(at)', "const problem = merged ? ''"],
-  ['their unmerged pull request with its head on staging let through', '      : `the head of ${LB_BOT}', "      : '' && `the head of ${LB_BOT}"],
-  ['the open pull requests not read', '...(await openInto())', ''],
+  ['their pull requests that reached staging not judged', 'if (merged) problem = await theirPrProblem(at, pr);', "if (merged) problem = '';"],
+  ['their open pull request with its head on staging let through', 'else problem = `its head is on', "else problem = '' && `its head is on"],
+  ['their pull request closed without merging let through', "else if (pr.state === 'closed') problem = `closed", "else if (pr.state === 'closed') problem = '' && `closed"],
+  ['their pull request closed without merging told to re-run', "else if (pr.state === 'closed') problem", 'else if (false) problem'],
+  ['the open pull requests not read', 'for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);', ''],
+  ['the closed list read before the open list',
+    'for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);\n'
+      + '    for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);',
+    'for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);\n'
+      + '    for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);'],
+  ['the cached closed list used', 'for (const pr of await closedInto()) if (isTheirs(pr))', 'for (const pr of await recentlyClosed()) if (isTheirs(pr))'],
+  ['more open pull requests than it reads let through', 'throw new CannotDecide(`more than ${MAX_OPEN_PR_PAGES * 100}',
+    'return out; throw new CannotDecide(`more than ${MAX_OPEN_PR_PAGES * 100}'],
   ['only the first page of open pull requests read', 'if (data.length < 100) return out;', 'return out;'],
   ['their pull requests judged outside the range', 'if (!onBranch.has(at) || found.has(at)) continue;', 'if (found.has(at)) continue;'],
   ['an unmerged pull request judged by its merge commit', 'const at = merged ? pr.merge_commit_sha : pr.head && pr.head.sha;',

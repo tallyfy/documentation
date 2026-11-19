@@ -318,16 +318,17 @@ jobs:
             const mergedPrs = new Map();
             let recentMerges = null;
 
-            // The 100 pull requests into this branch most recently closed or updated, read once per run.
+            // The 100 pull requests into this branch most recently closed or updated, read fresh on each call.
+            async function closedInto() {
+              const { data } = await api('GET /repos/{owner}/{repo}/pulls',
+                { state: 'closed', base: branch, sort: 'updated', direction: 'desc', per_page: 100 });
+              if (!Array.isArray(data)) throw new CannotDecide(`could not read the pull requests closed into ${branch}`);
+              return data;
+            }
+
+            // The same list read once per run, for looking up the merged pull request of a commit.
             function recentlyClosed() {
-              if (!recentMerges) {
-                recentMerges = (async () => {
-                  const { data } = await api('GET /repos/{owner}/{repo}/pulls',
-                    { state: 'closed', base: branch, sort: 'updated', direction: 'desc', per_page: 100 });
-                  if (!Array.isArray(data)) throw new CannotDecide(`could not read the pull requests closed into ${branch}`);
-                  return data;
-                })();
-              }
+              if (!recentMerges) recentMerges = closedInto();
               return recentMerges;
             }
 
@@ -448,7 +449,15 @@ jobs:
             }
 
             // Why pull request pr of theirs, merged as sha, may not pass, or '' when its guard passed into staging.
-            async function theirPrProblem(sha, pr) {
+            // Read once per pull request and merge commit, whichever check asks first.
+            const prProblems = new Map();
+            function theirPrProblem(sha, pr) {
+              const key = `${pr.number}@${sha}`;
+              if (!prProblems.has(key)) prProblems.set(key, readTheirPrProblem(sha, pr));
+              return prProblems.get(key);
+            }
+
+            async function readTheirPrProblem(sha, pr) {
               const base = pr.base && pr.base.ref;
               if (base !== LB_BRANCH) return `pull request #${pr.number} was merged into ${base || 'a branch this gate could not read'}, not ${LB_BRANCH}`;
               const head = pr.head && pr.head.sha;
@@ -510,15 +519,24 @@ jobs:
               // merge commit, and the activity API logs a push; the pull request read as open for up to three seconds after
               // the push. So a merged one of theirs is judged by its merge commit, and an unmerged one whose head is in the
               // range stops. Merged ones are found among the 100 pull requests most recently closed into the branch.
+              // The open list is read first and the closed list after it, fresh, never the copy cached for the commit loop
+              // (tallyfy/documentation#563): a pull request GitHub marks merged between the two reads is then in the second,
+              // and what the closed list says about it wins. One closed without merging stops too, and a re-run does not
+              // clear it, since GitHub is not expected to mark a closed pull request merged: a person accepts it on the issue.
               if (branch === LB_BRANCH && range.commits.length) {
                 const onBranch = new Set(range.commits.map((c) => c.sha));
-                for (const pr of [...(await recentlyClosed()), ...(await openInto())].filter(isTheirs)) {
+                const theirs = new Map();
+                for (const pr of await openInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);
+                for (const pr of await closedInto()) if (isTheirs(pr)) theirs.set(pr.number, pr);
+                for (const pr of theirs.values()) {
                   const merged = Boolean(pr.merged_at);
                   const at = merged ? pr.merge_commit_sha : pr.head && pr.head.sha;
                   if (!onBranch.has(at) || found.has(at)) continue;
-                  const problem = merged ? await lbMergeProblem(at)
-                    : `the head of ${LB_BOT}'s pull request #${pr.number} is on ${branch}, but GitHub has not marked it merged`;
-                  if (problem) add(at, `pull request #${pr.number} by ${LB_BOT}; ${problem}`);
+                  let problem = '';
+                  if (merged) problem = await theirPrProblem(at, pr);
+                  else if (pr.state === 'closed') problem = `closed without merging, but its head is on ${branch}; review it, then accept it on this issue`;
+                  else problem = `its head is on ${branch}, but GitHub has not marked it merged yet; once it has, run the workflow again`;
+                  if (problem) add(at, `${LB_BOT}'s pull request #${pr.number}: ${problem}`);
                 }
               }
 
