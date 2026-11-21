@@ -294,7 +294,7 @@ python3 ~/.claude/skills/article-image-generator/scripts/logo_compositor.py \
 
 ### Script Location
 
-The logo compositor is at: `~/.claude/skills/article-image-generator/scripts/logo_compositor.py`, the link to this skill's pinned copy (run it from the repo root). In a checkout with no link, or with `--refresh-logo`, which rewrites the cached logo in the skill's own `assets/` folder, run `.skills/article-image-generator/scripts/logo_compositor.py` in your checkout instead, so the pinned copy is never written.
+The logo compositor is at: `~/.claude/skills/article-image-generator/scripts/logo_compositor.py`, the link to this skill's pinned copy (run it from the repo root). In a checkout with no link, or with `--refresh-logo` or `--download-only`, each of which rewrites the cached logo in the skill's own `assets/` folder, run `.skills/article-image-generator/scripts/logo_compositor.py` in your checkout instead, so the pinned copy is never written.
 
 It handles:
 1. Downloading logo from URL (or using cached `assets/tallyfy-logo.png`)
