@@ -23,7 +23,7 @@ rg -i "role selection" documentation_assets.csv
 
 To see what an article already uses, search for its `id` the same way. If a row fits, reuse its `production_url` and check its `url_exists` reads `True`. Upload a new image only when nothing fits: a reused image is already captioned, and every new one adds an R2 object, an inventory row and three captions to write. These are this CSV's own header names. website-astro's inventory calls its columns `ai_description` and `referenced_in`, so its search commands do not work here (tallyfy/documentation#301).
 
-**Source of truth:** `scripts/asset_management/` is the single implementation. The `documentation-asset-manager` skill (global `~/.claude/skills/` and the repo `.claude/skills/` copy) is a thin pointer to these scripts - never re-fork the code into the skill.
+**Source of truth:** `scripts/asset_management/` is the single implementation. The `documentation-asset-manager` skill (global `~/.claude/skills/` and the repo `.skills/` copy) is a thin pointer to these scripts - never re-fork the code into the skill.
 
 **📋 Build-Time Integration**: See `/documentation/BUILD_TIME_ALT_TEXT_INTEGRATION.md` for complete technical documentation on how AI-generated captions are automatically added as alt text during the Astro build process. The support-docs remark plugin reads `production_url` -> the three caption columns.
 

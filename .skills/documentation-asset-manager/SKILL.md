@@ -1,6 +1,7 @@
 ---
 name: documentation-asset-manager
 description: Manages docs images on Cloudflare R2 (screenshots.tallyfy.com), covering upload, captions that become alt text, and the documentation_assets.csv inventory audit and sync. Captioning is a separate step that runs only inside a Claude Code session. Use when managing docs screenshots, captions or the asset inventory.
+paths: ["**/documentation/**", "src/content/docs/**", "screenshots/**", "scripts/asset_management/**"]
 version: 3.0.0
 author: Tallyfy Dev Team
 ---

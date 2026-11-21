@@ -1,6 +1,7 @@
 ---
-name: pangram-check
+name: docs-pangram-check
 description: Scans a finished blog post, article or docs page with Pangram, the AI-text detector, and rewrites only the passages it flags. Use after drafting or editing and before it ships, when asked for a Pangram or AI-detection check, or when text still sounds machine-written after this repo's own voice checks pass. Needs a browser already signed in to pangram.com.
+paths: ["**/documentation/**", "src/content/docs/**", "screenshots/**", "scripts/asset_management/**"]
 ---
 
 # Pangram check
@@ -9,6 +10,7 @@ Pangram reads a piece of text and says how much of it looks AI-written. This ski
 
 ## Before you start
 
+- This skill is for the tallyfy/documentation repo. If the checkout you are working in is another repo, do not use it there: a `src/content/docs/` folder elsewhere may be a synced copy that must not be edited.
 - You need a browser signed in to pangram.com. Codex reaches Chrome through its Chrome extension or its `chrome` MCP server; Claude Code uses Claude in Chrome. If the dashboard asks you to log in, stop and say so. Do not try to sign in. It never logs in.
 - This repo's free checks pass first (see "Where content lives here" at the end). Pangram is for what those checks cannot see.
 - Only send text meant for publication. Never paste customer or client names that are not already public, internal notes, private material quoted in a draft, or anything that looks like a credential.
