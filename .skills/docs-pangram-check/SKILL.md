@@ -1,5 +1,5 @@
 ---
-name: pangram-check
+name: docs-pangram-check
 description: Scans a finished blog post, article or docs page with Pangram, the AI-text detector, and rewrites only the passages it flags. Use after drafting or editing and before it ships, when asked for a Pangram or AI-detection check, or when text still sounds machine-written after this repo's own voice checks pass. Needs a browser already signed in to pangram.com.
 paths: ["**/documentation/**", "src/content/docs/**", "screenshots/**", "scripts/asset_management/**"]
 ---

@@ -10,6 +10,7 @@ Claude Code does not look in `.skills/`. It sees a skill only through the user-l
 - Each SKILL.md carries a `paths:` line, so the skill is listed only while a session works on this repo's files. `**/documentation/**` matches when the session started above this repo, for example in `~/GitHub`. The other patterns (`src/content/docs/**`, `screenshots/**` and `scripts/asset_management/**`) match when it started in this repo or one of its worktrees, because a pattern is read against the path from where the session started.
 - No workflow here runs Claude Code, so no runner needs them.
 - Codex reads them through the relative links in `.agents/skills/`.
+- This repo's Pangram skill is `docs-pangram-check`. tallyfy/website-astro has a different skill named `pangram-check`, and two folders under `~/.claude/skills/` cannot share a name.
 
 ## A machine runs the pinned copy
 
@@ -26,7 +27,7 @@ if [ -n "$DOCS" ] && [ -d "$DOCS/.git" ]; then
   git -C "$DOCS" worktree add -b skills-pin "$DOCS/.claude/worktrees/skills-pin" origin/staging &&
   git -C "$DOCS" worktree lock --reason "skills pin: ~/.claude/skills links point here" "$DOCS/.claude/worktrees/skills-pin" &&
   mkdir -p ~/.claude/skills &&
-  for s in article-image-generator documentation-asset-manager pangram-check; do
+  for s in article-image-generator docs-pangram-check documentation-asset-manager; do
     if [ -d ~/.claude/skills/$s ] && [ ! -L ~/.claude/skills/$s ]; then
       echo "left alone: ~/.claude/skills/$s is a folder, not a link"
     else
