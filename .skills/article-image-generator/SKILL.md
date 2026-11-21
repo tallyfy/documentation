@@ -1,6 +1,7 @@
 ---
 name: article-image-generator
 description: Creates HBR-style editorial illustrations for an article. Use when creating a conceptual illustration, analyzing a generated image, or compositing a logo onto one.
+paths: ["**/documentation/**", "src/content/docs/**", "screenshots/**", "scripts/asset_management/**"]
 dependencies: [pillow, requests]
 ---
 
@@ -280,7 +281,7 @@ This is the ONLY script required - Claude cannot manipulate images directly.
 ### Running the Compositor
 
 ```bash
-python3 .claude/skills/article-image-generator/scripts/logo_compositor.py \
+python3 ~/.claude/skills/article-image-generator/scripts/logo_compositor.py \
   --image /path/to/generated-image.jpg \
   --output /path/to/final-image.jpg \
   --position "x,y"  # From visual analysis coordinates
@@ -293,7 +294,7 @@ python3 .claude/skills/article-image-generator/scripts/logo_compositor.py \
 
 ### Script Location
 
-The logo compositor is at: `.claude/skills/article-image-generator/scripts/logo_compositor.py` (run it from the repo root)
+The logo compositor is at: `~/.claude/skills/article-image-generator/scripts/logo_compositor.py`, the link to this skill's pinned copy (run it from the repo root). In a checkout with no link, or with `--refresh-logo`, which rewrites the cached logo in the skill's own `assets/` folder, run `.skills/article-image-generator/scripts/logo_compositor.py` in your checkout instead, so the pinned copy is never written.
 
 It handles:
 1. Downloading logo from URL (or using cached `assets/tallyfy-logo.png`)

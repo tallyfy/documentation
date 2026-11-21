@@ -2,7 +2,7 @@
 
 > **NEVER use auto memory** (`~/.claude/projects/*/memory/`) — store all knowledge in this repo's CLAUDE.md file.
 
-> **Codex and other agents read this file too.** `AGENTS.md` is a link to it, and each folder in `.claude/skills/` has a matching relative link in `.agents/skills/`, which is where Codex looks for skills. When you add a skill, add its link as well: `ln -s ../../.claude/skills/<name> .agents/skills/<name>`.
+> **Codex and other agents read this file too.** `AGENTS.md` is a link to it, and each folder in `.skills/` has a matching relative link in `.agents/skills/`, which is where Codex looks for skills. When you add a skill, add its link as well: `ln -s ../../.skills/<name> .agents/skills/<name>`. Claude Code sees these skills only through links in `~/.claude/skills/`, which git does not carry, and a machine runs their pinned copy: `.skills/README.md` has the one-time link commands.
 
 > **AI task reliability cross-links (2026-05):** three doc pages carry a one-line curious-reader callout to the public marketing tool `https://tallyfy.com/tools/ai-task-reliability/` (and the post `/ai-tasks-not-jobs/`): `pro/tracking-and-tasks/tasks/index.mdx`, `pro/documenting/templates/automations/index.mdx`, `pro/integrations/computer-ai-agents/index.mdx`. They are plain root-relative links, no embed. Leave them unless the tool URL changes.
 
