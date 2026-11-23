@@ -1,0 +1,133 @@
+---
+about_tallyfy: true
+description: Tallyfy can email someone outside your organization from a process
+  without giving them a task. Collect their address in a short text field with the
+  email check, then use an automation to make them the recipient of an Email Draft
+  or Email Auto-Send step.
+id: '00000000000000000000000000000000'
+lastUpdated: 2026-11-23
+sidebar:
+  order: 11
+title: Email someone outside your organization
+---
+
+import { Steps } from "@astrojs/starlight/components";
+import { Audience } from "~/components";
+
+<Audience to="editor" />
+
+## How do I email someone outside my organization who has no task?
+
+Use an Email step, not a Task step. Collect the person's email address in a form field, and add an automation that makes that field the step's recipient. They get one email from your process, with no task to open and no reminders.
+
+For example, a property manager can email owners, tenants and tradespeople at the right point in each process. None of them needs to sign in to Tallyfy.
+
+### Why not a Task step?
+
+Assign a Task step to an outside email address and that person becomes a guest with a task to do. Tallyfy emails them to say they've been assigned, with a link to open the task, and any reminder your team sends goes to them too. That's right when they need to do something in Tallyfy. It's confusing when you only wanted to tell them something. [Guests](/products/pro/documenting/guests/#what-does-a-guest-get-on-a-task-step-and-an-email-step) compares the two.
+
+### Prerequisites
+
+- Admin or Standard member role to edit templates
+- A Pro plan (or active trial), because the recipient is set by an [automation](/products/pro/documenting/templates/automations/)
+
+### Setting it up
+
+<Steps>
+1. **Collect the email address**
+
+   On the [kick-off form](/products/pro/launching/triggers/kick-off-forms/), add a **Short Text Field**, such as "Owner email":
+   - In its settings, set **Enforce data validation?** to **Enforce a single email address only**. An automation can only take an address from a short text field that has this check.
+   - Make the field required.
+
+2. **Add the Email step**
+
+   Add a step and set its type to **Email Auto-Send** or **Email Draft**:
+   - **Email Auto-Send** sends itself at the step's deadline. A member assigned to the step can click **SEND RIGHT NOW** to send it sooner.
+   - **Email Draft** waits for someone on your team to click **Send**, and they can edit the email first. A guest can't send it.
+
+   The step's title is the email's subject. On an Email step, the editor shows the title in its **Subject** row, and you can insert fields there with the **`{ }`** button. A title of "Your lease renewal for" plus the property address field gives each owner their own address in the subject.
+
+   Write the message itself in the step's description. If the description is empty, nothing is sent.
+
+3. **Send it as a plain email**
+
+   In the step's **Advanced** tab, turn on **Send Chromeless**. The email then arrives like a normal message, without the logo, header and footer.
+
+   Images reach the person only when **Send Chromeless** is on. Without it, Tallyfy removes them from the email. With it, an image keeps its size but not its alignment, so it sits on the left. Resize the image file itself to the width you want.
+
+4. **Make the field the recipient**
+
+   Go to the template's **Automations** tab and click **Add Automation**:
+   - Name it, such as "Email the owner"
+   - **IF**: pick your email field and "is not empty"
+   - **THEN**: choose **Assignment Action**, then [**Replace Assignees**](/products/pro/documenting/templates/automations/actions/asignment-actions/)
+   - Pick the same email field as the source
+   - **Apply to**: your Email step
+
+   **Replace Assignees** makes the outside person the only recipient. A step with nobody assigned goes to the person who launched the process, unless its **Assign launcher automatically?** setting is off. **Add Assignees** would leave them on it, and they'd get a copy.
+
+   With **Email Draft**, someone on your team has to click **Send**. So choose **Add Assignees** instead, and put the team member who'll check the email in the step's **To**. They get a copy when it goes out.
+
+5. **Set the deadline**
+
+   For **Email Auto-Send**, the deadline is when the email goes out. Set it for after the address will be filled in. If nobody is in **To** when the deadline arrives, the step completes and nothing is sent.
+</Steps>
+
+Before going live, launch a test process with your own email address in the field, so the email comes to you.
+
+### Using a field on an earlier step
+
+The address doesn't have to come from the kick-off form. A short text field with the email check on an earlier step works too, such as a tradesperson's address entered on a "Book the repair" step. Set it up the same way, with these differences:
+
+- The automation's **IF** has to name that step or its field, so use the field and "is not empty". Tallyfy checks the automation when that step is completed or reopened, not while someone types in the field. [When automations run](/products/pro/documenting/templates/automations/when-automations-run/) has the details.
+- Make the field required, so nobody can complete the step without an address.
+- Set the Email step's deadline from the step that holds the field. While that step is still open, an Email Auto-Send step waits, so the email can't go out before the address is there.
+
+### What the person receives
+
+They get one email when the step sends:
+
+- The subject is the step's title, with any inserted fields filled in.
+- The message is the step's description.
+- With **Send Chromeless** on, that's all they see. Without it, the email also shows a logo at the top and a **Manage Preferences** link.
+
+For that step, Tallyfy doesn't send them:
+
+- An email saying they've been assigned.
+- Reminders, including one your team sends by hand.
+- Emails about comments, unless a comment mentions them or they watch the step.
+- A button to open a task, or a line about form fields.
+
+Their guest digest doesn't list the step either.
+
+### Emailing several kinds of people
+
+Give each kind of person their own email field, Email step and automation. A property manager might have "Owner email", "Tenant email" and "Tradesperson email" fields, each feeding its own Email step. That way you can word each email for the person reading it.
+
+If they should all get the same email, point each field's automation at one Email step with **Add Assignees**. Then turn off **Assign launcher automatically?** in that step's **Advanced** tab, so the person who launches the process doesn't get a copy.
+
+### Troubleshooting
+
+**Nothing was sent?**
+- Check the email field had an address in it.
+- Check the step's description isn't empty.
+- Check your organization is on a Pro plan or an active trial, because automations don't run on a free plan whose trial has ended.
+- An Email Auto-Send step waits for its deadline, so check the deadline has come.
+- If nobody was in **To** at the deadline, the step completed without sending. Set the deadline later, or move the field earlier.
+
+**The person got a task instead of an email?**
+- The step is a Task step. Change its type to **Email Auto-Send** or **Email Draft**.
+
+**Someone on your team got a copy?**
+- They're in the step's **To**. Use **Replace Assignees**, or turn off **Assign launcher automatically?** for that step.
+
+import { CardGrid, LinkTitleCard } from "~/components";
+
+## Related articles
+<CardGrid>
+<LinkTitleCard header="<b>Examples > Notify the requestor when process completes</b>" href="/products/pro/documenting/templates/automations/examples/notify-requestor-on-completion/" > Tallyfy can email the person who asked for a process once it's done. Capture them in an Assignee... </LinkTitleCard>
+<LinkTitleCard header="<b>Actions > Automate task assignments</b>" href="/products/pro/documenting/templates/automations/actions/asignment-actions/" > Assignment actions let you add, replace, or clear task assignees in a workflow. Use form-based... </LinkTitleCard>
+<LinkTitleCard header="<b>Documenting > Guests</b>" href="/products/pro/documenting/guests/" > Tallyfy lets you bring external clients and partners into your workflows as free guests who... </LinkTitleCard>
+<LinkTitleCard header="<b>Tasks > Step types</b>" href="/products/pro/tracking-and-tasks/tasks/what-types-of-tasks-can-i-create-with-tallyfy/" > Tallyfy has two task categories and five step types. Process tasks are steps inside templates... </LinkTitleCard>
+</CardGrid>
