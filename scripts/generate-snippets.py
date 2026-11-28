@@ -196,7 +196,8 @@ CRITICAL WRITING RULES - Follow these exactly:
 2b. NO EM-DASHES OR EN-DASHES. Never use the characters — or –. Use a comma, a
    period, a colon, or a spaced hyphen instead. This is a hard rule in CLAUDE.md and
    is also stripped deterministically after generation, so producing one just gets
-   rewritten.
+   rewritten. The same goes for curly quotes and the ellipsis character: use straight
+   quotes and three periods.
 
 3. WORD REPLACEMENTS: Use "complete" not "comprehensive", "use" not "leverage",
    "smooth" not "seamless", "strong" not "robust", "help" not "facilitate",
@@ -336,11 +337,77 @@ def strip_dashes(text: str) -> str:
 	return result
 
 
+LEFT_SINGLE_QUOTE = '\u2018'
+RIGHT_SINGLE_QUOTE = '\u2019'
+LEFT_DOUBLE_QUOTE = '\u201c'
+RIGHT_DOUBLE_QUOTE = '\u201d'
+ELLIPSIS = '\u2026'
+
+# The characters of the gate's glyph-quote rule (GLYPH_GROUPS["quote"] in
+# scripts/ai-tell-check.py), each mapped to its plain ASCII form.
+QUOTE_REPAIRS = str.maketrans({
+	LEFT_SINGLE_QUOTE: "'",
+	RIGHT_SINGLE_QUOTE: "'",
+	LEFT_DOUBLE_QUOTE: '"',
+	RIGHT_DOUBLE_QUOTE: '"',
+	ELLIPSIS: '...',
+})
+
+
+def straighten_quotes(text: str) -> str:
+	"""Replace curly quotes with straight ones, and the ellipsis character with three periods.
+
+	These are the characters of `.github/ai-tells.txt` rule glyph-quote, which errors on
+	a description as well as a body, so they need the same repair as dashes, for the
+	same reason strip_dashes gives: the gate checks the commit before this script writes,
+	so a curly quote the model wrote would be published and only the next run would go
+	red (tallyfy/documentation#159, criterion 2). An apostrophe and a closing single
+	quote are the same character, U+2019, so both become a straight apostrophe. Three
+	periods followed by a space count as a sentence end for the two-sentence cap in
+	post_process_description, as they already did when the model typed them.
+	"""
+	if not text:
+		return text
+	return text.translate(QUOTE_REPAIRS)
+
+
+def _other_quotes(text: str, quote: str) -> bool:
+	"""Whether `quote` appears in `text`, not counting an apostrophe between two letters."""
+	if quote == "'":
+		text = re.sub(r"(?<=\w)'(?=\w)", "", text)
+	return quote in text
+
+
+def strip_wrapping_quotes(text: str) -> str:
+	"""Remove quotes the model put around the whole description, and nothing else.
+
+	Each end used to be stripped on its own (`strip('"').strip("'")`), which also cut the
+	closing quote off a quoted label that ends the description, such as `click "Save."`,
+	and the opening one off a label that starts it. Once straighten_quotes turned curly
+	quotes straight, that reached curly labels too (tallyfy-bugbot on the first head of
+	the #159 fix). So a pair at the two ends is removed only when no other quote of that
+	kind sits between them, and a lone quote at one end only when it has no partner
+	anywhere. An apostrophe between two letters (it's, step's) is not counted as a quote.
+	"""
+	result = text.strip()
+	while len(result) >= 2 and result[0] == result[-1] and result[0] in ('"', "'"):
+		if _other_quotes(result[1:-1], result[0]):
+			break
+		result = result[1:-1].strip()
+	for quote in ('"', "'"):
+		if result.startswith(quote) and not _other_quotes(result[1:], quote):
+			result = result[1:].strip()
+		if result.endswith(quote) and not _other_quotes(result[:-1], quote):
+			result = result[:-1].strip()
+	return result
+
+
 def post_process_description(text: str) -> str:
 	"""Enforce description quality rules deterministically after AI generation.
 
 	What this function actually does:
-	- Strips leading/trailing whitespace and surrounding quotes
+	- Replaces curly quotes and the ellipsis character (see straighten_quotes)
+	- Strips leading/trailing whitespace and surrounding quotes (see strip_wrapping_quotes)
 	- Replaces em-dashes and en-dashes, which CLAUDE.md bans (see strip_dashes)
 	- Caps at 2 sentences
 	- Ensures the text ends with a period
@@ -360,8 +427,12 @@ def post_process_description(text: str) -> str:
 	if not text:
 		return text
 
-	# Strip whitespace and surrounding quotes
-	result = text.strip().strip('"').strip("'").strip()
+	# Curly quotes become straight before the surrounding quotes are stripped, so a
+	# description the model wrapped in curly quotes loses them the same way.
+	result = straighten_quotes(text)
+
+	# Strip whitespace and surrounding quotes (see strip_wrapping_quotes)
+	result = strip_wrapping_quotes(result)
 
 	# Banned characters go first, so the 350-char check below measures the final text.
 	result = strip_dashes(result)
@@ -371,8 +442,9 @@ def post_process_description(text: str) -> str:
 	if len(sentences) > 2:
 		result = ' '.join(sentences[:2])
 
-	# Ensure ends with period
-	if result and not result.endswith('.'):
+	# Ensure ends with period. A period just inside a closing quote counts, so a
+	# description ending in a quoted label such as `click "Save."` gets no second one.
+	if result and not result.rstrip('"\'').endswith('.'):
 		result = result.rstrip(',;:!?') + '.'
 
 	# Truncate to 350 chars max (cut at last word boundary before limit)
@@ -473,6 +545,14 @@ REQUIRED_SELF_TEST_CASES = frozenset({
 	"em-dash-between-words",
 	"en-dash-between-words",
 	"en-dash-between-digits",
+	"curly-quotes-straightened",
+	"curly-wrapped-description-unwrapped",
+	"ellipsis-character-replaced",
+	"repair-covers-gate-quote-glyphs",
+	"quoted-label-at-end-keeps-both-quotes",
+	"quoted-label-at-start-keeps-both-quotes",
+	"wrapping-single-quotes-with-apostrophe-unwrapped",
+	"lone-end-quote-still-stripped",
 	"clean-text-unchanged",
 	"two-sentence-cap-still-works",
 	"trailing-period-still-added",
@@ -488,6 +568,7 @@ REQUIRED_SELF_TEST_CASES = frozenset({
 	"reconcile-api-failure-writes-nothing",
 	"reconcile-failure-names-the-page",
 	"reconcile-dry-run-writes-nothing",
+	"reconcile-writes-repaired-glyphs",
 })
 
 
@@ -499,6 +580,11 @@ def _self_test(target: str) -> int:
 	everything would fail while passing all three RED arms. Two further arms assert rules
 	that have nothing to do with dashes, so the battery still proves the rest of the
 	function runs rather than proving one regex fires.
+
+	Four arms cover curly quotes and the ellipsis character (#159). One of them reads the
+	gate's own glyph-quote list from scripts/ai-tell-check.py, so a character added to
+	that rule and not to QUOTE_REPAIRS turns this self-test red. Four more prove the
+	surrounding-quote strip removes a wrapping pair and keeps a quoted label at either end.
 
 	Three more arms cover extract_snippet_text: the text block is found behind a thinking
 	block, and a response with no text block or only a blank one returns None rather than
@@ -523,6 +609,54 @@ def _self_test(target: str) -> int:
 
 	r = post_process_description(f"Descriptions run 200{EN_DASH}350 characters.")
 	check("en-dash-between-digits", clean_of_dashes(r) and "200-350" in r, r)
+
+	r = post_process_description(
+		f"Click {LEFT_DOUBLE_QUOTE}Save{RIGHT_DOUBLE_QUOTE} and the step{RIGHT_SINGLE_QUOTE}s "
+		f"owner sees the {LEFT_SINGLE_QUOTE}Done{RIGHT_SINGLE_QUOTE} label.")
+	check("curly-quotes-straightened",
+	      r == "Click \"Save\" and the step's owner sees the 'Done' label.", r)
+
+	r = post_process_description(f"{LEFT_DOUBLE_QUOTE}Tallyfy sends a reminder before a task is due.{RIGHT_DOUBLE_QUOTE}")
+	check("curly-wrapped-description-unwrapped", r == "Tallyfy sends a reminder before a task is due.", r)
+
+	r = post_process_description(f"Tallyfy tracks steps, forms and deadlines{ELLIPSIS}")
+	check("ellipsis-character-replaced", r == "Tallyfy tracks steps, forms and deadlines...", r)
+
+	# The gate's list, read from the gate itself. The named control (U+2019, the
+	# apostrophe) must be in it, so a list that failed to load or came back empty
+	# cannot pass this arm by having nothing to check.
+	gate_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai-tell-check.py")
+	gate_quotes, load_error = "", None
+	try:
+		import importlib.util
+		spec = importlib.util.spec_from_file_location("ai_tell_check_for_self_test", gate_path)
+		gate = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(gate)
+		gate_quotes = gate.GLYPH_GROUPS["quote"]
+	except Exception as e:
+		load_error = f"could not read the gate's list from {gate_path}: {e}"
+	survivors = {}
+	for ch in gate_quotes:
+		out = post_process_description(f"Tallyfy keeps {ch}this{ch} text clean.")
+		if any(c in out for c in gate_quotes):
+			survivors[f"U+{ord(ch):04X}"] = out
+	check("repair-covers-gate-quote-glyphs",
+	      RIGHT_SINGLE_QUOTE in gate_quotes and not survivors,
+	      load_error or survivors or f"gate list lacks U+2019: {gate_quotes!r}")
+
+	# A quoted label at either end is not a wrapping pair, so both of its quotes stay.
+	r = post_process_description(f"To keep your work, click {LEFT_DOUBLE_QUOTE}Save.{RIGHT_DOUBLE_QUOTE}")
+	check("quoted-label-at-end-keeps-both-quotes", r == "To keep your work, click \"Save.\"", r)
+
+	r = post_process_description(f"{LEFT_DOUBLE_QUOTE}Save{RIGHT_DOUBLE_QUOTE} keeps your work in Tallyfy.")
+	check("quoted-label-at-start-keeps-both-quotes", r == "\"Save\" keeps your work in Tallyfy.", r)
+
+	r = post_process_description(f"{LEFT_SINGLE_QUOTE}Tallyfy{RIGHT_SINGLE_QUOTE}s reminders go out before a task is due.{RIGHT_SINGLE_QUOTE}")
+	check("wrapping-single-quotes-with-apostrophe-unwrapped",
+	      r == "Tallyfy's reminders go out before a task is due.", r)
+
+	r = post_process_description("\"Tallyfy sends a reminder before a task is due.")
+	check("lone-end-quote-still-stripped", r == "Tallyfy sends a reminder before a task is due.", r)
 
 	clean = "Tallyfy turns template rules into real dates when you launch a process."
 	r = post_process_description(clean)
@@ -561,7 +695,7 @@ def _self_test(target: str) -> int:
 		for f in failures:
 			print(f"  {f}")
 		return 1
-	print(f"self-test OK: {len(seen)} cases. Dashes stripped, clean text untouched, other rules intact, response parsing picks the text block.")
+	print(f"self-test OK: {len(seen)} cases. Dashes stripped, curly quotes straightened, clean text untouched, other rules intact, response parsing picks the text block.")
 	return 0
 
 
@@ -572,7 +706,7 @@ def _reconcile_cases(target, check):
 	from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 	generated = "Tallyfy self-test description for a page that had none."
-	state = {"calls": 0, "fail": False}
+	state = {"calls": 0, "fail": False, "text": generated}
 
 	class FakeMessages(BaseHTTPRequestHandler):
 		def log_message(self, *a):
@@ -584,7 +718,7 @@ def _reconcile_cases(target, check):
 			if state["fail"]:
 				code, body = 500, {"type": "error", "error": {"type": "api_error"}}
 			else:
-				code, body = 200, {"content": [{"type": "text", "text": generated}], "stop_reason": "end_turn"}
+				code, body = 200, {"content": [{"type": "text", "text": state["text"]}], "stop_reason": "end_turn"}
 			data = json.dumps(body).encode()
 			self.send_response(code)
 			self.send_header("Content-Type", "application/json")
@@ -674,6 +808,21 @@ def _reconcile_cases(target, check):
 			check("reconcile-dry-run-writes-nothing",
 			      rc == 0 and snapshot(d) == before and state["calls"] == calls and "1 lack a description" in out,
 			      (rc, out[-200:]))
+
+		# The repair end to end, through the CLI of `target` (#159): a reply wrapped in curly
+		# quotes, with a curly apostrophe and an em dash, is written straight and plain.
+		with tempfile.TemporaryDirectory() as tmp:
+			d = os.path.join(tmp, "repo")
+			page(d, "src/content/docs/pro/none.mdx", "title: None\n")
+			state["text"] = (f"{LEFT_DOUBLE_QUOTE}Tallyfy emails the step{RIGHT_SINGLE_QUOTE}s owner "
+			                 f"{EM_DASH} every time a task is due.{RIGHT_DOUBLE_QUOTE}")
+			try:
+				rc, out = run(d)
+			finally:
+				state["text"] = generated
+			got = desc(d, "src/content/docs/pro/none.mdx")
+			check("reconcile-writes-repaired-glyphs",
+			      rc == 0 and got == "Tallyfy emails the step's owner - every time a task is due.", (rc, got))
 	finally:
 		server.shutdown()
 
